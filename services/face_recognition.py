@@ -44,15 +44,25 @@ def _load_face_recognition_modules():
 class FaceRecognition:
     """使用本地 face-recognition 引擎的人脸识别器"""
 
-    def __init__(self):
+    def __init__(
+        self,
+        state_path: str = FACE_STATE_PATH,
+        index_path: str = FACE_INDEX_PATH,
+        output_path: str = FACE_OUTPUT_PATH,
+        workspace_dir: Optional[str] = None,
+    ):
         PipelineConfig, FaceEngine, SimilarityIndexStore, load_image, resize_image = (
             _load_face_recognition_modules()
         )
+        self.state_path = state_path
+        self.index_path = index_path
+        self.output_path = output_path
+        self.workspace_dir = workspace_dir or os.getcwd()
 
         self.config = PipelineConfig.from_args(
-            input_dir=os.getcwd(),
-            db_path=FACE_STATE_PATH,
-            index_path=FACE_INDEX_PATH,
+            input_dir=self.workspace_dir,
+            db_path=self.state_path,
+            index_path=self.index_path,
             max_side=FACE_MAX_SIDE,
             det_threshold=FACE_DET_THRESHOLD,
             sim_threshold=FACE_SIM_THRESHOLD,
@@ -60,7 +70,7 @@ class FaceRecognition:
             model_name=FACE_MODEL_NAME,
         )
         self.engine = FaceEngine(self.config)
-        self.index_store = SimilarityIndexStore(Path(FACE_INDEX_PATH))
+        self.index_store = SimilarityIndexStore(Path(self.index_path))
         self.load_image = load_image
         self.resize_image = resize_image
 
@@ -78,7 +88,7 @@ class FaceRecognition:
             )
 
     def _load_state(self) -> Dict:
-        data = load_json(FACE_STATE_PATH)
+        data = load_json(self.state_path)
         if data:
             return data
 
@@ -96,7 +106,7 @@ class FaceRecognition:
                 "max_side": FACE_MAX_SIDE,
                 "det_threshold": FACE_DET_THRESHOLD,
                 "sim_threshold": FACE_SIM_THRESHOLD,
-                "index_path": FACE_INDEX_PATH,
+                "index_path": self.index_path,
             },
         }
 
@@ -363,8 +373,9 @@ class FaceRecognition:
             str(key): value for key, value in sorted(self.faiss_person_map.items())
         }
         self.state["engine"]["providers"] = list(self.engine.applied_providers())
-        save_json(self.state, FACE_STATE_PATH)
-        save_json(self.get_face_output(), FACE_OUTPUT_PATH)
+        self.state["engine"]["index_path"] = self.index_path
+        save_json(self.state, self.state_path)
+        save_json(self.get_face_output(), self.output_path)
 
     def save(self):
         """保存当前识别状态"""

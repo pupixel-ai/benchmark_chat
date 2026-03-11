@@ -12,9 +12,10 @@ from utils import save_json, load_json
 class VLMAnalyzer:
     """VLM分析器 - 支持官方 API 和代理服务"""
 
-    def __init__(self):
+    def __init__(self, cache_path: str = VLM_CACHE_PATH):
         self.use_proxy = USE_API_PROXY
         self.model = VLM_MODEL
+        self.cache_path = cache_path
         self.results = []  # 缓存分析结果
         self.requests = None
         self.genai = None
@@ -97,7 +98,10 @@ class VLMAnalyzer:
         )
 
         if not image_path:
+            photo.processing_errors["vlm"] = "未找到可供 VLM 分析的图片路径"
             return None
+
+        photo.processing_errors.pop("vlm", None)
 
         # 如果没有指定主用户，尝试从人脸结果推断（出现次数最多的人）
         if primary_person_id is None:
@@ -128,6 +132,7 @@ class VLMAnalyzer:
                 return None
 
         except Exception as e:
+            photo.processing_errors["vlm"] = str(e)
             print(f"警告：VLM分析失败 ({photo.filename}): {e}")
             return None
 
@@ -390,7 +395,7 @@ class VLMAnalyzer:
             "photos": self.results
         }
 
-        save_json(data, VLM_CACHE_PATH)
+        save_json(data, self.cache_path)
 
     def load_cache(self) -> bool:
         """
@@ -399,7 +404,7 @@ class VLMAnalyzer:
         Returns:
             是否成功加载
         """
-        data = load_json(VLM_CACHE_PATH)
+        data = load_json(self.cache_path)
 
         metadata = data.get("metadata", {}) if data else {}
         if metadata.get("schema_version") != 2 or metadata.get("face_id_scheme") != "Person_###":

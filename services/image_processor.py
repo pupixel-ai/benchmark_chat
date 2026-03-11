@@ -3,7 +3,7 @@
 """
 import os
 from datetime import datetime
-from typing import List, Tuple, Optional
+from typing import Dict, List, Tuple, Optional
 from PIL import Image, ExifTags, ImageDraw, ImageFont
 from pillow_heif import register_heif_opener
 import exifread
@@ -18,13 +18,26 @@ register_heif_opener()
 class ImageProcessor:
     """图片处理器"""
 
-    def __init__(self):
-        self.compress_dir = os.path.join(CACHE_DIR, "compressed_images")
-        self.jpeg_dir = os.path.join(CACHE_DIR, "jpeg_images")  # 全尺寸JPEG，用于人脸识别
-        self.boxed_dir = os.path.join(CACHE_DIR, "boxed_images")  # 带人脸框的图片
+    def __init__(self, cache_dir: str = CACHE_DIR, amap_api_key: str = AMAP_API_KEY):
+        self.cache_dir = cache_dir
+        self.amap_api_key = amap_api_key
+        self.compress_dir = os.path.join(cache_dir, "compressed_images")
+        self.jpeg_dir = os.path.join(cache_dir, "jpeg_images")  # 全尺寸JPEG，用于人脸识别
+        self.boxed_dir = os.path.join(cache_dir, "boxed_images")  # 带人脸框的图片
         os.makedirs(self.compress_dir, exist_ok=True)
         os.makedirs(self.jpeg_dir, exist_ok=True)
         os.makedirs(self.boxed_dir, exist_ok=True)
+
+    def list_supported_photos(self, photo_dir: str) -> List[str]:
+        supported_formats = {'.jpg', '.jpeg', '.png', '.heic', '.heif'}
+        photo_files = []
+
+        for filename in sorted(os.listdir(photo_dir)):
+            ext = os.path.splitext(filename)[1].lower()
+            if ext in supported_formats:
+                photo_files.append(filename)
+
+        return photo_files
 
     def load_photos(self, photo_dir: str, max_photos: int = None) -> List[Photo]:
         """
@@ -37,26 +50,35 @@ class ImageProcessor:
         Returns:
             照片列表
         """
+        photos, _ = self.load_photos_with_errors(photo_dir, max_photos)
+        return photos
+
+    def load_photos_with_errors(
+        self,
+        photo_dir: str,
+        max_photos: int = None,
+    ) -> Tuple[List[Photo], List[Dict]]:
+        """
+        加载照片目录中的所有照片，并返回坏图/读取失败列表。
+
+        Returns:
+            (照片列表, 错误列表)
+        """
         photos = []
-        supported_formats = {'.jpg', '.jpeg', '.png', '.heic', '.heif'}
+        errors = []
+        supported_files = self.list_supported_photos(photo_dir)
+        selected_files = supported_files[:max_photos] if max_photos else supported_files
 
-        # 遍历目录
-        for filename in os.listdir(photo_dir):
-            if max_photos and len(photos) >= max_photos:
-                break
-
-            ext = os.path.splitext(filename)[1].lower()
-            if ext not in supported_formats:
-                continue
-
+        for index, filename in enumerate(selected_files, start=1):
             path = os.path.join(photo_dir, filename)
+            photo_id = f"photo_{index:03d}"
 
             try:
                 # 读取EXIF信息
                 exif = self._read_exif(path)
 
                 photo = Photo(
-                    photo_id=f"photo_{len(photos) + 1:03d}",
+                    photo_id=photo_id,
                     filename=filename,
                     path=path,
                     timestamp=exif.get("datetime", datetime.now()),
@@ -67,12 +89,18 @@ class ImageProcessor:
 
             except Exception as e:
                 print(f"警告：无法读取照片 {filename}: {e}")
-                continue
+                errors.append({
+                    "image_id": photo_id,
+                    "filename": filename,
+                    "path": path,
+                    "step": "load",
+                    "error": str(e),
+                })
 
         # 按时间排序
         photos.sort(key=lambda p: p.timestamp)
 
-        return photos
+        return photos, errors
 
     def convert_to_jpeg(self, photos: List[Photo]) -> List[Photo]:
         """
@@ -112,6 +140,7 @@ class ImageProcessor:
 
             except Exception as e:
                 print(f"警告：转换HEIC失败 {photo.filename}: {e}")
+                photo.processing_errors["convert_to_jpeg"] = str(e)
                 photo.original_path = photo.path
                 continue
 
@@ -160,6 +189,7 @@ class ImageProcessor:
 
             except Exception as e:
                 print(f"警告：压缩照片 {photo.filename} 失败: {e}")
+                photo.processing_errors["preprocess"] = str(e)
                 continue
 
         return photos
@@ -230,14 +260,14 @@ class ImageProcessor:
         Returns:
             地址字符串，如 "北京市海淀区"
         """
-        if not AMAP_API_KEY:
+        if not self.amap_api_key:
             return ""
 
         try:
             import urllib.request
             import json
 
-            url = f"https://restapi.amap.com/v3/geocode/regeo?key={AMAP_API_KEY}&location={lng},{lat}&extensions=base"
+            url = f"https://restapi.amap.com/v3/geocode/regeo?key={self.amap_api_key}&location={lng},{lat}&extensions=base"
 
             with urllib.request.urlopen(url, timeout=3) as response:
                 data = json.loads(response.read().decode())
@@ -376,4 +406,5 @@ class ImageProcessor:
 
         except Exception as e:
             print(f"警告：绘制人脸框失败 {photo.filename}: {e}")
+            photo.processing_errors["draw_face_boxes"] = str(e)
             return None

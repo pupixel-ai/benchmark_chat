@@ -7,6 +7,8 @@ import os
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 CACHE_DIR = os.path.join(PROJECT_ROOT, "cache")
 OUTPUT_DIR = os.path.join(PROJECT_ROOT, "output")
+RUNTIME_DIR = os.path.join(PROJECT_ROOT, "runtime")
+TASKS_DIR = os.path.join(RUNTIME_DIR, "tasks")
 
 try:
     from dotenv import load_dotenv
@@ -19,6 +21,18 @@ if load_dotenv is not None:
 # Demo配置
 MAX_PHOTOS = 50  # Demo阶段最多处理50张照片
 DEMO_MODE = True  # Demo模式
+MAX_UPLOAD_PHOTOS = 100
+
+# Web 服务配置
+BACKEND_HOST = os.getenv("BACKEND_HOST", "0.0.0.0")
+BACKEND_PORT = int(os.getenv("BACKEND_PORT", "8000"))
+FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "http://localhost:3000")
+RUNS_URL_PREFIX = "/runs"
+DATABASE_URL = os.getenv(
+    "DATABASE_URL",
+    "mysql+pymysql://memory_user:memory_pass@127.0.0.1:3306/memory_engineering",
+)
+SQL_ECHO = os.getenv("SQL_ECHO", "false").lower() == "true"
 
 # API配置 - 从环境变量读取
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")

@@ -19,6 +19,7 @@ class Photo:
     boxed_path: Optional[str] = None  # 带框图片路径（用于VLM提示）
     face_image_hash: Optional[str] = None  # face-recognition 侧的图像哈希
     primary_person_id: Optional[str] = None  # 当前相册的主用户 ID
+    processing_errors: Dict[str, str] = field(default_factory=dict)
 
     # 人脸识别结果
     faces: List[Dict] = field(default_factory=list)

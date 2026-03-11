@@ -2,6 +2,10 @@
 
 基于多模态AI的个人相册分析系统，自动提取事件、识别人物关系、生成用户画像。
 
+现在仓库同时包含：
+- Python 后端服务：包装现有 pipeline，支持上传任务、任务轮询、静态结果访问
+- `frontend/`：Next.js + Tailwind CSS 前端路径，用于上传图片并展示人脸识别结果
+
 ## 功能特性
 
 - **人脸识别**：基于本地 `face-recognition` 项目（InsightFace + 相似度索引），输出原生 `Person_###`
@@ -70,6 +74,35 @@ cache/
 ├── face_recognition_state.json  # 人脸状态缓存
 └── faces.index                  # 相似度索引
 ```
+
+## Web 模式
+
+### 后端
+
+先启动 MySQL：
+
+```bash
+docker compose up -d mysql
+```
+
+```bash
+./.venv/bin/python backend/app.py
+```
+
+默认监听 `http://localhost:8000`，提供：
+- `POST /api/tasks`：上传最多 100 张图片并创建任务
+- `GET /api/tasks/{task_id}`：轮询任务状态与结果
+- `GET /runs/...`：访问 boxed image、任务结果 JSON 等静态文件
+
+### 前端
+
+前端代码位于 `frontend/`，使用 Next.js + Tailwind CSS。常用环境变量：
+
+```bash
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+```
+
+当前仓库只提供前端代码路径；如果本机未安装 Node.js，需要先安装后再执行 `npm install` / `npm run dev`。
 
 ## 配置说明
 
