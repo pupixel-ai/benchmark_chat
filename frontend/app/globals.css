@@ -4,10 +4,10 @@
 
 :root {
   color-scheme: light;
-  --bg: #f5f0e8;
-  --ink: #111318;
-  --card: rgba(255, 255, 255, 0.78);
-  --line: rgba(17, 19, 24, 0.12);
+  --bg: #f6f1e8;
+  --ink: #1d1a16;
+  --card: rgba(250, 246, 239, 0.88);
+  --line: rgba(67, 53, 42, 0.14);
 }
 
 * {
@@ -19,14 +19,15 @@ body {
   margin: 0;
   min-height: 100%;
   background:
-    radial-gradient(circle at top left, rgba(255, 107, 53, 0.18), transparent 28%),
-    radial-gradient(circle at top right, rgba(29, 77, 79, 0.18), transparent 30%),
-    linear-gradient(180deg, #f9f5ef 0%, #f1e7d9 100%);
+    radial-gradient(circle at top left, rgba(181, 97, 59, 0.18), transparent 24%),
+    radial-gradient(circle at 85% 0%, rgba(111, 123, 107, 0.16), transparent 22%),
+    linear-gradient(180deg, #faf7f1 0%, #f2ebdf 52%, #eee4d6 100%);
   color: var(--ink);
 }
 
 body {
-  font-family: var(--font-space-grotesk), sans-serif;
+  font-family: var(--font-manrope), sans-serif;
+  text-rendering: optimizeLegibility;
 }
 
 a {
@@ -37,4 +38,23 @@ a {
 img {
   max-width: 100%;
   display: block;
+}
+
+::selection {
+  background: rgba(181, 97, 59, 0.18);
+  color: var(--ink);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(109, 91, 71, 0.22);
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.18);
 }

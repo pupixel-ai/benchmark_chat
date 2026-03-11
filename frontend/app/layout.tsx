@@ -1,10 +1,15 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Mono, Space_Grotesk } from "next/font/google";
+import { IBM_Plex_Mono, Manrope, Newsreader } from "next/font/google";
 import "./globals.css";
 
-const spaceGrotesk = Space_Grotesk({
+const newsreader = Newsreader({
   subsets: ["latin"],
-  variable: "--font-space-grotesk"
+  variable: "--font-newsreader"
+});
+
+const manrope = Manrope({
+  subsets: ["latin"],
+  variable: "--font-manrope"
 });
 
 const ibmPlexMono = IBM_Plex_Mono({
@@ -21,7 +26,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="zh-CN">
-      <body className={`${spaceGrotesk.variable} ${ibmPlexMono.variable}`}>{children}</body>
+      <body className={`${newsreader.variable} ${manrope.variable} ${ibmPlexMono.variable}`}>{children}</body>
     </html>
   );
 }

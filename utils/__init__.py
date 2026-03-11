@@ -25,6 +25,7 @@ def compress_image(image_path: str, output_path: str, max_size: int = 1536, qual
     from PIL import Image
 
     img = Image.open(image_path)
+    exif = img.info.get("exif")
 
     # 计算缩放比例
     ratio = min(MAX_IMAGE_SIZE / img.size[0], MAX_IMAGE_SIZE / img.size[1])
@@ -33,8 +34,21 @@ def compress_image(image_path: str, output_path: str, max_size: int = 1536, qual
         new_size = tuple(int(dim * ratio) for dim in img.size)
         img = img.resize(new_size, Image.LANCZOS)
 
-    # 保存
-    img.save(output_path, "JPEG", quality=JPEG_QUALITY, optimize=True)
+    if "A" in img.getbands():
+        img = img.convert("RGBA")
+    else:
+        img = img.convert("RGB")
+
+    if output_path.lower().endswith(".webp"):
+        save_kwargs = {"quality": quality, "method": 6}
+        if exif:
+            save_kwargs["exif"] = exif
+        img.save(output_path, "WEBP", **save_kwargs)
+    else:
+        save_kwargs = {"quality": JPEG_QUALITY, "optimize": True}
+        if exif:
+            save_kwargs["exif"] = exif
+        img.save(output_path, "JPEG", **save_kwargs)
 
     return output_path
 

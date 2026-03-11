@@ -3,8 +3,6 @@
 """
 from __future__ import annotations
 
-import os
-from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
 from typing import Callable, Dict, List, Optional
@@ -15,7 +13,7 @@ from services.face_recognition import FaceRecognition
 from services.image_processor import ImageProcessor
 from services.llm_processor import LLMProcessor
 from services.vlm_analyzer import VLMAnalyzer
-from utils import save_json
+from utils import load_json, save_json
 
 
 class MemoryPipelineService:
@@ -29,6 +27,7 @@ class MemoryPipelineService:
         self.upload_dir = self.task_dir / "uploads"
         self.cache_dir = self.task_dir / "cache"
         self.output_dir = self.task_dir / "output"
+        self.upload_failures_path = self.task_dir / "upload_failures.json"
 
         self.upload_dir.mkdir(parents=True, exist_ok=True)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
@@ -42,7 +41,8 @@ class MemoryPipelineService:
             workspace_dir=str(self.task_dir),
         )
         self.vlm = VLMAnalyzer(cache_path=str(self.cache_dir / "vlm_results.json"))
-        self.failed_images: List[Dict] = []
+        self.initial_upload_failures = self._load_upload_failures()
+        self.failed_images: List[Dict] = list(self.initial_upload_failures)
         self.warnings: List[Dict] = []
 
     def run(
@@ -285,7 +285,15 @@ class MemoryPipelineService:
         })
 
     def _count_uploaded_files(self) -> int:
-        return len([path for path in self.upload_dir.iterdir() if path.is_file()]) if self.upload_dir.exists() else 0
+        stored_count = len([path for path in self.upload_dir.iterdir() if path.is_file()]) if self.upload_dir.exists() else 0
+        return stored_count + len(self.initial_upload_failures)
+
+    def _load_upload_failures(self) -> List[Dict]:
+        payload = {}
+        if self.upload_failures_path.exists():
+            payload = load_json(str(self.upload_failures_path))
+        failures = payload.get("failures", [])
+        return failures if isinstance(failures, list) else []
 
     def _notify(self, callback: Optional[Callable[[str, Dict], None]], stage: str, payload: Dict):
         if callback:

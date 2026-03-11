@@ -29,7 +29,7 @@ class ImageProcessor:
         os.makedirs(self.boxed_dir, exist_ok=True)
 
     def list_supported_photos(self, photo_dir: str) -> List[str]:
-        supported_formats = {'.jpg', '.jpeg', '.png', '.heic', '.heif'}
+        supported_formats = {'.jpg', '.jpeg', '.png', '.heic', '.heif', '.webp'}
         photo_files = []
 
         for filename in sorted(os.listdir(photo_dir)):
@@ -178,7 +178,7 @@ class ImageProcessor:
         for photo in photos:
             try:
                 # 压缩文件名
-                compressed_filename = f"compressed_{photo.photo_id}.jpg"
+                compressed_filename = f"compressed_{photo.photo_id}.webp"
                 compressed_path = os.path.join(self.compress_dir, compressed_filename)
 
                 # 压缩
@@ -239,6 +239,10 @@ class ImageProcessor:
         except Exception as e:
             pass
 
+        # exifread 对 WebP 等容器格式支持有限，补一层 Pillow 回退
+        if "datetime" not in exif_data or "location" not in exif_data:
+            self._read_exif_with_pillow(image_path, exif_data)
+
         # 如果EXIF中没有时间，使用文件修改时间
         if "datetime" not in exif_data:
             try:
@@ -248,6 +252,47 @@ class ImageProcessor:
                 exif_data["datetime"] = datetime.now()
 
         return exif_data
+
+    def _read_exif_with_pillow(self, image_path: str, exif_data: dict):
+        try:
+            with Image.open(image_path) as image:
+                raw_exif = image.getexif()
+                if not raw_exif:
+                    return
+
+                mapped = {
+                    ExifTags.TAGS.get(tag, tag): value
+                    for tag, value in raw_exif.items()
+                }
+
+                if "datetime" not in exif_data:
+                    datetime_str = mapped.get("DateTimeOriginal") or mapped.get("DateTime")
+                    if datetime_str:
+                        try:
+                            exif_data["datetime"] = datetime.strptime(str(datetime_str), "%Y:%m:%d %H:%M:%S")
+                        except Exception:
+                            pass
+
+                if "location" not in exif_data:
+                    gps_info = mapped.get("GPSInfo")
+                    if gps_info:
+                        gps_tags = {
+                            ExifTags.GPSTAGS.get(tag, tag): value
+                            for tag, value in gps_info.items()
+                        }
+                        lat = self._convert_pillow_gps(
+                            gps_tags.get("GPSLatitude"),
+                            gps_tags.get("GPSLatitudeRef"),
+                        )
+                        lon = self._convert_pillow_gps(
+                            gps_tags.get("GPSLongitude"),
+                            gps_tags.get("GPSLongitudeRef"),
+                        )
+                        if lat is not None and lon is not None:
+                            address = self._reverse_geocode(lon, lat)
+                            exif_data["location"] = {"lat": lat, "lng": lon, "name": address}
+        except Exception:
+            pass
 
     def _reverse_geocode(self, lng: float, lat: float) -> str:
         """
@@ -319,6 +364,29 @@ class ImageProcessor:
         if ref in ['S', 'W']:
             decimal = -decimal
         return decimal
+
+    def _convert_pillow_gps(self, dms, ref):
+        if not dms or not ref:
+            return None
+        try:
+            degrees = self._ratio_to_float(dms[0])
+            minutes = self._ratio_to_float(dms[1])
+            seconds = self._ratio_to_float(dms[2])
+            decimal = degrees + minutes / 60 + seconds / 3600
+            if str(ref) in ['S', 'W']:
+                decimal = -decimal
+            return decimal
+        except Exception:
+            return None
+
+    def _ratio_to_float(self, value):
+        if hasattr(value, "num") and hasattr(value, "den"):
+            return value.num / value.den
+        if hasattr(value, "numerator") and hasattr(value, "denominator"):
+            return value.numerator / value.denominator
+        if isinstance(value, (tuple, list)) and len(value) == 2:
+            return value[0] / value[1]
+        return float(value)
 
     def draw_face_boxes(self, photo) -> str:
         """
@@ -394,13 +462,13 @@ class ImageProcessor:
                 draw.text((x, y - 35), label, fill=(255, 255, 255), font=font)
 
             # 保存（保留EXIF）
-            output_filename = f"{os.path.splitext(photo.filename)[0]}_boxed.jpg"
+            output_filename = f"{os.path.splitext(photo.filename)[0]}_boxed.webp"
             output_path = os.path.join(self.boxed_dir, output_filename)
 
+            save_kwargs = {"quality": 90, "method": 6}
             if exif:
-                img.save(output_path, "JPEG", quality=95, exif=exif)
-            else:
-                img.save(output_path, "JPEG", quality=95)
+                save_kwargs["exif"] = exif
+            img.save(output_path, "WEBP", **save_kwargs)
 
             return output_path
 

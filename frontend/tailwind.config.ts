@@ -9,19 +9,24 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        ink: "#111318",
-        sand: "#f5f0e8",
-        clay: "#dfc3a3",
-        ember: "#ff6b35",
-        pine: "#1d4d4f",
-        mist: "#e5e7eb"
+        ink: "#1d1a16",
+        sand: "#f3ede4",
+        clay: "#d6c1a2",
+        ember: "#b5613b",
+        pine: "#6f7b6b",
+        mist: "#d9d0c4",
+        paper: "#f8f5ef",
+        cocoa: "#43352a",
+        oat: "#ece4d8",
+        fog: "#b9aa95"
       },
       fontFamily: {
-        display: ["var(--font-space-grotesk)"],
+        display: ["var(--font-newsreader)"],
+        sans: ["var(--font-manrope)"],
         mono: ["var(--font-ibm-plex-mono)"]
       },
       boxShadow: {
-        card: "0 20px 45px rgba(17, 19, 24, 0.08)"
+        card: "0 24px 60px rgba(68, 50, 31, 0.10)"
       }
     }
   },

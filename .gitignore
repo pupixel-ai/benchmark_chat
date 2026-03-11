@@ -9,6 +9,8 @@ output/
 data/
 runtime/
 frontend/.next/
+frontend/.next-dev/
+frontend/.next-build/
 frontend/node_modules/
 
 models/__pycache__/

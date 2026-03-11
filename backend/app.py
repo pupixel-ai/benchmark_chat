@@ -3,8 +3,8 @@ FastAPI backend entrypoint.
 """
 from __future__ import annotations
 
+import io
 import os
-import shutil
 import uuid
 from pathlib import Path
 from typing import List
@@ -12,6 +12,8 @@ from typing import List
 from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from PIL import Image
+from pillow_heif import register_heif_opener
 
 from backend.task_store import TaskStore
 from config import (
@@ -23,6 +25,11 @@ from config import (
     TASKS_DIR,
 )
 from services.pipeline_service import MemoryPipelineService
+from utils import save_json
+
+
+register_heif_opener()
+UPLOAD_FAILURES_FILENAME = "upload_failures.json"
 
 
 app = FastAPI(title="Memory Engineering API", version="1.0.0")
@@ -44,6 +51,46 @@ def _safe_filename(filename: str, fallback: str) -> str:
     basename = os.path.basename(filename or fallback)
     basename = basename.replace("/", "_").replace("\\", "_")
     return basename or fallback
+
+
+def _webp_filename(filename: str, index: int) -> str:
+    safe_name = _safe_filename(filename, f"upload_{index:03d}")
+    stem = Path(safe_name).stem or f"upload_{index:03d}"
+    return f"{index:03d}_{stem}.webp"
+
+
+def _upload_public_url(task_id: str, filename: str) -> str:
+    return f"{RUNS_URL_PREFIX}/{task_id}/uploads/{filename}"
+
+
+def _save_upload_as_webp(upload: UploadFile, destination: Path) -> dict:
+    upload.file.seek(0)
+    payload = upload.file.read()
+    if not payload:
+        raise ValueError("文件为空")
+
+    with Image.open(io.BytesIO(payload)) as image:
+        exif = image.info.get("exif")
+        working = image.convert("RGBA") if "A" in image.getbands() else image.convert("RGB")
+        save_kwargs = {
+            "format": "WEBP",
+            "quality": 90,
+            "method": 6,
+        }
+        if exif:
+            save_kwargs["exif"] = exif
+        working.save(destination, **save_kwargs)
+        width, height = working.size
+
+    return {
+        "width": width,
+        "height": height,
+        "content_type": "image/webp",
+    }
+
+
+def _write_upload_failures(task_dir: Path, failures: list[dict]) -> None:
+    save_json({"failures": failures}, str(task_dir / UPLOAD_FAILURES_FILENAME))
 
 
 def _run_pipeline_task(task_id: str, max_photos: int, use_cache: bool):
@@ -114,20 +161,35 @@ async def create_task(
     uploads_dir.mkdir(parents=True, exist_ok=True)
 
     saved_files = []
+    upload_failures = []
     for index, upload in enumerate(files, start=1):
-        safe_name = _safe_filename(upload.filename or "", f"upload_{index:03d}.bin")
-        stored_name = f"{index:03d}_{safe_name}"
+        stored_name = _webp_filename(upload.filename or "", index)
         destination = uploads_dir / stored_name
-        with destination.open("wb") as handle:
-            shutil.copyfileobj(upload.file, handle)
-        saved_files.append({
-            "filename": upload.filename or stored_name,
-            "stored_filename": stored_name,
-            "path": str(destination),
-        })
-        await upload.close()
+        try:
+            image_info = _save_upload_as_webp(upload, destination)
+            saved_files.append({
+                "filename": upload.filename or stored_name,
+                "stored_filename": stored_name,
+                "path": str(destination),
+                "url": _upload_public_url(task_id, stored_name),
+                **image_info,
+            })
+        except Exception as exc:
+            if destination.exists():
+                destination.unlink(missing_ok=True)
+            upload_failures.append({
+                "image_id": f"photo_{index:03d}",
+                "filename": upload.filename or stored_name,
+                "path": str(destination),
+                "step": "upload",
+                "error": f"上传后转换 WebP 失败: {exc}",
+            })
+        finally:
+            await upload.close()
 
-    task_payload = task_store.create_task(task_id, upload_count=len(saved_files))
+    _write_upload_failures(task_dir, upload_failures)
+
+    task_payload = task_store.create_task(task_id, upload_count=len(files))
     task_payload["uploads"] = saved_files
     task_store.update_task(task_id, uploads=saved_files)
 

@@ -32,6 +32,16 @@ export type FailureItem = {
   error: string;
 };
 
+export type UploadItem = {
+  filename: string;
+  stored_filename: string;
+  path: string;
+  url?: string | null;
+  width?: number | null;
+  height?: number | null;
+  content_type?: string | null;
+};
+
 export type FaceRecognitionPayload = {
   primary_person_id?: string | null;
   metrics?: {
@@ -74,11 +84,7 @@ export type TaskState = {
   created_at: string;
   updated_at: string;
   upload_count: number;
-  uploads?: Array<{
-    filename: string;
-    stored_filename: string;
-    path: string;
-  }>;
+  uploads?: UploadItem[];
   progress?: Record<string, unknown>;
   result?: TaskResult | null;
   error?: string | null;
