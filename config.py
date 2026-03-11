@@ -25,7 +25,7 @@ MAX_UPLOAD_PHOTOS = 100
 
 # Web 服务配置
 BACKEND_HOST = os.getenv("BACKEND_HOST", "0.0.0.0")
-BACKEND_PORT = int(os.getenv("BACKEND_PORT", "8000"))
+BACKEND_PORT = int(os.getenv("PORT", os.getenv("BACKEND_PORT", "8000")))
 FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "http://localhost:3000")
 RUNS_URL_PREFIX = "/runs"
 DATABASE_URL = os.getenv(

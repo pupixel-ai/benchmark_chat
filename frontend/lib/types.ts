@@ -74,7 +74,16 @@ export type TaskState = {
   created_at: string;
   updated_at: string;
   upload_count: number;
+  uploads?: Array<{
+    filename: string;
+    stored_filename: string;
+    path: string;
+  }>;
   progress?: Record<string, unknown>;
   result?: TaskResult | null;
   error?: string | null;
+};
+
+export type TaskListResponse = {
+  tasks: TaskState[];
 };

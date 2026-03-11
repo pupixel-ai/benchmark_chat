@@ -5,7 +5,9 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, List, Optional
+
+from sqlalchemy import desc, select
 
 from backend.db import Base, SessionLocal, engine
 from backend.models import TaskRecord
@@ -55,6 +57,12 @@ class TaskStore:
             if record is None:
                 return None
             return self._serialize(record)
+
+    def list_tasks(self, limit: int = 20) -> List[Dict]:
+        with SessionLocal() as session:
+            stmt = select(TaskRecord).order_by(desc(TaskRecord.created_at)).limit(limit)
+            records = session.execute(stmt).scalars().all()
+            return [self._serialize(record) for record in records]
 
     def update_task(self, task_id: str, **updates) -> Dict:
         with SessionLocal() as session:

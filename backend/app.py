@@ -142,6 +142,14 @@ async def create_task(
     }
 
 
+@app.get("/api/tasks")
+def list_tasks(limit: int = 20):
+    safe_limit = max(1, min(limit, 100))
+    return {
+        "tasks": task_store.list_tasks(limit=safe_limit),
+    }
+
+
 @app.get("/api/tasks/{task_id}")
 def get_task(task_id: str):
     task = task_store.get_task(task_id)

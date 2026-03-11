@@ -14,13 +14,13 @@ const ibmPlexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Memory Engineering Console",
-  description: "Upload up to 100 photos and inspect face-recognition output."
+  title: "记忆工程测试工作台",
+  description: "上传最多 100 张照片，查看人脸识别结果、任务状态与失败图片记录。"
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en">
+    <html lang="zh-CN">
       <body className={`${spaceGrotesk.variable} ${ibmPlexMono.variable}`}>{children}</body>
     </html>
   );
