@@ -63,6 +63,7 @@ export type TaskResult = {
   task_id: string;
   generated_at: string;
   summary: {
+    title?: string | null;
     total_uploaded: number;
     loaded_images: number;
     failed_images: number;
@@ -75,6 +76,7 @@ export type TaskResult = {
   face_recognition: FaceRecognitionPayload;
   failed_images: FailureItem[];
   warnings: Array<{ stage: string; message: string }>;
+  events?: Array<{ title?: string }>;
 };
 
 export type TaskState = {
