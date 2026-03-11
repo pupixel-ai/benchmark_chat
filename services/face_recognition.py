@@ -1,312 +1,468 @@
 """
-人脸识别模块
+人脸识别模块（基于本地 face-recognition 项目）
 """
 import os
-import pickle
-import numpy as np
-from datetime import datetime
-from typing import List, Dict, Tuple, Optional
-from deepface import DeepFace
-from models import Photo, Person
+import sys
+import uuid
+from pathlib import Path
+from typing import Dict, List, Optional
+
 from config import (
-    FACE_THRESHOLD, FACE_MODEL, FACE_DETECTOR, FACE_ALIGN, FACE_MIN_SIZE,
-    FACE_DB_PATH, CACHE_DIR
+    FACE_DET_THRESHOLD,
+    FACE_INDEX_PATH,
+    FACE_MAX_SIDE,
+    FACE_MIN_SIZE,
+    FACE_MODEL_NAME,
+    FACE_OUTPUT_PATH,
+    FACE_PROVIDERS,
+    FACE_RECOGNITION_SRC_PATH,
+    FACE_SIM_THRESHOLD,
+    FACE_STATE_PATH,
 )
-from utils import cosine_similarity, save_json, load_json
+from models import Person, Photo
+from utils import load_json, save_json
+
+
+def _load_face_recognition_modules():
+    src_path = os.path.abspath(FACE_RECOGNITION_SRC_PATH)
+    if src_path not in sys.path:
+        sys.path.insert(0, src_path)
+
+    try:
+        from face_recognition.config import PipelineConfig
+        from face_recognition.engine import FaceEngine
+        from face_recognition.image_io import load_image, resize_image
+        from face_recognition.index_store import SimilarityIndexStore
+    except Exception as exc:
+        raise RuntimeError(
+            f"无法加载本地 face-recognition 项目，请检查路径: {src_path}"
+        ) from exc
+
+    return PipelineConfig, FaceEngine, SimilarityIndexStore, load_image, resize_image
 
 
 class FaceRecognition:
-    """人脸识别器"""
+    """使用本地 face-recognition 引擎的人脸识别器"""
 
     def __init__(self):
-        self.threshold = FACE_THRESHOLD
-        self.face_db = {}  # {person_id: Person对象}
+        PipelineConfig, FaceEngine, SimilarityIndexStore, load_image, resize_image = (
+            _load_face_recognition_modules()
+        )
 
-        # 尝试加载已有的人脸库
-        self._load_face_db()
+        self.config = PipelineConfig.from_args(
+            input_dir=os.getcwd(),
+            db_path=FACE_STATE_PATH,
+            index_path=FACE_INDEX_PATH,
+            max_side=FACE_MAX_SIDE,
+            det_threshold=FACE_DET_THRESHOLD,
+            sim_threshold=FACE_SIM_THRESHOLD,
+            providers=FACE_PROVIDERS,
+            model_name=FACE_MODEL_NAME,
+        )
+        self.engine = FaceEngine(self.config)
+        self.index_store = SimilarityIndexStore(Path(FACE_INDEX_PATH))
+        self.load_image = load_image
+        self.resize_image = resize_image
 
-    def _load_face_db(self):
-        """从文件加载人脸库"""
-        data = load_json(FACE_DB_PATH)
+        self.state = self._load_state()
+        self.faiss_person_map = {
+            int(key): value for key, value in self.state.get("faiss_person_map", {}).items()
+        }
+        self.persons = self._restore_persons()
+        self.photo_results: Dict[str, Dict] = {}
+        self.primary_person_id = self.state.get("primary_person_id")
 
+        if self.index_store.committed_count != len(self.faiss_person_map):
+            raise RuntimeError(
+                "faces.index 与 face_recognition_state.json 不一致，请清理缓存后重试"
+            )
+
+    def _load_state(self) -> Dict:
+        data = load_json(FACE_STATE_PATH)
         if data:
-            for person_id, person_data in data.items():
-                # 恢复特征向量
-                features = [np.array(f) for f in person_data.get("features", [])]
+            return data
 
-                self.face_db[person_id] = Person(
-                    person_id=person_id,
-                    name=person_data.get("name", "未知"),
-                    features=features,
-                    photo_count=person_data.get("photo_count", 0),
-                    first_seen=datetime.fromisoformat(person_data["first_seen"]) if person_data.get("first_seen") else None,
-                    last_seen=datetime.fromisoformat(person_data["last_seen"]) if person_data.get("last_seen") else None,
-                    avg_confidence=person_data.get("avg_confidence", 0.0)
-                )
+        return {
+            "version": 1,
+            "next_person_number": 1,
+            "primary_person_id": None,
+            "faiss_person_map": {},
+            "persons": {},
+            "images": {},
+            "engine": {
+                "src_path": os.path.abspath(FACE_RECOGNITION_SRC_PATH),
+                "model_name": FACE_MODEL_NAME,
+                "providers": list(FACE_PROVIDERS),
+                "max_side": FACE_MAX_SIDE,
+                "det_threshold": FACE_DET_THRESHOLD,
+                "sim_threshold": FACE_SIM_THRESHOLD,
+                "index_path": FACE_INDEX_PATH,
+            },
+        }
 
-            print(f"加载人脸库：{len(self.face_db)} 个人物")
+    def _restore_persons(self) -> Dict[str, Person]:
+        restored = {}
+        for person_id, person_data in self.state.get("persons", {}).items():
+            restored[person_id] = Person(
+                person_id=person_id,
+                name=person_data.get("label", ""),
+                features=[],
+                photo_count=person_data.get("photo_count", 0),
+                first_seen=self._parse_datetime(person_data.get("first_seen")),
+                last_seen=self._parse_datetime(person_data.get("last_seen")),
+                avg_confidence=person_data.get("avg_score", 0.0),
+            )
+        return restored
 
-    def _save_face_db(self):
-        """保存人脸库到文件"""
-        data = {}
+    def _parse_datetime(self, value: Optional[str]):
+        if not value:
+            return None
+        try:
+            from datetime import datetime
 
-        for person_id, person in self.face_db.items():
-            # 转换特征向量为列表（便于JSON序列化）
-            features = []
-            for f in person.features:
-                if isinstance(f, np.ndarray):
-                    features.append(f.tolist())
-                else:
-                    features.append(f)  # 已经是list
+            return datetime.fromisoformat(value)
+        except Exception:
+            return None
 
-            data[person_id] = {
-                "name": person.name,
-                "features": features,
-                "photo_count": person.photo_count,
-                "first_seen": person.first_seen.isoformat() if person.first_seen else None,
-                "last_seen": person.last_seen.isoformat() if person.last_seen else None,
-                "avg_confidence": person.avg_confidence
+    def _next_person_id(self) -> str:
+        current = int(self.state.get("next_person_number", 1))
+        self.state["next_person_number"] = current + 1
+        return f"Person_{current:03d}"
+
+    def _ensure_person_state(self, person_id: str, face_id: str) -> Dict:
+        people_state = self.state.setdefault("persons", {})
+        if person_id not in people_state:
+            people_state[person_id] = {
+                "person_id": person_id,
+                "representative_face_id": face_id,
+                "photo_count": 0,
+                "face_count": 0,
+                "first_seen": None,
+                "last_seen": None,
+                "avg_score": 0.0,
+                "avg_similarity": 0.0,
+                "sample_photo_ids": [],
+                "label": "",
             }
-
-        save_json(data, FACE_DB_PATH)
+        return people_state[person_id]
 
     def process_photo(self, photo: Photo) -> List[Dict]:
         """
-        处理单张照片，识别人脸
-
-        Args:
-            photo: 照片对象
+        处理单张照片，输出 face-recognition 原生风格结果
 
         Returns:
-            人脸列表：[{"person_id": "person_0", "confidence": 0.95, "bbox": [...]}]
+            [
+                {
+                    "face_id": "...",
+                    "person_id": "Person_001",
+                    "score": 0.98,
+                    "similarity": 0.87,
+                    "faiss_id": 12,
+                    "bbox": [x1, y1, x2, y2],
+                    "bbox_xywh": {"x": 10, "y": 20, "w": 30, "h": 40},
+                    "kps": [...]
+                }
+            ]
         """
-        # 优先使用原图，如果没有压缩图则用原图
-        image_path = photo.compressed_path if photo.compressed_path else photo.path
+        image_hash = self._hash_file(photo.path)
+        cached_image = self.state.get("images", {}).get(image_hash)
+        if cached_image:
+            photo.faces = [dict(face) for face in cached_image.get("faces", [])]
+            photo.face_image_hash = image_hash
+            self.photo_results[photo.photo_id] = cached_image
+            return photo.faces
 
-        try:
-            # Step 1: 检测人脸
-            faces = DeepFace.extract_faces(
-                img_path=image_path,
-                detector_backend=FACE_DETECTOR,
-                enforce_detection=False
+        raw_image = self.load_image(Path(photo.path))
+        resized_image = self.resize_image(raw_image, self.config.max_side)
+        engine_result = self.engine.detect_and_embed(resized_image.pixels)
+
+        scale_x = raw_image.width / resized_image.width
+        scale_y = raw_image.height / resized_image.height
+
+        pending_embeddings = []
+        pending_person_map = {}
+        faces_output = []
+        seen_persons_in_photo = set()
+
+        for detected_face in engine_result.faces:
+            bbox = self._scale_bbox(
+                detected_face.bbox,
+                scale_x,
+                scale_y,
+                raw_image.width,
+                raw_image.height,
             )
+            min_dim = min(bbox["bbox_xywh"]["w"], bbox["bbox_xywh"]["h"])
+            if min_dim < FACE_MIN_SIZE:
+                continue
 
-            # Step 2: 提取所有人脸特征（只调用一次）
-            try:
-                embedding_objs = DeepFace.represent(
-                    img_path=image_path,
-                    model_name=FACE_MODEL,
-                    detector_backend=FACE_DETECTOR,
-                    enforce_detection=False
+            search = self.index_store.search(
+                detected_face.embedding,
+                pending_embeddings=pending_embeddings,
+            )
+            matched_person_id = None
+            if search.faiss_id is not None:
+                matched_person_id = self.faiss_person_map.get(search.faiss_id)
+                if matched_person_id is None:
+                    matched_person_id = pending_person_map.get(search.faiss_id)
+
+            similarity = float(search.score) if search.score is not None else 0.0
+            if (
+                matched_person_id is not None
+                and search.score is not None
+                and search.score > self.config.sim_threshold
+            ):
+                person_id = matched_person_id
+            else:
+                person_id = self._next_person_id()
+
+            faiss_id = self.index_store.committed_count + len(pending_embeddings)
+            pending_embeddings.append(detected_face.embedding)
+            pending_person_map[faiss_id] = person_id
+            self.faiss_person_map[faiss_id] = person_id
+
+            face_id = str(uuid.uuid4())
+            face_output = {
+                "face_id": face_id,
+                "person_id": person_id,
+                "score": float(detected_face.score),
+                "similarity": similarity,
+                "faiss_id": faiss_id,
+                "bbox": bbox["bbox"],
+                "bbox_xywh": bbox["bbox_xywh"],
+                "kps": detected_face.kps,
+            }
+            faces_output.append(face_output)
+
+            person_state = self._ensure_person_state(person_id, face_id)
+            person_state["face_count"] += 1
+            person_state["avg_score"] = self._rolling_average(
+                person_state["avg_score"],
+                person_state["face_count"],
+                float(detected_face.score),
+            )
+            person_state["avg_similarity"] = self._rolling_average(
+                person_state["avg_similarity"],
+                person_state["face_count"],
+                similarity,
+            )
+            if person_id not in seen_persons_in_photo:
+                seen_persons_in_photo.add(person_id)
+                person_state["photo_count"] += 1
+                person_state["first_seen"] = self._min_datetime(
+                    person_state.get("first_seen"),
+                    photo.timestamp.isoformat(),
                 )
-            except Exception as e:
-                print(f"  调试：特征提取失败 - {e}")
-                return []
+                person_state["last_seen"] = self._max_datetime(
+                    person_state.get("last_seen"),
+                    photo.timestamp.isoformat(),
+                )
+                if photo.photo_id not in person_state["sample_photo_ids"] and len(
+                    person_state["sample_photo_ids"]
+                ) < 10:
+                    person_state["sample_photo_ids"].append(photo.photo_id)
 
-            if not embedding_objs or len(embedding_objs) == 0:
-                return []
+        if pending_embeddings:
+            self.index_store.persist_pending(pending_embeddings)
 
-            results = []
+        image_output = {
+            "image_hash": image_hash,
+            "photo_id": photo.photo_id,
+            "filename": photo.filename,
+            "path": photo.path,
+            "timestamp": photo.timestamp.isoformat(),
+            "location": photo.location,
+            "width": raw_image.width,
+            "height": raw_image.height,
+            "faces": faces_output,
+            "detection_seconds": engine_result.detection_seconds,
+            "embedding_seconds": engine_result.embedding_seconds,
+        }
+        self.state.setdefault("images", {})[image_hash] = image_output
+        self.photo_results[photo.photo_id] = image_output
+        photo.face_image_hash = image_hash
+        photo.faces = [dict(face) for face in faces_output]
 
-            # Step 3: 对每个检测到的人脸，找到对应的embedding并匹配
-            for i, face in enumerate(faces):
-                # 过滤低置信度的人脸（假人脸）
-                face_confidence = face.get("confidence", 0)
-                if face_confidence < 0.5:
-                    continue  # 跳过低置信度的人脸
+        self._sync_person_cache()
+        return photo.faces
 
-                # 过滤小脸（人脸质量过滤）
-                facial_area = face.get("facial_area", {})
-                face_width = facial_area.get("w", 0)
-                face_height = facial_area.get("h", 0)
-                min_dim = min(face_width, face_height)
+    def _sync_person_cache(self):
+        primary_person_id = self._compute_primary_person_id()
+        self.primary_person_id = primary_person_id
+        self.state["primary_person_id"] = primary_person_id
 
-                if min_dim < FACE_MIN_SIZE:
-                    print(f"  调试：跳过小脸 ({min_dim}x{min_dim} < {FACE_MIN_SIZE}x{FACE_MIN_SIZE})")
-                    continue
-
-                # 使用对应索引的embedding（detector返回的顺序应该一致）
-                if i >= len(embedding_objs):
-                    print(f"  调试：embedding索引越界，跳过人脸 {i}")
-                    continue
-
-                embedding = embedding_objs[i].get("embedding")
-
-                if embedding is None:
-                    print(f"  调试：embedding为空")
-                    continue
-
-                # 匹配或创建人物
-                person_id, match_confidence = self._match_or_create_person(embedding, photo.timestamp)
-
-                results.append({
-                    "person_id": person_id,
-                    "confidence": match_confidence,
-                    "bbox": face.get("facial_area", {})
-                })
-
-                print(f"  调试：识别人脸 -> {person_id} (匹配度: {match_confidence:.2f}, 大小: {min_dim}x{min_dim})")
-
-            # 保存到照片对象
-            photo.faces = results
-
-            return results
-
-        except Exception as e:
-            print(f"警告：人脸识别失败 ({photo.filename}): {e}")
-            return []
-
-    def _match_or_create_person(self, embedding: np.ndarray, timestamp: datetime) -> Tuple[str, float]:
-        """
-        匹配或创建人物
-
-        Args:
-            embedding: 人脸特征向量
-            timestamp: 照片时间戳
-
-        Returns:
-            (person_id, confidence)
-        """
-        # 尝试匹配已有人物
-        best_match = None
-        best_similarity = 0
-
-        for person_id, person in self.face_db.items():
-            # 计算和每个人物平均特征的相似度
-            if person.features:
-                avg_feature = np.mean(person.features, axis=0)
-                similarity = cosine_similarity(embedding, avg_feature)
-
-                if similarity > best_similarity:
-                    best_similarity = similarity
-                    best_match = person_id
-
-        # 判断是否匹配成功
-        if best_match and best_similarity >= self.threshold:
-            # 匹配成功，更新特征
-            person = self.face_db[best_match]
-            person.features.append(embedding)
-
-            # 更新统计信息
-            person.photo_count += 1
-            person.last_seen = timestamp
-            person.avg_confidence = (person.avg_confidence * (person.photo_count - 1) + best_similarity) / person.photo_count
-
-            # 如果特征太多，保留最近的
-            if len(person.features) > 10:
-                person.features = person.features[-10:]
-
-            return best_match, best_similarity
-
-        else:
-            # 创建新人物（从person_1开始编号）
-            person_id = f"person_{len(self.face_db) + 1}"
-
-            # 判断是否是主角（出现次数最多的）
-            name = "未知"
-            if not self.face_db:
-                name = "主角"  # 第一个人(person_0)是主角
-            else:
-                # 找出现次数最多的
-                max_count = max(p.photo_count for p in self.face_db.values())
-                if max_count < 10:
-                    name = "未知"
-                else:
-                    name = "未知"
-
-            new_person = Person(
+        for person_id, person_state in self.state.get("persons", {}).items():
+            label = "Primary" if person_id == primary_person_id else "Person"
+            person_state["label"] = label
+            self.persons[person_id] = Person(
                 person_id=person_id,
-                name=name,
-                features=[embedding],
-                photo_count=1,
-                first_seen=timestamp,
-                last_seen=timestamp,
-                avg_confidence=best_similarity
+                name=label,
+                features=[],
+                photo_count=person_state.get("photo_count", 0),
+                first_seen=self._parse_datetime(person_state.get("first_seen")),
+                last_seen=self._parse_datetime(person_state.get("last_seen")),
+                avg_confidence=person_state.get("avg_score", 0.0),
             )
 
-            self.face_db[person_id] = new_person
+    def _compute_primary_person_id(self) -> Optional[str]:
+        if self.photo_results:
+            counts = {}
+            for image in self.photo_results.values():
+                seen_in_photo = set()
+                for face in image.get("faces", []):
+                    person_id = face["person_id"]
+                    stats = counts.setdefault(
+                        person_id,
+                        {"photo_count": 0, "face_count": 0, "first_seen": image.get("timestamp", "")},
+                    )
+                    stats["face_count"] += 1
+                    if person_id not in seen_in_photo:
+                        seen_in_photo.add(person_id)
+                        stats["photo_count"] += 1
+                        first_seen = image.get("timestamp", "")
+                        if first_seen and (not stats["first_seen"] or first_seen < stats["first_seen"]):
+                            stats["first_seen"] = first_seen
 
-            return person_id, best_similarity
+            if counts:
+                ranked = sorted(
+                    counts.items(),
+                    key=lambda item: (
+                        item[1]["photo_count"],
+                        item[1]["face_count"],
+                        item[1]["first_seen"],
+                    ),
+                    reverse=True,
+                )
+                return ranked[0][0]
 
-    def update_names(self):
-        """
-        更新人物名称：
-        - 出现次数最多（>=2次）的是"主角"
-        - 其他是"未知"
-        """
-        if not self.face_db:
-            return
+        people_state = self.state.get("persons", {})
+        if not people_state:
+            return None
 
-        # 找出现次数最多的
-        max_person = max(self.face_db.values(), key=lambda p: p.photo_count)
-        max_count = max_person.photo_count
-
-        # 更新名称：只有出现>=2次的才标记为主角
-        for person_id, person in self.face_db.items():
-            if person.photo_count == max_count and max_count >= 2:
-                person.name = "主角"
-            else:
-                person.name = "未知"
+        ranked = sorted(
+            people_state.values(),
+            key=lambda item: (
+                item.get("photo_count", 0),
+                item.get("face_count", 0),
+                item.get("first_seen") or "",
+            ),
+            reverse=True,
+        )
+        return ranked[0]["person_id"]
 
     def reorder_protagonist(self, photos: list) -> dict:
         """
-        重排person_id：让主角变为person_0，其他人按出现次数排序为P1, P2, P3...
-
-        Args:
-            photos: 照片列表
-
-        Returns:
-            id_mapping: 旧ID → 新ID 的映射，例如 {"person_1": "person_0", "person_2": "person_1"}
+        保留 face-recognition 的原生 Person_### 编号，仅计算主人物。
         """
-        if not self.face_db:
-            return {}
+        self._sync_person_cache()
+        self._save_state()
+        return {}
 
-        # 1. 所有人按出现次数排序
-        sorted_persons = sorted(
-            self.face_db.items(),
-            key=lambda x: x[1].photo_count,
-            reverse=True
-        )
-
-        # 2. 创建映射：最多次→P0，其次→P1，P2...
-        id_mapping = {}
-        for new_id, (old_id, _) in enumerate(sorted_persons):
-            id_mapping[old_id] = f"person_{new_id}"
-
-        # 3. 更新人脸库
-        new_face_db = {}
-        for old_id, person in self.face_db.items():
-            new_id = id_mapping[old_id]
-            person.person_id = new_id
-            new_face_db[new_id] = person
-        self.face_db = new_face_db
-
-        # 4. 更新所有照片的faces字段
-        for photo in photos:
-            for face in photo.faces:
-                old_id = face["person_id"]
-                if old_id in id_mapping:
-                    face["person_id"] = id_mapping[old_id]
-
-        # 5. 更新名称（主角标记）
-        self.update_names()
-
-        # 6. 保存
-        self._save_face_db()
-
-        # 打印映射结果
-        print(f"  ID重排映射: {id_mapping}")
-
-        return id_mapping
+    def _save_state(self):
+        self.state["faiss_person_map"] = {
+            str(key): value for key, value in sorted(self.faiss_person_map.items())
+        }
+        self.state["engine"]["providers"] = list(self.engine.applied_providers())
+        save_json(self.state, FACE_STATE_PATH)
+        save_json(self.get_face_output(), FACE_OUTPUT_PATH)
 
     def save(self):
-        """保存人脸库"""
-        self._save_face_db()
+        """保存当前识别状态"""
+        self._save_state()
 
     def get_person(self, person_id: str) -> Optional[Person]:
-        """获取人物信息"""
-        return self.face_db.get(person_id)
+        return self.persons.get(person_id)
 
     def get_all_persons(self) -> Dict[str, Person]:
-        """获取所有人物"""
-        return self.face_db
+        return self.persons
+
+    def get_primary_person_id(self) -> Optional[str]:
+        return self.primary_person_id
+
+    def get_face_output(self) -> Dict:
+        images = list(self.photo_results.values()) if self.photo_results else []
+        if not images:
+            images = list(self.state.get("images", {}).values())
+        images.sort(key=lambda item: item.get("timestamp", ""))
+
+        current_person_ids = {
+            face["person_id"]
+            for image in images
+            for face in image.get("faces", [])
+        }
+        persons = [
+            person
+            for person in self.state.get("persons", {}).values()
+            if person.get("person_id") in current_person_ids
+        ]
+        persons.sort(key=lambda item: item.get("person_id", ""))
+
+        total_faces = sum(len(item.get("faces", [])) for item in images)
+        return {
+            "engine": {
+                **self.state.get("engine", {}),
+                "providers": list(self.engine.applied_providers()),
+            },
+            "primary_person_id": self.primary_person_id,
+            "metrics": {
+                "total_images": len(images),
+                "total_faces": total_faces,
+                "total_persons": len(persons),
+            },
+            "cache_metrics": {
+                "total_images": len(self.state.get("images", {})),
+                "total_persons": len(self.state.get("persons", {})),
+                "indexed_faces": len(self.faiss_person_map),
+            },
+            "persons": persons,
+            "images": images,
+        }
+
+    def _hash_file(self, image_path: str) -> str:
+        from hashlib import sha256
+
+        digest = sha256()
+        with open(image_path, "rb") as handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(chunk)
+        return digest.hexdigest()
+
+    def _scale_bbox(
+        self,
+        bbox: List[float],
+        scale_x: float,
+        scale_y: float,
+        width: int,
+        height: int,
+    ) -> Dict:
+        x1, y1, x2, y2 = bbox[:4]
+        scaled_x1 = max(0, min(width, int(round(x1 * scale_x))))
+        scaled_y1 = max(0, min(height, int(round(y1 * scale_y))))
+        scaled_x2 = max(0, min(width, int(round(x2 * scale_x))))
+        scaled_y2 = max(0, min(height, int(round(y2 * scale_y))))
+
+        return {
+            "bbox": [scaled_x1, scaled_y1, scaled_x2, scaled_y2],
+            "bbox_xywh": {
+                "x": scaled_x1,
+                "y": scaled_y1,
+                "w": max(0, scaled_x2 - scaled_x1),
+                "h": max(0, scaled_y2 - scaled_y1),
+            },
+        }
+
+    def _rolling_average(self, current_avg: float, total_count: int, new_value: float) -> float:
+        if total_count <= 1:
+            return float(new_value)
+        previous_count = total_count - 1
+        return (current_avg * previous_count + float(new_value)) / total_count
+
+    def _min_datetime(self, current: Optional[str], new_value: str) -> str:
+        if not current or new_value < current:
+            return new_value
+        return current
+
+    def _max_datetime(self, current: Optional[str], new_value: str) -> str:
+        if not current or new_value > current:
+            return new_value
+        return current

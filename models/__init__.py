@@ -4,7 +4,6 @@
 from dataclasses import dataclass, field
 from typing import Dict, List, Any, Optional
 from datetime import datetime
-import numpy as np
 
 
 @dataclass
@@ -17,9 +16,24 @@ class Photo:
     location: Dict[str, Any]  # {lat, lng, name}
     original_path: Optional[str] = None  # 原始照片路径（HEIC等）
     compressed_path: Optional[str] = None  # 压缩后的JPEG路径（用于VLM）
+    boxed_path: Optional[str] = None  # 带框图片路径（用于VLM提示）
+    face_image_hash: Optional[str] = None  # face-recognition 侧的图像哈希
+    primary_person_id: Optional[str] = None  # 当前相册的主用户 ID
 
     # 人脸识别结果
-    faces: List[Dict] = field(default_factory=list)  # [{"person_id": "person_0", "confidence": 0.95, "bbox": [...]}]
+    faces: List[Dict] = field(default_factory=list)
+    # [
+    #   {
+    #     "face_id": str,
+    #     "person_id": "Person_001",
+    #     "score": 0.98,
+    #     "similarity": 0.87,
+    #     "faiss_id": 12,
+    #     "bbox": [x1, y1, x2, y2],
+    #     "bbox_xywh": {"x": 10, "y": 20, "w": 30, "h": 40},
+    #     "kps": [...]
+    #   }
+    # ]
 
     # VLM分析结果（新结构）
     vlm_analysis: Optional[Dict] = None
@@ -61,7 +75,7 @@ class Person:
     """人物对象"""
     person_id: str
     name: str
-    features: List[np.ndarray] = field(default_factory=list)  # 人脸特征向量
+    features: List[Any] = field(default_factory=list)  # 人脸特征向量
     photo_count: int = 0
     first_seen: Optional[datetime] = None
     last_seen: Optional[datetime] = None

@@ -8,6 +8,14 @@ PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 CACHE_DIR = os.path.join(PROJECT_ROOT, "cache")
 OUTPUT_DIR = os.path.join(PROJECT_ROOT, "output")
 
+try:
+    from dotenv import load_dotenv
+except Exception:
+    load_dotenv = None
+
+if load_dotenv is not None:
+    load_dotenv(os.path.join(PROJECT_ROOT, ".env"))
+
 # Demo配置
 MAX_PHOTOS = 50  # Demo阶段最多处理50张照片
 DEMO_MODE = True  # Demo模式
@@ -15,15 +23,31 @@ DEMO_MODE = True  # Demo模式
 # API配置 - 从环境变量读取
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 AMAP_API_KEY = "263f3f40b5ac8921c2a98616ffa96201"  # 高德地图API（逆地理编码）
+
+# 代理服务配置（可选）
+USE_API_PROXY = os.getenv("USE_API_PROXY", "false").lower() == "true"
+API_PROXY_URL = os.getenv("API_PROXY_URL", "")  # 代理服务基础 URL
+API_PROXY_KEY = os.getenv("API_PROXY_KEY", "")  # 代理服务 API Key
+API_PROXY_MODEL = os.getenv("API_PROXY_MODEL", "gemini-2.0-flash")  # 代理支持的模型
+
 VLM_MODEL = "gemini-2.0-flash"
 LLM_MODEL = "gemini-2.5-flash"  # 画像生成使用 Flash 2.5
 
-# 人脸识别配置
-FACE_THRESHOLD = 0.70  # 相似度阈值（降低到0.70，提高召回率）
-FACE_MODEL = "Facenet512"  # DeepFace使用的模型（换用更准确的Facenet512）
-FACE_DETECTOR = "opencv"  # 人脸检测器
-FACE_ALIGN = True  # 是否对齐人脸
-FACE_MIN_SIZE = 70  # 最小人脸尺寸（像素），过滤小脸
+# 人脸识别配置（使用 /Users/ziyan/Documents/face-recognition）
+FACE_RECOGNITION_SRC_PATH = os.getenv(
+    "FACE_RECOGNITION_SRC_PATH",
+    "/Users/ziyan/Documents/face-recognition/src",
+)
+FACE_MODEL_NAME = os.getenv("FACE_MODEL_NAME", "buffalo_l")
+FACE_MAX_SIDE = int(os.getenv("FACE_MAX_SIDE", "1920"))
+FACE_DET_THRESHOLD = float(os.getenv("FACE_DET_THRESHOLD", "0.60"))
+FACE_SIM_THRESHOLD = float(os.getenv("FACE_SIM_THRESHOLD", "0.50"))
+FACE_MIN_SIZE = int(os.getenv("FACE_MIN_SIZE", "70"))  # 最小人脸尺寸（像素）
+FACE_PROVIDERS = tuple(
+    provider.strip()
+    for provider in os.getenv("FACE_PROVIDERS", "CPUExecutionProvider").split(",")
+    if provider.strip()
+)
 
 # 图片处理配置
 MAX_IMAGE_SIZE = 1536  # 压缩后最大边长
@@ -48,7 +72,9 @@ else:
 
 # 存储路径
 VLM_CACHE_PATH = os.path.join(CACHE_DIR, "Vyoyo.json")  # VLM分析结果
-FACE_DB_PATH = os.path.join(CACHE_DIR, "face_db.json")
+FACE_INDEX_PATH = os.path.join(CACHE_DIR, "faces.index")
+FACE_STATE_PATH = os.path.join(CACHE_DIR, "face_recognition_state.json")
+FACE_OUTPUT_PATH = os.path.join(CACHE_DIR, "face_recognition_output.json")
 FEATURE_DB_PATH = os.path.join(CACHE_DIR, "vlm_feature_db.json")  # VLM特征库
 OUTPUT_PATH = os.path.join(OUTPUT_DIR, "事件yoyo.json")  # 事件提取结果
 DETAILED_OUTPUT_PATH = os.path.join(OUTPUT_DIR, "memory_detailed.md")

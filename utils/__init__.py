@@ -5,9 +5,6 @@ import json
 import os
 from datetime import datetime
 from typing import Dict, List, Any
-from PIL import Image
-import numpy as np
-from geopy.distance import geodesic
 
 
 def compress_image(image_path: str, output_path: str, max_size: int = 1536, quality: int = 85) -> str:
@@ -24,6 +21,8 @@ def compress_image(image_path: str, output_path: str, max_size: int = 1536, qual
         压缩后的图片路径
     """
     from config import MAX_IMAGE_SIZE, JPEG_QUALITY
+
+    from PIL import Image
 
     img = Image.open(image_path)
 
@@ -105,6 +104,8 @@ def calculate_distance(loc1: Dict, loc2: Dict) -> float:
 
     if "lat" not in loc2 or "lng" not in loc2:
         return 0
+
+    from geopy.distance import geodesic
 
     point1 = (loc1["lat"], loc1["lng"])
     point2 = (loc2["lat"], loc2["lng"])
@@ -202,7 +203,7 @@ def format_timestamp(dt: datetime) -> str:
     return dt.strftime("%Y-%m-%d %H:%M:%S")
 
 
-def cosine_similarity(vec1: np.ndarray, vec2: np.ndarray) -> float:
+def cosine_similarity(vec1, vec2) -> float:
     """
     计算余弦相似度
 
@@ -213,4 +214,6 @@ def cosine_similarity(vec1: np.ndarray, vec2: np.ndarray) -> float:
     Returns:
         相似度（0-1）
     """
+    import numpy as np
+
     return np.dot(vec1, vec2) / (np.linalg.norm(vec1) * np.linalg.norm(vec2))

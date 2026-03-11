@@ -21,7 +21,7 @@ from services.image_processor import ImageProcessor
 from services.face_recognition import FaceRecognition
 from services.vlm_analyzer import VLMAnalyzer
 from services.llm_processor import LLMProcessor
-from utils import save_json, format_timestamp
+from utils import save_json
 
 
 def show_progress(current: int, total: int, message: str = ""):
@@ -37,7 +37,12 @@ def show_progress(current: int, total: int, message: str = ""):
     print(f"\r处理中... [{bar}] {current}/{total} ({percent:.0f}%) {message}", end='', flush=True)
 
 
-def print_simple_summary(events: List, relationships: List, profile_path: str = None):
+def print_simple_summary(
+    events: List,
+    relationships: List,
+    profile_path: str = None,
+    primary_person_id: str = None,
+):
     """打印简洁版摘要（终端输出）"""
     print("\n\n" + "=" * 50)
     print("记忆提取完成")
@@ -60,17 +65,29 @@ def print_simple_summary(events: List, relationships: List, profile_path: str = 
     else:
         print(f"  画像生成失败")
 
+    if primary_person_id:
+        print(f"\n主用户ID：{primary_person_id}")
+
     # 输出路径
     print(f"\n结果已保存到: {OUTPUT_PATH}")
     print(f"详细报告已保存到: {DETAILED_OUTPUT_PATH}")
     print(f"VLM缓存已保存到: {VLM_CACHE_PATH}")
+    print(f"人脸识别输出已保存到: {FACE_OUTPUT_PATH}")
 
 
-def save_detailed_report(events: List, relationships: List, face_db: dict):
+def save_detailed_report(events: List, relationships: List, face_output: dict):
     """保存详细版报告（Markdown格式）- 不包含用户画像"""
     report = []
     report.append("# 记忆工程 - 详细报告\n")
     report.append(f"**生成时间**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
+
+    primary_person_id = face_output.get("primary_person_id")
+    metrics = face_output.get("metrics", {})
+    report.append("## 人脸识别摘要\n")
+    report.append(f"- **主用户 ID**: {primary_person_id or '未识别'}\n")
+    report.append(f"- **图片数**: {metrics.get('total_images', 0)}\n")
+    report.append(f"- **人脸数**: {metrics.get('total_faces', 0)}\n")
+    report.append(f"- **人物数**: {metrics.get('total_persons', 0)}\n\n")
 
     # 事件详情
     report.append("## 事件详情\n")
@@ -130,7 +147,12 @@ def save_detailed_report(events: List, relationships: List, face_db: dict):
         f.writelines(report)
 
 
-def save_final_output(events: List, relationships: List, face_db: dict):
+def save_final_output(
+    events: List,
+    relationships: List,
+    face_output: dict,
+    primary_person_id: str = None,
+):
     """保存最终输出（JSON格式）- 不包含用户画像（画像单独保存为Markdown）"""
     output = {
         "metadata": {
@@ -139,8 +161,9 @@ def save_final_output(events: List, relationships: List, face_db: dict):
             "total_relationships": len(relationships),
             "models": {
                 "vlm": VLM_MODEL,
-                "llm": LLM_MODEL
-            }
+                "llm": LLM_MODEL,
+            },
+            "primary_person_id": primary_person_id,
         },
         "events": [
             {
@@ -176,16 +199,7 @@ def save_final_output(events: List, relationships: List, face_db: dict):
             }
             for r in relationships
         ],
-        "face_db": {
-            person_id: {
-                "name": person.name,
-                "photo_count": person.photo_count,
-                "first_seen": person.first_seen.isoformat() if person.first_seen else None,
-                "last_seen": person.last_seen.isoformat() if person.last_seen else None,
-                "avg_confidence": person.avg_confidence
-            }
-            for person_id, person in face_db.items()
-        }
+        "face_recognition": face_output,
     }
 
     save_json(output, OUTPUT_PATH)
@@ -231,21 +245,25 @@ def main():
         face_rec.process_photo(photo)
 
     face_db = face_rec.get_all_persons()
-    print(f"\n  识别了 {len(face_db)} 个人物")
+    face_output = face_rec.get_face_output()
+    print(f"\n  识别了 {face_output['metrics']['total_persons']} 个人物")
 
-    # Step 4: 重排主角 + 画框
-    print("\n[4/9] 重排主角并绘制人脸框...")
+    # Step 4: 确定主用户 + 画框
+    print("\n[4/9] 确定主用户并绘制人脸框...")
     face_rec.reorder_protagonist(photos)
     face_db = face_rec.get_all_persons()
+    face_output = face_rec.get_face_output()
 
-    protagonist = face_db.get("person_0")
-    if protagonist:
-        print(f"  主角：P0（出现 {protagonist.photo_count} 次）")
+    primary_person_id = face_rec.get_primary_person_id()
+    primary_person = face_db.get(primary_person_id) if primary_person_id else None
+    if primary_person_id and primary_person:
+        print(f"  主用户：{primary_person_id}（出现 {primary_person.photo_count} 次）")
 
     # 绘制人脸框
     boxed_count = 0
     for photo in photos:
         if photo.faces:
+            photo.primary_person_id = primary_person_id
             boxed_path = image_processor.draw_face_boxes(photo)
             if boxed_path:
                 photo.boxed_path = boxed_path
@@ -272,7 +290,7 @@ def main():
                 print(f"\n  [{i+1}/{len(photos)}] {photo.filename}")
                 print(f"    人脸: {', '.join([f['person_id'] for f in photo.faces])}")
 
-            result = vlm.analyze_photo(photo, face_db)
+            result = vlm.analyze_photo(photo, face_db, primary_person_id)
 
             if result:
                 vlm.add_result(photo, result)
@@ -283,35 +301,41 @@ def main():
 
     # Step 7: LLM处理
     print("\n[7/9] LLM处理（事件提取、关系推断、画像生成）...")
-    llm = LLMProcessor()
-
-    # 提取事件
-    print("  - 提取事件...")
-    events = llm.extract_events(vlm.results)
-    print(f"    提取了 {len(events)} 个事件")
-
-    # 推断关系
-    print("  - 推断人物关系...")
-    relationships = llm.infer_relationships(vlm.results, face_db)
-    print(f"    推断了 {len(relationships)} 个关系")
-
-    # 生成画像
-    print("  - 生成用户画像（使用 Flash 2.5）...")
-    profile_markdown = llm.generate_profile(events, relationships)
+    events = []
+    relationships = []
     profile_path = None
-    if profile_markdown:
-        profile_path = save_profile_report(profile_markdown)
-        print(f"    画像报告已保存: {profile_path}")
+
+    if not vlm.results:
+        print("  - VLM结果为空，跳过LLM处理，仅保存人脸识别结果")
     else:
-        print("    画像生成失败")
+        llm = LLMProcessor()
+
+        # 提取事件
+        print("  - 提取事件...")
+        events = llm.extract_events(vlm.results, primary_person_id)
+        print(f"    提取了 {len(events)} 个事件")
+
+        # 推断关系
+        print("  - 推断人物关系...")
+        relationships = llm.infer_relationships(vlm.results, face_db, primary_person_id)
+        print(f"    推断了 {len(relationships)} 个关系")
+
+        # 生成画像
+        print("  - 生成用户画像（使用 Flash 2.5）...")
+        profile_markdown = llm.generate_profile(events, relationships, primary_person_id)
+        if profile_markdown:
+            profile_path = save_profile_report(profile_markdown)
+            print(f"    画像报告已保存: {profile_path}")
+        else:
+            print("    画像生成失败")
 
     # Step 8: 保存结果
     print("\n[8/9] 保存结果...")
-    save_final_output(events, relationships, face_db)
-    save_detailed_report(events, relationships, face_db)
+    save_final_output(events, relationships, face_output, primary_person_id)
+    save_detailed_report(events, relationships, face_output)
 
     # 输出摘要
-    print_simple_summary(events, relationships, profile_path)
+    print_simple_summary(events, relationships, profile_path, primary_person_id)
 
 
 if __name__ == "__main__":

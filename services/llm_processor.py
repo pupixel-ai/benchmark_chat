@@ -4,20 +4,118 @@ LLM处理模块：事件提取、关系推断、画像生成
 import json
 from datetime import datetime
 from typing import List, Dict, Optional
-from google import genai
 from models import Event, Relationship, UserProfile
-from config import GEMINI_API_KEY, LLM_MODEL, MIN_PHOTO_COUNT, MIN_TIME_SPAN_DAYS, MIN_SCENE_VARIETY
+from config import GEMINI_API_KEY, LLM_MODEL, MIN_PHOTO_COUNT, MIN_TIME_SPAN_DAYS, MIN_SCENE_VARIETY, USE_API_PROXY, API_PROXY_URL, API_PROXY_KEY, API_PROXY_MODEL
 from utils import calculate_distance, time_overlap, is_weekend
 
 
 class LLMProcessor:
-    """LLM处理器"""
+    """LLM处理器 - 支持官方 API 和代理服务"""
 
     def __init__(self):
-        self.client = genai.Client(api_key=GEMINI_API_KEY)
+        self.use_proxy = USE_API_PROXY
         self.model = LLM_MODEL
+        self.requests = None
+        self.genai = None
 
-    def extract_events(self, vlm_results: List[Dict]) -> List[Event]:
+        if self.use_proxy:
+            # 使用代理服务
+            if not API_PROXY_URL or not API_PROXY_KEY:
+                raise ValueError("使用代理服务需要配置 API_PROXY_URL 和 API_PROXY_KEY")
+            import requests
+
+            self.requests = requests
+            self.proxy_url = API_PROXY_URL
+            self.proxy_key = API_PROXY_KEY
+            self.proxy_model = API_PROXY_MODEL
+            print(f"[LLM] 使用代理服务: {self.proxy_url}")
+        else:
+            # 使用官方 Gemini API
+            from google import genai
+
+            self.genai = genai
+            self.client = genai.Client(api_key=GEMINI_API_KEY)
+            print(f"[LLM] 使用官方 Gemini API")
+
+    def _get_people(self, item: Dict) -> List[Dict]:
+        people = item.get("vlm_analysis", {}).get("people", [])
+        return people if isinstance(people, list) else []
+
+    def _get_photo_person_ids(self, item: Dict) -> List[str]:
+        person_ids = []
+        for person in self._get_people(item):
+            person_id = person.get("person_id")
+            if person_id and person_id not in person_ids:
+                person_ids.append(person_id)
+
+        for person_id in item.get("face_person_ids", []):
+            if person_id and person_id not in person_ids:
+                person_ids.append(person_id)
+
+        return person_ids
+
+    def _get_scene_location(self, item: Dict) -> str:
+        scene = item.get("vlm_analysis", {}).get("scene", {})
+        if isinstance(scene, dict):
+            return scene.get("location_detected", "")
+        return str(scene or "")
+
+    def _get_scene_description(self, item: Dict) -> str:
+        scene = item.get("vlm_analysis", {}).get("scene", {})
+        if isinstance(scene, dict):
+            parts = []
+            location = scene.get("location_detected", "")
+            if location:
+                parts.append(f"地点识别: {location}")
+            environment = scene.get("environment_description", "")
+            if environment:
+                parts.append(f"场景概述: {environment}")
+            details = scene.get("environment_details", [])
+            if details:
+                parts.append(f"环境细节: {', '.join(details)}")
+            visual_clues = scene.get("visual_clues", [])
+            if visual_clues:
+                parts.append(f"视觉线索: {', '.join(visual_clues)}")
+            lighting = scene.get("lighting", "")
+            if lighting:
+                parts.append(f"光线: {lighting}")
+            weather = scene.get("weather", "")
+            if weather:
+                parts.append(f"天气: {weather}")
+            return "；".join(parts)
+        return str(scene or "")
+
+    def _get_event_value(self, item: Dict, key: str) -> str:
+        event = item.get("vlm_analysis", {}).get("event", {})
+        if isinstance(event, dict):
+            return event.get(key, "")
+        if key == "activity":
+            return str(event or "")
+        return ""
+
+    def _get_detail_text(self, item: Dict) -> str:
+        parts = []
+
+        details = item.get("vlm_analysis", {}).get("details", [])
+        if isinstance(details, list):
+            parts.extend([str(detail) for detail in details if detail])
+        elif details:
+            parts.append(str(details))
+
+        key_objects = item.get("vlm_analysis", {}).get("key_objects", [])
+        if isinstance(key_objects, list):
+            parts.extend([str(obj) for obj in key_objects if obj])
+        elif key_objects:
+            parts.append(str(key_objects))
+
+        unique_parts = []
+        for part in parts:
+            if part not in unique_parts:
+                unique_parts.append(part)
+
+        return ", ".join(unique_parts)
+
+    def extract_events(self, vlm_results: List[Dict], primary_person_id: Optional[str] = None) -> List[Event]:
         """
         从VLM结果中提取事件（直接让LLM分析全部数据）
 
@@ -27,15 +125,22 @@ class LLMProcessor:
         Returns:
             事件列表
         """
+        if not vlm_results:
+            return []
+
         # 直接让LLM分析全部VLM数据，不进行预分段
-        all_events = self._extract_events_from_all_photos(vlm_results)
+        all_events = self._extract_events_from_all_photos(vlm_results, primary_person_id)
 
         # 物理约束检查
         all_events = self._check_constraints(all_events)
 
         return all_events
 
-    def _extract_events_from_all_photos(self, vlm_results: List[Dict]) -> List[Event]:
+    def _extract_events_from_all_photos(
+        self,
+        vlm_results: List[Dict],
+        primary_person_id: Optional[str],
+    ) -> List[Event]:
         """
         用LLM从全部照片中提取事件
 
@@ -45,18 +150,14 @@ class LLMProcessor:
         Returns:
             事件列表
         """
-        prompt = self._create_event_extraction_prompt(vlm_results)
+        prompt = self._create_event_extraction_prompt(vlm_results, primary_person_id)
 
         try:
-            response = self.client.models.generate_content(
-                model=self.model,
-                contents=prompt,
-                config=genai.types.GenerateContentConfig(
-                    response_mime_type="application/json"
-                )
-            )
+            if self.use_proxy:
+                result = self._call_llm_via_proxy(prompt)
+            else:
+                result = self._call_llm_via_official_api(prompt)
 
-            result = json.loads(response.text)
             events = []
 
             for i, event_data in enumerate(result.get("events", [])):
@@ -118,17 +219,21 @@ class LLMProcessor:
             print(f"警告：事件提取失败: {e}")
             return []
 
-    def _create_event_extraction_prompt(self, vlm_results: List[Dict]) -> str:
+    def _create_event_extraction_prompt(
+        self,
+        vlm_results: List[Dict],
+        primary_person_id: Optional[str],
+    ) -> str:
         """创建事件提取prompt（适配新的简化VLM格式）"""
         photos_info = []
 
         for item in vlm_results:
-            # 获取地点：使用EXIF GPS，VLM现在不提供location_detected
+            # 获取地点：优先使用 EXIF 地址，缺失时退回 VLM 场景识别
             exif_location = item['location'].get('name', '未知') if item.get('location') else '未知'
-            location = exif_location
+            location = exif_location if exif_location and exif_location != '未知' else self._get_scene_location(item)
 
             # 获取人物详情
-            people_details = item['vlm_analysis'].get('people', [])
+            people_details = self._get_people(item)
             people_str = ""
             for p in people_details:
                 pid = p.get('person_id', '未知')
@@ -145,22 +250,13 @@ class LLMProcessor:
       互动: {interaction}
       表情: {expression}"""
 
-            # 获取场景信息（VLM新格式：scene是字符串）
-            scene_str = item['vlm_analysis'].get('scene', '')
-            event_info = item['vlm_analysis'].get('event', {})
-
-            # 兼容event可能是字符串的情况
-            if isinstance(event_info, str):
-                event_activity = event_info
-                event_social = ''
-                event_mood = ''
-            else:
-                event_activity = event_info.get('activity', '')
-                event_social = event_info.get('social_context', '')
-                event_mood = event_info.get('mood', '')
+            scene_str = self._get_scene_description(item)
+            event_activity = self._get_event_value(item, 'activity')
+            event_social = self._get_event_value(item, 'social_context')
+            event_mood = self._get_event_value(item, 'mood')
 
             # 获取时间信息
-            time_info = item['vlm_analysis'].get('Time', {})
+            time_info = item['vlm_analysis'].get('Time', {}) or item['vlm_analysis'].get('time', {})
             if isinstance(time_info, dict):
                 date_note = time_info.get('date', '')
                 time_note = time_info.get('time', '')
@@ -169,15 +265,11 @@ class LLMProcessor:
                 time_note = ''
 
             # 获取细节
-            details = item['vlm_analysis'].get('details', '')
-            if isinstance(details, list):
-                details = ', '.join(details)
-            elif isinstance(details, dict):
-                details = str(details)
+            details = self._get_detail_text(item)
 
-            # 获取人物ID列表（从VLM分析结果中）
-            vlm_people = item['vlm_analysis'].get('people', [])
-            person_ids = [p.get('person_id', '') for p in vlm_people]
+            person_ids = self._get_photo_person_ids(item)
+            if not people_str and person_ids:
+                people_str = "\n    - 仅识别到人物ID: " + ", ".join(person_ids)
 
             info = f"""
 【照片 {item['photo_id']}】
@@ -200,6 +292,8 @@ VLM描述: {item['vlm_analysis'].get('summary', '')}
         dates = [item['timestamp'][:10] for item in vlm_results]
         date_info = f"照片拍摄时间范围：{dates[0]} 至 {dates[-1]}，共{len(set(dates))}天"
 
+        primary_label = primary_person_id or "主用户"
+
         prompt = f"""Role: 你是一位资深的人类学专家与社会学行为分析师，擅长从破碎的相册VLM元数据中，通过"时空-行为-关系"三维建模，将零散照片还原为逻辑连贯的"原子事件"，并为后续的用户人格画像（Who/Whom/What）提供高价值的推导证据。
 
 Task:
@@ -209,7 +303,7 @@ Task:
 
 Core Principles (核心原则):
 - 视角法则（关键）：
-  - 判定他拍：若用户（Person_0）出现在中远景、双手未持拍摄设备且姿态自然，必须判定为"他拍"。这意味着现场存在"隐形成员（Invisible Photographer）"，需将其纳入社交动态分析。
+  - 判定他拍：若用户（{primary_label}）出现在中远景、双手未持拍摄设备且姿态自然，必须判定为"他拍"。这意味着现场存在"隐形成员（Invisible Photographer）"，需将其纳入社交动态分析。
   - 判定自拍：若画面出现手臂延伸、持手机姿势或镜面反射。
   - 身份确认：截图或拍摄证件中的人物信息通常是用户本人。
 - 证据溯源：所有推断必须基于事实（如：通过Chanel包装推测经济能力，通过凌晨时段推测生活节奏）。
@@ -229,7 +323,7 @@ Analysis Logic (分析逻辑):
 
 3. 社交建模（Social Mapping）：
    - 识别和统计每个事件中出现的person_id
-   - 识别"核心同伴"：行为亲密、有互动，或在多个连续事件中高频出现的person_id（person_0是主角）
+   - 识别"核心同伴"：行为亲密、有互动，或在多个连续事件中高频出现的person_id（{primary_label} 是用户本人）
    - 识别"环境人物"：仅在特定公共场所出现一次且无互动的person_id
 
 4. 微观线索（Micro-Clues）：
@@ -254,7 +348,7 @@ Output Format (严格执行以下JSON格式):
       }},
       "objective_fact": {{
         "scene_description": "客观事实：环境细节、品牌、构图视角（强调自拍/他拍/监控视角）、人物动作。",
-        "participants": ["person_0", "包含识别出的隐形拍摄者或背景人物"]
+        "participants": ["{primary_label}", "包含识别出的隐形拍摄者或背景人物"]
       }},
       "social_dynamics": [
         {{
@@ -310,7 +404,12 @@ Output Format (严格执行以下JSON格式):
 
         return events
 
-    def infer_relationships(self, vlm_results: List[Dict], face_db: Dict) -> List[Relationship]:
+    def infer_relationships(
+        self,
+        vlm_results: List[Dict],
+        face_db: Dict,
+        primary_person_id: Optional[str],
+    ) -> List[Relationship]:
         """
         推断人物关系
 
@@ -323,9 +422,9 @@ Output Format (严格执行以下JSON格式):
         """
         relationships = []
 
-        # 遍历所有人脸库中的人物（除了主角）
+        # 遍历所有人脸库中的人物（排除主用户）
         for person_id, person_info in face_db.items():
-            if person_id == "person_0" or person_info.name == "主角":
+            if primary_person_id and person_id == primary_person_id:
                 continue
 
             # 检查是否满足触发条件
@@ -336,10 +435,14 @@ Output Format (严格执行以下JSON格式):
                 continue
 
             # 收集证据
-            evidence = self._collect_relationship_evidence(person_id, vlm_results)
+            evidence = self._collect_relationship_evidence(
+                person_id,
+                vlm_results,
+                primary_person_id,
+            )
 
             # 推断关系
-            relationship = self._infer_relationship(person_id, evidence)
+            relationship = self._infer_relationship(person_id, evidence, primary_person_id)
             relationships.append(relationship)
 
         return relationships
@@ -373,18 +476,19 @@ Output Format (严格执行以下JSON格式):
         scenes = set()
 
         for result in vlm_results:
-            # 从VLM分析结果中获取人物列表
-            vlm_people = result["vlm_analysis"].get("people", [])
-            for person in vlm_people:
-                if person.get("person_id") == person_id:
-                    scene = result["vlm_analysis"].get("scene", {}).get("location_detected", "")
-                    if scene:
-                        scenes.add(scene)
-                    break
+            if person_id in self._get_photo_person_ids(result):
+                scene = self._get_scene_location(result)
+                if scene:
+                    scenes.add(scene)
 
         return list(scenes)
 
-    def _collect_relationship_evidence(self, person_id: str, vlm_results: List[Dict]) -> Dict:
+    def _collect_relationship_evidence(
+        self,
+        person_id: str,
+        vlm_results: List[Dict],
+        primary_person_id: Optional[str],
+    ) -> Dict:
         """收集关系推断的证据"""
         evidence = {
             "photo_count": 0,
@@ -399,12 +503,8 @@ Output Format (严格执行以下JSON格式):
         # 找出包含该人物的所有照片
         co_photos = []
         for result in vlm_results:
-            # 从VLM分析结果中获取人物列表
-            vlm_people = result["vlm_analysis"].get("people", [])
-            for person in vlm_people:
-                if person.get("person_id") == person_id:
-                    co_photos.append(result)
-                    break
+            if person_id in self._get_photo_person_ids(result):
+                co_photos.append(result)
 
         evidence["photo_count"] = len(co_photos)
 
@@ -419,16 +519,12 @@ Output Format (严格执行以下JSON格式):
 
         # 提取场景和互动行为
         for photo in co_photos:
-            scene = photo["vlm_analysis"].get("scene", {}).get("location_detected", "")
+            scene = self._get_scene_location(photo)
             if scene and scene not in evidence["scenes"]:
                 evidence["scenes"].append(scene)
 
             # 提取互动行为
-            event_data = photo["vlm_analysis"].get("event", {})
-            if isinstance(event_data, dict):
-                interaction = event_data.get("interaction", "")
-            else:
-                interaction = str(event_data)
+            interaction = self._get_event_value(photo, "interaction")
             if interaction and interaction not in evidence["interaction_behavior"]:
                 evidence["interaction_behavior"].append(interaction)
 
@@ -437,8 +533,8 @@ Output Format (严格执行以下JSON格式):
                 evidence["sample_scenes"].append({
                     "timestamp": photo["timestamp"],
                     "scene": scene,
-                    "summary": photo["vlm_analysis"]["summary"],
-                    "activity": photo["vlm_analysis"]["event"]["activity"]
+                    "summary": photo["vlm_analysis"].get("summary", ""),
+                    "activity": self._get_event_value(photo, "activity"),
                 })
 
         # 计算周末频率
@@ -450,30 +546,31 @@ Output Format (严格执行以下JSON格式):
 
         # 判断是否只和用户在一起
         for photo in co_photos:
-            # 从 VLM 分析结果中获取人物列表
-            vlm_people = photo.get("vlm_analysis", {}).get("people", [])
-            other_people = [p.get("person_id") for p in vlm_people
-                           if p.get("person_id") and p.get("person_id") != person_id and p.get("person_id") != "person_0"]
+            other_people = [
+                other_person_id
+                for other_person_id in self._get_photo_person_ids(photo)
+                if other_person_id != person_id and other_person_id != primary_person_id
+            ]
             if other_people:
                 evidence["with_user_only"] = False
                 break
 
         return evidence
 
-    def _infer_relationship(self, person_id: str, evidence: Dict) -> Relationship:
+    def _infer_relationship(
+        self,
+        person_id: str,
+        evidence: Dict,
+        primary_person_id: Optional[str],
+    ) -> Relationship:
         """用LLM推断关系"""
-        prompt = self._create_relationship_prompt(person_id, evidence)
+        prompt = self._create_relationship_prompt(person_id, evidence, primary_person_id)
 
         try:
-            response = self.client.models.generate_content(
-                model=self.model,
-                contents=prompt,
-                config=genai.types.GenerateContentConfig(
-                    response_mime_type="application/json"
-                )
-            )
-
-            result = json.loads(response.text)
+            if self.use_proxy:
+                result = self._call_llm_via_proxy(prompt)
+            else:
+                result = self._call_llm_via_official_api(prompt)
 
             return Relationship(
                 person_id=person_id,
@@ -495,7 +592,12 @@ Output Format (严格执行以下JSON格式):
                 reason=f"推断失败: {e}"
             )
 
-    def _create_relationship_prompt(self, person_id: str, evidence: Dict) -> str:
+    def _create_relationship_prompt(
+        self,
+        person_id: str,
+        evidence: Dict,
+        primary_person_id: Optional[str],
+    ) -> str:
         """创建关系推断prompt"""
         sample_scenes_str = ""
         for scene in evidence["sample_scenes"][:3]:
@@ -504,7 +606,9 @@ Output Format (严格执行以下JSON格式):
         # 互动行为描述
         interaction_str = ', '.join(evidence.get("interaction_behavior", [])) if evidence.get("interaction_behavior") else "无"
 
-        prompt = f"""请根据以下证据，判断{person_id}和用户（person_0）的关系类型。
+        primary_label = primary_person_id or "主用户"
+
+        prompt = f"""请根据以下证据，判断{person_id}和用户（{primary_label}）的关系类型。
 
 **证据**：
 - 共同出现次数：{evidence['photo_count']}次
@@ -539,7 +643,12 @@ Output Format (严格执行以下JSON格式):
 
         return prompt
 
-    def generate_profile(self, events: List[Event], relationships: List[Relationship]) -> str:
+    def generate_profile(
+        self,
+        events: List[Event],
+        relationships: List[Relationship],
+        primary_person_id: Optional[str],
+    ) -> str:
         """
         生成用户画像（Markdown格式报告）
 
@@ -550,16 +659,15 @@ Output Format (严格执行以下JSON格式):
         Returns:
             Markdown格式的用户画像报告
         """
-        prompt = self._create_profile_prompt(events, relationships)
+        prompt = self._create_profile_prompt(events, relationships, primary_person_id)
 
         try:
-            response = self.client.models.generate_content(
-                model=self.model,
-                contents=prompt
-                # 不指定 response_mime_type，让LLM自由输出Markdown
-            )
+            if self.use_proxy:
+                result = self._call_profile_via_proxy(prompt)
+            else:
+                result = self._call_profile_via_official_api(prompt)
 
-            return response.text
+            return result
 
         except Exception as e:
             print(f"警告：画像生成失败: {e}")
@@ -573,7 +681,12 @@ Output Format (严格执行以下JSON格式):
 请检查输入数据或重试。
 """
 
-    def _create_profile_prompt(self, events: List[Event], relationships: List[Relationship]) -> str:
+    def _create_profile_prompt(
+        self,
+        events: List[Event],
+        relationships: List[Relationship],
+        primary_person_id: Optional[str],
+    ) -> str:
         """创建画像生成prompt - FBI级别人格画像师版本"""
         # 构建事件详情（包含更多上下文）
         events_str = ""
@@ -620,11 +733,13 @@ Output Format (严格执行以下JSON格式):
 - **推理依据**: {rel.reason}
 """
 
+        primary_label = primary_person_id or "主用户"
+
         prompt = f"""# Role
 你是一位世界级的行为分析专家和 FBI 级别的人格画像师，擅长通过"行为残迹"还原人类灵魂。
 
 # Task
-分析提供的围绕主角的用户事件，产出《用户全维画像分析报告》。
+分析提供的围绕 {primary_label} 的用户事件，产出《用户全维画像分析报告》。
 
 # Reasoning Process (Chain of Thought - 必须在输出前按此逻辑分步思考)
 
@@ -697,3 +812,133 @@ Output Format (严格执行以下JSON格式):
 请开始分析并生成报告："""
 
         return prompt
+
+    def _call_llm_via_official_api(self, prompt: str) -> dict:
+        """通过官方 Gemini API 调用 LLM"""
+        response = self.client.models.generate_content(
+            model=self.model,
+            contents=prompt,
+            config=self.genai.types.GenerateContentConfig(
+                response_mime_type="application/json"
+            )
+        )
+        result = json.loads(response.text)
+        return result
+
+    def _call_llm_via_proxy(self, prompt: str) -> dict:
+        """通过代理服务调用 LLM"""
+        headers = {
+            "x-api-key": self.proxy_key,
+            "Content-Type": "application/json"
+        }
+
+        payload = {
+            "contents": [
+                {
+                    "role": "user",
+                    "parts": [
+                        {
+                            "text": prompt
+                        }
+                    ]
+                }
+            ]
+        }
+
+        url = f"{self.proxy_url}/api/gemini/v1beta/models/{self.proxy_model}:generateContent"
+
+        response = self.requests.post(url, json=payload, headers=headers, timeout=60)
+
+        if response.status_code == 200:
+            response_data = response.json()
+
+            # 提取文本内容
+            if "candidates" in response_data and len(response_data["candidates"]) > 0:
+                candidate = response_data["candidates"][0]
+                if "content" in candidate and "parts" in candidate["content"]:
+                    for part in candidate["content"]["parts"]:
+                        if "text" in part:
+                            try:
+                                # 尝试解析为 JSON
+                                result = json.loads(part["text"])
+                                return result
+                            except json.JSONDecodeError:
+                                # 如果是 Markdown JSON，尝试提取
+                                text = part["text"]
+                                import re
+                                json_match = re.search(r'```json\n(.*?)\n```', text, re.DOTALL)
+                                if json_match:
+                                    json_str = json_match.group(1)
+                                    try:
+                                        result = json.loads(json_str)
+                                        return result
+                                    except:
+                                        pass
+                                # 返回原始文本
+                                return {"text": text}
+
+            return None
+        else:
+            error_msg = f"代理 API 返回状态码 {response.status_code}"
+            if response.text:
+                try:
+                    error_data = response.json()
+                    error_msg += f": {error_data.get('error', {}).get('message', response.text)}"
+                except:
+                    error_msg += f": {response.text[:200]}"
+            raise Exception(error_msg)
+
+    def _call_profile_via_official_api(self, prompt: str) -> str:
+        """通过官方 Gemini API 生成用户画像"""
+        response = self.client.models.generate_content(
+            model=self.model,
+            contents=prompt
+            # 不指定 response_mime_type，让LLM自由输出Markdown
+        )
+        return response.text
+
+    def _call_profile_via_proxy(self, prompt: str) -> str:
+        """通过代理服务生成用户画像"""
+        headers = {
+            "x-api-key": self.proxy_key,
+            "Content-Type": "application/json"
+        }
+
+        payload = {
+            "contents": [
+                {
+                    "role": "user",
+                    "parts": [
+                        {
+                            "text": prompt
+                        }
+                    ]
+                }
+            ]
+        }
+
+        url = f"{self.proxy_url}/api/gemini/v1beta/models/{self.proxy_model}:generateContent"
+
+        response = self.requests.post(url, json=payload, headers=headers, timeout=60)
+
+        if response.status_code == 200:
+            response_data = response.json()
+
+            # 提取文本内容
+            if "candidates" in response_data and len(response_data["candidates"]) > 0:
+                candidate = response_data["candidates"][0]
+                if "content" in candidate and "parts" in candidate["content"]:
+                    for part in candidate["content"]["parts"]:
+                        if "text" in part:
+                            return part["text"]
+
+            return ""
+        else:
+            error_msg = f"代理 API 返回状态码 {response.status_code}"
+            if response.text:
+                try:
+                    error_data = response.json()
+                    error_msg += f": {error_data.get('error', {}).get('message', response.text)}"
+                except:
+                    error_msg += f": {response.text[:200]}"
+            raise Exception(error_msg)

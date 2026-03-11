@@ -1,8 +1,12 @@
-deepface>=0.0.79
 google-genai>=1.0.0
+requests>=2.31.0
 pillow>=10.0.0
 pillow-heif>=0.13.0
 numpy>=1.24.0
 geopy>=2.3.0
 ExifRead>=3.0.0
 python-dotenv>=1.0.0
+faiss-cpu>=1.7.4
+insightface>=0.7.3
+onnxruntime>=1.18
+opencv-python>=4.9

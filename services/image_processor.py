@@ -322,15 +322,34 @@ class ImageProcessor:
                 except:
                     font = ImageFont.load_default()
 
+            primary_person_id = getattr(photo, "primary_person_id", None)
+
             # 为每个人脸画框
             for face in photo.faces:
                 person_id = face["person_id"]
-                bbox = face["bbox"]
-                x, y, w, h = bbox["x"], bbox["y"], bbox["w"], bbox["h"]
+                bbox_xywh = face.get("bbox_xywh")
+                if bbox_xywh:
+                    x = bbox_xywh["x"]
+                    y = bbox_xywh["y"]
+                    w = bbox_xywh["w"]
+                    h = bbox_xywh["h"]
+                else:
+                    bbox = face.get("bbox", [0, 0, 0, 0])
+                    if isinstance(bbox, dict):
+                        x = bbox.get("x", 0)
+                        y = bbox.get("y", 0)
+                        w = bbox.get("w", 0)
+                        h = bbox.get("h", 0)
+                    else:
+                        x1, y1, x2, y2 = bbox[:4]
+                        x = int(x1)
+                        y = int(y1)
+                        w = max(0, int(x2 - x1))
+                        h = max(0, int(y2 - y1))
 
                 # 根据person_id选择颜色
-                if person_id == "person_0":
-                    color = (255, 0, 0)  # 红色 - 主角
+                if primary_person_id and person_id == primary_person_id:
+                    color = (255, 0, 0)  # 红色 - 主用户
                 else:
                     color = (0, 0, 255)  # 蓝色 - 其他人物
 
@@ -338,7 +357,7 @@ class ImageProcessor:
                 draw.rectangle([x, y, x+w, y+h], outline=color, width=3)
 
                 # 画标签（框上方）
-                label = person_id.replace("person_", "P")  # person_0 → P0
+                label = person_id
                 # 计算标签背景
                 text_bbox = draw.textbbox((x, y - 35), label, font=font)
                 draw.rectangle([text_bbox[0]-2, text_bbox[1]-2, text_bbox[2]+2, text_bbox[3]+2], fill=color)
