@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
-import { Plus } from "lucide-react";
+import { ArrowUp, Plus } from "lucide-react";
 import type { FailureItem, TaskListResponse, TaskState, UploadItem } from "@/lib/types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
@@ -135,7 +135,7 @@ function WaitingDots({
 
   return (
     <div
-      className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 ${
+      className={`inline-flex items-center gap-2 rounded-[12px] border px-3 py-2 ${
         compact ? "text-xs" : "text-sm"
       } ${tone}`}
     >
@@ -163,7 +163,7 @@ function UploadCarousel({
   showRecognitionBadge: boolean;
 }) {
   return (
-    <section className="rounded-[2rem] border border-[#d8c9b7] bg-[rgba(250,246,239,0.9)] p-6 shadow-card">
+    <section className="rounded-[18px] border border-[#d8c9b7] bg-[rgba(250,246,239,0.9)] p-6 shadow-card">
       <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
         <div>
           <p className="font-mono text-xs uppercase tracking-[0.24em] text-black/40">任务图片走廊</p>
@@ -176,7 +176,7 @@ function UploadCarousel({
         {items.map((item) => (
           <article
             key={item.id}
-            className="relative min-w-[260px] snap-start overflow-hidden rounded-[1.6rem] border border-[#ddcebb] bg-[#f7f0e6]"
+            className="relative min-w-[260px] snap-start overflow-hidden rounded-[14px] border border-[#ddcebb] bg-[#f7f0e6]"
           >
             <div className="relative h-52 overflow-hidden bg-[#ece2d3]">
               {item.imageUrl ? (
@@ -210,10 +210,10 @@ function UploadCarousel({
 
 function FailureList({ failures }: { failures: FailureItem[] }) {
   return (
-    <section className="rounded-[2rem] border border-[#d8c9b7] bg-[rgba(249,244,237,0.94)] p-6 shadow-card">
+    <section className="rounded-[18px] border border-[#d8c9b7] bg-[rgba(249,244,237,0.94)] p-6 shadow-card">
       <div className="flex items-center justify-between gap-4">
         <p className="font-mono text-sm uppercase tracking-[0.2em] text-black/45">坏图与失败记录</p>
-        <span className="rounded-full bg-[#ead8ca] px-3 py-1 font-mono text-xs text-[#8a5637]">{failures.length}</span>
+        <span className="rounded-[10px] bg-[#ead8ca] px-3 py-1 font-mono text-xs text-[#8a5637]">{failures.length}</span>
       </div>
 
       {failures.length === 0 ? (
@@ -223,12 +223,12 @@ function FailureList({ failures }: { failures: FailureItem[] }) {
           {failures.map((failure) => (
             <div
               key={`${failure.image_id}-${failure.step}-${failure.filename}`}
-              className="rounded-[1.4rem] border border-[#e1cfbf] bg-[#fbf5ed] p-4"
+              className="rounded-[12px] border border-[#e1cfbf] bg-[#fbf5ed] p-4"
             >
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-semibold">{failure.filename}</span>
-                <span className="rounded-full bg-black/5 px-2 py-1 font-mono text-xs">{failure.image_id}</span>
-                <span className="rounded-full bg-black/5 px-2 py-1 font-mono text-xs">{failure.step}</span>
+                <span className="rounded-[10px] bg-black/5 px-2 py-1 font-mono text-xs">{failure.image_id}</span>
+                <span className="rounded-[10px] bg-black/5 px-2 py-1 font-mono text-xs">{failure.step}</span>
               </div>
               <p className="mt-2 text-sm leading-6 text-black/65">{failure.error}</p>
             </div>
@@ -239,39 +239,30 @@ function FailureList({ failures }: { failures: FailureItem[] }) {
   );
 }
 
-function RecallChatPlaceholder() {
+function RecallChatDock() {
   return (
-    <section className="rounded-[2rem] border border-[#d8c9b7] bg-[rgba(242,236,228,0.84)] p-6 opacity-90 shadow-card">
-      <div className="rounded-[1.8rem] border border-dashed border-black/10 bg-[rgba(255,255,255,0.34)] p-6">
-        <p className="font-mono text-xs uppercase tracking-[0.24em] text-black/35">Recall Chat</p>
-        <h3 className="mt-3 font-display text-3xl text-ink">召回测试聊天窗口</h3>
-        <p className="mt-3 max-w-2xl text-sm leading-6 text-black/50">
-          这里会承接记忆布局完成后的对话式召回测试。目前窗口保持灰置，只占位不启用。
-        </p>
-
-        <div className="mt-5 rounded-[1.6rem] border border-black/8 bg-[rgba(255,255,255,0.45)] p-4">
-          <WaitingDots label="聊天能力暂未开放" muted />
-        </div>
-
-        <div className="mt-4 flex items-end gap-3 rounded-[1.6rem] border border-black/8 bg-[rgba(249,246,240,0.95)] p-4">
+    <div className="fixed bottom-4 left-4 right-4 z-40 md:left-[348px] md:right-6">
+      <div className="mx-auto max-w-[1320px] rounded-[18px] border border-[#d8c9b7] bg-[rgba(248,243,236,0.96)] p-4 shadow-card backdrop-blur">
+        <div className="flex items-end gap-3">
           <textarea
             disabled
-            rows={3}
+            rows={1}
             placeholder="记忆布局完成后可在这里输入召回问题"
-            className="min-h-[96px] flex-1 resize-none rounded-[1.2rem] border border-black/8 bg-[#f2eee8] px-4 py-3 text-sm text-black/40 outline-none"
+            className="h-11 max-h-[72px] min-h-[44px] flex-1 resize-none overflow-y-auto rounded-[14px] border border-black/8 bg-[#f4efe7] px-4 py-[10px] text-sm leading-6 text-black/40 outline-none"
           />
           <button
             type="button"
             disabled
-            className="rounded-full border border-black/10 bg-[#ebe4d8] px-5 py-3 text-sm text-black/35"
+            aria-label="发送"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-[14px] border border-black/10 bg-[#ebe4d8] text-black/35"
           >
-            发送
+            <ArrowUp size={16} strokeWidth={2} />
           </button>
         </div>
-      </div>
 
-      <p className="mt-4 px-1 text-xs text-black/45">记忆布局完成后可以进行召回测试</p>
-    </section>
+        <p className="mt-3 px-1 text-xs text-black/45">记忆布局完成后可以进行召回测试</p>
+      </div>
+    </div>
   );
 }
 
@@ -503,13 +494,13 @@ export default function HomePage() {
           <div className="sticky top-6 flex h-[calc(100vh-3rem)] flex-col">
             <div className="flex items-center justify-between px-3 pb-4">
               <p className="text-sm font-medium text-black/70">任务列表</p>
-              <button
-                type="button"
-                onClick={openDraftTask}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-black/10 bg-white/70 text-black/65 transition hover:bg-white"
-                aria-label="新建任务"
-              >
-                <Plus size={17} strokeWidth={1.8} />
+                <button
+                  type="button"
+                  onClick={openDraftTask}
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-[12px] border border-black/10 bg-white/70 text-black/65 transition hover:bg-white"
+                  aria-label="新建任务"
+                >
+                  <Plus size={17} strokeWidth={1.8} />
               </button>
             </div>
 
@@ -518,7 +509,7 @@ export default function HomePage() {
                 <button
                   type="button"
                   onClick={openDraftTask}
-                  className="w-full rounded-2xl bg-white/75 px-3 py-3 text-left shadow-sm"
+                  className="w-full rounded-[14px] bg-white/75 px-3 py-3 text-left shadow-sm"
                 >
                   <p className="truncate text-sm font-medium text-ink">新的测试任务</p>
                   <p className="mt-1 text-xs text-black/45">等待上传图片</p>
@@ -532,7 +523,7 @@ export default function HomePage() {
                     key={task.task_id}
                     type="button"
                     onClick={() => fetchTask(task.task_id).catch(() => null)}
-                    className={`w-full rounded-2xl px-3 py-3 text-left transition ${
+                    className={`w-full rounded-[14px] px-3 py-3 text-left transition ${
                       active ? "bg-white/75 shadow-sm" : "hover:bg-white/45"
                     }`}
                   >
@@ -553,10 +544,10 @@ export default function HomePage() {
           </div>
         </aside>
 
-        <section className="min-w-0 flex-1 space-y-6 pl-8">
-          {isDraftView ? (
+          <section className="min-w-0 flex-1 space-y-6 pb-32 pl-8">
+            {isDraftView ? (
             <>
-              <section className="rounded-[2rem] border border-[#d8c9b7] bg-[rgba(250,246,239,0.92)] p-8 shadow-card">
+              <section className="rounded-[18px] border border-[#d8c9b7] bg-[rgba(250,246,239,0.92)] p-8 shadow-card">
                 <p className="font-mono text-xs uppercase tracking-[0.24em] text-black/40">New Task</p>
                 <h1 className="mt-4 font-display text-5xl leading-[1.06] tracking-tight text-ink md:text-6xl">新的测试任务</h1>
                 <p className="mt-4 max-w-3xl text-base leading-7 text-black/62">
@@ -564,7 +555,7 @@ export default function HomePage() {
                 </p>
               </section>
 
-              <section className="rounded-[2rem] border border-[#d8c9b7] bg-[rgba(249,244,237,0.94)] p-6 shadow-card">
+              <section className="rounded-[18px] border border-[#d8c9b7] bg-[rgba(249,244,237,0.94)] p-6 shadow-card">
                 <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
                   <div>
                     <p className="font-mono text-xs uppercase tracking-[0.2em] text-black/42">上传入口</p>
@@ -578,7 +569,7 @@ export default function HomePage() {
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
                     disabled={isUploading}
-                    className="inline-flex items-center justify-center rounded-full bg-[#1f1a15] px-5 py-3 text-sm font-medium text-white transition hover:bg-[#2d251e] disabled:cursor-not-allowed disabled:bg-black/20"
+                    className="inline-flex items-center justify-center rounded-[14px] bg-[#1f1a15] px-5 py-3 text-sm font-medium text-white transition hover:bg-[#2d251e] disabled:cursor-not-allowed disabled:bg-black/20"
                   >
                     选择图片并开始
                   </button>
@@ -594,7 +585,7 @@ export default function HomePage() {
               </section>
             </>
           ) : currentTask ? (
-            <section className="rounded-[2rem] border border-[#d8c9b7] bg-[rgba(250,246,239,0.92)] p-8 shadow-card">
+            <section className="rounded-[18px] border border-[#d8c9b7] bg-[rgba(250,246,239,0.92)] p-8 shadow-card">
               <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
                 <div>
                   <p className="font-mono text-xs uppercase tracking-[0.24em] text-black/40">Current Task</p>
@@ -604,7 +595,7 @@ export default function HomePage() {
                   </p>
                 </div>
 
-                <div className="rounded-[1.6rem] border border-[#ddcebb] bg-white/70 px-5 py-4">
+                <div className="rounded-[14px] border border-[#ddcebb] bg-white/70 px-5 py-4">
                   <p className="font-mono text-xs uppercase tracking-[0.2em] text-black/42">状态</p>
                   <p className="mt-2 text-xl font-semibold">{formatStatus(currentTask.status)}</p>
                   <p className="mt-1 text-sm text-black/56">{formatStage(currentTask.stage)}</p>
@@ -616,7 +607,7 @@ export default function HomePage() {
           {galleryItems.length > 0 ? <UploadCarousel items={galleryItems} showRecognitionBadge={showRecognitionBadge} /> : null}
 
           {!isDraftView && (currentTask?.status === "running" || currentTask?.status === "queued") ? (
-            <section className="rounded-[2rem] border border-[#d8c9b7] bg-[rgba(249,244,237,0.94)] p-5 shadow-card">
+            <section className="rounded-[18px] border border-[#d8c9b7] bg-[rgba(249,244,237,0.94)] p-5 shadow-card">
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div>
                   <p className="font-medium text-ink">任务正在处理中</p>
@@ -630,7 +621,7 @@ export default function HomePage() {
           {!isDraftView && stats.length > 0 ? (
             <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               {stats.map((stat) => (
-                <div key={stat.label} className="rounded-[1.8rem] border border-[#d8c9b7] bg-[rgba(249,244,237,0.94)] p-6 shadow-card">
+                <div key={stat.label} className="rounded-[16px] border border-[#d8c9b7] bg-[rgba(249,244,237,0.94)] p-6 shadow-card">
                   <p className="font-mono text-xs uppercase tracking-[0.2em] text-black/42">{stat.label}</p>
                   <p className="mt-3 font-display text-5xl leading-none text-ink">{stat.value}</p>
                 </div>
@@ -641,10 +632,10 @@ export default function HomePage() {
           {!isDraftView && currentTask ? (
             <section className="grid gap-6 xl:grid-cols-[0.82fr_1.18fr]">
               <div className="space-y-6">
-                <section className="rounded-[2rem] border border-[#d8c9b7] bg-[rgba(249,244,237,0.94)] p-6 shadow-card">
+                <section className="rounded-[18px] border border-[#d8c9b7] bg-[rgba(249,244,237,0.94)] p-6 shadow-card">
                   <div className="flex items-center justify-between gap-4">
                     <p className="font-mono text-sm uppercase tracking-[0.2em] text-black/45">任务概览</p>
-                    <span className="rounded-full bg-[#ece2d4] px-3 py-1 font-mono text-xs text-black/55">
+                    <span className="rounded-[10px] bg-[#ece2d4] px-3 py-1 font-mono text-xs text-black/55">
                       {currentTask.task_id.slice(0, 8)}
                     </span>
                   </div>
@@ -657,12 +648,12 @@ export default function HomePage() {
                 </section>
 
                 {faceRecognition ? (
-                  <section className="rounded-[2rem] border border-[#d8c9b7] bg-[rgba(249,244,237,0.94)] p-6 shadow-card">
+                  <section className="rounded-[18px] border border-[#d8c9b7] bg-[rgba(249,244,237,0.94)] p-6 shadow-card">
                     <p className="font-mono text-sm uppercase tracking-[0.2em] text-black/45">人物汇总</p>
                     <p className="mt-3 font-display text-4xl text-ink">{faceRecognition.primary_person_id ?? "未识别主用户"}</p>
                     <div className="mt-4 space-y-3">
                       {(faceRecognition.persons ?? []).map((person) => (
-                        <div key={person.person_id} className="rounded-[1.4rem] border border-[#e1cfbf] bg-[#fbf5ed] p-4">
+                        <div key={person.person_id} className="rounded-[12px] border border-[#e1cfbf] bg-[#fbf5ed] p-4">
                           <div className="flex items-center justify-between gap-3">
                             <span className="font-medium">{person.person_id}</span>
                             <span className="font-mono text-xs text-black/50">{person.photo_count} 张照片</span>
@@ -674,7 +665,7 @@ export default function HomePage() {
                       ))}
 
                       {(faceRecognition.persons ?? []).length === 0 ? (
-                        <div className="rounded-[1.4rem] border border-[#e1cfbf] bg-[#fbf5ed] p-4 text-sm text-black/58">
+                        <div className="rounded-[12px] border border-[#e1cfbf] bg-[#fbf5ed] p-4 text-sm text-black/58">
                           当前任务尚未识别到人物，或人脸识别仍在进行中。
                         </div>
                       ) : null}
@@ -683,11 +674,11 @@ export default function HomePage() {
                 ) : null}
 
                 {warnings.length > 0 ? (
-                  <section className="rounded-[2rem] border border-[#d8c9b7] bg-[rgba(249,244,237,0.94)] p-6 shadow-card">
+                  <section className="rounded-[18px] border border-[#d8c9b7] bg-[rgba(249,244,237,0.94)] p-6 shadow-card">
                     <p className="font-mono text-sm uppercase tracking-[0.2em] text-black/45">任务警告</p>
                     <div className="mt-4 space-y-3">
                       {warnings.map((warning) => (
-                        <div key={`${warning.stage}-${warning.message}`} className="rounded-[1.4rem] border border-[#e1cfbf] bg-[#fbf5ed] p-4 text-sm text-black/65">
+                        <div key={`${warning.stage}-${warning.message}`} className="rounded-[12px] border border-[#e1cfbf] bg-[#fbf5ed] p-4 text-sm text-black/65">
                           <p className="font-medium">{formatStage(warning.stage)}</p>
                           <p className="mt-1 leading-6">{warning.message}</p>
                         </div>
@@ -707,7 +698,7 @@ export default function HomePage() {
                     return (
                       <article
                         key={image.image_id}
-                        className="overflow-hidden rounded-[2rem] border border-[#d8c9b7] bg-[rgba(249,244,237,0.94)] shadow-card"
+                        className="overflow-hidden rounded-[18px] border border-[#d8c9b7] bg-[rgba(249,244,237,0.94)] shadow-card"
                       >
                         <div className="grid gap-0 lg:grid-cols-[1.08fr_0.92fr]">
                           <div className="bg-[#ece2d3]">
@@ -722,7 +713,7 @@ export default function HomePage() {
                           <div className="p-6">
                             <div className="flex flex-wrap items-center gap-2">
                               <span className="text-lg font-semibold">{image.filename}</span>
-                              <span className="rounded-full bg-black/5 px-2 py-1 font-mono text-xs">{image.image_id}</span>
+                              <span className="rounded-[10px] bg-black/5 px-2 py-1 font-mono text-xs">{image.image_id}</span>
                             </div>
                             <p className="mt-2 text-sm text-black/60">
                               检测到 {image.face_count} 张脸 {image.timestamp ? `· ${image.timestamp}` : ""}
@@ -737,10 +728,10 @@ export default function HomePage() {
                             <div className="mt-5 space-y-3">
                               {image.faces.length > 0 ? (
                                 image.faces.map((face) => (
-                                  <div key={face.face_id} className="rounded-[1.4rem] border border-[#e1cfbf] bg-[#fbf5ed] p-4">
+                                  <div key={face.face_id} className="rounded-[12px] border border-[#e1cfbf] bg-[#fbf5ed] p-4">
                                     <div className="flex flex-wrap items-center gap-2">
                                       <span className="font-medium">{face.person_id}</span>
-                                      <span className="rounded-full bg-white px-2 py-1 font-mono text-xs">face {face.face_id.slice(0, 8)}</span>
+                                      <span className="rounded-[10px] bg-white px-2 py-1 font-mono text-xs">face {face.face_id.slice(0, 8)}</span>
                                     </div>
                                     <p className="mt-2 text-sm text-black/65">
                                       图片 ID：{face.image_id} · 分数 {face.score.toFixed(3)} · 相似度 {face.similarity.toFixed(3)}
@@ -748,13 +739,13 @@ export default function HomePage() {
                                   </div>
                                 ))
                               ) : (
-                                <div className="rounded-[1.4rem] border border-[#e1cfbf] bg-[#fbf5ed] p-4 text-sm text-black/58">
+                                <div className="rounded-[12px] border border-[#e1cfbf] bg-[#fbf5ed] p-4 text-sm text-black/58">
                                   这张图片没有识别到人脸。
                                 </div>
                               )}
 
                               {image.failures && image.failures.length > 0 ? (
-                                <div className="rounded-[1.4rem] border border-[#e6cdbf] bg-[#fbf2ea] p-4">
+                                <div className="rounded-[12px] border border-[#e6cdbf] bg-[#fbf2ea] p-4">
                                   <p className="text-sm font-medium text-[#8a5637]">该图片后续处理存在失败记录</p>
                                   <div className="mt-2 space-y-2">
                                     {image.failures.map((failure) => (
@@ -772,7 +763,7 @@ export default function HomePage() {
                     );
                   })
                 ) : (
-                  <section className="rounded-[2rem] border border-[#d8c9b7] bg-[rgba(249,244,237,0.94)] p-8 shadow-card">
+                  <section className="rounded-[18px] border border-[#d8c9b7] bg-[rgba(249,244,237,0.94)] p-8 shadow-card">
                     <p className="text-lg font-medium">还没有可展示的人脸识别结果</p>
                     <p className="mt-2 text-sm text-black/58">
                       下一组对话里你告诉我 boxed 人脸怎么排布后，我直接把结果视图接到这里。
@@ -783,7 +774,7 @@ export default function HomePage() {
             </section>
           ) : null}
 
-          <RecallChatPlaceholder />
+          <RecallChatDock />
         </section>
       </div>
     </main>
