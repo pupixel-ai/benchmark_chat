@@ -20,7 +20,7 @@ const ibmPlexMono = IBM_Plex_Mono({
 
 export const metadata: Metadata = {
   title: "记忆工程测试工作台",
-  description: "上传最多 100 张照片，查看人脸识别结果、任务状态与失败图片记录。"
+  description: "上传最多 100 张照片，创建测试任务并查看图片处理链路。"
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
