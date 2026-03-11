@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
 import { ArrowUp, Plus } from "lucide-react";
-import type { FailureItem, TaskListResponse, TaskState, UploadItem } from "@/lib/types";
+import type { TaskListResponse, TaskState, UploadItem } from "@/lib/types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 const MAX_UPLOADS = 100;
@@ -208,47 +208,39 @@ function UploadCarousel({
   );
 }
 
-function FailureList({ failures }: { failures: FailureItem[] }) {
-  return (
-    <section className="w-full rounded-[12px] border border-[#d8c9b7] bg-[rgba(249,244,237,0.94)] p-6 shadow-card">
-      <div className="flex items-center justify-between gap-4">
-        <p className="font-mono text-sm uppercase tracking-[0.2em] text-black/45">坏图与失败记录</p>
-        <span className="rounded-[10px] bg-[#ead8ca] px-3 py-1 font-mono text-xs text-[#8a5637]">{failures.length}</span>
-      </div>
-
-      {failures.length === 0 ? (
-        <p className="mt-3 text-sm text-black/65">当前任务没有记录到坏图或处理失败图片。</p>
-      ) : (
-        <div className="mt-4 space-y-3">
-          {failures.map((failure) => (
-            <div
-              key={`${failure.image_id}-${failure.step}-${failure.filename}`}
-              className="rounded-[12px] border border-[#e1cfbf] bg-[#fbf5ed] p-4"
-            >
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="font-semibold">{failure.filename}</span>
-                <span className="rounded-[10px] bg-black/5 px-2 py-1 font-mono text-xs">{failure.image_id}</span>
-                <span className="rounded-[10px] bg-black/5 px-2 py-1 font-mono text-xs">{failure.step}</span>
-              </div>
-              <p className="mt-2 text-sm leading-6 text-black/65">{failure.error}</p>
-            </div>
-          ))}
-        </div>
-      )}
-    </section>
-  );
-}
-
 function RecallChatDock() {
+  const [chatDraft, setChatDraft] = useState("");
+  const [isMultiLine, setIsMultiLine] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  useEffect(() => {
+    const node = textareaRef.current;
+    if (!node) {
+      return;
+    }
+
+    node.style.height = "44px";
+    node.style.overflowY = "hidden";
+    const nextHeight = Math.min(node.scrollHeight, 72);
+    const resolvedHeight = Math.max(44, nextHeight);
+    node.style.height = `${resolvedHeight}px`;
+    node.style.overflowY = node.scrollHeight > 72 ? "auto" : "hidden";
+    setIsMultiLine(resolvedHeight > 44);
+  }, [chatDraft]);
+
   return (
     <div className="fixed bottom-0 left-0 right-0 z-40 md:left-[316px]">
-      <div className="w-full rounded-t-[12px] border border-b-0 border-[#d8c9b7] bg-[rgba(248,243,236,0.98)] px-4 pb-3 pt-3 shadow-card backdrop-blur md:px-6">
+      <div className="w-full rounded-none border border-b-0 border-[#d8c9b7] bg-[rgba(248,243,236,0.98)] px-4 pb-3 pt-3 shadow-card backdrop-blur md:px-5">
         <div className="flex items-end gap-3">
           <textarea
-            disabled
+            ref={textareaRef}
             rows={1}
+            value={chatDraft}
+            onChange={(event) => setChatDraft(event.target.value)}
             placeholder="记忆布局完成后可在这里输入召回问题"
-            className="h-11 max-h-[72px] min-h-[44px] flex-1 resize-none overflow-y-auto rounded-[12px] border border-black/8 bg-[#f4efe7] px-4 py-[10px] text-sm leading-6 text-black/40 outline-none"
+            className={`min-h-[44px] flex-1 resize-none border border-black/8 bg-[#f4efe7] px-4 py-[10px] text-sm leading-6 text-black/70 outline-none ${
+              isMultiLine ? "rounded-[12px]" : "rounded-full"
+            }`}
           />
           <button
             type="button"
@@ -256,7 +248,7 @@ function RecallChatDock() {
             aria-label="发送"
             className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-black/10 bg-[#ebe4d8] text-black/35"
           >
-            <ArrowUp size={17} strokeWidth={2.35} />
+            <ArrowUp size={17} strokeWidth={2.6} />
           </button>
         </div>
 
@@ -278,10 +270,7 @@ export default function HomePage() {
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const faceRecognition = currentTask?.result?.face_recognition;
-  const imageEntries = faceRecognition?.images ?? [];
-  const failures = currentTask?.result?.failed_images ?? [];
-  const warnings = currentTask?.result?.warnings ?? [];
+  const imageEntries = currentTask?.result?.face_recognition?.images ?? [];
   const currentUploads = currentTask?.uploads ?? [];
 
   useEffect(() => {
@@ -289,19 +278,6 @@ export default function HomePage() {
       revokePendingUploads(pendingUploads);
     };
   }, [pendingUploads]);
-
-  const stats = useMemo(() => {
-    if (!currentTask?.result) {
-      return [];
-    }
-
-    return [
-      { label: "已提交图片", value: currentTask.result.summary.total_uploaded },
-      { label: "识别人脸", value: currentTask.result.summary.total_faces },
-      { label: "识别人物", value: currentTask.result.summary.total_persons },
-      { label: "失败图片", value: currentTask.result.summary.failed_images }
-    ];
-  }, [currentTask]);
 
   const galleryItems = useMemo<GalleryCard[]>(() => {
     if (pendingUploads.length > 0) {
@@ -490,9 +466,9 @@ export default function HomePage() {
       />
 
       <div className="mx-auto flex max-w-[1680px] gap-0">
-        <aside className="min-h-[calc(100vh-3rem)] w-full max-w-[300px] shrink-0 border-r border-black/10 pr-5">
+        <aside className="min-h-[calc(100vh-3rem)] w-full max-w-[300px] shrink-0 border-r border-black/10 pr-3">
           <div className="sticky top-6 flex h-[calc(100vh-3rem)] flex-col">
-            <div className="flex items-center justify-between px-3 pb-4">
+            <div className="flex items-center justify-between px-2.5 pb-4">
               <p className="text-sm font-medium text-black/70">任务列表</p>
               <button
                 type="button"
@@ -500,16 +476,16 @@ export default function HomePage() {
                 className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-black/10 bg-white/70 text-black/65 transition hover:bg-white"
                 aria-label="新建任务"
               >
-                <Plus size={17} strokeWidth={2.35} />
+                <Plus size={17} strokeWidth={2.6} />
               </button>
             </div>
 
-            <div className="space-y-1 overflow-y-auto pr-2">
+            <div className="space-y-1 overflow-y-auto pr-1">
               {draftSelected ? (
                 <button
                   type="button"
                   onClick={openDraftTask}
-                  className="w-full rounded-[12px] bg-white/75 px-3 py-3 text-left shadow-sm"
+                  className="w-full rounded-[12px] bg-white/75 px-2.5 py-3 text-left shadow-sm"
                 >
                   <p className="truncate text-sm font-medium text-ink">新的测试任务</p>
                   <p className="mt-1 text-xs text-black/45">等待上传图片</p>
@@ -523,7 +499,7 @@ export default function HomePage() {
                     key={task.task_id}
                     type="button"
                     onClick={() => fetchTask(task.task_id).catch(() => null)}
-                    className={`w-full rounded-[12px] px-3 py-3 text-left transition ${
+                    className={`w-full rounded-[12px] px-2.5 py-3 text-left transition ${
                       active ? "bg-white/75 shadow-sm" : "hover:bg-white/45"
                     }`}
                   >
@@ -536,7 +512,7 @@ export default function HomePage() {
               })}
 
               {tasks.length === 0 && !draftSelected ? (
-                <div className="rounded-[12px] px-3 py-3 text-sm text-black/50">
+                <div className="rounded-[12px] px-2.5 py-3 text-sm text-black/50">
                   还没有任务。点击右上角加号后开始上传图片。
                 </div>
               ) : null}
@@ -544,7 +520,7 @@ export default function HomePage() {
           </div>
         </aside>
 
-        <section className="min-w-0 flex-1 space-y-6 pb-28 pl-5 md:pl-6">
+        <section className="min-w-0 flex-1 space-y-6 pb-28 pl-4 md:pl-5">
             {isDraftView ? (
             <>
               <section className="w-full rounded-[12px] border border-[#d8c9b7] bg-[rgba(250,246,239,0.92)] px-6 py-7 shadow-card">
@@ -618,79 +594,8 @@ export default function HomePage() {
             </section>
           ) : null}
 
-          {!isDraftView && stats.length > 0 ? (
-            <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              {stats.map((stat) => (
-                <div key={stat.label} className="w-full rounded-[12px] border border-[#d8c9b7] bg-[rgba(249,244,237,0.94)] p-6 shadow-card">
-                  <p className="font-mono text-xs uppercase tracking-[0.2em] text-black/42">{stat.label}</p>
-                  <p className="mt-3 font-display text-5xl leading-none text-ink">{stat.value}</p>
-                </div>
-              ))}
-            </section>
-          ) : null}
-
           {!isDraftView && currentTask ? (
-            <section className="grid gap-6 xl:grid-cols-[0.82fr_1.18fr]">
-              <div className="space-y-6">
-                <section className="w-full rounded-[12px] border border-[#d8c9b7] bg-[rgba(249,244,237,0.94)] p-6 shadow-card">
-                  <div className="flex items-center justify-between gap-4">
-                    <p className="font-mono text-sm uppercase tracking-[0.2em] text-black/45">任务概览</p>
-                    <span className="rounded-[10px] bg-[#ece2d4] px-3 py-1 font-mono text-xs text-black/55">
-                      {currentTask.task_id.slice(0, 8)}
-                    </span>
-                  </div>
-                  <div className="mt-4 space-y-2 text-sm text-black/64">
-                    <p>任务 ID：{currentTask.task_id}</p>
-                    <p>当前阶段：{formatStage(currentTask.stage)}</p>
-                    <p>提交图片数：{currentTask.upload_count}</p>
-                    {currentTask.result?.summary.primary_person_id ? <p>主用户 ID：{currentTask.result.summary.primary_person_id}</p> : null}
-                  </div>
-                </section>
-
-                {faceRecognition ? (
-                  <section className="w-full rounded-[12px] border border-[#d8c9b7] bg-[rgba(249,244,237,0.94)] p-6 shadow-card">
-                    <p className="font-mono text-sm uppercase tracking-[0.2em] text-black/45">人物汇总</p>
-                    <p className="mt-3 font-display text-4xl text-ink">{faceRecognition.primary_person_id ?? "未识别主用户"}</p>
-                    <div className="mt-4 space-y-3">
-                      {(faceRecognition.persons ?? []).map((person) => (
-                        <div key={person.person_id} className="rounded-[12px] border border-[#e1cfbf] bg-[#fbf5ed] p-4">
-                          <div className="flex items-center justify-between gap-3">
-                            <span className="font-medium">{person.person_id}</span>
-                            <span className="font-mono text-xs text-black/50">{person.photo_count} 张照片</span>
-                          </div>
-                          <p className="mt-2 text-sm text-black/60">
-                            人脸数：{person.face_count} · 平均得分：{person.avg_score?.toFixed?.(3) ?? person.avg_score}
-                          </p>
-                        </div>
-                      ))}
-
-                      {(faceRecognition.persons ?? []).length === 0 ? (
-                        <div className="rounded-[12px] border border-[#e1cfbf] bg-[#fbf5ed] p-4 text-sm text-black/58">
-                          当前任务尚未识别到人物，或人脸识别仍在进行中。
-                        </div>
-                      ) : null}
-                    </div>
-                  </section>
-                ) : null}
-
-                {warnings.length > 0 ? (
-                  <section className="w-full rounded-[12px] border border-[#d8c9b7] bg-[rgba(249,244,237,0.94)] p-6 shadow-card">
-                    <p className="font-mono text-sm uppercase tracking-[0.2em] text-black/45">任务警告</p>
-                    <div className="mt-4 space-y-3">
-                      {warnings.map((warning) => (
-                        <div key={`${warning.stage}-${warning.message}`} className="rounded-[12px] border border-[#e1cfbf] bg-[#fbf5ed] p-4 text-sm text-black/65">
-                          <p className="font-medium">{formatStage(warning.stage)}</p>
-                          <p className="mt-1 leading-6">{warning.message}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </section>
-                ) : null}
-
-                <FailureList failures={failures} />
-              </div>
-
-              <div className="space-y-5">
+            <section className="space-y-5">
                 {imageEntries.length > 0 ? (
                   imageEntries.map((image) => {
                     const displayUrl = toAbsoluteUrl(image.display_image_url);
@@ -770,7 +675,6 @@ export default function HomePage() {
                     </p>
                   </section>
                 )}
-              </div>
             </section>
           ) : null}
 
