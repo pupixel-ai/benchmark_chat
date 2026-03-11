@@ -163,7 +163,7 @@ function UploadCarousel({
   showRecognitionBadge: boolean;
 }) {
   return (
-    <section className="rounded-[18px] border border-[#d8c9b7] bg-[rgba(250,246,239,0.9)] p-6 shadow-card">
+    <section className="w-full rounded-[12px] border border-[#d8c9b7] bg-[rgba(250,246,239,0.9)] p-6 shadow-card">
       <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
         <div>
           <p className="font-mono text-xs uppercase tracking-[0.24em] text-black/40">任务图片走廊</p>
@@ -176,7 +176,7 @@ function UploadCarousel({
         {items.map((item) => (
           <article
             key={item.id}
-            className="relative min-w-[260px] snap-start overflow-hidden rounded-[14px] border border-[#ddcebb] bg-[#f7f0e6]"
+            className="relative min-w-[260px] snap-start overflow-hidden rounded-[12px] border border-[#ddcebb] bg-[#f7f0e6]"
           >
             <div className="relative h-52 overflow-hidden bg-[#ece2d3]">
               {item.imageUrl ? (
@@ -210,7 +210,7 @@ function UploadCarousel({
 
 function FailureList({ failures }: { failures: FailureItem[] }) {
   return (
-    <section className="rounded-[18px] border border-[#d8c9b7] bg-[rgba(249,244,237,0.94)] p-6 shadow-card">
+    <section className="w-full rounded-[12px] border border-[#d8c9b7] bg-[rgba(249,244,237,0.94)] p-6 shadow-card">
       <div className="flex items-center justify-between gap-4">
         <p className="font-mono text-sm uppercase tracking-[0.2em] text-black/45">坏图与失败记录</p>
         <span className="rounded-[10px] bg-[#ead8ca] px-3 py-1 font-mono text-xs text-[#8a5637]">{failures.length}</span>
@@ -241,22 +241,22 @@ function FailureList({ failures }: { failures: FailureItem[] }) {
 
 function RecallChatDock() {
   return (
-    <div className="fixed bottom-4 left-4 right-4 z-40 md:left-[348px] md:right-6">
-      <div className="mx-auto max-w-[1320px] rounded-[18px] border border-[#d8c9b7] bg-[rgba(248,243,236,0.96)] p-4 shadow-card backdrop-blur">
+    <div className="fixed bottom-0 left-0 right-0 z-40 md:left-[316px]">
+      <div className="w-full rounded-t-[12px] border border-b-0 border-[#d8c9b7] bg-[rgba(248,243,236,0.98)] px-4 pb-3 pt-3 shadow-card backdrop-blur md:px-6">
         <div className="flex items-end gap-3">
           <textarea
             disabled
             rows={1}
             placeholder="记忆布局完成后可在这里输入召回问题"
-            className="h-11 max-h-[72px] min-h-[44px] flex-1 resize-none overflow-y-auto rounded-[14px] border border-black/8 bg-[#f4efe7] px-4 py-[10px] text-sm leading-6 text-black/40 outline-none"
+            className="h-11 max-h-[72px] min-h-[44px] flex-1 resize-none overflow-y-auto rounded-[12px] border border-black/8 bg-[#f4efe7] px-4 py-[10px] text-sm leading-6 text-black/40 outline-none"
           />
           <button
             type="button"
             disabled
             aria-label="发送"
-            className="inline-flex h-11 w-11 items-center justify-center rounded-[14px] border border-black/10 bg-[#ebe4d8] text-black/35"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-black/10 bg-[#ebe4d8] text-black/35"
           >
-            <ArrowUp size={16} strokeWidth={2} />
+            <ArrowUp size={17} strokeWidth={2.35} />
           </button>
         </div>
 
@@ -478,7 +478,7 @@ export default function HomePage() {
   const draftSelected = isDraftView && !currentTask;
 
   return (
-    <main className="min-h-screen px-4 py-6 md:px-6">
+    <main className="min-h-screen px-2 py-6 md:px-4">
       <input
         ref={fileInputRef}
         type="file"
@@ -494,13 +494,13 @@ export default function HomePage() {
           <div className="sticky top-6 flex h-[calc(100vh-3rem)] flex-col">
             <div className="flex items-center justify-between px-3 pb-4">
               <p className="text-sm font-medium text-black/70">任务列表</p>
-                <button
-                  type="button"
-                  onClick={openDraftTask}
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-[12px] border border-black/10 bg-white/70 text-black/65 transition hover:bg-white"
-                  aria-label="新建任务"
-                >
-                  <Plus size={17} strokeWidth={1.8} />
+              <button
+                type="button"
+                onClick={openDraftTask}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-black/10 bg-white/70 text-black/65 transition hover:bg-white"
+                aria-label="新建任务"
+              >
+                <Plus size={17} strokeWidth={2.35} />
               </button>
             </div>
 
@@ -509,7 +509,7 @@ export default function HomePage() {
                 <button
                   type="button"
                   onClick={openDraftTask}
-                  className="w-full rounded-[14px] bg-white/75 px-3 py-3 text-left shadow-sm"
+                  className="w-full rounded-[12px] bg-white/75 px-3 py-3 text-left shadow-sm"
                 >
                   <p className="truncate text-sm font-medium text-ink">新的测试任务</p>
                   <p className="mt-1 text-xs text-black/45">等待上传图片</p>
@@ -523,7 +523,7 @@ export default function HomePage() {
                     key={task.task_id}
                     type="button"
                     onClick={() => fetchTask(task.task_id).catch(() => null)}
-                    className={`w-full rounded-[14px] px-3 py-3 text-left transition ${
+                    className={`w-full rounded-[12px] px-3 py-3 text-left transition ${
                       active ? "bg-white/75 shadow-sm" : "hover:bg-white/45"
                     }`}
                   >
@@ -536,7 +536,7 @@ export default function HomePage() {
               })}
 
               {tasks.length === 0 && !draftSelected ? (
-                <div className="rounded-2xl px-3 py-3 text-sm text-black/50">
+                <div className="rounded-[12px] px-3 py-3 text-sm text-black/50">
                   还没有任务。点击右上角加号后开始上传图片。
                 </div>
               ) : null}
@@ -544,10 +544,10 @@ export default function HomePage() {
           </div>
         </aside>
 
-          <section className="min-w-0 flex-1 space-y-6 pb-32 pl-8">
+        <section className="min-w-0 flex-1 space-y-6 pb-28 pl-5 md:pl-6">
             {isDraftView ? (
             <>
-              <section className="rounded-[18px] border border-[#d8c9b7] bg-[rgba(250,246,239,0.92)] p-8 shadow-card">
+              <section className="w-full rounded-[12px] border border-[#d8c9b7] bg-[rgba(250,246,239,0.92)] px-6 py-7 shadow-card">
                 <p className="font-mono text-xs uppercase tracking-[0.24em] text-black/40">New Task</p>
                 <h1 className="mt-4 font-display text-5xl leading-[1.06] tracking-tight text-ink md:text-6xl">新的测试任务</h1>
                 <p className="mt-4 max-w-3xl text-base leading-7 text-black/62">
@@ -555,7 +555,7 @@ export default function HomePage() {
                 </p>
               </section>
 
-              <section className="rounded-[18px] border border-[#d8c9b7] bg-[rgba(249,244,237,0.94)] p-6 shadow-card">
+              <section className="w-full rounded-[12px] border border-[#d8c9b7] bg-[rgba(249,244,237,0.94)] p-6 shadow-card">
                 <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
                   <div>
                     <p className="font-mono text-xs uppercase tracking-[0.2em] text-black/42">上传入口</p>
@@ -569,7 +569,7 @@ export default function HomePage() {
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
                     disabled={isUploading}
-                    className="inline-flex items-center justify-center rounded-[14px] bg-[#1f1a15] px-5 py-3 text-sm font-medium text-white transition hover:bg-[#2d251e] disabled:cursor-not-allowed disabled:bg-black/20"
+                    className="inline-flex items-center justify-center rounded-full bg-[#1f1a15] px-5 py-3 text-sm font-medium text-white transition hover:bg-[#2d251e] disabled:cursor-not-allowed disabled:bg-black/20"
                   >
                     选择图片并开始
                   </button>
@@ -585,7 +585,7 @@ export default function HomePage() {
               </section>
             </>
           ) : currentTask ? (
-            <section className="rounded-[18px] border border-[#d8c9b7] bg-[rgba(250,246,239,0.92)] p-8 shadow-card">
+            <section className="w-full rounded-[12px] border border-[#d8c9b7] bg-[rgba(250,246,239,0.92)] px-6 py-7 shadow-card">
               <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
                 <div>
                   <p className="font-mono text-xs uppercase tracking-[0.24em] text-black/40">Current Task</p>
@@ -595,7 +595,7 @@ export default function HomePage() {
                   </p>
                 </div>
 
-                <div className="rounded-[14px] border border-[#ddcebb] bg-white/70 px-5 py-4">
+                <div className="rounded-[12px] border border-[#ddcebb] bg-white/70 px-5 py-4">
                   <p className="font-mono text-xs uppercase tracking-[0.2em] text-black/42">状态</p>
                   <p className="mt-2 text-xl font-semibold">{formatStatus(currentTask.status)}</p>
                   <p className="mt-1 text-sm text-black/56">{formatStage(currentTask.stage)}</p>
@@ -607,7 +607,7 @@ export default function HomePage() {
           {galleryItems.length > 0 ? <UploadCarousel items={galleryItems} showRecognitionBadge={showRecognitionBadge} /> : null}
 
           {!isDraftView && (currentTask?.status === "running" || currentTask?.status === "queued") ? (
-            <section className="rounded-[18px] border border-[#d8c9b7] bg-[rgba(249,244,237,0.94)] p-5 shadow-card">
+            <section className="w-full rounded-[12px] border border-[#d8c9b7] bg-[rgba(249,244,237,0.94)] p-5 shadow-card">
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div>
                   <p className="font-medium text-ink">任务正在处理中</p>
@@ -621,7 +621,7 @@ export default function HomePage() {
           {!isDraftView && stats.length > 0 ? (
             <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               {stats.map((stat) => (
-                <div key={stat.label} className="rounded-[16px] border border-[#d8c9b7] bg-[rgba(249,244,237,0.94)] p-6 shadow-card">
+                <div key={stat.label} className="w-full rounded-[12px] border border-[#d8c9b7] bg-[rgba(249,244,237,0.94)] p-6 shadow-card">
                   <p className="font-mono text-xs uppercase tracking-[0.2em] text-black/42">{stat.label}</p>
                   <p className="mt-3 font-display text-5xl leading-none text-ink">{stat.value}</p>
                 </div>
@@ -632,7 +632,7 @@ export default function HomePage() {
           {!isDraftView && currentTask ? (
             <section className="grid gap-6 xl:grid-cols-[0.82fr_1.18fr]">
               <div className="space-y-6">
-                <section className="rounded-[18px] border border-[#d8c9b7] bg-[rgba(249,244,237,0.94)] p-6 shadow-card">
+                <section className="w-full rounded-[12px] border border-[#d8c9b7] bg-[rgba(249,244,237,0.94)] p-6 shadow-card">
                   <div className="flex items-center justify-between gap-4">
                     <p className="font-mono text-sm uppercase tracking-[0.2em] text-black/45">任务概览</p>
                     <span className="rounded-[10px] bg-[#ece2d4] px-3 py-1 font-mono text-xs text-black/55">
@@ -648,7 +648,7 @@ export default function HomePage() {
                 </section>
 
                 {faceRecognition ? (
-                  <section className="rounded-[18px] border border-[#d8c9b7] bg-[rgba(249,244,237,0.94)] p-6 shadow-card">
+                  <section className="w-full rounded-[12px] border border-[#d8c9b7] bg-[rgba(249,244,237,0.94)] p-6 shadow-card">
                     <p className="font-mono text-sm uppercase tracking-[0.2em] text-black/45">人物汇总</p>
                     <p className="mt-3 font-display text-4xl text-ink">{faceRecognition.primary_person_id ?? "未识别主用户"}</p>
                     <div className="mt-4 space-y-3">
@@ -674,7 +674,7 @@ export default function HomePage() {
                 ) : null}
 
                 {warnings.length > 0 ? (
-                  <section className="rounded-[18px] border border-[#d8c9b7] bg-[rgba(249,244,237,0.94)] p-6 shadow-card">
+                  <section className="w-full rounded-[12px] border border-[#d8c9b7] bg-[rgba(249,244,237,0.94)] p-6 shadow-card">
                     <p className="font-mono text-sm uppercase tracking-[0.2em] text-black/45">任务警告</p>
                     <div className="mt-4 space-y-3">
                       {warnings.map((warning) => (
@@ -698,7 +698,7 @@ export default function HomePage() {
                     return (
                       <article
                         key={image.image_id}
-                        className="overflow-hidden rounded-[18px] border border-[#d8c9b7] bg-[rgba(249,244,237,0.94)] shadow-card"
+                        className="w-full overflow-hidden rounded-[12px] border border-[#d8c9b7] bg-[rgba(249,244,237,0.94)] shadow-card"
                       >
                         <div className="grid gap-0 lg:grid-cols-[1.08fr_0.92fr]">
                           <div className="bg-[#ece2d3]">
@@ -763,7 +763,7 @@ export default function HomePage() {
                     );
                   })
                 ) : (
-                  <section className="rounded-[18px] border border-[#d8c9b7] bg-[rgba(249,244,237,0.94)] p-8 shadow-card">
+                  <section className="w-full rounded-[12px] border border-[#d8c9b7] bg-[rgba(249,244,237,0.94)] p-8 shadow-card">
                     <p className="text-lg font-medium">还没有可展示的人脸识别结果</p>
                     <p className="mt-2 text-sm text-black/58">
                       下一组对话里你告诉我 boxed 人脸怎么排布后，我直接把结果视图接到这里。
