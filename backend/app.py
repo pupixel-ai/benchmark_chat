@@ -11,19 +11,20 @@ from typing import List
 
 from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse, Response
 from PIL import Image, ImageOps
 from pillow_heif import register_heif_opener
 
 from backend.task_store import TaskStore
 from config import (
+    ASSET_URL_PREFIX,
     BACKEND_HOST,
     BACKEND_PORT,
     FRONTEND_ORIGIN,
     MAX_UPLOAD_PHOTOS,
-    RUNS_URL_PREFIX,
     TASKS_DIR,
 )
+from services.asset_store import TaskAssetStore
 from services.pipeline_service import MemoryPipelineService
 from utils import save_json
 
@@ -34,6 +35,7 @@ UPLOAD_FAILURES_FILENAME = "upload_failures.json"
 
 app = FastAPI(title="Memory Engineering API", version="1.0.0")
 task_store = TaskStore()
+asset_store = TaskAssetStore()
 
 app.add_middleware(
     CORSMiddleware,
@@ -44,7 +46,6 @@ app.add_middleware(
 )
 
 Path(TASKS_DIR).mkdir(parents=True, exist_ok=True)
-app.mount(RUNS_URL_PREFIX, StaticFiles(directory=TASKS_DIR), name="runs")
 
 ORIENTATION_TAG = 274
 
@@ -68,8 +69,8 @@ def _preview_filename(filename: str, index: int) -> str:
     return f"{index:03d}_{stem}_preview.webp"
 
 
-def _task_public_url(task_id: str, directory: str, filename: str) -> str:
-    return f"{RUNS_URL_PREFIX}/{task_id}/{directory}/{filename}"
+def _task_asset_path(directory: str, filename: str) -> str:
+    return f"{directory}/{filename}"
 
 
 def _normalized_exif_bytes(image: Image.Image) -> bytes | None:
@@ -140,7 +141,11 @@ def _run_pipeline_task(task_id: str, max_photos: int, use_cache: bool):
 
     try:
         task_store.update_task(task_id, status="running", stage="starting", error=None)
-        service = MemoryPipelineService(task_id=task_id, task_dir=str(task_dir))
+        service = MemoryPipelineService(
+            task_id=task_id,
+            task_dir=str(task_dir),
+            asset_store=asset_store,
+        )
         result = service.run(
             max_photos=max_photos,
             use_cache=use_cache,
@@ -168,7 +173,9 @@ def healthcheck():
         "status": "ok",
         "frontend_origin": FRONTEND_ORIGIN,
         "max_upload_photos": MAX_UPLOAD_PHOTOS,
-        "runs_url_prefix": RUNS_URL_PREFIX,
+        "asset_url_prefix": ASSET_URL_PREFIX,
+        "object_storage_enabled": asset_store.enabled,
+        "object_storage_bucket": asset_store.bucket or None,
     }
 
 
@@ -210,17 +217,24 @@ async def create_task(
         preview_destination = previews_dir / preview_name
         try:
             payload, image_info = _save_upload_original(upload, destination)
+            original_asset_path = _task_asset_path("uploads", stored_name)
+            if asset_store.enabled:
+                asset_store.upload_file(task_id, original_asset_path, destination)
+
             preview_url = None
             try:
                 _save_preview_as_webp(payload, preview_destination)
-                preview_url = _task_public_url(task_id, "previews", preview_name)
+                preview_asset_path = _task_asset_path("previews", preview_name)
+                if asset_store.enabled:
+                    asset_store.upload_file(task_id, preview_asset_path, preview_destination)
+                preview_url = asset_store.asset_url(task_id, preview_asset_path)
             except Exception:
                 preview_destination.unlink(missing_ok=True)
             saved_files.append({
                 "filename": upload.filename or stored_name,
                 "stored_filename": stored_name,
-                "path": str(destination),
-                "url": _task_public_url(task_id, "uploads", stored_name),
+                "path": original_asset_path,
+                "url": asset_store.asset_url(task_id, original_asset_path),
                 "preview_url": preview_url,
                 **image_info,
             })
@@ -239,6 +253,10 @@ async def create_task(
             await upload.close()
 
     _write_upload_failures(task_dir, upload_failures)
+    if asset_store.enabled:
+        upload_failures_path = task_dir / UPLOAD_FAILURES_FILENAME
+        if upload_failures_path.exists():
+            asset_store.upload_file(task_id, UPLOAD_FAILURES_FILENAME, upload_failures_path)
 
     task_payload = task_store.create_task(task_id, upload_count=len(files))
     task_payload["uploads"] = saved_files
@@ -269,6 +287,23 @@ def get_task(task_id: str):
     if not task:
         raise HTTPException(status_code=404, detail="任务不存在")
     return task
+
+
+@app.get(f"{ASSET_URL_PREFIX}" + "/{task_id}/{asset_path:path}")
+def get_asset(task_id: str, asset_path: str):
+    task_dir = task_store.task_dir(task_id)
+    if asset_store.enabled:
+        try:
+            payload, content_type = asset_store.read_bytes(task_id, asset_path)
+            return Response(content=payload, media_type=content_type)
+        except Exception:
+            pass
+
+    local_path = asset_store.local_asset_path(task_dir, asset_path)
+    if local_path and local_path.exists():
+        return FileResponse(local_path)
+
+    raise HTTPException(status_code=404, detail="资产不存在")
 
 
 if __name__ == "__main__":
