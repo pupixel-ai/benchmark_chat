@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
 import { ArrowUp, Plus } from "lucide-react";
-import type { PersonGroupEntry, TaskListResponse, TaskState, UploadItem } from "@/lib/types";
+import type { FaceReport, PersonGroupEntry, TaskListResponse, TaskState, UploadItem } from "@/lib/types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 const MAX_UPLOADS = 100;
@@ -118,6 +118,48 @@ function buildPendingUploads(files: File[]) {
 
 function revokePendingUploads(items: PendingUpload[]) {
   items.forEach((item) => URL.revokeObjectURL(item.previewUrl));
+}
+
+function normalizeFaceReport(faceReport?: FaceReport | null): FaceReport | null {
+  if (!faceReport || typeof faceReport !== "object") {
+    return null;
+  }
+
+  return {
+    status: faceReport.status ?? "completed",
+    generated_at: faceReport.generated_at ?? "",
+    primary_person_id: faceReport.primary_person_id ?? null,
+    total_images: Number(faceReport.total_images ?? 0),
+    total_faces: Number(faceReport.total_faces ?? 0),
+    total_persons: Number(faceReport.total_persons ?? 0),
+    failed_images: Number(faceReport.failed_images ?? 0),
+    failed_items: Array.isArray(faceReport.failed_items) ? faceReport.failed_items : [],
+    engine: {
+      model_name: faceReport.engine?.model_name ?? null,
+      providers: Array.isArray(faceReport.engine?.providers) ? faceReport.engine.providers : []
+    },
+    timings: {
+      detection_seconds: Number(faceReport.timings?.detection_seconds ?? 0),
+      embedding_seconds: Number(faceReport.timings?.embedding_seconds ?? 0),
+      total_seconds: Number(faceReport.timings?.total_seconds ?? 0),
+      average_image_seconds: Number(faceReport.timings?.average_image_seconds ?? 0)
+    },
+    processing: {
+      original_uploads_preserved: Boolean(faceReport.processing?.original_uploads_preserved),
+      preview_format: faceReport.processing?.preview_format ?? "unknown",
+      boxed_format: faceReport.processing?.boxed_format ?? "unknown",
+      recognition_input: faceReport.processing?.recognition_input ?? "当前任务未返回识别输入说明"
+    },
+    precision_enhancements: Array.isArray(faceReport.precision_enhancements)
+      ? faceReport.precision_enhancements
+      : [],
+    score_guide: {
+      detection_score: faceReport.score_guide?.detection_score ?? "当前任务未返回检测分数说明",
+      similarity: faceReport.score_guide?.similarity ?? "当前任务未返回相似度说明"
+    },
+    no_face_images: Array.isArray(faceReport.no_face_images) ? faceReport.no_face_images : [],
+    persons: Array.isArray(faceReport.persons) ? faceReport.persons : []
+  };
 }
 
 function WaitingDots({
@@ -363,7 +405,7 @@ export default function HomePage() {
   const [error, setError] = useState<string | null>(null);
 
   const personGroups = currentTask?.result?.face_recognition?.person_groups ?? [];
-  const faceReport = currentTask?.result?.face_report ?? null;
+  const faceReport = useMemo(() => normalizeFaceReport(currentTask?.result?.face_report ?? null), [currentTask]);
   const currentUploads = currentTask?.uploads ?? [];
 
   useEffect(() => {
@@ -699,6 +741,7 @@ export default function HomePage() {
                 </div>
               </div>
 
+              {faceReport.timings && (
               <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                 <div className="rounded-[12px] border border-[#ddcebb] bg-white/70 px-4 py-3">
                   <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-black/42">检测耗时</p>
@@ -717,6 +760,7 @@ export default function HomePage() {
                   <p className="mt-2 text-xl font-semibold text-ink">{faceReport.timings.average_image_seconds.toFixed(3)}s</p>
                 </div>
               </div>
+              )}
 
               <div className="mt-5 grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
                 <div className="rounded-[12px] border border-[#ddcebb] bg-white/70 p-4">
