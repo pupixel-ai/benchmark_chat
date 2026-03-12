@@ -12,7 +12,7 @@ from typing import List
 from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from PIL import Image
+from PIL import Image, ImageOps
 from pillow_heif import register_heif_opener
 
 from backend.task_store import TaskStore
@@ -46,6 +46,8 @@ app.add_middleware(
 Path(TASKS_DIR).mkdir(parents=True, exist_ok=True)
 app.mount(RUNS_URL_PREFIX, StaticFiles(directory=TASKS_DIR), name="runs")
 
+ORIENTATION_TAG = 274
+
 
 def _safe_filename(filename: str, fallback: str) -> str:
     basename = os.path.basename(filename or fallback)
@@ -53,25 +55,62 @@ def _safe_filename(filename: str, fallback: str) -> str:
     return basename or fallback
 
 
-def _webp_filename(filename: str, index: int) -> str:
+def _stored_upload_filename(filename: str, index: int) -> str:
     safe_name = _safe_filename(filename, f"upload_{index:03d}")
     stem = Path(safe_name).stem or f"upload_{index:03d}"
-    return f"{index:03d}_{stem}.webp"
+    suffix = Path(safe_name).suffix.lower() or ".bin"
+    return f"{index:03d}_{stem}{suffix}"
 
 
-def _upload_public_url(task_id: str, filename: str) -> str:
-    return f"{RUNS_URL_PREFIX}/{task_id}/uploads/{filename}"
+def _preview_filename(filename: str, index: int) -> str:
+    safe_name = _safe_filename(filename, f"upload_{index:03d}")
+    stem = Path(safe_name).stem or f"upload_{index:03d}"
+    return f"{index:03d}_{stem}_preview.webp"
 
 
-def _save_upload_as_webp(upload: UploadFile, destination: Path) -> dict:
+def _task_public_url(task_id: str, directory: str, filename: str) -> str:
+    return f"{RUNS_URL_PREFIX}/{task_id}/{directory}/{filename}"
+
+
+def _normalized_exif_bytes(image: Image.Image) -> bytes | None:
+    try:
+        exif = image.getexif()
+    except Exception:
+        return None
+
+    if not exif:
+        return None
+
+    if ORIENTATION_TAG in exif:
+        exif[ORIENTATION_TAG] = 1
+    return exif.tobytes()
+
+
+def _save_upload_original(upload: UploadFile, destination: Path) -> tuple[bytes, dict]:
     upload.file.seek(0)
     payload = upload.file.read()
     if not payload:
         raise ValueError("文件为空")
 
+    destination.write_bytes(payload)
+    image_info = {
+        "content_type": upload.content_type or "application/octet-stream",
+        "width": None,
+        "height": None,
+    }
+
     with Image.open(io.BytesIO(payload)) as image:
-        exif = image.info.get("exif")
-        working = image.convert("RGBA") if "A" in image.getbands() else image.convert("RGB")
+        image_info["width"], image_info["height"] = image.size
+        image_info["content_type"] = upload.content_type or Image.MIME.get(image.format, image_info["content_type"])
+
+    return payload, image_info
+
+
+def _save_preview_as_webp(payload: bytes, destination: Path) -> dict:
+    with Image.open(io.BytesIO(payload)) as image:
+        normalized = ImageOps.exif_transpose(image)
+        exif = _normalized_exif_bytes(normalized)
+        working = normalized.convert("RGBA") if "A" in normalized.getbands() else normalized.convert("RGB")
         save_kwargs = {
             "format": "WEBP",
             "quality": 90,
@@ -158,31 +197,43 @@ async def create_task(
     task_id = uuid.uuid4().hex
     task_dir = task_store.task_dir(task_id)
     uploads_dir = task_dir / "uploads"
+    previews_dir = task_dir / "previews"
     uploads_dir.mkdir(parents=True, exist_ok=True)
+    previews_dir.mkdir(parents=True, exist_ok=True)
 
     saved_files = []
     upload_failures = []
     for index, upload in enumerate(files, start=1):
-        stored_name = _webp_filename(upload.filename or "", index)
+        stored_name = _stored_upload_filename(upload.filename or "", index)
         destination = uploads_dir / stored_name
+        preview_name = _preview_filename(upload.filename or "", index)
+        preview_destination = previews_dir / preview_name
         try:
-            image_info = _save_upload_as_webp(upload, destination)
+            payload, image_info = _save_upload_original(upload, destination)
+            preview_url = None
+            try:
+                _save_preview_as_webp(payload, preview_destination)
+                preview_url = _task_public_url(task_id, "previews", preview_name)
+            except Exception:
+                preview_destination.unlink(missing_ok=True)
             saved_files.append({
                 "filename": upload.filename or stored_name,
                 "stored_filename": stored_name,
                 "path": str(destination),
-                "url": _upload_public_url(task_id, stored_name),
+                "url": _task_public_url(task_id, "uploads", stored_name),
+                "preview_url": preview_url,
                 **image_info,
             })
         except Exception as exc:
             if destination.exists():
                 destination.unlink(missing_ok=True)
+            preview_destination.unlink(missing_ok=True)
             upload_failures.append({
                 "image_id": f"photo_{index:03d}",
                 "filename": upload.filename or stored_name,
                 "path": str(destination),
                 "step": "upload",
-                "error": f"上传后转换 WebP 失败: {exc}",
+                "error": f"保存原始上传文件失败: {exc}",
             })
         finally:
             await upload.close()

@@ -6,6 +6,22 @@ import os
 from datetime import datetime
 from typing import Dict, List, Any
 
+ORIENTATION_TAG = 274
+
+
+def normalized_exif_bytes(image) -> bytes | None:
+    try:
+        exif = image.getexif()
+    except Exception:
+        return None
+
+    if not exif:
+        return None
+
+    if ORIENTATION_TAG in exif:
+        exif[ORIENTATION_TAG] = 1
+    return exif.tobytes()
+
 
 def compress_image(image_path: str, output_path: str, max_size: int = 1536, quality: int = 85) -> str:
     """
@@ -22,10 +38,11 @@ def compress_image(image_path: str, output_path: str, max_size: int = 1536, qual
     """
     from config import MAX_IMAGE_SIZE, JPEG_QUALITY
 
-    from PIL import Image
+    from PIL import Image, ImageOps
 
     img = Image.open(image_path)
-    exif = img.info.get("exif")
+    img = ImageOps.exif_transpose(img)
+    exif = normalized_exif_bytes(img)
 
     # 计算缩放比例
     ratio = min(MAX_IMAGE_SIZE / img.size[0], MAX_IMAGE_SIZE / img.size[1])

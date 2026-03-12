@@ -4,12 +4,12 @@
 import os
 from datetime import datetime
 from typing import Dict, List, Tuple, Optional
-from PIL import Image, ExifTags, ImageDraw, ImageFont
+from PIL import Image, ExifTags, ImageDraw, ImageFont, ImageOps
 from pillow_heif import register_heif_opener
 import exifread
 from models import Photo
 from config import CACHE_DIR, MAX_IMAGE_SIZE, JPEG_QUALITY, DEDUP_TIME_WINDOW, AMAP_API_KEY, PROJECT_ROOT
-from utils import compress_image, smart_deduplicate
+from utils import compress_image, normalized_exif_bytes, smart_deduplicate
 
 # 注册HEIC格式支持
 register_heif_opener()
@@ -24,9 +24,11 @@ class ImageProcessor:
         self.compress_dir = os.path.join(cache_dir, "compressed_images")
         self.jpeg_dir = os.path.join(cache_dir, "jpeg_images")  # 全尺寸JPEG，用于人脸识别
         self.boxed_dir = os.path.join(cache_dir, "boxed_images")  # 带人脸框的图片
+        self.face_dir = os.path.join(cache_dir, "face_crops")  # 人脸裁剪图
         os.makedirs(self.compress_dir, exist_ok=True)
         os.makedirs(self.jpeg_dir, exist_ok=True)
         os.makedirs(self.boxed_dir, exist_ok=True)
+        os.makedirs(self.face_dir, exist_ok=True)
 
     def list_supported_photos(self, photo_dir: str) -> List[str]:
         supported_formats = {'.jpg', '.jpeg', '.png', '.heic', '.heif', '.webp'}
@@ -104,7 +106,8 @@ class ImageProcessor:
 
     def convert_to_jpeg(self, photos: List[Photo]) -> List[Photo]:
         """
-        将HEIC转换为全尺寸JPEG（用于人脸识别），保留EXIF信息
+        为人脸识别准备工作图。
+        原始上传文件保持不变；仅在 HEIC 或带方向标签的图片上生成标准朝向的 JPEG 工作图。
 
         Args:
             photos: 照片列表
@@ -113,35 +116,38 @@ class ImageProcessor:
             转换后的照片列表
         """
         for photo in photos:
-            # 只转换HEIC格式
-            if not photo.filename.lower().endswith(('.heic', '.heif')):
-                # 非HEIC格式，直接使用原路径
-                photo.original_path = photo.path
+            photo.original_path = photo.path
+            needs_working_copy = photo.filename.lower().endswith(('.heic', '.heif'))
+
+            if not needs_working_copy:
+                try:
+                    with Image.open(photo.path) as source:
+                        orientation = source.getexif().get(274, 1)
+                        needs_working_copy = orientation not in (None, 1)
+                except Exception:
+                    needs_working_copy = False
+
+            if not needs_working_copy:
                 continue
 
             try:
-                # 生成全尺寸JPEG文件名
-                jpeg_filename = f"fullsize_{photo.photo_id}.jpg"
+                jpeg_filename = f"face_input_{photo.photo_id}.jpg"
                 jpeg_path = os.path.join(self.jpeg_dir, jpeg_filename)
 
-                # 转换HEIC到JPEG（保持原尺寸和EXIF）
                 image = Image.open(photo.path)
-
-                # 保留EXIF信息
-                exif = image.info.get('exif')
+                normalized = ImageOps.exif_transpose(image)
+                exif = normalized_exif_bytes(normalized)
+                working = normalized.convert("RGB")
                 if exif:
-                    image.save(jpeg_path, "JPEG", quality=95, exif=exif)
+                    working.save(jpeg_path, "JPEG", quality=95, exif=exif)
                 else:
-                    image.save(jpeg_path, "JPEG", quality=95)
+                    working.save(jpeg_path, "JPEG", quality=95)
 
-                # 保存原路径并更新为JPEG路径
-                photo.original_path = photo.path
                 photo.path = jpeg_path
 
             except Exception as e:
                 print(f"警告：转换HEIC失败 {photo.filename}: {e}")
                 photo.processing_errors["convert_to_jpeg"] = str(e)
-                photo.original_path = photo.path
                 continue
 
         return photos
@@ -388,6 +394,58 @@ class ImageProcessor:
             return value[0] / value[1]
         return float(value)
 
+    def _resolve_face_box(self, face: Dict) -> Dict[str, int]:
+        bbox_xywh = face.get("bbox_xywh")
+        if bbox_xywh:
+            return {
+                "x": int(bbox_xywh["x"]),
+                "y": int(bbox_xywh["y"]),
+                "w": int(bbox_xywh["w"]),
+                "h": int(bbox_xywh["h"]),
+            }
+
+        bbox = face.get("bbox", [0, 0, 0, 0])
+        if isinstance(bbox, dict):
+            return {
+                "x": int(bbox.get("x", 0)),
+                "y": int(bbox.get("y", 0)),
+                "w": int(bbox.get("w", 0)),
+                "h": int(bbox.get("h", 0)),
+            }
+
+        x1, y1, x2, y2 = bbox[:4]
+        return {
+            "x": int(x1),
+            "y": int(y1),
+            "w": max(0, int(x2 - x1)),
+            "h": max(0, int(y2 - y1)),
+        }
+
+    def save_face_crop(self, photo, face) -> Optional[str]:
+        """按检测框裁剪单张人脸，供前端按人物聚合展示。"""
+        try:
+            img = Image.open(photo.path)
+            img = ImageOps.exif_transpose(img)
+            box = self._resolve_face_box(face)
+            if box["w"] <= 0 or box["h"] <= 0:
+                return None
+
+            padding_x = max(8, int(box["w"] * 0.12))
+            padding_y = max(8, int(box["h"] * 0.12))
+            left = max(0, box["x"] - padding_x)
+            top = max(0, box["y"] - padding_y)
+            right = min(img.width, box["x"] + box["w"] + padding_x)
+            bottom = min(img.height, box["y"] + box["h"] + padding_y)
+            cropped = img.crop((left, top, right, bottom))
+
+            output_filename = f"{photo.photo_id}_{face['person_id']}_{face['face_id'][:8]}.webp"
+            output_path = os.path.join(self.face_dir, output_filename)
+            cropped.save(output_path, "WEBP", quality=90, method=6)
+            return output_path
+        except Exception as e:
+            photo.processing_errors["face_crop"] = str(e)
+            return None
+
     def draw_face_boxes(self, photo) -> str:
         """
         在照片上画人脸框和标签，保存为boxed_images/
@@ -404,7 +462,9 @@ class ImageProcessor:
         try:
             # 读取原图（保留EXIF）
             img = Image.open(photo.path)
-            exif = img.info.get('exif')
+            img = ImageOps.exif_transpose(img)
+            exif = normalized_exif_bytes(img)
+            img = img.convert("RGBA") if "A" in img.getbands() else img.convert("RGB")
 
             # 创建绘图对象
             draw = ImageDraw.Draw(img)
@@ -425,25 +485,11 @@ class ImageProcessor:
             # 为每个人脸画框
             for face in photo.faces:
                 person_id = face["person_id"]
-                bbox_xywh = face.get("bbox_xywh")
-                if bbox_xywh:
-                    x = bbox_xywh["x"]
-                    y = bbox_xywh["y"]
-                    w = bbox_xywh["w"]
-                    h = bbox_xywh["h"]
-                else:
-                    bbox = face.get("bbox", [0, 0, 0, 0])
-                    if isinstance(bbox, dict):
-                        x = bbox.get("x", 0)
-                        y = bbox.get("y", 0)
-                        w = bbox.get("w", 0)
-                        h = bbox.get("h", 0)
-                    else:
-                        x1, y1, x2, y2 = bbox[:4]
-                        x = int(x1)
-                        y = int(y1)
-                        w = max(0, int(x2 - x1))
-                        h = max(0, int(y2 - y1))
+                box = self._resolve_face_box(face)
+                x = box["x"]
+                y = box["y"]
+                w = box["w"]
+                h = box["h"]
 
                 # 根据person_id选择颜色
                 if primary_person_id and person_id == primary_person_id:

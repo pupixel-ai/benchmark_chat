@@ -7,12 +7,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Callable, Dict, List, Optional
 
-from config import LLM_MODEL, MAX_UPLOAD_PHOTOS, RUNS_URL_PREFIX, VLM_MODEL
-from models import Event, Relationship
+from config import FACE_MIN_SIZE, MAX_UPLOAD_PHOTOS, RUNS_URL_PREFIX
 from services.face_recognition import FaceRecognition
 from services.image_processor import ImageProcessor
-from services.llm_processor import LLMProcessor
-from services.vlm_analyzer import VLMAnalyzer
 from utils import load_json, save_json
 
 
@@ -40,7 +37,6 @@ class MemoryPipelineService:
             output_path=str(self.cache_dir / "face_recognition_output.json"),
             workspace_dir=str(self.task_dir),
         )
-        self.vlm = VLMAnalyzer(cache_path=str(self.cache_dir / "vlm_results.json"))
         self.initial_upload_failures = self._load_upload_failures()
         self.failed_images: List[Dict] = list(self.initial_upload_failures)
         self.warnings: List[Dict] = []
@@ -80,44 +76,9 @@ class MemoryPipelineService:
                     if boxed_path:
                         photo.boxed_path = boxed_path
 
-        self._notify(progress_callback, "preprocess", {"message": "压缩图片供 VLM 使用"})
-        face_ready_photos = self.image_processor.preprocess(face_ready_photos)
-
-        vlm_candidates = []
-        for photo in face_ready_photos:
-            if photo.boxed_path or photo.compressed_path:
-                vlm_candidates.append(photo)
-            else:
-                self._record_failure(photo.photo_id, photo.filename, photo.path, "preprocess", "未生成可用于后续分析的图片")
-
-        face_db = self.face_recognition.get_all_persons()
-        self._notify(progress_callback, "vlm", {"message": "执行 VLM 分析"})
-        self._run_vlm(vlm_candidates, face_db, primary_person_id, use_cache)
-
-        events: List[Event] = []
-        relationships: List[Relationship] = []
-        profile_markdown = None
-
-        if self.vlm.results:
-            self._notify(progress_callback, "llm", {"message": "执行 LLM 推理"})
-            try:
-                llm = LLMProcessor()
-                events = llm.extract_events(self.vlm.results, primary_person_id)
-                relationships = llm.infer_relationships(self.vlm.results, face_db, primary_person_id)
-                profile_markdown = llm.generate_profile(events, relationships, primary_person_id)
-            except Exception as exc:
-                self.warnings.append({
-                    "stage": "llm",
-                    "message": str(exc),
-                })
-        else:
-            self.warnings.append({
-                "stage": "vlm",
-                "message": "VLM 结果为空，已跳过 LLM 阶段",
-            })
-
         self.face_recognition.save()
         face_output = self.face_recognition.get_face_output()
+        face_payload = self._build_face_recognition_payload(photos, face_output)
 
         detailed_output = {
             "task_id": self.task_id,
@@ -127,28 +88,20 @@ class MemoryPipelineService:
                 "loaded_images": len(photos),
                 "failed_images": len(self.failed_images),
                 "face_processed_images": len(face_ready_photos),
-                "vlm_processed_images": len(self.vlm.results),
+                "vlm_processed_images": 0,
                 "total_faces": face_output.get("metrics", {}).get("total_faces", 0),
                 "total_persons": face_output.get("metrics", {}).get("total_persons", 0),
                 "primary_person_id": primary_person_id,
             },
-            "models": {
-                "vlm": VLM_MODEL,
-                "llm": LLM_MODEL,
-            },
-            "face_recognition": self._build_face_recognition_payload(photos, face_output),
+            "face_recognition": face_payload,
+            "face_report": self._build_face_report(face_payload),
             "failed_images": self.failed_images,
             "warnings": self.warnings,
-            "events": [self._serialize_event(event) for event in events],
-            "relationships": [self._serialize_relationship(rel) for rel in relationships],
-            "profile_markdown": profile_markdown or "",
+            "events": [],
+            "relationships": [],
+            "profile_markdown": "",
             "artifacts": {},
         }
-
-        if profile_markdown:
-            profile_path = self.output_dir / "user_profile_report.md"
-            profile_path.write_text(profile_markdown, encoding="utf-8")
-            detailed_output["artifacts"]["profile_markdown_url"] = self._public_url(profile_path)
 
         result_path = self.output_dir / "result.json"
         save_json(detailed_output, str(result_path))
@@ -167,31 +120,6 @@ class MemoryPipelineService:
                 self._record_failure(photo.photo_id, photo.filename, photo.path, "face_recognition", str(exc))
         return successful
 
-    def _run_vlm(self, photos: List, face_db: Dict, primary_person_id: Optional[str], use_cache: bool):
-        if use_cache and self.vlm.load_cache():
-            return
-
-        self.vlm.results = []
-        for photo in photos:
-            try:
-                result = self.vlm.analyze_photo(photo, face_db, primary_person_id)
-            except Exception as exc:
-                self._record_failure(photo.photo_id, photo.filename, photo.path, "vlm", str(exc))
-                continue
-
-            if result:
-                self.vlm.add_result(photo, result)
-            else:
-                self._record_failure(
-                    photo.photo_id,
-                    photo.filename,
-                    photo.path,
-                    "vlm",
-                    photo.processing_errors.get("vlm", "VLM 分析返回空结果"),
-                )
-
-        self.vlm.save_cache()
-
     def _build_face_recognition_payload(self, photos: List, face_output: Dict) -> Dict:
         failure_map = self._group_failures_by_image()
         photo_map = {photo.photo_id: photo for photo in photos}
@@ -209,6 +137,8 @@ class MemoryPipelineService:
                 "filename": image.get("filename"),
                 "timestamp": image.get("timestamp"),
                 "status": "processed",
+                "detection_seconds": image.get("detection_seconds", 0.0),
+                "embedding_seconds": image.get("embedding_seconds", 0.0),
                 "original_image_url": self._public_url(original_path or current_path),
                 "display_image_url": self._public_url(boxed_path or compressed_path or current_path),
                 "boxed_image_url": self._public_url(boxed_path) if boxed_path else None,
@@ -226,54 +156,177 @@ class MemoryPipelineService:
                 "failures": failure_map.get(image.get("photo_id"), []),
             })
 
+        person_groups = self._build_person_groups(
+            image_entries,
+            photo_map,
+            face_output.get("persons", []),
+            face_output.get("primary_person_id"),
+        )
+
         return {
             **face_output,
             "images": image_entries,
+            "person_groups": person_groups,
             "failed_images": self.failed_images,
         }
+
+    def _build_face_report(self, face_payload: Dict) -> Dict:
+        metrics = face_payload.get("metrics", {})
+        engine = face_payload.get("engine", {})
+        images = face_payload.get("images", [])
+        person_groups = face_payload.get("person_groups", [])
+        no_face_images = [
+            {
+                "image_id": image["image_id"],
+                "filename": image["filename"],
+            }
+            for image in face_payload.get("images", [])
+            if image.get("face_count", 0) == 0
+        ]
+        failed_items = [
+            {
+                "image_id": item["image_id"],
+                "filename": item["filename"],
+                "step": item["step"],
+                "error": item["error"],
+            }
+            for item in self.failed_images
+        ]
+        detection_seconds = sum(float(image.get("detection_seconds") or 0.0) for image in images)
+        embedding_seconds = sum(float(image.get("embedding_seconds") or 0.0) for image in images)
+        total_processing_seconds = detection_seconds + embedding_seconds
+        average_image_seconds = total_processing_seconds / len(images) if images else 0.0
+
+        return {
+            "status": "completed",
+            "generated_at": datetime.now().isoformat(),
+            "primary_person_id": face_payload.get("primary_person_id"),
+            "total_images": metrics.get("total_images", 0),
+            "total_faces": metrics.get("total_faces", 0),
+            "total_persons": metrics.get("total_persons", 0),
+            "failed_images": len(self.failed_images),
+            "no_face_images": no_face_images,
+            "failed_items": failed_items,
+            "engine": {
+                "model_name": engine.get("model_name"),
+                "providers": engine.get("providers", []),
+            },
+            "timings": {
+                "detection_seconds": round(detection_seconds, 6),
+                "embedding_seconds": round(embedding_seconds, 6),
+                "total_seconds": round(total_processing_seconds, 6),
+                "average_image_seconds": round(average_image_seconds, 6),
+            },
+            "processing": {
+                "original_uploads_preserved": True,
+                "preview_format": "webp",
+                "boxed_format": "webp",
+                "recognition_input": "原始上传文件保持不变；HEIC 或带方向标签的图片会先生成标准朝向的 JPEG 工作图供识别使用",
+            },
+            "precision_enhancements": [
+                "原始上传文件原样保留，后续可直接读取完整 EXIF",
+                "识别与画框统一使用方向归一化后的工作图，避免展示翻转与坐标错位",
+                f"最小人脸尺寸阈值调整为 {FACE_MIN_SIZE}px，提升小脸检出能力",
+            ],
+            "score_guide": {
+                "detection_score": "检测分数表示模型对该人脸框本身的置信度，越高越可信",
+                "similarity": "相似度表示这张脸与已入库人物特征的接近程度，越高越像同一个人",
+            },
+            "persons": [
+                {
+                    "person_id": group["person_id"],
+                    "is_primary": group.get("is_primary", False),
+                    "photo_count": group.get("photo_count", 0),
+                    "face_count": group.get("face_count", 0),
+                    "avg_score": group.get("avg_score", 0.0),
+                }
+                for group in person_groups
+            ],
+        }
+
+    def _build_person_groups(
+        self,
+        image_entries: List[Dict],
+        photo_map: Dict[str, object],
+        persons: List[Dict],
+        primary_person_id: Optional[str],
+    ) -> List[Dict]:
+        stats_map = {person["person_id"]: person for person in persons}
+        grouped: Dict[str, Dict] = {}
+
+        for image in image_entries:
+            photo = photo_map.get(image["image_id"])
+            for face in image["faces"]:
+                person_id = face["person_id"]
+                group = grouped.setdefault(
+                    person_id,
+                    {
+                        "person_id": person_id,
+                        "is_primary": person_id == primary_person_id,
+                        "photo_count": stats_map.get(person_id, {}).get("photo_count", 0),
+                        "face_count": stats_map.get(person_id, {}).get("face_count", 0),
+                        "avg_score": stats_map.get(person_id, {}).get("avg_score", 0.0),
+                        "avatar_url": None,
+                        "images": [],
+                        "_seen_images": set(),
+                        "_best_score": -1.0,
+                        "_best_photo": None,
+                        "_best_face": None,
+                    },
+                )
+
+                if image["image_id"] not in group["_seen_images"]:
+                    group["_seen_images"].add(image["image_id"])
+                    group["images"].append({
+                        "image_id": image["image_id"],
+                        "filename": image["filename"],
+                        "timestamp": image.get("timestamp"),
+                        "display_image_url": image.get("display_image_url"),
+                        "boxed_image_url": image.get("boxed_image_url"),
+                        "face_id": face["face_id"],
+                        "score": face["score"],
+                        "similarity": face["similarity"],
+                    })
+
+                if photo is not None and float(face["score"]) > group["_best_score"]:
+                    group["_best_score"] = float(face["score"])
+                    group["_best_photo"] = photo
+                    group["_best_face"] = face
+
+        person_groups = []
+        for person_id, group in grouped.items():
+            if group["_best_photo"] is not None and group["_best_face"] is not None:
+                avatar_path = self.image_processor.save_face_crop(group["_best_photo"], group["_best_face"])
+                if avatar_path:
+                    group["avatar_url"] = self._public_url(avatar_path)
+
+            images = sorted(group["images"], key=lambda item: item.get("timestamp") or "")
+            person_groups.append({
+                "person_id": person_id,
+                "is_primary": group["is_primary"],
+                "photo_count": group["photo_count"] or len(images),
+                "face_count": group["face_count"] or len(images),
+                "avg_score": group["avg_score"],
+                "avatar_url": group["avatar_url"],
+                "images": images,
+            })
+
+        person_groups.sort(
+            key=lambda item: (
+                1 if item["is_primary"] else 0,
+                item["photo_count"],
+                item["face_count"],
+                item["person_id"],
+            ),
+            reverse=True,
+        )
+        return person_groups
 
     def _group_failures_by_image(self) -> Dict[str, List[Dict]]:
         grouped: Dict[str, List[Dict]] = {}
         for failure in self.failed_images:
             grouped.setdefault(failure["image_id"], []).append(failure)
         return grouped
-
-    def _serialize_event(self, event: Event) -> Dict:
-        return {
-            "event_id": event.event_id,
-            "date": event.date,
-            "time_range": event.time_range,
-            "duration": event.duration,
-            "title": event.title,
-            "type": event.type,
-            "participants": event.participants,
-            "location": event.location,
-            "description": event.description,
-            "photo_count": event.photo_count,
-            "confidence": event.confidence,
-            "reason": event.reason,
-            "narrative": event.narrative,
-            "narrative_synthesis": event.narrative_synthesis,
-            "meta_info": event.meta_info,
-            "objective_fact": event.objective_fact,
-            "social_interaction": event.social_interaction,
-            "social_dynamics": event.social_dynamics,
-            "evidence_photos": event.evidence_photos,
-            "lifestyle_tags": event.lifestyle_tags,
-            "tags": event.tags,
-            "social_slices": event.social_slices,
-            "persona_evidence": event.persona_evidence,
-        }
-
-    def _serialize_relationship(self, relationship: Relationship) -> Dict:
-        return {
-            "person_id": relationship.person_id,
-            "relationship_type": relationship.relationship_type,
-            "label": relationship.label,
-            "confidence": relationship.confidence,
-            "evidence": relationship.evidence,
-            "reason": relationship.reason,
-        }
 
     def _record_failure(self, image_id: str, filename: str, path: str, step: str, error: str):
         self.failed_images.append({

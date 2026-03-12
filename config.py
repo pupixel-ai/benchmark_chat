@@ -56,7 +56,7 @@ FACE_MODEL_NAME = os.getenv("FACE_MODEL_NAME", "buffalo_l")
 FACE_MAX_SIDE = int(os.getenv("FACE_MAX_SIDE", "1920"))
 FACE_DET_THRESHOLD = float(os.getenv("FACE_DET_THRESHOLD", "0.60"))
 FACE_SIM_THRESHOLD = float(os.getenv("FACE_SIM_THRESHOLD", "0.50"))
-FACE_MIN_SIZE = int(os.getenv("FACE_MIN_SIZE", "70"))  # 最小人脸尺寸（像素）
+FACE_MIN_SIZE = int(os.getenv("FACE_MIN_SIZE", "48"))  # 最小人脸尺寸（像素）
 FACE_PROVIDERS = tuple(
     provider.strip()
     for provider in os.getenv("FACE_PROVIDERS", "CPUExecutionProvider").split(",")

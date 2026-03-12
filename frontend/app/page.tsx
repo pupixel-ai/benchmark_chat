@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
 import { ArrowUp, Plus } from "lucide-react";
-import type { TaskListResponse, TaskState, UploadItem } from "@/lib/types";
+import type { PersonGroupEntry, TaskListResponse, TaskState, UploadItem } from "@/lib/types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 const MAX_UPLOADS = 100;
@@ -208,6 +208,100 @@ function UploadCarousel({
   );
 }
 
+function PersonGroupsPanel({ groups }: { groups: PersonGroupEntry[] }) {
+  return (
+    <section className="w-full rounded-[12px] border border-[#d8c9b7] bg-[rgba(249,244,237,0.94)] p-4 shadow-card">
+      <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+        <div>
+          <p className="font-mono text-xs uppercase tracking-[0.24em] text-black/40">人物索引</p>
+          <p className="mt-2 text-sm leading-6 text-black/60">每个人用一张代表性人脸和 `Person_ID` 做索引，下面聚合展示所有对应图片。</p>
+        </div>
+        <div className="text-sm text-black/45">结果区固定高度，超出后滚动浏览</div>
+      </div>
+
+      <div className="mt-4 h-[58vh] min-h-[420px] overflow-y-auto pr-1">
+        <div className="space-y-4">
+          {groups.map((group) => {
+            const avatarUrl = toAbsoluteUrl(group.avatar_url);
+            return (
+              <article
+                key={group.person_id}
+                className="rounded-[12px] border border-[#ddcebb] bg-[#fbf5ed] p-4"
+              >
+                <div className="flex flex-col gap-4 md:flex-row md:items-start">
+                  <div className="h-20 w-20 shrink-0 overflow-hidden rounded-[12px] border border-[#ddcebb] bg-[#ece2d3]">
+                    {avatarUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={avatarUrl} alt={group.person_id} className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full items-center justify-center text-xs text-black/35">暂无头像</div>
+                    )}
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-lg font-semibold text-ink">{group.person_id}</span>
+                      {group.is_primary ? (
+                        <span className="rounded-[10px] bg-[#ead8ca] px-2 py-1 font-mono text-xs text-[#8a5637]">
+                          主用户
+                        </span>
+                      ) : null}
+                    </div>
+                    <p className="mt-2 text-sm text-black/60">
+                      对应 {group.photo_count} 张图片 · {group.face_count} 张脸 · 平均检测分数 {group.avg_score.toFixed(3)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                  {group.images.map((image) => {
+                    const previewUrl = toAbsoluteUrl(image.boxed_image_url ?? image.display_image_url);
+                    return (
+                      <a
+                        key={`${group.person_id}-${image.image_id}`}
+                        href={previewUrl ?? undefined}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="overflow-hidden rounded-[12px] border border-[#ddcebb] bg-white/70 transition hover:bg-white"
+                      >
+                        <div className="h-40 overflow-hidden bg-[#ece2d3]">
+                          {previewUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={previewUrl} alt={image.filename} className="h-full w-full object-cover" />
+                          ) : (
+                            <div className="flex h-full items-center justify-center text-sm text-black/35">暂无图片</div>
+                          )}
+                        </div>
+
+                        <div className="space-y-2 px-4 py-4">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="truncate text-sm font-medium text-ink">{image.filename}</span>
+                            <span className="rounded-[10px] bg-black/5 px-2 py-1 font-mono text-[11px]">
+                              {image.image_id}
+                            </span>
+                          </div>
+                          <p className="text-sm text-black/58">
+                            分数 {image.score.toFixed(3)} · 相似度 {image.similarity.toFixed(3)}
+                          </p>
+                          {image.timestamp ? (
+                            <p className="font-mono text-[11px] uppercase tracking-[0.12em] text-black/40">
+                              {formatTaskTime(image.timestamp)}
+                            </p>
+                          ) : null}
+                        </div>
+                      </a>
+                    );
+                  })}
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function RecallChatDock() {
   const [chatDraft, setChatDraft] = useState("");
   const [isMultiLine, setIsMultiLine] = useState(false);
@@ -251,8 +345,6 @@ function RecallChatDock() {
             <ArrowUp size={17} strokeWidth={2.6} />
           </button>
         </div>
-
-        <p className="mt-3 px-1 text-xs text-black/45">记忆布局完成后可以进行召回测试</p>
       </div>
     </div>
   );
@@ -270,7 +362,8 @@ export default function HomePage() {
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const imageEntries = currentTask?.result?.face_recognition?.images ?? [];
+  const personGroups = currentTask?.result?.face_recognition?.person_groups ?? [];
+  const faceReport = currentTask?.result?.face_report ?? null;
   const currentUploads = currentTask?.uploads ?? [];
 
   useEffect(() => {
@@ -292,7 +385,7 @@ export default function HomePage() {
     return currentUploads.map((upload) => ({
       id: upload.stored_filename,
       filename: upload.filename,
-      imageUrl: toAbsoluteUrl(upload.url),
+      imageUrl: toAbsoluteUrl(upload.preview_url ?? upload.url),
       meta: uploadMeta(upload)
     }));
   }, [currentUploads, pendingUploads]);
@@ -567,7 +660,7 @@ export default function HomePage() {
                   <p className="font-mono text-xs uppercase tracking-[0.24em] text-black/40">Current Task</p>
                   <h1 className="mt-4 font-display text-5xl leading-[1.06] tracking-tight text-ink md:text-6xl">{taskDisplayLabel(currentTask)}</h1>
                   <p className="mt-4 max-w-3xl text-base leading-7 text-black/62">
-                    任务创建后会先进入人脸识别，再继续图片理解和后续推理。后面一组对话里你告诉我如何展示 boxed 人脸结果后，我会直接接到这块结果区。
+                    当前阶段我们只聚焦人脸识别。任务完成后会给出本次 session 的识别报告，并按人物聚合展示所有对应图片。
                   </p>
                 </div>
 
@@ -582,100 +675,124 @@ export default function HomePage() {
 
           {galleryItems.length > 0 ? <UploadCarousel items={galleryItems} showRecognitionBadge={showRecognitionBadge} /> : null}
 
-          {!isDraftView && (currentTask?.status === "running" || currentTask?.status === "queued") ? (
-            <section className="w-full rounded-[12px] border border-[#d8c9b7] bg-[rgba(249,244,237,0.94)] p-5 shadow-card">
-              <div className="flex flex-wrap items-center justify-between gap-4">
+          {!isDraftView && currentTask && faceReport ? (
+            <section className="w-full rounded-[12px] border border-[#d8c9b7] bg-[rgba(249,244,237,0.94)] p-6 shadow-card">
+              <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
                 <div>
-                  <p className="font-medium text-ink">任务正在处理中</p>
-                  <p className="mt-1 text-sm text-black/58">当前阶段：{formatStage(currentTask.stage)}</p>
+                  <p className="font-mono text-xs uppercase tracking-[0.24em] text-black/40">Face Report</p>
+                  <h2 className="mt-3 text-2xl font-semibold text-ink">本次人脸识别已完成</h2>
+                  <p className="mt-3 max-w-3xl text-sm leading-6 text-black/60">
+                    共处理 {faceReport.total_images} 张图片，识别出 {faceReport.total_faces} 张脸，聚合为 {faceReport.total_persons} 个人物。
+                    {faceReport.primary_person_id ? ` 主用户是 ${faceReport.primary_person_id}。` : ""}
+                  </p>
                 </div>
-                <WaitingDots label={`当前阶段：${formatStage(currentTask.stage)}`} />
+
+                <div className="grid gap-3 sm:grid-cols-2 lg:min-w-[360px]">
+                  <div className="rounded-[12px] border border-[#ddcebb] bg-white/70 px-4 py-3">
+                    <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-black/42">无脸图片</p>
+                    <p className="mt-2 text-xl font-semibold text-ink">{faceReport.no_face_images.length}</p>
+                  </div>
+                  <div className="rounded-[12px] border border-[#ddcebb] bg-white/70 px-4 py-3">
+                    <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-black/42">失败图片</p>
+                    <p className="mt-2 text-xl font-semibold text-ink">{faceReport.failed_images}</p>
+                  </div>
+                </div>
               </div>
+
+              <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                <div className="rounded-[12px] border border-[#ddcebb] bg-white/70 px-4 py-3">
+                  <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-black/42">检测耗时</p>
+                  <p className="mt-2 text-xl font-semibold text-ink">{faceReport.timings.detection_seconds.toFixed(3)}s</p>
+                </div>
+                <div className="rounded-[12px] border border-[#ddcebb] bg-white/70 px-4 py-3">
+                  <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-black/42">向量耗时</p>
+                  <p className="mt-2 text-xl font-semibold text-ink">{faceReport.timings.embedding_seconds.toFixed(3)}s</p>
+                </div>
+                <div className="rounded-[12px] border border-[#ddcebb] bg-white/70 px-4 py-3">
+                  <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-black/42">总耗时</p>
+                  <p className="mt-2 text-xl font-semibold text-ink">{faceReport.timings.total_seconds.toFixed(3)}s</p>
+                </div>
+                <div className="rounded-[12px] border border-[#ddcebb] bg-white/70 px-4 py-3">
+                  <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-black/42">平均每图</p>
+                  <p className="mt-2 text-xl font-semibold text-ink">{faceReport.timings.average_image_seconds.toFixed(3)}s</p>
+                </div>
+              </div>
+
+              <div className="mt-5 grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
+                <div className="rounded-[12px] border border-[#ddcebb] bg-white/70 p-4">
+                  <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-black/42">格式与 EXIF</p>
+                  <div className="mt-3 space-y-2 text-sm leading-6 text-black/62">
+                    <p>原始上传：原样保留，后续可直接读取完整 EXIF。</p>
+                    <p>前端预览：生成 `webp` preview，仅用于浏览，不替代原图。</p>
+                    <p>识别输入：{faceReport.processing.recognition_input}</p>
+                    <p>识别引擎：{faceReport.engine.model_name ?? "unknown"} · {(faceReport.engine.providers ?? []).join(", ") || "unknown"}</p>
+                  </div>
+                </div>
+
+                <div className="rounded-[12px] border border-[#ddcebb] bg-white/70 p-4">
+                  <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-black/42">评分说明</p>
+                  <div className="mt-3 space-y-2 text-sm leading-6 text-black/62">
+                    <p>{faceReport.score_guide.detection_score}</p>
+                    <p>{faceReport.score_guide.similarity}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-5 rounded-[12px] border border-[#ddcebb] bg-white/70 p-4">
+                <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-black/42">精度加强</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {faceReport.precision_enhancements.map((item) => (
+                    <span key={item} className="rounded-[10px] bg-[#f6eee3] px-3 py-1.5 text-sm text-[#6f5847]">
+                      {item}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {faceReport.no_face_images.length > 0 ? (
+                <div className="mt-5 rounded-[12px] border border-[#e6cdbf] bg-[#fbf2ea] p-4">
+                  <p className="text-sm font-medium text-[#8a5637]">以下图片本轮未识别到人脸</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {faceReport.no_face_images.map((image) => (
+                      <span
+                        key={image.image_id}
+                        className="rounded-[10px] bg-white px-3 py-1.5 font-mono text-xs text-black/68"
+                      >
+                        {image.filename}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              {faceReport.failed_items.length > 0 ? (
+                <div className="mt-5 rounded-[12px] border border-[#e6cdbf] bg-[#fbf2ea] p-4">
+                  <p className="text-sm font-medium text-[#8a5637]">以下图片在处理过程中出现失败</p>
+                  <div className="mt-2 space-y-2">
+                    {faceReport.failed_items.map((item) => (
+                      <p key={`${item.image_id}-${item.step}`} className="text-sm leading-6 text-black/68">
+                        {item.filename} [{item.step}] {item.error}
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
             </section>
           ) : null}
 
           {!isDraftView && currentTask ? (
-            <section className="space-y-5">
-                {imageEntries.length > 0 ? (
-                  imageEntries.map((image) => {
-                    const displayUrl = toAbsoluteUrl(image.display_image_url);
-                    const boxedUrl = toAbsoluteUrl(image.boxed_image_url);
-                    return (
-                      <article
-                        key={image.image_id}
-                        className="w-full overflow-hidden rounded-[12px] border border-[#d8c9b7] bg-[rgba(249,244,237,0.94)] shadow-card"
-                      >
-                        <div className="grid gap-0 lg:grid-cols-[1.08fr_0.92fr]">
-                          <div className="bg-[#ece2d3]">
-                            {displayUrl ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img src={displayUrl} alt={image.filename} className="h-full w-full object-cover" />
-                            ) : (
-                              <div className="flex min-h-72 items-center justify-center text-sm text-black/38">暂无可预览图片</div>
-                            )}
-                          </div>
-
-                          <div className="p-6">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className="text-lg font-semibold">{image.filename}</span>
-                              <span className="rounded-[10px] bg-black/5 px-2 py-1 font-mono text-xs">{image.image_id}</span>
-                            </div>
-                            <p className="mt-2 text-sm text-black/60">
-                              检测到 {image.face_count} 张脸 {image.timestamp ? `· ${image.timestamp}` : ""}
-                            </p>
-
-                            {boxedUrl ? (
-                              <a href={boxedUrl} target="_blank" rel="noreferrer" className="mt-3 inline-flex text-sm text-[#8a5637] underline">
-                                查看 boxed image
-                              </a>
-                            ) : null}
-
-                            <div className="mt-5 space-y-3">
-                              {image.faces.length > 0 ? (
-                                image.faces.map((face) => (
-                                  <div key={face.face_id} className="rounded-[12px] border border-[#e1cfbf] bg-[#fbf5ed] p-4">
-                                    <div className="flex flex-wrap items-center gap-2">
-                                      <span className="font-medium">{face.person_id}</span>
-                                      <span className="rounded-[10px] bg-white px-2 py-1 font-mono text-xs">face {face.face_id.slice(0, 8)}</span>
-                                    </div>
-                                    <p className="mt-2 text-sm text-black/65">
-                                      图片 ID：{face.image_id} · 分数 {face.score.toFixed(3)} · 相似度 {face.similarity.toFixed(3)}
-                                    </p>
-                                  </div>
-                                ))
-                              ) : (
-                                <div className="rounded-[12px] border border-[#e1cfbf] bg-[#fbf5ed] p-4 text-sm text-black/58">
-                                  这张图片没有识别到人脸。
-                                </div>
-                              )}
-
-                              {image.failures && image.failures.length > 0 ? (
-                                <div className="rounded-[12px] border border-[#e6cdbf] bg-[#fbf2ea] p-4">
-                                  <p className="text-sm font-medium text-[#8a5637]">该图片后续处理存在失败记录</p>
-                                  <div className="mt-2 space-y-2">
-                                    {image.failures.map((failure) => (
-                                      <p key={`${failure.image_id}-${failure.step}`} className="text-sm text-black/68">
-                                        [{failure.step}] {failure.error}
-                                      </p>
-                                    ))}
-                                  </div>
-                                </div>
-                              ) : null}
-                            </div>
-                          </div>
-                        </div>
-                      </article>
-                    );
-                  })
-                ) : (
-                  <section className="w-full rounded-[12px] border border-[#d8c9b7] bg-[rgba(249,244,237,0.94)] p-8 shadow-card">
-                    <p className="text-lg font-medium">还没有可展示的人脸识别结果</p>
-                    <p className="mt-2 text-sm text-black/58">
-                      下一组对话里你告诉我 boxed 人脸怎么排布后，我直接把结果视图接到这里。
-                    </p>
-                  </section>
-                )}
-            </section>
+            personGroups.length > 0 ? (
+              <PersonGroupsPanel groups={personGroups} />
+            ) : currentTask.status === "running" || currentTask.status === "queued" ? (
+              <WaitingDots label={`当前阶段：${formatStage(currentTask.stage)}`} />
+            ) : (
+              <section className="w-full rounded-[12px] border border-[#d8c9b7] bg-[rgba(249,244,237,0.94)] p-8 shadow-card">
+                <p className="text-lg font-medium">还没有可展示的人脸识别结果</p>
+                <p className="mt-2 text-sm text-black/58">
+                  当前任务尚未产出可用的人物聚合结果。
+                </p>
+              </section>
+            )
           ) : null}
 
           <RecallChatDock />

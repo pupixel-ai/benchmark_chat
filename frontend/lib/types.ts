@@ -14,6 +14,8 @@ export type ImageEntry = {
   filename: string;
   timestamp?: string;
   status: string;
+  detection_seconds?: number;
+  embedding_seconds?: number;
   original_image_url?: string | null;
   display_image_url?: string | null;
   boxed_image_url?: string | null;
@@ -22,6 +24,27 @@ export type ImageEntry = {
   face_count: number;
   faces: FaceItem[];
   failures?: FailureItem[];
+};
+
+export type PersonGroupImage = {
+  image_id: string;
+  filename: string;
+  timestamp?: string;
+  display_image_url?: string | null;
+  boxed_image_url?: string | null;
+  face_id: string;
+  score: number;
+  similarity: number;
+};
+
+export type PersonGroupEntry = {
+  person_id: string;
+  is_primary?: boolean;
+  photo_count: number;
+  face_count: number;
+  avg_score: number;
+  avatar_url?: string | null;
+  images: PersonGroupImage[];
 };
 
 export type FailureItem = {
@@ -37,6 +60,7 @@ export type UploadItem = {
   stored_filename: string;
   path: string;
   url?: string | null;
+  preview_url?: string | null;
   width?: number | null;
   height?: number | null;
   content_type?: string | null;
@@ -56,7 +80,56 @@ export type FaceRecognitionPayload = {
     avg_score: number;
   }>;
   images: ImageEntry[];
+  person_groups: PersonGroupEntry[];
   failed_images: FailureItem[];
+};
+
+export type FaceReport = {
+  status: string;
+  generated_at: string;
+  primary_person_id?: string | null;
+  total_images: number;
+  total_faces: number;
+  total_persons: number;
+  failed_images: number;
+  failed_items: Array<{
+    image_id: string;
+    filename: string;
+    step: string;
+    error: string;
+  }>;
+  engine: {
+    model_name?: string | null;
+    providers?: string[];
+  };
+  timings: {
+    detection_seconds: number;
+    embedding_seconds: number;
+    total_seconds: number;
+    average_image_seconds: number;
+  };
+  processing: {
+    original_uploads_preserved: boolean;
+    preview_format: string;
+    boxed_format: string;
+    recognition_input: string;
+  };
+  precision_enhancements: string[];
+  score_guide: {
+    detection_score: string;
+    similarity: string;
+  };
+  no_face_images: Array<{
+    image_id: string;
+    filename: string;
+  }>;
+  persons: Array<{
+    person_id: string;
+    is_primary?: boolean;
+    photo_count: number;
+    face_count: number;
+    avg_score: number;
+  }>;
 };
 
 export type TaskResult = {
@@ -74,6 +147,7 @@ export type TaskResult = {
     primary_person_id?: string | null;
   };
   face_recognition: FaceRecognitionPayload;
+  face_report?: FaceReport | null;
   failed_images: FailureItem[];
   warnings: Array<{ stage: string; message: string }>;
   events?: Array<{ title?: string }>;
