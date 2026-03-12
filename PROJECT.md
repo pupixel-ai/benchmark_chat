@@ -209,7 +209,7 @@ LLM_MODEL = "gemini-2.0-flash"
 
 # 人脸识别
 FACE_THRESHOLD = 0.70    # 相似度阈值
-FACE_MIN_SIZE = 70       # 最小人脸尺寸
+FACE_MIN_SIZE = 48       # 最小人脸尺寸
 
 # 图片处理
 MAX_IMAGE_SIZE = 1536    # 压缩后最大边长

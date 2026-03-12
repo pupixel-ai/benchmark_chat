@@ -7,7 +7,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Callable, Dict, List, Optional
 
-from config import FACE_MIN_SIZE, MAX_UPLOAD_PHOTOS, RUNS_URL_PREFIX
+from config import FACE_MIN_SIZE, MAX_UPLOAD_PHOTOS
+from services.asset_store import TaskAssetStore
 from services.face_recognition import FaceRecognition
 from services.image_processor import ImageProcessor
 from utils import load_json, save_json
@@ -16,10 +17,10 @@ from utils import load_json, save_json
 class MemoryPipelineService:
     """将现有多模态流程封装为任务级服务。"""
 
-    def __init__(self, task_id: str, task_dir: str, public_runs_prefix: str = RUNS_URL_PREFIX):
+    def __init__(self, task_id: str, task_dir: str, asset_store: Optional[TaskAssetStore] = None):
         self.task_id = task_id
         self.task_dir = Path(task_dir)
-        self.public_runs_prefix = public_runs_prefix.rstrip("/")
+        self.asset_store = asset_store or TaskAssetStore()
 
         self.upload_dir = self.task_dir / "uploads"
         self.cache_dir = self.task_dir / "cache"
@@ -107,6 +108,7 @@ class MemoryPipelineService:
         save_json(detailed_output, str(result_path))
         detailed_output["artifacts"]["result_url"] = self._public_url(result_path)
         detailed_output["artifacts"]["face_output_url"] = self._public_url(self.cache_dir / "face_recognition_output.json")
+        self.asset_store.sync_task_directory(self.task_id, self.task_dir)
 
         return detailed_output
 
@@ -357,12 +359,9 @@ class MemoryPipelineService:
             return None
 
         path = Path(file_path)
-        if not path.exists():
-            return None
-
         try:
-            relative = path.relative_to(self.task_dir.parent)
+            relative = path.relative_to(self.task_dir)
         except ValueError:
             return None
 
-        return f"{self.public_runs_prefix}/{relative.as_posix()}"
+        return self.asset_store.asset_url(self.task_id, relative.as_posix())

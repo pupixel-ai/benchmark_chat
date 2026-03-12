@@ -48,10 +48,10 @@ cp .env.example .env
 python3 main.py --photos /path/to/photos --max-photos 10
 ```
 
-如需显式指定本地人脸项目源码路径：
+如需显式覆盖仓库内置的人脸识别源码路径：
 
 ```bash
-export FACE_RECOGNITION_SRC_PATH=/Users/ziyan/Documents/face-recognition/src
+export FACE_RECOGNITION_SRC_PATH=/absolute/path/to/face-recognition/src
 ```
 
 ## 参数说明
@@ -79,7 +79,7 @@ cache/
 
 ### 后端
 
-先启动 MySQL：
+本地开发默认会回落到 `runtime/local_preview.db`。如果你希望本地也使用 MySQL，可以先启动数据库：
 
 ```bash
 docker compose up -d mysql
@@ -92,7 +92,7 @@ docker compose up -d mysql
 默认监听 `http://localhost:8000`，提供：
 - `POST /api/tasks`：上传最多 100 张图片并创建任务
 - `GET /api/tasks/{task_id}`：轮询任务状态与结果
-- `GET /runs/...`：访问 boxed image、任务结果 JSON 等静态文件
+- `GET /api/assets/{task_id}/...`：通过后端代理访问对象存储中的图片与任务产物
 
 ### 前端
 
@@ -112,7 +112,7 @@ NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
 # 人脸识别
 FACE_SIM_THRESHOLD = 0.50  # 相似度阈值
 FACE_DET_THRESHOLD = 0.60  # 检测阈值
-FACE_MIN_SIZE = 70         # 最小人脸尺寸（像素）
+FACE_MIN_SIZE = 48         # 最小人脸尺寸（像素）
 
 # 图片处理
 MAX_IMAGE_SIZE = 1536  # VLM用图的最大尺寸
@@ -147,6 +147,14 @@ A: `pillow-heif` 已包含在依赖中，确保已安装
 1. **API成本**: VLM和LLM调用会产生费用
 2. **隐私**: 照片会上传到Google服务器进行分析
 3. **性能**: 处理大量照片需要较长时间
+
+## Railway 部署提示
+
+- 后端优先读取 `DATABASE_URL`，如果没有设置，会自动尝试 Railway MySQL 注入的 `MYSQL_URL` / `MYSQLHOST` 等变量。
+- 如果两者都没有，后端会回落到 `sqlite:///runtime/local_preview.db`，只适合本地预览，不适合正式部署。
+- 仓库已经内置 `vendor/face_recognition_src/face_recognition`，部署时不再依赖你本机的 `/Users/...` 路径。
+- Railway 后端建议设置 `FRONTEND_ORIGIN` 为前端实际域名，并将 `DATABASE_URL` 直接指向 `${{MySQL.MYSQL_URL}}`。
+- 原始上传图、预览图、boxed 图、face crops、缓存与结果文件都会同步到 Railway Bucket / S3 兼容对象存储，并通过 `/api/assets/...` 稳定访问。
 
 ## 部署指南
 

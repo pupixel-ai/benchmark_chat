@@ -6,6 +6,60 @@
 - macOS / Linux
 - 至少 4GB 内存
 
+## Railway 部署
+
+### 后端服务
+
+1. 在 Railway 新建一个 Python service，根目录指向仓库根目录。
+2. 再附加一个 MySQL service。
+3. 在后端 service 的 Variables 里至少设置：
+
+```bash
+DATABASE_URL=${{MySQL.MYSQL_URL}}
+FRONTEND_ORIGIN=https://你的前端域名
+GEMINI_API_KEY=...
+AMAP_API_KEY=...
+```
+
+如果不显式设置 `DATABASE_URL`，后端也会自动尝试读取 Railway 注入的 `MYSQL_URL`、`MYSQLHOST`、`MYSQLPORT`、`MYSQLUSER`、`MYSQLPASSWORD`、`MYSQLDATABASE`。
+
+4. 再附加一个 Railway Bucket（或其他 S3 兼容对象存储），后端会优先读取：
+
+```bash
+BUCKET
+ENDPOINT
+REGION
+ACCESS_KEY_ID
+SECRET_ACCESS_KEY
+```
+
+也可以改用自定义变量：
+
+```bash
+OBJECT_STORAGE_BUCKET
+OBJECT_STORAGE_ENDPOINT
+OBJECT_STORAGE_REGION
+OBJECT_STORAGE_ACCESS_KEY_ID
+OBJECT_STORAGE_SECRET_ACCESS_KEY
+OBJECT_STORAGE_PREFIX
+OBJECT_STORAGE_ADDRESSING_STYLE
+```
+
+### 前端服务
+
+前端建议作为单独的 Railway Node service 部署，根目录指向 `frontend/`，并设置：
+
+```bash
+NEXT_PUBLIC_API_BASE_URL=https://你的后端域名
+```
+
+### 关键说明
+
+- 不要把数据库地址写成 `127.0.0.1`，Railway 容器内没有本机 MySQL。
+- 仓库已内置 `vendor/face_recognition_src/face_recognition`，不再依赖本机 `/Users/...` 路径。
+- 原始上传图、预览图、boxed 图、face crops、缓存与结果文件会同步到对象存储，并通过 `/api/assets/{task_id}/...` 由后端代理访问。
+- `runtime/tasks/` 仍会作为任务执行时的临时工作目录存在，但持久化依赖对象存储而不是容器本地磁盘。
+
 ## 快速开始
 
 ### 1. 解压项目

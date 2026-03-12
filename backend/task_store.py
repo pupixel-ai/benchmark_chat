@@ -1,5 +1,5 @@
 """
-MySQL-backed task state store.
+SQL-backed task state store.
 """
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from config import TASKS_DIR
 
 
 class TaskStore:
-    """使用 MySQL 保存任务状态。"""
+    """使用 SQL 数据库保存任务状态。"""
 
     def __init__(self, tasks_root: str = TASKS_DIR):
         self.tasks_root = Path(tasks_root)
