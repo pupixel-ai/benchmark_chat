@@ -179,6 +179,17 @@ def healthcheck():
     }
 
 
+@app.get("/")
+def root():
+    return {
+        "status": "ok",
+        "service": "Memory Engineering API",
+        "healthcheck": "/api/health",
+        "tasks_endpoint": "/api/tasks",
+        "assets_prefix": ASSET_URL_PREFIX,
+    }
+
+
 @app.post("/api/tasks")
 async def create_task(
     background_tasks: BackgroundTasks,
