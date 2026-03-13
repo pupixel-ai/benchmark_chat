@@ -13,6 +13,7 @@ frontend/.next/
 frontend/.next-dev/
 frontend/.next-build/
 frontend/node_modules/
+frontend/tsconfig.tsbuildinfo
 
 models/__pycache__/
 services/__pycache__/
