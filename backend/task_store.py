@@ -7,7 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from sqlalchemy import desc, select
+from sqlalchemy import delete, desc, select
 
 from backend.db import Base, SessionLocal, engine, ensure_schema
 from backend.models import TaskRecord
@@ -90,6 +90,17 @@ class TaskStore:
             session.commit()
             session.refresh(record)
             return self._serialize(record)
+
+    def delete_task(self, task_id: str, user_id: str) -> bool:
+        with SessionLocal() as session:
+            result = session.execute(
+                delete(TaskRecord).where(
+                    TaskRecord.task_id == task_id,
+                    TaskRecord.user_id == user_id,
+                )
+            )
+            session.commit()
+            return bool(result.rowcount)
 
     def _serialize(self, record: TaskRecord) -> Dict:
         return {

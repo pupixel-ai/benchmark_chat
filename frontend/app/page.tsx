@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
-import { ArrowUp, Plus } from "lucide-react";
-import type { AuthResponse, AuthUser, FaceReport, PersonGroupEntry, TaskListResponse, TaskState, UploadItem } from "@/lib/types";
+import { ArrowUp, Plus, X } from "lucide-react";
+import type { AuthResponse, AuthUser, FaceReport, HealthResponse, PersonGroupEntry, TaskListResponse, TaskState, UploadItem } from "@/lib/types";
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "").replace(/\/$/, "");
 const MAX_UPLOADS = 100;
@@ -214,6 +214,7 @@ function LoginPanel({
   password,
   error,
   busy,
+  registrationEnabled,
   onModeChange,
   onUsernameChange,
   onPasswordChange,
@@ -224,12 +225,13 @@ function LoginPanel({
   password: string;
   error: string | null;
   busy: boolean;
+  registrationEnabled: boolean;
   onModeChange: (mode: "login" | "register") => void;
   onUsernameChange: (value: string) => void;
   onPasswordChange: (value: string) => void;
   onSubmit: () => void;
 }) {
-  const isRegister = mode === "register";
+  const isRegister = registrationEnabled && mode === "register";
 
   return (
     <section className="mx-auto flex min-h-[calc(100vh-3rem)] w-full max-w-[1180px] items-center px-2 py-6 md:px-4">
@@ -264,14 +266,17 @@ function LoginPanel({
             >
               登录
             </button>
-            <button
-              type="button"
-              onClick={() => onModeChange("register")}
-              className={`rounded-[10px] px-4 py-2 text-sm transition ${isRegister ? "bg-white text-ink shadow-sm" : "text-black/55"}`}
-            >
-              注册
-            </button>
+            {registrationEnabled ? (
+              <button
+                type="button"
+                onClick={() => onModeChange("register")}
+                className={`rounded-[10px] px-4 py-2 text-sm transition ${isRegister ? "bg-white text-ink shadow-sm" : "text-black/55"}`}
+              >
+                注册
+              </button>
+            ) : null}
           </div>
+          {!registrationEnabled ? <p className="mt-3 text-sm text-black/48">当前环境已关闭自助注册，请使用现有账号登录。</p> : null}
 
           <div className="mt-6 space-y-4">
             <label className="block">
@@ -516,12 +521,14 @@ export default function HomePage() {
   const [authUsername, setAuthUsername] = useState("");
   const [authPassword, setAuthPassword] = useState("");
   const [authBusy, setAuthBusy] = useState(true);
+  const [registrationEnabled, setRegistrationEnabled] = useState(true);
   const [tasks, setTasks] = useState<TaskState[]>([]);
   const [currentTask, setCurrentTask] = useState<TaskState | null>(null);
   const [isDraftView, setIsDraftView] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [pendingUploads, setPendingUploads] = useState<PendingUpload[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const personGroups = currentTask?.result?.face_recognition?.person_groups ?? [];
@@ -561,6 +568,21 @@ export default function HomePage() {
         FACE_RECOGNITION_STAGES.has(currentTask.stage)
     );
 
+  async function loadServerConfig() {
+    const response = await apiFetch(`${API_BASE}/api/health`, { cache: "no-store" });
+    if (!response.ok) {
+      throw new Error("读取服务配置失败");
+    }
+
+    const payload = (await response.json()) as HealthResponse;
+    const enabled = payload.self_registration_enabled !== false;
+    setRegistrationEnabled(enabled);
+    if (!enabled) {
+      setAuthMode("login");
+    }
+    return payload;
+  }
+
   async function loadCurrentUser() {
     const response = await apiFetch(`${API_BASE}/api/auth/me`, { cache: "no-store" });
     if (response.status === 401) {
@@ -582,6 +604,9 @@ export default function HomePage() {
     setAuthBusy(true);
     setError(null);
     try {
+      if (authMode === "register" && !registrationEnabled) {
+        throw new Error("注册已关闭");
+      }
       const endpoint = authMode === "register" ? "/api/auth/register" : "/api/auth/login";
       const response = await apiFetch(`${API_BASE}${endpoint}`, {
         method: "POST",
@@ -689,7 +714,8 @@ export default function HomePage() {
   }
 
   useEffect(() => {
-    loadCurrentUser()
+    loadServerConfig()
+      .then(() => loadCurrentUser())
       .then((user) => {
         if (!user) {
           return;
@@ -771,6 +797,46 @@ export default function HomePage() {
     }
   }
 
+  async function deleteTask(task: TaskState) {
+    if (task.status !== "completed" && task.status !== "failed") {
+      setError("任务处理中，暂不支持删除");
+      return;
+    }
+
+    const confirmed = window.confirm(`确认删除任务“${taskDisplayLabel(task)}”及其上传图片、人脸结果和缓存文件吗？此操作不可恢复。`);
+    if (!confirmed) {
+      return;
+    }
+
+    setDeletingTaskId(task.task_id);
+    setError(null);
+
+    try {
+      const response = await apiFetch(`${API_BASE}/api/tasks/${task.task_id}`, {
+        method: "DELETE",
+      });
+
+      if (response.status === 401) {
+        setAuthUser(null);
+        throw new Error("登录已失效，请重新登录");
+      }
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.detail ?? "删除任务失败");
+      }
+
+      setTasks((previous) => previous.filter((item) => item.task_id !== task.task_id));
+      setCurrentTask((previous) => (previous?.task_id === task.task_id ? null : previous));
+      setIsDraftView((previous) => previous || currentTask?.task_id === task.task_id);
+      await fetchTasks({ selectInitial: !currentTask || currentTask.task_id === task.task_id, preserveCurrent: false });
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : "删除任务失败");
+    } finally {
+      setDeletingTaskId(null);
+    }
+  }
+
   function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files ?? []).slice(0, MAX_UPLOADS);
     if (files.length === 0) {
@@ -818,6 +884,7 @@ export default function HomePage() {
           password={authPassword}
           error={error}
           busy={authBusy}
+          registrationEnabled={registrationEnabled}
           onModeChange={setAuthMode}
           onUsernameChange={setAuthUsername}
           onPasswordChange={setAuthPassword}
@@ -882,20 +949,37 @@ export default function HomePage() {
 
               {tasks.map((task) => {
                 const active = !isDraftView && currentTask?.task_id === task.task_id;
+                const deleting = deletingTaskId === task.task_id;
                 return (
-                  <button
+                  <div
                     key={task.task_id}
-                    type="button"
-                    onClick={() => fetchTask(task.task_id).catch(() => null)}
                     className={`w-full rounded-[12px] px-2.5 py-3 text-left transition ${
                       active ? "bg-white/75 shadow-sm" : "hover:bg-white/45"
                     }`}
                   >
-                    <p className="truncate text-sm font-medium text-ink">{taskDisplayLabel(task)}</p>
-                    <p className="mt-1 truncate text-xs text-black/45">
-                      {formatStatus(task.status)} · {formatTaskTime(task.updated_at) || formatStage(task.stage)}
-                    </p>
-                  </button>
+                    <div className="flex items-start gap-2">
+                      <button
+                        type="button"
+                        onClick={() => fetchTask(task.task_id).catch(() => null)}
+                        className="min-w-0 flex-1 text-left"
+                      >
+                        <p className="truncate text-sm font-medium text-ink">{taskDisplayLabel(task)}</p>
+                        <p className="mt-1 truncate text-xs text-black/45">
+                          {formatStatus(task.status)} · {formatTaskTime(task.updated_at) || formatStage(task.stage)}
+                        </p>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void deleteTask(task)}
+                        disabled={deleting || (task.status !== "completed" && task.status !== "failed")}
+                        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-black/35 transition hover:bg-black/5 hover:text-black/60 disabled:cursor-not-allowed disabled:text-black/15"
+                        aria-label={`删除任务 ${taskDisplayLabel(task)}`}
+                        title={task.status === "completed" || task.status === "failed" ? "删除任务及其文件" : "任务处理中，暂不可删除"}
+                      >
+                        <X size={16} strokeWidth={2.3} />
+                      </button>
+                    </div>
+                  </div>
                 );
               })}
 

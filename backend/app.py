@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import io
 import os
+import shutil
 import uuid
 from pathlib import Path
 from typing import List
@@ -26,12 +27,14 @@ from backend.auth import (
 )
 from backend.task_store import TaskStore
 from config import (
+    ALLOW_SELF_REGISTRATION,
     ASSET_URL_PREFIX,
     BACKEND_HOST,
     BACKEND_PORT,
     BACKEND_RELOAD,
     CORS_ALLOW_ORIGINS,
     FRONTEND_ORIGIN,
+    HIGH_SECURITY_MODE,
     MAX_UPLOAD_PHOTOS,
     TASKS_DIR,
 )
@@ -149,6 +152,13 @@ def _write_upload_failures(task_dir: Path, failures: list[dict]) -> None:
     save_json({"failures": failures}, str(task_dir / UPLOAD_FAILURES_FILENAME))
 
 
+def _apply_no_store_headers(response: Response) -> Response:
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0, private"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
+
+
 def _run_pipeline_task(task_id: str, max_photos: int, use_cache: bool):
     task_dir = task_store.task_dir(task_id)
 
@@ -184,11 +194,14 @@ def _run_pipeline_task(task_id: str, max_photos: int, use_cache: bool):
 
 
 @app.get("/api/health")
-def healthcheck():
+def healthcheck(response: Response):
+    _apply_no_store_headers(response)
     return {
         "status": "ok",
         "frontend_origin": FRONTEND_ORIGIN,
         "max_upload_photos": MAX_UPLOAD_PHOTOS,
+        "self_registration_enabled": ALLOW_SELF_REGISTRATION,
+        "high_security_mode": HIGH_SECURITY_MODE,
         "asset_url_prefix": ASSET_URL_PREFIX,
         "object_storage_enabled": asset_store.enabled,
         "object_storage_bucket": asset_store.bucket or None,
@@ -197,6 +210,9 @@ def healthcheck():
 
 @app.post("/api/auth/register")
 def register(payload: AuthPayload, response: Response):
+    _apply_no_store_headers(response)
+    if not ALLOW_SELF_REGISTRATION:
+        raise HTTPException(status_code=403, detail="注册已关闭")
     user = register_user(payload.username, payload.password)
     _, session_token = login_user(payload.username, payload.password)
     return authenticate_response(response, user, session_token)
@@ -204,12 +220,14 @@ def register(payload: AuthPayload, response: Response):
 
 @app.post("/api/auth/login")
 def login(payload: AuthPayload, response: Response):
+    _apply_no_store_headers(response)
     user, session_token = login_user(payload.username, payload.password)
     return authenticate_response(response, user, session_token)
 
 
 @app.get("/api/auth/me")
-def current_user(user: dict = Depends(get_current_user)):
+def current_user(response: Response, user: dict = Depends(get_current_user)):
+    _apply_no_store_headers(response)
     return {"user": user}
 
 
@@ -219,6 +237,7 @@ def logout(
     session_token: str | None = Cookie(default=None, alias=AUTH_SESSION_COOKIE_NAME),
     user: dict = Depends(get_current_user),
 ):
+    _apply_no_store_headers(response)
     del user
     logout_current_session(session_token, response)
     return {"status": "ok"}
@@ -239,11 +258,13 @@ def root():
 @app.post("/api/tasks")
 async def create_task(
     background_tasks: BackgroundTasks,
+    response: Response,
     files: List[UploadFile] = File(...),
     max_photos: int = Form(MAX_UPLOAD_PHOTOS),
     use_cache: bool = Form(False),
     current_user: dict = Depends(get_current_user),
 ):
+    _apply_no_store_headers(response)
     if not files:
         raise HTTPException(status_code=400, detail="至少上传一张图片")
 
@@ -332,7 +353,8 @@ async def create_task(
 
 
 @app.get("/api/tasks")
-def list_tasks(limit: int = 20, current_user: dict = Depends(get_current_user)):
+def list_tasks(response: Response, limit: int = 20, current_user: dict = Depends(get_current_user)):
+    _apply_no_store_headers(response)
     safe_limit = max(1, min(limit, 100))
     return {
         "tasks": task_store.list_tasks(user_id=current_user["user_id"], limit=safe_limit),
@@ -340,11 +362,43 @@ def list_tasks(limit: int = 20, current_user: dict = Depends(get_current_user)):
 
 
 @app.get("/api/tasks/{task_id}")
-def get_task(task_id: str, current_user: dict = Depends(get_current_user)):
+def get_task(task_id: str, response: Response, current_user: dict = Depends(get_current_user)):
+    _apply_no_store_headers(response)
     task = task_store.get_task(task_id, user_id=current_user["user_id"])
     if not task:
         raise HTTPException(status_code=404, detail="任务不存在")
     return task
+
+
+@app.delete("/api/tasks/{task_id}")
+def delete_task(task_id: str, response: Response, current_user: dict = Depends(get_current_user)):
+    _apply_no_store_headers(response)
+    task = task_store.get_task(task_id, user_id=current_user["user_id"])
+    if not task:
+        raise HTTPException(status_code=404, detail="任务不存在")
+
+    if task["status"] not in {"completed", "failed"}:
+        raise HTTPException(status_code=409, detail="任务处理中，暂不支持删除")
+
+    task_dir = task_store.task_dir(task_id)
+
+    try:
+        asset_store.delete_task_assets(task_id)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"删除对象存储文件失败: {exc}") from exc
+
+    try:
+        shutil.rmtree(task_dir, ignore_errors=False)
+    except FileNotFoundError:
+        pass
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"删除本地任务文件失败: {exc}") from exc
+
+    deleted = task_store.delete_task(task_id, user_id=current_user["user_id"])
+    if not deleted:
+        raise HTTPException(status_code=500, detail="删除任务记录失败")
+
+    return {"status": "deleted", "task_id": task_id}
 
 
 @app.get(f"{ASSET_URL_PREFIX}" + "/{task_id}/{asset_path:path}")
@@ -357,13 +411,15 @@ def get_asset(task_id: str, asset_path: str, current_user: dict = Depends(get_cu
     if asset_store.enabled:
         try:
             payload, content_type = asset_store.read_bytes(task_id, asset_path)
-            return Response(content=payload, media_type=content_type)
+            response = Response(content=payload, media_type=content_type)
+            return _apply_no_store_headers(response)
         except Exception:
             pass
 
     local_path = asset_store.local_asset_path(task_dir, asset_path)
     if local_path and local_path.exists():
-        return FileResponse(local_path)
+        response = FileResponse(local_path)
+        return _apply_no_store_headers(response)
 
     raise HTTPException(status_code=404, detail="资产不存在")
 

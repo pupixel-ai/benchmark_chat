@@ -13,6 +13,7 @@ from botocore.exceptions import ClientError
 
 from config import (
     ASSET_URL_PREFIX,
+    HIGH_SECURITY_MODE,
     OBJECT_STORAGE_ACCESS_KEY_ID,
     OBJECT_STORAGE_ADDRESSING_STYLE,
     OBJECT_STORAGE_BUCKET,
@@ -55,6 +56,8 @@ class TaskAssetStore:
 
     @property
     def enabled(self) -> bool:
+        if HIGH_SECURITY_MODE:
+            return False
         return all([self.bucket, self.endpoint, self.access_key_id, self.secret_access_key])
 
     def sanitize_relative_path(self, relative_path: str) -> str:
@@ -64,6 +67,11 @@ class TaskAssetStore:
         return normalized.as_posix()
 
     def object_key(self, task_id: str, relative_path: str) -> str:
+        if not relative_path or relative_path in {"."}:
+            if self.prefix:
+                return f"{self.prefix}/{task_id}"
+            return f"{task_id}"
+
         safe_relative_path = self.sanitize_relative_path(relative_path)
         if self.prefix:
             return f"{self.prefix}/{task_id}/{safe_relative_path}"
@@ -151,3 +159,34 @@ class TaskAssetStore:
         except ValueError:
             return None
         return candidate
+
+    def delete_task_assets(self, task_id: str) -> None:
+        if not self.enabled or self._client is None:
+            return
+
+        prefix = self.object_key(task_id, "")
+        continuation_token = None
+
+        while True:
+            request_kwargs = {
+                "Bucket": self.bucket,
+                "Prefix": prefix,
+                "MaxKeys": 1000,
+            }
+            if continuation_token:
+                request_kwargs["ContinuationToken"] = continuation_token
+
+            response = self._client.list_objects_v2(**request_kwargs)
+            contents = response.get("Contents", [])
+            if contents:
+                self._client.delete_objects(
+                    Bucket=self.bucket,
+                    Delete={
+                        "Objects": [{"Key": item["Key"]} for item in contents],
+                        "Quiet": True,
+                    },
+                )
+
+            if not response.get("IsTruncated"):
+                break
+            continuation_token = response.get("NextContinuationToken")

@@ -180,3 +180,14 @@ export type AuthUser = {
 export type AuthResponse = {
   user: AuthUser;
 };
+
+export type HealthResponse = {
+  status: string;
+  frontend_origin: string;
+  max_upload_photos: number;
+  self_registration_enabled?: boolean;
+  high_security_mode?: boolean;
+  asset_url_prefix: string;
+  object_storage_enabled: boolean;
+  object_storage_bucket?: string | null;
+};

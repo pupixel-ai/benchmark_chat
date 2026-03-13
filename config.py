@@ -34,6 +34,12 @@ RUNS_URL_PREFIX = "/runs"
 ASSET_URL_PREFIX = "/api/assets"
 AUTH_SESSION_COOKIE_NAME = os.getenv("AUTH_SESSION_COOKIE_NAME", "memory_session")
 AUTH_SESSION_DAYS = int(os.getenv("AUTH_SESSION_DAYS", "14"))
+HIGH_SECURITY_MODE = os.getenv("HIGH_SECURITY_MODE", "false").lower() == "true"
+ALLOW_SELF_REGISTRATION = (
+    False
+    if HIGH_SECURITY_MODE
+    else os.getenv("ALLOW_SELF_REGISTRATION", "true").lower() == "true"
+)
 COOKIE_SECURE = os.getenv(
     "COOKIE_SECURE",
     "true" if FRONTEND_ORIGIN.startswith("https://") else "false",
