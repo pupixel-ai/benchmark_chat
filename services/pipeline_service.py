@@ -7,6 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Callable, Dict, List, Optional
 
+from backend.face_review_store import FaceReviewStore
 from config import FACE_MIN_SIZE, MAX_UPLOAD_PHOTOS
 from services.asset_store import TaskAssetStore
 from services.face_recognition import FaceRecognition
@@ -17,10 +18,19 @@ from utils import load_json, save_json
 class MemoryPipelineService:
     """将现有多模态流程封装为任务级服务。"""
 
-    def __init__(self, task_id: str, task_dir: str, asset_store: Optional[TaskAssetStore] = None):
+    def __init__(
+        self,
+        task_id: str,
+        task_dir: str,
+        asset_store: Optional[TaskAssetStore] = None,
+        user_id: Optional[str] = None,
+        face_review_store: Optional[FaceReviewStore] = None,
+    ):
         self.task_id = task_id
         self.task_dir = Path(task_dir)
         self.asset_store = asset_store or TaskAssetStore()
+        self.user_id = user_id
+        self.face_review_store = face_review_store or FaceReviewStore()
 
         self.upload_dir = self.task_dir / "uploads"
         self.cache_dir = self.task_dir / "cache"
@@ -62,9 +72,10 @@ class MemoryPipelineService:
             {"message": "转换 HEIC/JPEG", "photo_count": len(photos)},
         )
         photos = self.image_processor.convert_to_jpeg(photos)
+        photos_to_process = self._apply_image_policies(photos)
 
         self._notify(progress_callback, "face_recognition", {"message": "进行人脸识别"})
-        face_ready_photos = self._run_face_recognition(photos)
+        face_ready_photos = self._run_face_recognition(photos_to_process)
 
         primary_person_id = None
         if face_ready_photos:
@@ -160,6 +171,28 @@ class MemoryPipelineService:
                 "failures": failure_map.get(image.get("photo_id"), []),
             })
 
+        known_image_ids = {entry["image_id"] for entry in image_entries}
+        for photo in photos:
+            if photo.photo_id in known_image_ids:
+                continue
+            image_entries.append({
+                "image_id": photo.photo_id,
+                "filename": photo.filename,
+                "source_hash": photo.source_hash,
+                "timestamp": photo.timestamp.isoformat(),
+                "status": "abandoned_by_policy" if photo.processing_errors.get("face_policy") else "skipped",
+                "detection_seconds": 0.0,
+                "embedding_seconds": 0.0,
+                "original_image_url": self._public_url(photo.original_path or photo.path),
+                "display_image_url": self._public_url(photo.boxed_path or photo.compressed_path or photo.original_path or photo.path),
+                "boxed_image_url": self._public_url(photo.boxed_path) if photo.boxed_path else None,
+                "compressed_image_url": self._public_url(photo.compressed_path) if photo.compressed_path else None,
+                "location": photo.location,
+                "face_count": 0,
+                "faces": [],
+                "failures": failure_map.get(photo.photo_id, []),
+            })
+
         person_groups = self._build_person_groups(
             image_entries,
             photo_map,
@@ -185,7 +218,7 @@ class MemoryPipelineService:
                 "filename": image["filename"],
             }
             for image in face_payload.get("images", [])
-            if image.get("face_count", 0) == 0
+            if image.get("face_count", 0) == 0 and image.get("status") != "abandoned_by_policy"
         ]
         failed_items = [
             {
@@ -376,6 +409,22 @@ class MemoryPipelineService:
             payload = load_json(str(self.upload_failures_path))
         failures = payload.get("failures", [])
         return failures if isinstance(failures, list) else []
+
+    def _apply_image_policies(self, photos: List) -> List:
+        if not self.user_id:
+            return photos
+
+        processable = []
+        for photo in photos:
+            if self.face_review_store.is_image_abandoned(self.user_id, photo.source_hash):
+                photo.processing_errors["face_policy"] = "abandoned_by_policy"
+                self.warnings.append({
+                    "stage": "face_recognition",
+                    "message": f"{photo.filename} 已被标记为 abandon，跳过人脸识别",
+                })
+                continue
+            processable.append(photo)
+        return processable
 
     def _notify(self, callback: Optional[Callable[[str, Dict], None]], stage: str, payload: Dict):
         if callback:

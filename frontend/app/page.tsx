@@ -2,11 +2,24 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
-import { ArrowUp, Plus, X } from "lucide-react";
-import type { AuthResponse, AuthUser, FaceReport, HealthResponse, PersonGroupEntry, TaskListResponse, TaskState, UploadItem } from "@/lib/types";
+import { AlertTriangle, ArrowUp, Ban, MessageSquare, Plus, X } from "lucide-react";
+import type {
+  AuthResponse,
+  AuthUser,
+  FaceReport,
+  HealthResponse,
+  PersonGroupEntry,
+  PersonGroupImage,
+  TaskListResponse,
+  TaskState,
+  UploadItem
+} from "@/lib/types";
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "").replace(/\/$/, "");
-const MAX_UPLOADS = 100;
+const DEFAULT_MAX_UPLOADS = 5000;
+const MAX_BATCH_FILES = 50;
+const MAX_BATCH_BYTES = 64 * 1024 * 1024;
+const GALLERY_PREVIEW_LIMIT = 120;
 const FACE_RECOGNITION_STAGES = new Set(["queued", "starting", "loading", "converting", "face_recognition"]);
 
 type PendingUpload = {
@@ -24,6 +37,8 @@ type GalleryCard = {
 };
 
 const statusLabelMap: Record<TaskState["status"], string> = {
+  draft: "草稿",
+  uploading: "上传中",
   queued: "排队中",
   running: "处理中",
   completed: "已完成",
@@ -31,6 +46,8 @@ const statusLabelMap: Record<TaskState["status"], string> = {
 };
 
 const stageLabelMap: Record<string, string> = {
+  draft: "等待上传",
+  uploading: "上传图片",
   queued: "等待执行",
   starting: "初始化",
   loading: "读取图片",
@@ -96,7 +113,9 @@ function formatTaskTime(value?: string) {
 }
 
 function taskDisplayLabel(task: TaskState) {
-  const summaryTitle = task.result?.summary?.title;
+  const summaryTitle =
+    task.result?.summary?.title ??
+    (typeof task.result_summary?.title === "string" ? task.result_summary.title : null);
   if (summaryTitle) {
     return summaryTitle;
   }
@@ -119,7 +138,7 @@ function uploadMeta(upload: UploadItem) {
 }
 
 function buildPendingUploads(files: File[]) {
-  return files.map((file, index) => ({
+  return files.slice(0, GALLERY_PREVIEW_LIMIT).map((file, index) => ({
     id: `pending-${index}-${file.name}-${file.size}-${file.lastModified}`,
     filename: file.name,
     previewUrl: URL.createObjectURL(file),
@@ -129,6 +148,29 @@ function buildPendingUploads(files: File[]) {
 
 function revokePendingUploads(items: PendingUpload[]) {
   items.forEach((item) => URL.revokeObjectURL(item.previewUrl));
+}
+
+function buildUploadBatches(files: File[]) {
+  const batches: File[][] = [];
+  let current: File[] = [];
+  let currentBytes = 0;
+
+  files.forEach((file) => {
+    const nextSize = currentBytes + file.size;
+    if (current.length > 0 && (current.length >= MAX_BATCH_FILES || nextSize > MAX_BATCH_BYTES)) {
+      batches.push(current);
+      current = [];
+      currentBytes = 0;
+    }
+    current.push(file);
+    currentBytes += file.size;
+  });
+
+  if (current.length > 0) {
+    batches.push(current);
+  }
+
+  return batches;
 }
 
 function normalizeFaceReport(faceReport?: FaceReport | null): FaceReport | null {
@@ -144,6 +186,9 @@ function normalizeFaceReport(faceReport?: FaceReport | null): FaceReport | null 
     total_faces: Number(faceReport.total_faces ?? 0),
     total_persons: Number(faceReport.total_persons ?? 0),
     failed_images: Number(faceReport.failed_images ?? 0),
+    ambiguous_faces: Number(faceReport.ambiguous_faces ?? 0),
+    low_quality_faces: Number(faceReport.low_quality_faces ?? 0),
+    new_person_from_ambiguity: Number(faceReport.new_person_from_ambiguity ?? 0),
     failed_items: Array.isArray(faceReport.failed_items) ? faceReport.failed_items : [],
     engine: {
       model_name: faceReport.engine?.model_name ?? null,
@@ -319,10 +364,12 @@ function LoginPanel({
 
 function UploadCarousel({
   items,
-  showRecognitionBadge
+  showRecognitionBadge,
+  totalCount
 }: {
   items: GalleryCard[];
   showRecognitionBadge: boolean;
+  totalCount: number;
 }) {
   return (
     <section className="w-full rounded-[12px] border border-[#d8c9b7] bg-[rgba(250,246,239,0.9)] p-6 shadow-card">
@@ -331,7 +378,9 @@ function UploadCarousel({
           <p className="font-mono text-xs uppercase tracking-[0.24em] text-black/40">任务图片走廊</p>
           <p className="mt-2 text-sm leading-6 text-black/60">这里保留刚上传或已入库的图片缩略图、名称和格式信息，方便测试同学快速核对任务内容。</p>
         </div>
-        <div className="text-sm text-black/45">横向滚动查看全部图片</div>
+        <div className="text-sm text-black/45">
+          {totalCount > items.length ? `当前仅渲染前 ${items.length} / ${totalCount} 张缩略图` : "横向滚动查看全部图片"}
+        </div>
       </div>
 
       <div className="mt-5 flex snap-x gap-4 overflow-x-auto pb-2">
@@ -370,7 +419,29 @@ function UploadCarousel({
   );
 }
 
-function PersonGroupsPanel({ groups }: { groups: PersonGroupEntry[] }) {
+function PersonGroupsPanel({
+  groups,
+  commentDrafts,
+  expandedComments,
+  reviewBusy,
+  policyBusy,
+  onToggleInaccurate,
+  onToggleAbandon,
+  onToggleComments,
+  onCommentChange,
+  onCommentCommit
+}: {
+  groups: PersonGroupEntry[];
+  commentDrafts: Record<string, string>;
+  expandedComments: Record<string, boolean>;
+  reviewBusy: Record<string, boolean>;
+  policyBusy: Record<string, boolean>;
+  onToggleInaccurate: (image: PersonGroupImage) => void;
+  onToggleAbandon: (image: PersonGroupImage) => void;
+  onToggleComments: (faceId: string) => void;
+  onCommentChange: (faceId: string, value: string) => void;
+  onCommentCommit: (image: PersonGroupImage) => void;
+}) {
   return (
     <section className="w-full rounded-[12px] border border-[#d8c9b7] bg-[rgba(249,244,237,0.94)] p-4 shadow-card">
       <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
@@ -418,22 +489,25 @@ function PersonGroupsPanel({ groups }: { groups: PersonGroupEntry[] }) {
                 <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                   {group.images.map((image) => {
                     const previewUrl = toAbsoluteUrl(image.boxed_image_url ?? image.display_image_url);
+                    const commentOpen = Boolean(expandedComments[image.face_id]);
+                    const commentValue = commentDrafts[image.face_id] ?? image.comment_text ?? "";
+                    const inaccurateActive = Boolean(image.is_inaccurate);
+                    const abandonActive = Boolean(image.is_abandoned);
                     return (
-                      <a
+                      <article
                         key={`${group.person_id}-${image.image_id}`}
-                        href={previewUrl ?? undefined}
-                        target="_blank"
-                        rel="noreferrer"
                         className="overflow-hidden rounded-[12px] border border-[#ddcebb] bg-white/70 transition hover:bg-white"
                       >
-                        <div className="h-40 overflow-hidden bg-[#ece2d3]">
-                          {previewUrl ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={previewUrl} alt={image.filename} className="h-full w-full object-cover" />
-                          ) : (
-                            <div className="flex h-full items-center justify-center text-sm text-black/35">暂无图片</div>
-                          )}
-                        </div>
+                        <a href={previewUrl ?? undefined} target="_blank" rel="noreferrer" className="block">
+                          <div className="h-40 overflow-hidden bg-[#ece2d3]">
+                            {previewUrl ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={previewUrl} alt={image.filename} className="h-full w-full object-cover" />
+                            ) : (
+                              <div className="flex h-full items-center justify-center text-sm text-black/35">暂无图片</div>
+                            )}
+                          </div>
+                        </a>
 
                         <div className="space-y-2 px-4 py-4">
                           <div className="flex flex-wrap items-center gap-2">
@@ -450,8 +524,65 @@ function PersonGroupsPanel({ groups }: { groups: PersonGroupEntry[] }) {
                               {formatTaskTime(image.timestamp)}
                             </p>
                           ) : null}
+
+                          <div className="flex items-center justify-end gap-2 pt-1">
+                            <button
+                              type="button"
+                              aria-label="Inaccurate result"
+                              title="Inaccurate result"
+                              disabled={Boolean(reviewBusy[image.face_id])}
+                              onClick={() => onToggleInaccurate(image)}
+                              className={`inline-flex h-9 w-9 items-center justify-center rounded-full border transition ${
+                                inaccurateActive
+                                  ? "border-[#d06f4b] bg-[#fff0e9] text-[#b45631]"
+                                  : "border-black/10 bg-[#f6f0e7] text-black/55 hover:bg-white"
+                              } disabled:cursor-not-allowed disabled:opacity-50`}
+                            >
+                              <AlertTriangle size={16} strokeWidth={2.1} />
+                            </button>
+                            <button
+                              type="button"
+                              aria-label="Abandon"
+                              title="Abandon"
+                              disabled={Boolean(policyBusy[image.image_id])}
+                              onClick={() => onToggleAbandon(image)}
+                              className={`inline-flex h-9 w-9 items-center justify-center rounded-full border transition ${
+                                abandonActive
+                                  ? "border-[#bb2f2f] bg-[#ffe9e9] text-[#bb2f2f]"
+                                  : "border-black/10 bg-[#f6f0e7] text-black/55 hover:bg-white"
+                              } disabled:cursor-not-allowed disabled:opacity-50`}
+                            >
+                              <Ban size={16} strokeWidth={2.1} />
+                            </button>
+                            <button
+                              type="button"
+                              aria-label="Comments"
+                              title="Comments"
+                              disabled={Boolean(reviewBusy[image.face_id])}
+                              onClick={() => onToggleComments(image.face_id)}
+                              className={`inline-flex h-9 w-9 items-center justify-center rounded-full border transition ${
+                                commentOpen || commentValue
+                                  ? "border-[#8a5637] bg-[#f6eee3] text-[#8a5637]"
+                                  : "border-black/10 bg-[#f6f0e7] text-black/55 hover:bg-white"
+                              } disabled:cursor-not-allowed disabled:opacity-50`}
+                            >
+                              <MessageSquare size={16} strokeWidth={2.1} />
+                            </button>
+                          </div>
+
+                          {commentOpen ? (
+                            <div className="rounded-[12px] border border-[#ddcebb] bg-[#faf4ec] px-3 py-3">
+                              <textarea
+                                value={commentValue}
+                                onChange={(event) => onCommentChange(image.face_id, event.target.value)}
+                                onBlur={() => onCommentCommit(image)}
+                                placeholder="Comment"
+                                className="min-h-[74px] w-full resize-none rounded-[10px] border border-black/8 bg-white/80 px-3 py-2 text-sm text-black/70 outline-none"
+                              />
+                            </div>
+                          ) : null}
                         </div>
-                      </a>
+                      </article>
                     );
                   })}
                 </div>
@@ -522,11 +653,16 @@ export default function HomePage() {
   const [authPassword, setAuthPassword] = useState("");
   const [authBusy, setAuthBusy] = useState(true);
   const [registrationEnabled, setRegistrationEnabled] = useState(true);
+  const [maxUploadPhotos, setMaxUploadPhotos] = useState(DEFAULT_MAX_UPLOADS);
   const [tasks, setTasks] = useState<TaskState[]>([]);
   const [currentTask, setCurrentTask] = useState<TaskState | null>(null);
   const [isDraftView, setIsDraftView] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [pendingUploads, setPendingUploads] = useState<PendingUpload[]>([]);
+  const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
+  const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({});
+  const [reviewBusy, setReviewBusy] = useState<Record<string, boolean>>({});
+  const [policyBusy, setPolicyBusy] = useState<Record<string, boolean>>({});
   const [isUploading, setIsUploading] = useState(false);
   const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -551,20 +687,35 @@ export default function HomePage() {
       }));
     }
 
-    return currentUploads.map((upload) => ({
+    return currentUploads.slice(0, GALLERY_PREVIEW_LIMIT).map((upload) => ({
       id: upload.stored_filename,
       filename: upload.filename,
       imageUrl: toAbsoluteUrl(upload.preview_url ?? upload.url),
       meta: uploadMeta(upload)
     }));
   }, [currentUploads, pendingUploads]);
+  const galleryTotalCount = pendingUploads.length > 0 ? selectedFiles.length : currentUploads.length;
+
+  useEffect(() => {
+    const nextDrafts: Record<string, string> = {};
+    const nextExpanded: Record<string, boolean> = {};
+    personGroups.forEach((group) => {
+      group.images.forEach((image) => {
+        nextDrafts[image.face_id] = image.comment_text ?? "";
+        if (image.comment_text) {
+          nextExpanded[image.face_id] = true;
+        }
+      });
+    });
+    setCommentDrafts(nextDrafts);
+    setExpandedComments(nextExpanded);
+  }, [personGroups]);
 
   const showRecognitionBadge =
     pendingUploads.length > 0 ||
     Boolean(
       currentTask &&
-        currentTask.status !== "completed" &&
-        currentTask.status !== "failed" &&
+        (currentTask.status === "queued" || currentTask.status === "running") &&
         FACE_RECOGNITION_STAGES.has(currentTask.stage)
     );
 
@@ -575,6 +726,7 @@ export default function HomePage() {
     }
 
     const payload = (await response.json()) as HealthResponse;
+    setMaxUploadPhotos(Number(payload.max_upload_photos ?? DEFAULT_MAX_UPLOADS));
     const enabled = payload.self_registration_enabled !== false;
     setRegistrationEnabled(enabled);
     if (!enabled) {
@@ -644,6 +796,10 @@ export default function HomePage() {
       setCurrentTask(null);
       setIsDraftView(false);
       setSelectedFiles([]);
+      setCommentDrafts({});
+      setExpandedComments({});
+      setReviewBusy({});
+      setPolicyBusy({});
       setPendingUploads((previous) => {
         revokePendingUploads(previous);
         return [];
@@ -671,8 +827,8 @@ export default function HomePage() {
 
     if (selectInitial) {
       if (payload.tasks.length > 0) {
-        setCurrentTask(payload.tasks[0]);
         setIsDraftView(false);
+        await fetchTask(payload.tasks[0].task_id);
       } else {
         setCurrentTask(null);
         setIsDraftView(true);
@@ -686,8 +842,9 @@ export default function HomePage() {
 
     if (currentTask) {
       const matched = payload.tasks.find((task) => task.task_id === currentTask.task_id);
-      if (matched) {
-        setCurrentTask(matched);
+      if (!matched) {
+        setCurrentTask(null);
+        setIsDraftView(payload.tasks.length === 0);
       }
     }
   }
@@ -731,7 +888,7 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
-    if (isDraftView || !currentTask || currentTask.status === "completed" || currentTask.status === "failed") {
+    if (isDraftView || !currentTask || (currentTask.status !== "queued" && currentTask.status !== "running")) {
       if (pollTimerRef.current) {
         window.clearInterval(pollTimerRef.current);
         pollTimerRef.current = null;
@@ -759,18 +916,10 @@ export default function HomePage() {
   async function createTask(files: File[]) {
     setIsUploading(true);
     setError(null);
-    let created = false;
+    let createdTaskId: string | null = null;
 
     try {
-      const formData = new FormData();
-      files.forEach((file) => formData.append("files", file));
-      formData.append("max_photos", String(Math.min(files.length, MAX_UPLOADS)));
-      formData.append("use_cache", "false");
-
-      const response = await apiFetch(`${API_BASE}/api/tasks`, {
-        method: "POST",
-        body: formData
-      });
+      const response = await apiFetch(`${API_BASE}/api/tasks`, { method: "POST" });
 
       if (response.status === 401) {
         setAuthUser(null);
@@ -782,18 +931,123 @@ export default function HomePage() {
       }
 
       const payload = (await response.json()) as { task_id: string };
+      createdTaskId = payload.task_id;
+      setIsDraftView(false);
       await fetchTask(payload.task_id);
+
+      const batches = buildUploadBatches(files);
+      let cursor = 0;
+      const uploadWorker = async () => {
+        while (cursor < batches.length) {
+          const batch = batches[cursor];
+          cursor += 1;
+          const formData = new FormData();
+          batch.forEach((file) => formData.append("files", file));
+          const batchResponse = await apiFetch(`${API_BASE}/api/tasks/${payload.task_id}/upload-batches`, {
+            method: "POST",
+            body: formData
+          });
+          if (!batchResponse.ok) {
+            const batchPayload = await batchResponse.json().catch(() => null);
+            throw new Error(batchPayload?.detail ?? "上传图片分片失败");
+          }
+        }
+      };
+      await Promise.all(Array.from({ length: Math.min(2, batches.length) }, () => uploadWorker()));
+
+      const startResponse = await apiFetch(`${API_BASE}/api/tasks/${payload.task_id}/start`, {
+        method: "POST",
+        body: JSON.stringify({
+          max_photos: Math.min(files.length, maxUploadPhotos),
+          use_cache: false
+        })
+      });
+      if (!startResponse.ok) {
+        const startPayload = await startResponse.json().catch(() => null);
+        throw new Error(startPayload?.detail ?? "启动任务失败");
+      }
+
       await fetchTasks();
+      await fetchTask(payload.task_id);
       setPendingUploads([]);
-      created = true;
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "创建任务失败");
+      if (createdTaskId) {
+        await fetchTask(createdTaskId).catch(() => null);
+      }
     } finally {
       setIsUploading(false);
       setSelectedFiles([]);
-      if (created && fileInputRef.current) {
+      if (createdTaskId && fileInputRef.current) {
         fileInputRef.current.value = "";
       }
+    }
+  }
+
+  async function updateFaceReview(image: PersonGroupImage, next: { is_inaccurate: boolean; comment_text: string }) {
+    if (!currentTask) {
+      return;
+    }
+    setReviewBusy((previous) => ({ ...previous, [image.face_id]: true }));
+    try {
+      const response = await apiFetch(`${API_BASE}/api/tasks/${currentTask.task_id}/faces/${image.face_id}/review`, {
+        method: "PUT",
+        body: JSON.stringify(next)
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.detail ?? "更新人脸反馈失败");
+      }
+      await fetchTask(currentTask.task_id);
+      await fetchTasks();
+    } catch (reviewError) {
+      setError(reviewError instanceof Error ? reviewError.message : "更新人脸反馈失败");
+    } finally {
+      setReviewBusy((previous) => ({ ...previous, [image.face_id]: false }));
+    }
+  }
+
+  async function toggleInaccurate(image: PersonGroupImage) {
+    const commentText = commentDrafts[image.face_id] ?? image.comment_text ?? "";
+    await updateFaceReview(image, {
+      is_inaccurate: !Boolean(image.is_inaccurate),
+      comment_text: commentText
+    });
+  }
+
+  async function commitComment(image: PersonGroupImage) {
+    const nextComment = commentDrafts[image.face_id] ?? "";
+    if (nextComment === (image.comment_text ?? "")) {
+      return;
+    }
+    await updateFaceReview(image, {
+      is_inaccurate: Boolean(image.is_inaccurate),
+      comment_text: nextComment
+    });
+  }
+
+  async function toggleAbandon(image: PersonGroupImage) {
+    if (!currentTask) {
+      return;
+    }
+    setPolicyBusy((previous) => ({ ...previous, [image.image_id]: true }));
+    try {
+      const response = await apiFetch(`${API_BASE}/api/tasks/${currentTask.task_id}/images/${image.image_id}/face-policy`, {
+        method: "PUT",
+        body: JSON.stringify({
+          is_abandoned: !Boolean(image.is_abandoned)
+        })
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.detail ?? "更新图片 abandon 失败");
+      }
+      await fetchTask(currentTask.task_id);
+      await fetchTasks();
+    } catch (policyError) {
+      setError(policyError instanceof Error ? policyError.message : "更新图片 abandon 失败");
+    } finally {
+      setPolicyBusy((previous) => ({ ...previous, [image.image_id]: false }));
     }
   }
 
@@ -838,11 +1092,14 @@ export default function HomePage() {
   }
 
   function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(event.target.files ?? []).slice(0, MAX_UPLOADS);
+    const incomingFiles = Array.from(event.target.files ?? []);
+    const exceededLimit = incomingFiles.length > maxUploadPhotos;
+    const files = incomingFiles.slice(0, maxUploadPhotos);
     if (files.length === 0) {
       return;
     }
 
+    setError(exceededLimit ? `当前环境最多上传 ${maxUploadPhotos} 张图片，已自动截断` : null);
     setSelectedFiles(files);
     setPendingUploads((previous) => {
       revokePendingUploads(previous);
@@ -856,6 +1113,10 @@ export default function HomePage() {
     setCurrentTask(null);
     setError(null);
     setSelectedFiles([]);
+    setCommentDrafts({});
+    setExpandedComments({});
+    setReviewBusy({});
+    setPolicyBusy({});
     setPendingUploads((previous) => {
       revokePendingUploads(previous);
       return [];
@@ -943,7 +1204,7 @@ export default function HomePage() {
                   className="w-full rounded-[12px] bg-white/75 px-2.5 py-3 text-left shadow-sm"
                 >
                   <p className="truncate text-sm font-medium text-ink">新的测试任务</p>
-                  <p className="mt-1 text-xs text-black/45">等待上传图片</p>
+                <p className="mt-1 text-xs text-black/45">等待上传图片</p>
                 </button>
               ) : null}
 
@@ -999,7 +1260,7 @@ export default function HomePage() {
                 <p className="font-mono text-xs uppercase tracking-[0.24em] text-black/40">New Task</p>
                 <h1 className="mt-4 font-display text-5xl leading-[1.06] tracking-tight text-ink md:text-6xl">新的测试任务</h1>
                 <p className="mt-4 max-w-3xl text-base leading-7 text-black/62">
-                  这里先保留一个等待上传图片的空页面。真正的后台任务会在你选择图片并完成上传后才创建，上传回调结束后会立刻启动人脸识别。
+                  这里先保留一个等待上传图片的空页面。任务会先创建成 draft，再分批上传图片，全部上传完成后自动进入人脸识别。
                 </p>
               </section>
 
@@ -1007,9 +1268,9 @@ export default function HomePage() {
                 <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
                   <div>
                     <p className="font-mono text-xs uppercase tracking-[0.2em] text-black/42">上传入口</p>
-                    <p className="mt-2 text-base text-black/64">单次最多上传 {MAX_UPLOADS} 张图片。上传完成后会自动创建任务并进入人脸识别。</p>
+                    <p className="mt-2 text-base text-black/64">当前环境最多上传 {maxUploadPhotos} 张图片。图片会按 50 张一批分片上传，完成后自动启动人脸识别。</p>
                     {selectedFiles.length > 0 ? (
-                      <p className="mt-3 font-mono text-xs uppercase tracking-[0.2em] text-black/42">已选择 {selectedFiles.length} / {MAX_UPLOADS}</p>
+                      <p className="mt-3 font-mono text-xs uppercase tracking-[0.2em] text-black/42">已选择 {selectedFiles.length} / {maxUploadPhotos}</p>
                     ) : null}
                   </div>
 
@@ -1052,7 +1313,9 @@ export default function HomePage() {
             </section>
           ) : null}
 
-          {galleryItems.length > 0 ? <UploadCarousel items={galleryItems} showRecognitionBadge={showRecognitionBadge} /> : null}
+          {galleryItems.length > 0 ? (
+            <UploadCarousel items={galleryItems} showRecognitionBadge={showRecognitionBadge} totalCount={galleryTotalCount} />
+          ) : null}
 
           {!isDraftView && currentTask && faceReport ? (
             <section className="w-full rounded-[12px] border border-[#d8c9b7] bg-[rgba(249,244,237,0.94)] p-6 shadow-card">
@@ -1163,8 +1426,29 @@ export default function HomePage() {
 
           {!isDraftView && currentTask ? (
             personGroups.length > 0 ? (
-              <PersonGroupsPanel groups={personGroups} />
-            ) : currentTask.status === "running" || currentTask.status === "queued" ? (
+              <PersonGroupsPanel
+                groups={personGroups}
+                commentDrafts={commentDrafts}
+                expandedComments={expandedComments}
+                reviewBusy={reviewBusy}
+                policyBusy={policyBusy}
+                onToggleInaccurate={(image) => void toggleInaccurate(image)}
+                onToggleAbandon={(image) => void toggleAbandon(image)}
+                onToggleComments={(faceId) =>
+                  setExpandedComments((previous) => ({
+                    ...previous,
+                    [faceId]: !previous[faceId]
+                  }))
+                }
+                onCommentChange={(faceId, value) =>
+                  setCommentDrafts((previous) => ({
+                    ...previous,
+                    [faceId]: value
+                  }))
+                }
+                onCommentCommit={(image) => void commitComment(image)}
+              />
+            ) : currentTask.status === "running" || currentTask.status === "queued" || currentTask.status === "uploading" ? (
               <WaitingDots label={`当前阶段：${formatStage(currentTask.stage)}`} />
             ) : (
               <section className="w-full rounded-[12px] border border-[#d8c9b7] bg-[rgba(249,244,237,0.94)] p-8 shadow-card">

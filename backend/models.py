@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, JSON, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, JSON, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from backend.db import Base
@@ -55,3 +55,34 @@ class TaskRecord(Base):
     expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, index=True)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     last_worker_sync_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+class FaceReviewRecord(Base):
+    __tablename__ = "face_reviews"
+    __table_args__ = (UniqueConstraint("user_id", "task_id", "face_id", name="uq_face_review_user_task_face"),)
+
+    review_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.user_id"), nullable=False, index=True)
+    task_id: Mapped[str] = mapped_column(ForeignKey("tasks.task_id"), nullable=False, index=True)
+    face_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    image_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    person_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    source_hash: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    is_inaccurate: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, index=True)
+    comment_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+
+
+class FaceRecognitionImagePolicyRecord(Base):
+    __tablename__ = "face_recognition_image_policies"
+    __table_args__ = (UniqueConstraint("user_id", "source_hash", name="uq_face_policy_user_hash"),)
+
+    policy_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.user_id"), nullable=False, index=True)
+    source_hash: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    is_abandoned: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, index=True)
+    last_task_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    last_image_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)

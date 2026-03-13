@@ -26,7 +26,15 @@ class TaskStore:
     def task_dir(self, task_id: str) -> Path:
         return self.tasks_root / task_id
 
-    def create_task(self, task_id: str, upload_count: int, user_id: str, provision_local_dir: bool = True) -> Dict:
+    def create_task(
+        self,
+        task_id: str,
+        upload_count: int,
+        user_id: str,
+        provision_local_dir: bool = True,
+        status: str = "queued",
+        stage: str = "queued",
+    ) -> Dict:
         task_dir = self.task_dir(task_id)
         if provision_local_dir:
             task_dir.mkdir(parents=True, exist_ok=True)
@@ -35,8 +43,8 @@ class TaskStore:
         record = TaskRecord(
             task_id=task_id,
             user_id=user_id,
-            status="queued",
-            stage="queued",
+            status=status,
+            stage=stage,
             upload_count=upload_count,
             task_dir=str(task_dir),
             progress=None,
@@ -84,7 +92,7 @@ class TaskStore:
                 .limit(limit)
             )
             records = session.execute(stmt).scalars().all()
-            return [self._serialize(record) for record in records]
+            return [self._serialize(record, include_details=False) for record in records]
 
     def update_task(self, task_id: str, **updates) -> Dict:
         with SessionLocal() as session:
@@ -95,6 +103,24 @@ class TaskStore:
             for key, value in updates.items():
                 setattr(record, key, value)
 
+            record.updated_at = datetime.now()
+            session.add(record)
+            session.commit()
+            session.refresh(record)
+            return self._serialize(record)
+
+    def append_uploads(self, task_id: str, uploads: List[Dict], *, status: str = "draft", stage: str = "uploading") -> Dict:
+        with SessionLocal() as session:
+            record = session.get(TaskRecord, task_id)
+            if record is None:
+                raise KeyError(f"任务不存在: {task_id}")
+
+            current_uploads = list(record.uploads or [])
+            current_uploads.extend(uploads)
+            record.uploads = current_uploads
+            record.upload_count = len(current_uploads)
+            record.status = status
+            record.stage = stage
             record.updated_at = datetime.now()
             session.add(record)
             session.commit()
@@ -197,7 +223,7 @@ class TaskStore:
             records = session.execute(stmt).scalars().all()
             return [self._serialize(record) for record in records]
 
-    def _serialize(self, record: TaskRecord) -> Dict:
+    def _serialize(self, record: TaskRecord, include_details: bool = True) -> Dict:
         return {
             "task_id": record.task_id,
             "user_id": record.user_id,
@@ -205,9 +231,9 @@ class TaskStore:
             "stage": record.stage,
             "upload_count": record.upload_count,
             "task_dir": record.task_dir,
-            "progress": record.progress,
-            "uploads": record.uploads,
-            "result": record.result,
+            "progress": record.progress if include_details else None,
+            "uploads": record.uploads if include_details else None,
+            "result": record.result if include_details else None,
             "result_summary": record.result_summary,
             "asset_manifest": record.asset_manifest,
             "error": record.error,

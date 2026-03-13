@@ -33,7 +33,7 @@ class WorkerClient:
                 time.sleep(3)
         raise TimeoutError(f"等待 worker 健康检查通过超时: {last_error}")
 
-    def ingest_uploads(self, private_ip: str, task_id: str, files: list[dict], max_photos: int, use_cache: bool) -> dict:
+    def upload_batch(self, private_ip: str, task_id: str, files: list[dict]) -> dict:
         multipart = [
             (
                 "files",
@@ -46,16 +46,25 @@ class WorkerClient:
             for item in files
         ]
         response = requests.post(
-            f"{self._base_url(private_ip)}/internal/tasks/{task_id}/ingest",
+            f"{self._base_url(private_ip)}/internal/tasks/{task_id}/upload-batches",
             headers=self._headers(),
-            data={
-                "max_photos": str(max_photos),
-                "use_cache": "true" if use_cache else "false",
-            },
             files=multipart,
             timeout=(10, 120),
         )
-        self._raise_for_status(response, "上传文件到 worker 失败")
+        self._raise_for_status(response, "上传分片到 worker 失败")
+        return response.json()
+
+    def start_task(self, private_ip: str, task_id: str, max_photos: int, use_cache: bool) -> dict:
+        response = requests.post(
+            f"{self._base_url(private_ip)}/internal/tasks/{task_id}/start",
+            headers=self._headers(),
+            json={
+                "max_photos": max_photos,
+                "use_cache": use_cache,
+            },
+            timeout=(10, 30),
+        )
+        self._raise_for_status(response, "启动 worker 任务失败")
         return response.json()
 
     def fetch_status(self, private_ip: str, task_id: str) -> dict:

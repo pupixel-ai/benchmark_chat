@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import io
 import os
+from hashlib import sha256
 from pathlib import Path
 
 from fastapi import UploadFile
@@ -75,6 +76,37 @@ def save_upload_original(upload: UploadFile, destination: Path) -> tuple[bytes, 
         image_info["content_type"] = upload.content_type or Image.MIME.get(image.format, image_info["content_type"])
 
     return payload, image_info
+
+
+def save_upload_original_streamed(upload: UploadFile, destination: Path, chunk_size: int = 1024 * 1024) -> dict:
+    upload.file.seek(0)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    digest = sha256()
+
+    with destination.open("wb") as handle:
+        while True:
+            chunk = upload.file.read(chunk_size)
+            if not chunk:
+                break
+            digest.update(chunk)
+            handle.write(chunk)
+
+    if destination.stat().st_size == 0:
+        raise ValueError("文件为空")
+
+    image_info = {
+        "content_type": upload.content_type or "application/octet-stream",
+        "width": None,
+        "height": None,
+        "source_hash": digest.hexdigest(),
+    }
+
+    with Image.open(destination) as image:
+        image_info["width"], image_info["height"] = image.size
+        image_info["content_type"] = upload.content_type or Image.MIME.get(image.format, image_info["content_type"])
+
+    upload.file.seek(0)
+    return image_info
 
 
 def save_preview_as_webp(payload: bytes, destination: Path) -> dict:

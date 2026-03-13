@@ -8,19 +8,18 @@ from datetime import datetime
 from pathlib import Path
 from typing import List
 
-from fastapi import BackgroundTasks, Depends, FastAPI, File, Form, Header, HTTPException, Response, UploadFile, status
+from fastapi import BackgroundTasks, Depends, FastAPI, File, Header, HTTPException, Response, UploadFile, status
 from fastapi.responses import FileResponse
+from pydantic import BaseModel
 
 from backend.upload_utils import (
     UPLOAD_FAILURES_FILENAME,
-    preview_filename,
-    save_preview_as_webp,
-    save_upload_original,
+    save_upload_original_streamed,
     stored_upload_filename,
     task_asset_path,
     write_upload_failures,
 )
-from config import ASSET_URL_PREFIX, MAX_UPLOAD_PHOTOS, WORKER_INTERNAL_PORT, WORKER_SHARED_TOKEN, WORKER_TASK_ROOT
+from config import ASSET_URL_PREFIX, MAX_UPLOAD_PHOTOS, WORKER_SHARED_TOKEN, WORKER_TASK_ROOT
 from services.asset_store import TaskAssetStore
 from services.pipeline_service import MemoryPipelineService
 from utils import load_json, save_json
@@ -30,6 +29,12 @@ app = FastAPI(title="Memory Engineering Worker", version="1.0.0")
 asset_store = TaskAssetStore()
 worker_root = Path(WORKER_TASK_ROOT)
 STATUS_FILENAME = "worker_status.json"
+UPLOAD_BATCH_MAX_FILES = 50
+
+
+class TaskStartPayload(BaseModel):
+    max_photos: int = MAX_UPLOAD_PHOTOS
+    use_cache: bool = False
 
 
 def _require_internal_token(authorization: str | None = Header(default=None)) -> None:
@@ -130,63 +135,55 @@ def healthcheck(response: Response, _: None = Depends(_require_internal_token)):
     }
 
 
-@app.post("/internal/tasks/{task_id}/ingest")
-async def ingest_task(
+def _existing_upload_failures(task_dir: Path) -> list[dict]:
+    payload = load_json(str(task_dir / UPLOAD_FAILURES_FILENAME))
+    failures = payload.get("failures", [])
+    return failures if isinstance(failures, list) else []
+
+
+@app.post("/internal/tasks/{task_id}/upload-batches")
+async def upload_task_batch(
     task_id: str,
-    background_tasks: BackgroundTasks,
     response: Response,
     files: List[UploadFile] = File(...),
-    max_photos: int = Form(MAX_UPLOAD_PHOTOS),
-    use_cache: bool = Form(False),
     _: None = Depends(_require_internal_token),
 ):
     _apply_no_store_headers(response)
     if not files:
         raise HTTPException(status_code=400, detail="至少上传一张图片")
-    if len(files) > MAX_UPLOAD_PHOTOS:
-        raise HTTPException(status_code=400, detail=f"单次最多上传 {MAX_UPLOAD_PHOTOS} 张图片")
+    if len(files) > UPLOAD_BATCH_MAX_FILES:
+        raise HTTPException(status_code=400, detail=f"单批最多上传 {UPLOAD_BATCH_MAX_FILES} 张图片")
 
+    current = _read_status(task_id)
+    if current.get("status") in {"queued", "running", "completed"}:
+        raise HTTPException(status_code=409, detail="worker 任务已开始处理，不能继续追加上传")
     task_dir = _task_dir(task_id)
-    if task_dir.exists():
-        raise HTTPException(status_code=409, detail="worker 上已存在同名任务")
-
     uploads_dir = task_dir / "uploads"
-    previews_dir = task_dir / "previews"
     uploads_dir.mkdir(parents=True, exist_ok=True)
-    previews_dir.mkdir(parents=True, exist_ok=True)
 
     saved_files = []
     upload_failures = []
-    for index, upload in enumerate(files, start=1):
+    start_index = len(current.get("uploads") or []) + 1
+    for offset, upload in enumerate(files):
+        index = start_index + offset
         stored_name = stored_upload_filename(upload.filename or "", index)
         destination = uploads_dir / stored_name
-        preview_name = preview_filename(upload.filename or "", index)
-        preview_destination = previews_dir / preview_name
         try:
-            payload, image_info = save_upload_original(upload, destination)
+            image_info = save_upload_original_streamed(upload, destination)
             original_asset_path = task_asset_path("uploads", stored_name)
-
-            preview_url = None
-            try:
-                save_preview_as_webp(payload, preview_destination)
-                preview_asset_path = task_asset_path("previews", preview_name)
-                preview_url = asset_store.asset_url(task_id, preview_asset_path)
-            except Exception:
-                preview_destination.unlink(missing_ok=True)
-
             saved_files.append(
                 {
+                    "image_id": f"photo_{index:03d}",
                     "filename": upload.filename or stored_name,
                     "stored_filename": stored_name,
                     "path": original_asset_path,
                     "url": asset_store.asset_url(task_id, original_asset_path),
-                    "preview_url": preview_url,
+                    "preview_url": None,
                     **image_info,
                 }
             )
         except Exception as exc:
             destination.unlink(missing_ok=True)
-            preview_destination.unlink(missing_ok=True)
             upload_failures.append(
                 {
                     "image_id": f"photo_{index:03d}",
@@ -199,13 +196,18 @@ async def ingest_task(
         finally:
             await upload.close()
 
-    write_upload_failures(task_dir, upload_failures)
-    initial_status = {
+    merged_failures = _existing_upload_failures(task_dir)
+    merged_failures.extend(upload_failures)
+    write_upload_failures(task_dir, merged_failures)
+
+    uploads = list(current.get("uploads") or [])
+    uploads.extend(saved_files)
+    initial_status = current or {
         "task_id": task_id,
-        "status": "queued",
-        "stage": "queued",
-        "upload_count": len(saved_files),
-        "uploads": saved_files,
+        "status": "draft",
+        "stage": "draft",
+        "upload_count": 0,
+        "uploads": [],
         "progress": None,
         "result": None,
         "result_summary": None,
@@ -214,17 +216,53 @@ async def ingest_task(
         "worker_status": "running",
         "created_at": datetime.utcnow().isoformat(),
     }
+    initial_status.update(
+        {
+            "status": "uploading",
+            "stage": "uploading",
+            "upload_count": len(uploads),
+            "uploads": uploads,
+            "error": None,
+        }
+    )
     _write_status(task_id, initial_status)
     _update_status(task_id, asset_manifest=_build_asset_manifest(task_dir))
+    return {
+        "task_id": task_id,
+        "status": "uploading",
+        "stage": "uploading",
+        "upload_count": len(uploads),
+        "uploads": uploads,
+        "worker_status": "running",
+    }
 
-    background_tasks.add_task(_run_pipeline_task, task_id, min(max_photos, len(saved_files)), use_cache)
 
+@app.post("/internal/tasks/{task_id}/start")
+def start_task(
+    task_id: str,
+    payload: TaskStartPayload,
+    background_tasks: BackgroundTasks,
+    response: Response,
+    _: None = Depends(_require_internal_token),
+):
+    _apply_no_store_headers(response)
+    current = _read_status(task_id)
+    if not current:
+        raise HTTPException(status_code=404, detail="worker 任务不存在")
+    uploads = current.get("uploads") or []
+    if not uploads:
+        raise HTTPException(status_code=400, detail="请先上传图片，再开始处理")
+    if current.get("status") in {"queued", "running", "completed"}:
+        raise HTTPException(status_code=409, detail="worker 任务已开始或已完成")
+
+    max_photos = min(max(1, int(payload.max_photos)), len(uploads), MAX_UPLOAD_PHOTOS)
+    _update_status(task_id, status="queued", stage="queued", progress=None, error=None, worker_status="running")
+    background_tasks.add_task(_run_pipeline_task, task_id, max_photos, payload.use_cache)
     return {
         "task_id": task_id,
         "status": "queued",
         "stage": "queued",
-        "upload_count": len(saved_files),
-        "uploads": saved_files,
+        "upload_count": len(uploads),
         "worker_status": "running",
     }
 

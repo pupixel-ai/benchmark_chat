@@ -132,6 +132,13 @@ class WorkerManager:
                 "LaunchTemplateId": self.launch_template_id,
                 "Version": self.launch_template_version,
             }
+            if self.subnet_ids:
+                kwargs["SubnetId"] = self._pick_subnet(task_id)
+            if self.security_group_id:
+                kwargs["SecurityGroupIds"] = [self.security_group_id]
+            if self.instance_profile:
+                profile_key = "Arn" if self.instance_profile.startswith("arn:") else "Name"
+                kwargs["IamInstanceProfile"] = {profile_key: self.instance_profile}
             return kwargs
 
         if not all([self.ami_id, self.instance_type, self.security_group_id, self.subnet_ids]):

@@ -6,12 +6,20 @@ export type FaceItem = {
   faiss_id: number;
   bbox: number[];
   image_id: string;
+  source_hash?: string | null;
   boxed_image_url?: string | null;
+  quality_score?: number;
+  quality_flags?: string[];
+  match_decision?: string | null;
+  match_reason?: string | null;
+  is_inaccurate?: boolean;
+  comment_text?: string;
 };
 
 export type ImageEntry = {
   image_id: string;
   filename: string;
+  source_hash?: string | null;
   timestamp?: string;
   status: string;
   detection_seconds?: number;
@@ -24,6 +32,7 @@ export type ImageEntry = {
   face_count: number;
   faces: FaceItem[];
   failures?: FailureItem[];
+  is_abandoned?: boolean;
 };
 
 export type PersonGroupImage = {
@@ -32,9 +41,17 @@ export type PersonGroupImage = {
   timestamp?: string;
   display_image_url?: string | null;
   boxed_image_url?: string | null;
+  source_hash?: string | null;
   face_id: string;
   score: number;
   similarity: number;
+  quality_score?: number;
+  quality_flags?: string[];
+  match_decision?: string | null;
+  match_reason?: string | null;
+  is_inaccurate?: boolean;
+  comment_text?: string;
+  is_abandoned?: boolean;
 };
 
 export type PersonGroupEntry = {
@@ -43,6 +60,8 @@ export type PersonGroupEntry = {
   photo_count: number;
   face_count: number;
   avg_score: number;
+  avg_quality?: number;
+  high_quality_face_count?: number;
   avatar_url?: string | null;
   images: PersonGroupImage[];
 };
@@ -56,6 +75,7 @@ export type FailureItem = {
 };
 
 export type UploadItem = {
+  image_id?: string;
   filename: string;
   stored_filename: string;
   path: string;
@@ -64,6 +84,7 @@ export type UploadItem = {
   width?: number | null;
   height?: number | null;
   content_type?: string | null;
+  source_hash?: string | null;
 };
 
 export type FaceRecognitionPayload = {
@@ -78,6 +99,8 @@ export type FaceRecognitionPayload = {
     photo_count: number;
     face_count: number;
     avg_score: number;
+    avg_quality?: number;
+    high_quality_face_count?: number;
   }>;
   images: ImageEntry[];
   person_groups: PersonGroupEntry[];
@@ -92,6 +115,9 @@ export type FaceReport = {
   total_faces: number;
   total_persons: number;
   failed_images: number;
+  ambiguous_faces?: number;
+  low_quality_faces?: number;
+  new_person_from_ambiguity?: number;
   failed_items: Array<{
     image_id: string;
     filename: string;
@@ -129,6 +155,8 @@ export type FaceReport = {
     photo_count: number;
     face_count: number;
     avg_score: number;
+    avg_quality?: number;
+    high_quality_face_count?: number;
   }>;
 };
 
@@ -156,7 +184,7 @@ export type TaskResult = {
 export type TaskState = {
   task_id: string;
   user_id?: string | null;
-  status: "queued" | "running" | "completed" | "failed";
+  status: "draft" | "uploading" | "queued" | "running" | "completed" | "failed";
   stage: string;
   created_at: string;
   updated_at: string;
@@ -164,6 +192,7 @@ export type TaskState = {
   uploads?: UploadItem[];
   progress?: Record<string, unknown>;
   result?: TaskResult | null;
+  result_summary?: Record<string, unknown> | null;
   error?: string | null;
 };
 

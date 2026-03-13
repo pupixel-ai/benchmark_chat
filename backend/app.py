@@ -3,13 +3,14 @@ FastAPI backend entrypoint.
 """
 from __future__ import annotations
 
+import copy
 import os
 import shutil
 import uuid
 from pathlib import Path
-from typing import List
+from typing import Dict, List, Optional
 
-from fastapi import BackgroundTasks, Cookie, Depends, FastAPI, File, Form, HTTPException, Response, UploadFile
+from fastapi import BackgroundTasks, Cookie, Depends, FastAPI, File, HTTPException, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -22,12 +23,11 @@ from backend.auth import (
     logout_current_session,
     register_user,
 )
+from backend.face_review_store import FaceReviewStore
 from backend.task_store import TaskStore
 from backend.upload_utils import (
     UPLOAD_FAILURES_FILENAME,
-    preview_filename,
-    save_preview_as_webp,
-    save_upload_original,
+    save_upload_original_streamed,
     stored_upload_filename,
     task_asset_path,
     write_upload_failures,
@@ -49,7 +49,7 @@ from config import (
 )
 from services.asset_store import TaskAssetStore
 from services.pipeline_service import MemoryPipelineService
-from utils import save_json
+from utils import load_json
 
 
 app = FastAPI(title="Memory Engineering API", version="1.0.0")
@@ -57,6 +57,10 @@ task_store = TaskStore()
 asset_store = TaskAssetStore()
 worker_manager = WorkerManager()
 worker_client = WorkerClient()
+face_review_store = FaceReviewStore()
+
+UPLOAD_BATCH_MAX_FILES = 50
+UPLOAD_BATCH_MAX_BYTES = 64 * 1024 * 1024
 
 app.add_middleware(
     CORSMiddleware,
@@ -74,6 +78,20 @@ class AuthPayload(BaseModel):
     password: str
 
 
+class TaskStartPayload(BaseModel):
+    max_photos: Optional[int] = None
+    use_cache: bool = False
+
+
+class FaceReviewPayload(BaseModel):
+    is_inaccurate: Optional[bool] = None
+    comment_text: Optional[str] = None
+
+
+class ImagePolicyPayload(BaseModel):
+    is_abandoned: bool
+
+
 def _apply_no_store_headers(response: Response) -> Response:
     response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0, private"
     response.headers["Pragma"] = "no-cache"
@@ -83,6 +101,184 @@ def _apply_no_store_headers(response: Response) -> Response:
 
 def _remote_worker_mode_enabled() -> bool:
     return APP_ROLE == "control-plane" and worker_manager.enabled and worker_client.enabled
+
+
+def _task_uploads(task: dict) -> List[dict]:
+    uploads = task.get("uploads") or []
+    return uploads if isinstance(uploads, list) else []
+
+
+def _task_source_hashes(task: dict) -> set[str]:
+    hashes = set()
+    for upload in _task_uploads(task):
+        source_hash = upload.get("source_hash")
+        if source_hash:
+            hashes.add(source_hash)
+    result = task.get("result") or {}
+    face_payload = result.get("face_recognition") or {}
+    for image in face_payload.get("images", []):
+        source_hash = image.get("source_hash")
+        if source_hash:
+            hashes.add(source_hash)
+    return hashes
+
+
+def _existing_upload_failures(task_dir: Path) -> List[dict]:
+    payload = load_json(str(task_dir / UPLOAD_FAILURES_FILENAME))
+    failures = payload.get("failures", [])
+    return failures if isinstance(failures, list) else []
+
+
+def _write_merged_upload_failures(task_dir: Path, failures: List[dict]) -> None:
+    merged_failures = _existing_upload_failures(task_dir)
+    merged_failures.extend(failures)
+    write_upload_failures(task_dir, merged_failures)
+    if asset_store.enabled:
+        failures_path = task_dir / UPLOAD_FAILURES_FILENAME
+        if failures_path.exists():
+            asset_store.upload_file(task_dir.name, UPLOAD_FAILURES_FILENAME, failures_path)
+
+
+def _save_upload_batch(task_id: str, task_dir: Path, files: List[UploadFile], start_index: int) -> tuple[List[dict], List[dict], int]:
+    uploads_dir = task_dir / "uploads"
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    saved_files: List[dict] = []
+    upload_failures: List[dict] = []
+    total_bytes = 0
+
+    for offset, upload in enumerate(files):
+        index = start_index + offset
+        image_id = f"photo_{index:03d}"
+        stored_name = stored_upload_filename(upload.filename or "", index)
+        destination = uploads_dir / stored_name
+        try:
+            image_info = save_upload_original_streamed(upload, destination)
+            total_bytes += int(destination.stat().st_size)
+            original_asset_path = task_asset_path("uploads", stored_name)
+            if asset_store.enabled:
+                asset_store.upload_file(task_id, original_asset_path, destination)
+            saved_files.append(
+                {
+                    "image_id": image_id,
+                    "filename": upload.filename or stored_name,
+                    "stored_filename": stored_name,
+                    "path": original_asset_path,
+                    "url": asset_store.asset_url(task_id, original_asset_path),
+                    "preview_url": None,
+                    **image_info,
+                }
+            )
+        except Exception as exc:
+            destination.unlink(missing_ok=True)
+            upload_failures.append(
+                {
+                    "image_id": image_id,
+                    "filename": upload.filename or stored_name,
+                    "path": str(destination),
+                    "step": "upload",
+                    "error": f"保存原始上传文件失败: {exc}",
+                }
+            )
+
+    return saved_files, upload_failures, total_bytes
+
+
+def _find_face(task: dict, face_id: str) -> Optional[Dict]:
+    result = task.get("result") or {}
+    face_payload = result.get("face_recognition") or {}
+    for image in face_payload.get("images", []):
+        for face in image.get("faces", []):
+            if face.get("face_id") == face_id:
+                return {
+                    "face": face,
+                    "image": image,
+                    "person_id": face.get("person_id"),
+                    "image_id": image.get("image_id"),
+                    "source_hash": face.get("source_hash") or image.get("source_hash"),
+                }
+    return None
+
+
+def _find_image(task: dict, image_id: str) -> Optional[Dict]:
+    result = task.get("result") or {}
+    face_payload = result.get("face_recognition") or {}
+    for image in face_payload.get("images", []):
+        if image.get("image_id") == image_id:
+            return image
+    for upload in _task_uploads(task):
+        if upload.get("image_id") == image_id:
+            return upload
+    return None
+
+
+def _merge_feedback(task: dict, user_id: str) -> dict:
+    hydrated = copy.deepcopy(task)
+    result = hydrated.get("result")
+    if not isinstance(result, dict):
+        return hydrated
+
+    face_payload = result.get("face_recognition")
+    if not isinstance(face_payload, dict):
+        return hydrated
+
+    feedback = face_review_store.get_task_feedback(
+        task_id=hydrated["task_id"],
+        user_id=user_id,
+        source_hashes=_task_source_hashes(hydrated),
+    )
+    reviews = feedback.get("reviews", {})
+    policies = feedback.get("policies", {})
+
+    images = face_payload.setdefault("images", [])
+    known_image_ids = {image.get("image_id") for image in images}
+    for upload in _task_uploads(hydrated):
+        image_id = upload.get("image_id")
+        if not image_id or image_id in known_image_ids:
+            continue
+        policy = policies.get(upload.get("source_hash") or "")
+        images.append(
+            {
+                "image_id": image_id,
+                "filename": upload.get("filename"),
+                "source_hash": upload.get("source_hash"),
+                "timestamp": None,
+                "status": "abandoned_by_policy" if policy and policy.get("is_abandoned") else "skipped",
+                "detection_seconds": 0.0,
+                "embedding_seconds": 0.0,
+                "original_image_url": upload.get("url"),
+                "display_image_url": upload.get("preview_url") or upload.get("url"),
+                "boxed_image_url": None,
+                "compressed_image_url": None,
+                "location": None,
+                "face_count": 0,
+                "faces": [],
+                "failures": [],
+                "is_abandoned": bool(policy and policy.get("is_abandoned")),
+            }
+        )
+
+    for image in images:
+        policy = policies.get(image.get("source_hash") or "")
+        image["is_abandoned"] = bool(policy and policy.get("is_abandoned"))
+        for face in image.get("faces", []):
+            review = reviews.get(face.get("face_id"), {})
+            face["is_inaccurate"] = bool(review.get("is_inaccurate"))
+            face["comment_text"] = review.get("comment_text", "")
+
+    for group in face_payload.get("person_groups", []):
+        for image in group.get("images", []):
+            review = reviews.get(image.get("face_id"), {})
+            policy = policies.get(image.get("source_hash") or "")
+            image["is_inaccurate"] = bool(review.get("is_inaccurate"))
+            image["comment_text"] = review.get("comment_text", "")
+            image["is_abandoned"] = bool(policy and policy.get("is_abandoned"))
+
+    return hydrated
+
+
+def _hydrate_task(task: dict, user_id: str) -> dict:
+    synced = _sync_task_from_worker(task, user_id)
+    return _merge_feedback(synced, user_id)
 
 
 def _sync_task_from_worker(task: dict, user_id: str) -> dict:
@@ -122,9 +318,11 @@ def _sync_task_from_worker(task: dict, user_id: str) -> dict:
         return task
 
     updates = {}
-    for key in ("status", "stage", "progress", "uploads", "result", "error"):
+    for key in ("status", "stage", "progress", "result", "error"):
         if key in remote_payload:
             updates[key] = remote_payload[key]
+    if "uploads" in remote_payload and not task.get("uploads"):
+        updates["uploads"] = remote_payload["uploads"]
     task_store.update_worker_state(
         task["task_id"],
         worker_status=remote_payload.get("worker_status", instance.state),
@@ -140,91 +338,50 @@ def _sync_task_from_worker(task: dict, user_id: str) -> dict:
     return refreshed or task
 
 
-async def _create_remote_task(
-    files: List[UploadFile],
-    max_photos: int,
-    use_cache: bool,
-    current_user: dict,
-) -> dict:
-    upload_payloads = []
-    for upload in files:
-        payload = await upload.read()
-        if not payload:
-            raise HTTPException(status_code=400, detail=f"文件为空: {upload.filename or '未命名文件'}")
-        upload_payloads.append(
+def _remote_upload_entries(task: dict, user_id: str) -> tuple[List[dict], int]:
+    entries: List[dict] = []
+    skipped = 0
+    task_dir = task_store.task_dir(task["task_id"])
+    for upload in _task_uploads(task):
+        source_hash = upload.get("source_hash")
+        if face_review_store.is_image_abandoned(user_id, source_hash):
+            skipped += 1
+            continue
+        relative_path = upload.get("path")
+        if not relative_path:
+            continue
+        local_path = task_dir / relative_path
+        if not local_path.exists():
+            raise FileNotFoundError(f"任务文件不存在: {local_path}")
+        entries.append(
             {
-                "filename": os.path.basename(upload.filename or "upload.bin"),
-                "content_type": upload.content_type or "application/octet-stream",
-                "payload": payload,
+                "filename": os.path.basename(upload.get("filename") or local_path.name),
+                "content_type": upload.get("content_type") or "application/octet-stream",
+                "local_path": local_path,
+                "size": int(local_path.stat().st_size),
             }
         )
-
-    task_id = uuid.uuid4().hex
-    task_store.create_task(
-        task_id,
-        upload_count=len(upload_payloads),
-        user_id=current_user["user_id"],
-        provision_local_dir=False,
-    )
-
-    launched_worker = None
-    try:
-        launched_worker = worker_manager.launch_worker(task_id)
-        ready_worker = worker_manager.wait_until_ready(launched_worker.instance_id)
-        ready_worker.expires_at = launched_worker.expires_at
-        task_store.attach_worker(
-            task_id,
-            ready_worker.instance_id,
-            ready_worker.private_ip,
-            ready_worker.expires_at,
-            worker_status=ready_worker.state,
-        )
-
-        if not ready_worker.private_ip:
-            raise RuntimeError("worker 未返回私网地址")
-
-        worker_client.wait_for_health(ready_worker.private_ip)
-        ingest_payload = worker_client.ingest_uploads(
-            ready_worker.private_ip,
-            task_id,
-            upload_payloads,
-            min(max_photos, len(upload_payloads)),
-            use_cache,
-        )
-
-        task_store.update_worker_state(
-            task_id,
-            worker_status=ingest_payload.get("worker_status", ready_worker.state),
-            status=ingest_payload.get("status", "queued"),
-            stage=ingest_payload.get("stage", "queued"),
-            uploads=ingest_payload.get("uploads"),
-            progress=ingest_payload.get("progress"),
-        )
-
-        return {
-            "task_id": task_id,
-            "status": ingest_payload.get("status", "queued"),
-            "upload_count": len(upload_payloads),
-            "max_photos": min(max_photos, len(upload_payloads)),
-            "task_url": f"/api/tasks/{task_id}",
-            "worker_status": ingest_payload.get("worker_status", ready_worker.state),
-        }
-    except HTTPException:
-        if launched_worker is not None:
-            worker_manager.terminate_worker(launched_worker.instance_id)
-        task_store.delete_task(task_id, user_id=current_user["user_id"])
-        raise
-    except Exception as exc:
-        if launched_worker is not None:
-            worker_manager.terminate_worker(launched_worker.instance_id)
-        task_store.delete_task(task_id, user_id=current_user["user_id"])
-        raise HTTPException(status_code=502, detail=f"创建 worker 任务失败: {exc}") from exc
-    finally:
-        for upload in files:
-            await upload.close()
+    return entries, skipped
 
 
-def _run_pipeline_task(task_id: str, max_photos: int, use_cache: bool):
+def _chunk_remote_upload_entries(entries: List[dict]) -> List[List[dict]]:
+    batches: List[List[dict]] = []
+    current: List[dict] = []
+    current_bytes = 0
+    for entry in entries:
+        next_size = current_bytes + int(entry["size"])
+        if current and (len(current) >= UPLOAD_BATCH_MAX_FILES or next_size > UPLOAD_BATCH_MAX_BYTES):
+            batches.append(current)
+            current = []
+            current_bytes = 0
+        current.append(entry)
+        current_bytes += int(entry["size"])
+    if current:
+        batches.append(current)
+    return batches
+
+
+def _run_pipeline_task(task_id: str, user_id: Optional[str], max_photos: int, use_cache: bool):
     task_dir = task_store.task_dir(task_id)
 
     def progress_callback(stage: str, payload: dict):
@@ -236,6 +393,8 @@ def _run_pipeline_task(task_id: str, max_photos: int, use_cache: bool):
             task_id=task_id,
             task_dir=str(task_dir),
             asset_store=asset_store,
+            user_id=user_id,
+            face_review_store=face_review_store,
         )
         result = service.run(
             max_photos=max_photos,
@@ -249,6 +408,7 @@ def _run_pipeline_task(task_id: str, max_photos: int, use_cache: bool):
             result=result,
             error=None,
         )
+        task_store.set_result_summary(task_id, result.get("summary"), None)
     except Exception as exc:
         task_store.update_task(
             task_id,
@@ -324,101 +484,169 @@ def root():
 
 
 @app.post("/api/tasks")
-async def create_task(
-    background_tasks: BackgroundTasks,
+def create_task(response: Response, current_user: dict = Depends(get_current_user)):
+    _apply_no_store_headers(response)
+    task_id = uuid.uuid4().hex
+    task_store.create_task(
+        task_id,
+        upload_count=0,
+        user_id=current_user["user_id"],
+        status="draft",
+        stage="draft",
+    )
+    return {
+        "task_id": task_id,
+        "status": "draft",
+        "stage": "draft",
+        "upload_count": 0,
+        "task_url": f"/api/tasks/{task_id}",
+    }
+
+
+@app.post("/api/tasks/{task_id}/upload-batches")
+async def upload_task_batch(
+    task_id: str,
     response: Response,
     files: List[UploadFile] = File(...),
-    max_photos: int = Form(MAX_UPLOAD_PHOTOS),
-    use_cache: bool = Form(False),
     current_user: dict = Depends(get_current_user),
 ):
     _apply_no_store_headers(response)
     if not files:
         raise HTTPException(status_code=400, detail="至少上传一张图片")
+    if len(files) > UPLOAD_BATCH_MAX_FILES:
+        raise HTTPException(status_code=400, detail=f"单批最多上传 {UPLOAD_BATCH_MAX_FILES} 张图片")
 
-    if len(files) > MAX_UPLOAD_PHOTOS:
-        raise HTTPException(
-            status_code=400,
-            detail=f"单次最多上传 {MAX_UPLOAD_PHOTOS} 张图片",
-        )
+    task = task_store.get_task(task_id, user_id=current_user["user_id"])
+    if not task:
+        raise HTTPException(status_code=404, detail="任务不存在")
+    if task["status"] in {"queued", "running", "completed"}:
+        raise HTTPException(status_code=409, detail="当前任务已开始处理，不能继续追加上传")
 
-    if max_photos < 1 or max_photos > MAX_UPLOAD_PHOTOS:
-        raise HTTPException(
-            status_code=400,
-            detail=f"max_photos 必须在 1 到 {MAX_UPLOAD_PHOTOS} 之间",
-        )
+    task_dir = task_store.task_dir(task_id)
+    start_index = len(_task_uploads(task)) + 1
+    saved_files, upload_failures, _ = _save_upload_batch(task_id, task_dir, files, start_index)
+    for upload in files:
+        await upload.close()
+
+    _write_merged_upload_failures(task_dir, upload_failures)
+    updated_task = task_store.append_uploads(task_id, saved_files, status="uploading", stage="uploading")
+    return {
+        "task_id": task_id,
+        "status": updated_task["status"],
+        "stage": updated_task["stage"],
+        "batch_count": len(saved_files),
+        "failed_count": len(upload_failures),
+        "upload_count": updated_task["upload_count"],
+        "task_url": f"/api/tasks/{task_id}",
+    }
+
+
+@app.post("/api/tasks/{task_id}/start")
+def start_task(
+    task_id: str,
+    payload: TaskStartPayload,
+    background_tasks: BackgroundTasks,
+    response: Response,
+    current_user: dict = Depends(get_current_user),
+):
+    _apply_no_store_headers(response)
+    task = task_store.get_task(task_id, user_id=current_user["user_id"])
+    if not task:
+        raise HTTPException(status_code=404, detail="任务不存在")
+    if task["status"] in {"queued", "running", "completed"}:
+        raise HTTPException(status_code=409, detail="当前任务已开始或已完成")
+
+    uploads = _task_uploads(task)
+    if not uploads:
+        raise HTTPException(status_code=400, detail="请先上传图片，再开始处理")
+
+    requested_max = payload.max_photos or len(uploads)
+    if requested_max < 1 or requested_max > MAX_UPLOAD_PHOTOS:
+        raise HTTPException(status_code=400, detail=f"max_photos 必须在 1 到 {MAX_UPLOAD_PHOTOS} 之间")
+    max_photos = min(requested_max, len(uploads), MAX_UPLOAD_PHOTOS)
 
     if _remote_worker_mode_enabled():
-        return await _create_remote_task(files, max_photos, use_cache, current_user)
-
-    task_id = uuid.uuid4().hex
-    task_dir = task_store.task_dir(task_id)
-    uploads_dir = task_dir / "uploads"
-    previews_dir = task_dir / "previews"
-    uploads_dir.mkdir(parents=True, exist_ok=True)
-    previews_dir.mkdir(parents=True, exist_ok=True)
-
-    saved_files = []
-    upload_failures = []
-    for index, upload in enumerate(files, start=1):
-        stored_name = stored_upload_filename(upload.filename or "", index)
-        destination = uploads_dir / stored_name
-        preview_name = preview_filename(upload.filename or "", index)
-        preview_destination = previews_dir / preview_name
+        launched_worker = None
         try:
-            payload, image_info = save_upload_original(upload, destination)
-            original_asset_path = task_asset_path("uploads", stored_name)
-            if asset_store.enabled:
-                asset_store.upload_file(task_id, original_asset_path, destination)
+            active_entries, skipped_uploads = _remote_upload_entries(task, current_user["user_id"])
+            if not active_entries:
+                raise HTTPException(status_code=400, detail="当前任务没有可处理的图片，可能都已被标记为 abandon")
 
-            preview_url = None
-            try:
-                save_preview_as_webp(payload, preview_destination)
-                preview_asset_path = task_asset_path("previews", preview_name)
-                if asset_store.enabled:
-                    asset_store.upload_file(task_id, preview_asset_path, preview_destination)
-                preview_url = asset_store.asset_url(task_id, preview_asset_path)
-            except Exception:
-                preview_destination.unlink(missing_ok=True)
-            saved_files.append({
-                "filename": upload.filename or stored_name,
-                "stored_filename": stored_name,
-                "path": original_asset_path,
-                "url": asset_store.asset_url(task_id, original_asset_path),
-                "preview_url": preview_url,
-                **image_info,
-            })
+            launched_worker = worker_manager.launch_worker(task_id)
+            ready_worker = worker_manager.wait_until_ready(launched_worker.instance_id)
+            ready_worker.expires_at = launched_worker.expires_at
+            task_store.attach_worker(
+                task_id,
+                ready_worker.instance_id,
+                ready_worker.private_ip,
+                ready_worker.expires_at,
+                worker_status=ready_worker.state,
+            )
+            if not ready_worker.private_ip:
+                raise RuntimeError("worker 未返回私网地址")
+
+            worker_client.wait_for_health(ready_worker.private_ip)
+            for batch in _chunk_remote_upload_entries(active_entries):
+                worker_client.upload_batch(
+                    ready_worker.private_ip,
+                    task_id,
+                    [
+                        {
+                            "filename": item["filename"],
+                            "content_type": item["content_type"],
+                            "payload": item["local_path"].read_bytes(),
+                        }
+                        for item in batch
+                    ],
+                )
+            start_payload = worker_client.start_task(
+                ready_worker.private_ip,
+                task_id,
+                max_photos=max_photos,
+                use_cache=payload.use_cache,
+            )
+            task_store.update_worker_state(
+                task_id,
+                worker_status=start_payload.get("worker_status", ready_worker.state),
+                status=start_payload.get("status", "queued"),
+                stage=start_payload.get("stage", "queued"),
+                progress=start_payload.get("progress"),
+                error=None,
+            )
+            return {
+                "task_id": task_id,
+                "status": start_payload.get("status", "queued"),
+                "stage": start_payload.get("stage", "queued"),
+                "upload_count": len(uploads),
+                "skipped_uploads": skipped_uploads,
+                "max_photos": max_photos,
+                "task_url": f"/api/tasks/{task_id}",
+            }
+        except HTTPException as exc:
+            if launched_worker is not None:
+                worker_manager.terminate_worker(launched_worker.instance_id)
+            task_store.update_task(task_id, status="failed", stage="failed", error=str(exc.detail))
+            raise
         except Exception as exc:
-            if destination.exists():
-                destination.unlink(missing_ok=True)
-            preview_destination.unlink(missing_ok=True)
-            upload_failures.append({
-                "image_id": f"photo_{index:03d}",
-                "filename": upload.filename or stored_name,
-                "path": str(destination),
-                "step": "upload",
-                "error": f"保存原始上传文件失败: {exc}",
-            })
-        finally:
-            await upload.close()
+            if launched_worker is not None:
+                worker_manager.terminate_worker(launched_worker.instance_id)
+            task_store.update_task(task_id, status="failed", stage="failed", error=f"创建 worker 任务失败: {exc}")
+            raise HTTPException(status_code=502, detail=f"创建 worker 任务失败: {exc}") from exc
 
-    write_upload_failures(task_dir, upload_failures)
-    if asset_store.enabled:
-        upload_failures_path = task_dir / UPLOAD_FAILURES_FILENAME
-        if upload_failures_path.exists():
-            asset_store.upload_file(task_id, UPLOAD_FAILURES_FILENAME, upload_failures_path)
-
-    task_payload = task_store.create_task(task_id, upload_count=len(files), user_id=current_user["user_id"])
-    task_payload["uploads"] = saved_files
-    task_store.update_task(task_id, uploads=saved_files)
-
-    background_tasks.add_task(_run_pipeline_task, task_id, min(max_photos, len(saved_files)), use_cache)
-
+    task_store.update_task(task_id, status="queued", stage="queued", progress=None, error=None)
+    background_tasks.add_task(
+        _run_pipeline_task,
+        task_id,
+        current_user["user_id"],
+        max_photos,
+        payload.use_cache,
+    )
     return {
         "task_id": task_id,
         "status": "queued",
-        "upload_count": len(saved_files),
-        "max_photos": min(max_photos, len(saved_files)),
+        "stage": "queued",
+        "upload_count": len(uploads),
+        "max_photos": max_photos,
         "task_url": f"/api/tasks/{task_id}",
     }
 
@@ -438,7 +666,78 @@ def get_task(task_id: str, response: Response, current_user: dict = Depends(get_
     task = task_store.get_task(task_id, user_id=current_user["user_id"])
     if not task:
         raise HTTPException(status_code=404, detail="任务不存在")
-    return _sync_task_from_worker(task, current_user["user_id"])
+    return _hydrate_task(task, current_user["user_id"])
+
+
+@app.get("/api/tasks/{task_id}/reviews")
+def get_task_reviews(task_id: str, response: Response, current_user: dict = Depends(get_current_user)):
+    _apply_no_store_headers(response)
+    task = task_store.get_task(task_id, user_id=current_user["user_id"])
+    if not task:
+        raise HTTPException(status_code=404, detail="任务不存在")
+    return face_review_store.get_task_feedback(
+        task_id=task_id,
+        user_id=current_user["user_id"],
+        source_hashes=_task_source_hashes(task),
+    )
+
+
+@app.put("/api/tasks/{task_id}/faces/{face_id}/review")
+def update_face_review(
+    task_id: str,
+    face_id: str,
+    payload: FaceReviewPayload,
+    response: Response,
+    current_user: dict = Depends(get_current_user),
+):
+    _apply_no_store_headers(response)
+    stored_task = task_store.get_task(task_id, user_id=current_user["user_id"])
+    if not stored_task:
+        raise HTTPException(status_code=404, detail="任务不存在")
+    task = _hydrate_task(stored_task, current_user["user_id"])
+    face_ref = _find_face(task, face_id)
+    if not face_ref:
+        raise HTTPException(status_code=404, detail="人脸不存在")
+    review = face_review_store.upsert_face_review(
+        user_id=current_user["user_id"],
+        task_id=task_id,
+        face_id=face_id,
+        image_id=face_ref["image_id"],
+        person_id=face_ref["person_id"],
+        source_hash=face_ref["source_hash"],
+        is_inaccurate=payload.is_inaccurate,
+        comment_text=payload.comment_text,
+    )
+    return {"review": review}
+
+
+@app.put("/api/tasks/{task_id}/images/{image_id}/face-policy")
+def update_image_policy(
+    task_id: str,
+    image_id: str,
+    payload: ImagePolicyPayload,
+    response: Response,
+    current_user: dict = Depends(get_current_user),
+):
+    _apply_no_store_headers(response)
+    stored_task = task_store.get_task(task_id, user_id=current_user["user_id"])
+    if not stored_task:
+        raise HTTPException(status_code=404, detail="任务不存在")
+    task = _hydrate_task(stored_task, current_user["user_id"])
+    image = _find_image(task, image_id)
+    if not image:
+        raise HTTPException(status_code=404, detail="图片不存在")
+    source_hash = image.get("source_hash")
+    if not source_hash:
+        raise HTTPException(status_code=400, detail="当前图片缺少 source_hash，无法设置 abandon")
+    policy = face_review_store.upsert_image_policy(
+        user_id=current_user["user_id"],
+        source_hash=source_hash,
+        is_abandoned=payload.is_abandoned,
+        last_task_id=task_id,
+        last_image_id=image_id,
+    )
+    return {"policy": policy}
 
 
 @app.delete("/api/tasks/{task_id}")
