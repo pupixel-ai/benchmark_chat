@@ -26,11 +26,23 @@ def ensure_schema() -> None:
         return
 
     task_columns = {column["name"] for column in inspector.get_columns("tasks")}
-    if "user_id" in task_columns:
-        return
 
-    with engine.begin() as connection:
-        if DATABASE_URL.startswith("sqlite"):
-            connection.execute(text("ALTER TABLE tasks ADD COLUMN user_id VARCHAR(64)"))
-        else:
-            connection.execute(text("ALTER TABLE tasks ADD COLUMN user_id VARCHAR(64) NULL"))
+    def add_task_column(name: str, ddl: str) -> None:
+        if name in task_columns:
+            return
+        with engine.begin() as connection:
+            connection.execute(text(f"ALTER TABLE tasks ADD COLUMN {name} {ddl}"))
+        task_columns.add(name)
+
+    nullable_suffix = "" if DATABASE_URL.startswith("sqlite") else " NULL"
+
+    add_task_column("user_id", f"VARCHAR(64){nullable_suffix}")
+    add_task_column("result_summary", f"JSON{nullable_suffix}")
+    add_task_column("asset_manifest", f"JSON{nullable_suffix}")
+    add_task_column("worker_instance_id", f"VARCHAR(64){nullable_suffix}")
+    add_task_column("worker_private_ip", f"VARCHAR(64){nullable_suffix}")
+    add_task_column("worker_status", f"VARCHAR(32){nullable_suffix}")
+    add_task_column("delete_state", f"VARCHAR(32){nullable_suffix}")
+    add_task_column("expires_at", f"DATETIME{nullable_suffix}")
+    add_task_column("deleted_at", f"DATETIME{nullable_suffix}")
+    add_task_column("last_worker_sync_at", f"DATETIME{nullable_suffix}")

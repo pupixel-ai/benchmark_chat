@@ -1,0 +1,74 @@
+#!/bin/bash
+set -euo pipefail
+
+exec > >(tee -a /var/log/memory-worker-bootstrap.log) 2>&1
+
+REPO_DIR="/opt/memory_engineering"
+WORKER_ENV_PATH="${REPO_DIR}/.worker.env"
+WORKER_SERVICE_PATH="/etc/systemd/system/memory-engineering-worker.service"
+INSTANCE_STORE_MOUNT="/mnt/secure-tasks"
+REGION="__AWS_REGION__"
+WORKER_SHARED_TOKEN="__WORKER_SHARED_TOKEN__"
+CONTROL_PLANE_ORIGIN="__CONTROL_PLANE_ORIGIN__"
+REPO_OWNER="ubuntu"
+REPO_GROUP="ubuntu"
+
+echo "[bootstrap] starting worker bootstrap"
+
+if [ ! -d "${REPO_DIR}" ]; then
+  echo "[bootstrap] missing repo directory ${REPO_DIR}; bake the worker AMI first"
+  exit 1
+fi
+
+INSTANCE_STORE_DEVICE="$(find /dev/disk/by-id -maxdepth 1 -type l -name 'nvme-Amazon_EC2_NVMe_Instance_Storage_AWS*' -print -quit || true)"
+if [ -z "${INSTANCE_STORE_DEVICE}" ]; then
+  echo "[bootstrap] no instance-store NVMe device found; aborting to avoid falling back to EBS"
+  exit 1
+fi
+
+INSTANCE_STORE_DEVICE="$(readlink -f "${INSTANCE_STORE_DEVICE}")"
+if ! blkid "${INSTANCE_STORE_DEVICE}" >/dev/null 2>&1; then
+  mkfs.ext4 -F "${INSTANCE_STORE_DEVICE}"
+fi
+
+mkdir -p "${INSTANCE_STORE_MOUNT}"
+INSTANCE_STORE_UUID="$(blkid -s UUID -o value "${INSTANCE_STORE_DEVICE}")"
+if ! grep -q "${INSTANCE_STORE_UUID}" /etc/fstab; then
+  echo "UUID=${INSTANCE_STORE_UUID} ${INSTANCE_STORE_MOUNT} ext4 defaults,nofail 0 2" >> /etc/fstab
+fi
+mount -a
+chown "${REPO_OWNER}:${REPO_GROUP}" "${INSTANCE_STORE_MOUNT}"
+chmod 700 "${INSTANCE_STORE_MOUNT}"
+
+cat > "${WORKER_ENV_PATH}" <<EOF
+APP_ROLE=worker
+HIGH_SECURITY_MODE=true
+ALLOW_SELF_REGISTRATION=false
+USE_API_PROXY=false
+GEMINI_API_KEY=
+AMAP_API_KEY=
+FRONTEND_ORIGIN=${CONTROL_PLANE_ORIGIN}
+COOKIE_SECURE=true
+BACKEND_HOST=0.0.0.0
+BACKEND_PORT=9000
+BACKEND_RELOAD=false
+WORKER_ORCHESTRATION_ENABLED=false
+AWS_REGION=${REGION}
+WORKER_INTERNAL_PORT=9000
+WORKER_SHARED_TOKEN=${WORKER_SHARED_TOKEN}
+WORKER_TASK_ROOT=${INSTANCE_STORE_MOUNT}
+RESULT_TTL_HOURS=24
+WORKER_POLL_SECONDS=3
+WORKER_BOOT_TIMEOUT_SECONDS=300
+DATABASE_URL=sqlite:////opt/memory_engineering/runtime/worker-local.db
+EOF
+
+chown "${REPO_OWNER}:${REPO_GROUP}" "${WORKER_ENV_PATH}"
+chmod 600 "${WORKER_ENV_PATH}"
+
+cp "${REPO_DIR}/deploy/ec2/memory-engineering-worker.service" "${WORKER_SERVICE_PATH}"
+systemctl daemon-reload
+systemctl enable memory-engineering-worker
+systemctl restart memory-engineering-worker
+
+echo "[bootstrap] worker bootstrap completed"

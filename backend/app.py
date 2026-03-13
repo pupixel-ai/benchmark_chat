@@ -3,7 +3,6 @@ FastAPI backend entrypoint.
 """
 from __future__ import annotations
 
-import io
 import os
 import shutil
 import uuid
@@ -14,8 +13,6 @@ from fastapi import BackgroundTasks, Cookie, Depends, FastAPI, File, Form, HTTPE
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
-from PIL import Image, ImageOps
-from pillow_heif import register_heif_opener
 
 from backend.auth import (
     AUTH_SESSION_COOKIE_NAME,
@@ -26,8 +23,20 @@ from backend.auth import (
     register_user,
 )
 from backend.task_store import TaskStore
+from backend.upload_utils import (
+    UPLOAD_FAILURES_FILENAME,
+    preview_filename,
+    save_preview_as_webp,
+    save_upload_original,
+    stored_upload_filename,
+    task_asset_path,
+    write_upload_failures,
+)
+from backend.worker_client import WorkerClient
+from backend.worker_manager import WorkerManager
 from config import (
     ALLOW_SELF_REGISTRATION,
+    APP_ROLE,
     ASSET_URL_PREFIX,
     BACKEND_HOST,
     BACKEND_PORT,
@@ -43,13 +52,11 @@ from services.pipeline_service import MemoryPipelineService
 from utils import save_json
 
 
-register_heif_opener()
-UPLOAD_FAILURES_FILENAME = "upload_failures.json"
-
-
 app = FastAPI(title="Memory Engineering API", version="1.0.0")
 task_store = TaskStore()
 asset_store = TaskAssetStore()
+worker_manager = WorkerManager()
+worker_client = WorkerClient()
 
 app.add_middleware(
     CORSMiddleware,
@@ -61,95 +68,10 @@ app.add_middleware(
 
 Path(TASKS_DIR).mkdir(parents=True, exist_ok=True)
 
-ORIENTATION_TAG = 274
-
 
 class AuthPayload(BaseModel):
     username: str
     password: str
-
-
-def _safe_filename(filename: str, fallback: str) -> str:
-    basename = os.path.basename(filename or fallback)
-    basename = basename.replace("/", "_").replace("\\", "_")
-    return basename or fallback
-
-
-def _stored_upload_filename(filename: str, index: int) -> str:
-    safe_name = _safe_filename(filename, f"upload_{index:03d}")
-    stem = Path(safe_name).stem or f"upload_{index:03d}"
-    suffix = Path(safe_name).suffix.lower() or ".bin"
-    return f"{index:03d}_{stem}{suffix}"
-
-
-def _preview_filename(filename: str, index: int) -> str:
-    safe_name = _safe_filename(filename, f"upload_{index:03d}")
-    stem = Path(safe_name).stem or f"upload_{index:03d}"
-    return f"{index:03d}_{stem}_preview.webp"
-
-
-def _task_asset_path(directory: str, filename: str) -> str:
-    return f"{directory}/{filename}"
-
-
-def _normalized_exif_bytes(image: Image.Image) -> bytes | None:
-    try:
-        exif = image.getexif()
-    except Exception:
-        return None
-
-    if not exif:
-        return None
-
-    if ORIENTATION_TAG in exif:
-        exif[ORIENTATION_TAG] = 1
-    return exif.tobytes()
-
-
-def _save_upload_original(upload: UploadFile, destination: Path) -> tuple[bytes, dict]:
-    upload.file.seek(0)
-    payload = upload.file.read()
-    if not payload:
-        raise ValueError("文件为空")
-
-    destination.write_bytes(payload)
-    image_info = {
-        "content_type": upload.content_type or "application/octet-stream",
-        "width": None,
-        "height": None,
-    }
-
-    with Image.open(io.BytesIO(payload)) as image:
-        image_info["width"], image_info["height"] = image.size
-        image_info["content_type"] = upload.content_type or Image.MIME.get(image.format, image_info["content_type"])
-
-    return payload, image_info
-
-
-def _save_preview_as_webp(payload: bytes, destination: Path) -> dict:
-    with Image.open(io.BytesIO(payload)) as image:
-        normalized = ImageOps.exif_transpose(image)
-        exif = _normalized_exif_bytes(normalized)
-        working = normalized.convert("RGBA") if "A" in normalized.getbands() else normalized.convert("RGB")
-        save_kwargs = {
-            "format": "WEBP",
-            "quality": 90,
-            "method": 6,
-        }
-        if exif:
-            save_kwargs["exif"] = exif
-        working.save(destination, **save_kwargs)
-        width, height = working.size
-
-    return {
-        "width": width,
-        "height": height,
-        "content_type": "image/webp",
-    }
-
-
-def _write_upload_failures(task_dir: Path, failures: list[dict]) -> None:
-    save_json({"failures": failures}, str(task_dir / UPLOAD_FAILURES_FILENAME))
 
 
 def _apply_no_store_headers(response: Response) -> Response:
@@ -157,6 +79,149 @@ def _apply_no_store_headers(response: Response) -> Response:
     response.headers["Pragma"] = "no-cache"
     response.headers["Expires"] = "0"
     return response
+
+
+def _remote_worker_mode_enabled() -> bool:
+    return APP_ROLE == "control-plane" and worker_manager.enabled and worker_client.enabled
+
+
+def _sync_task_from_worker(task: dict, user_id: str) -> dict:
+    if not _remote_worker_mode_enabled():
+        return task
+    if not task.get("worker_instance_id") or task.get("delete_state") == "requested":
+        return task
+
+    instance = worker_manager.describe_worker(task["worker_instance_id"])
+    if instance is None:
+        if task.get("worker_status") != "terminated":
+            task_store.update_worker_state(task["task_id"], worker_status="terminated")
+        refreshed = task_store.get_task(task["task_id"], user_id=user_id)
+        return refreshed or task
+
+    worker_updates = {}
+    if instance.private_ip and instance.private_ip != task.get("worker_private_ip"):
+        worker_updates["worker_private_ip"] = instance.private_ip
+    if instance.expires_at:
+        worker_updates["expires_at"] = instance.expires_at
+    if worker_updates or instance.state != task.get("worker_status"):
+        task_store.update_worker_state(
+            task["task_id"],
+            worker_status=instance.state,
+            **worker_updates,
+        )
+        refreshed = task_store.get_task(task["task_id"], user_id=user_id)
+        task = refreshed or task
+
+    private_ip = instance.private_ip or task.get("worker_private_ip")
+    if instance.state != "running" or not private_ip:
+        return task
+
+    try:
+        remote_payload = worker_client.fetch_status(private_ip, task["task_id"])
+    except Exception:
+        return task
+
+    updates = {}
+    for key in ("status", "stage", "progress", "uploads", "result", "error"):
+        if key in remote_payload:
+            updates[key] = remote_payload[key]
+    task_store.update_worker_state(
+        task["task_id"],
+        worker_status=remote_payload.get("worker_status", instance.state),
+        **updates,
+    )
+    if "result_summary" in remote_payload or "asset_manifest" in remote_payload:
+        task_store.set_result_summary(
+            task["task_id"],
+            remote_payload.get("result_summary"),
+            remote_payload.get("asset_manifest"),
+        )
+    refreshed = task_store.get_task(task["task_id"], user_id=user_id)
+    return refreshed or task
+
+
+async def _create_remote_task(
+    files: List[UploadFile],
+    max_photos: int,
+    use_cache: bool,
+    current_user: dict,
+) -> dict:
+    upload_payloads = []
+    for upload in files:
+        payload = await upload.read()
+        if not payload:
+            raise HTTPException(status_code=400, detail=f"文件为空: {upload.filename or '未命名文件'}")
+        upload_payloads.append(
+            {
+                "filename": os.path.basename(upload.filename or "upload.bin"),
+                "content_type": upload.content_type or "application/octet-stream",
+                "payload": payload,
+            }
+        )
+
+    task_id = uuid.uuid4().hex
+    task_store.create_task(
+        task_id,
+        upload_count=len(upload_payloads),
+        user_id=current_user["user_id"],
+        provision_local_dir=False,
+    )
+
+    launched_worker = None
+    try:
+        launched_worker = worker_manager.launch_worker(task_id)
+        ready_worker = worker_manager.wait_until_ready(launched_worker.instance_id)
+        ready_worker.expires_at = launched_worker.expires_at
+        task_store.attach_worker(
+            task_id,
+            ready_worker.instance_id,
+            ready_worker.private_ip,
+            ready_worker.expires_at,
+            worker_status=ready_worker.state,
+        )
+
+        if not ready_worker.private_ip:
+            raise RuntimeError("worker 未返回私网地址")
+
+        worker_client.wait_for_health(ready_worker.private_ip)
+        ingest_payload = worker_client.ingest_uploads(
+            ready_worker.private_ip,
+            task_id,
+            upload_payloads,
+            min(max_photos, len(upload_payloads)),
+            use_cache,
+        )
+
+        task_store.update_worker_state(
+            task_id,
+            worker_status=ingest_payload.get("worker_status", ready_worker.state),
+            status=ingest_payload.get("status", "queued"),
+            stage=ingest_payload.get("stage", "queued"),
+            uploads=ingest_payload.get("uploads"),
+            progress=ingest_payload.get("progress"),
+        )
+
+        return {
+            "task_id": task_id,
+            "status": ingest_payload.get("status", "queued"),
+            "upload_count": len(upload_payloads),
+            "max_photos": min(max_photos, len(upload_payloads)),
+            "task_url": f"/api/tasks/{task_id}",
+            "worker_status": ingest_payload.get("worker_status", ready_worker.state),
+        }
+    except HTTPException:
+        if launched_worker is not None:
+            worker_manager.terminate_worker(launched_worker.instance_id)
+        task_store.delete_task(task_id, user_id=current_user["user_id"])
+        raise
+    except Exception as exc:
+        if launched_worker is not None:
+            worker_manager.terminate_worker(launched_worker.instance_id)
+        task_store.delete_task(task_id, user_id=current_user["user_id"])
+        raise HTTPException(status_code=502, detail=f"创建 worker 任务失败: {exc}") from exc
+    finally:
+        for upload in files:
+            await upload.close()
 
 
 def _run_pipeline_task(task_id: str, max_photos: int, use_cache: bool):
@@ -198,6 +263,7 @@ def healthcheck(response: Response):
     _apply_no_store_headers(response)
     return {
         "status": "ok",
+        "app_role": APP_ROLE,
         "frontend_origin": FRONTEND_ORIGIN,
         "max_upload_photos": MAX_UPLOAD_PHOTOS,
         "self_registration_enabled": ALLOW_SELF_REGISTRATION,
@@ -205,6 +271,7 @@ def healthcheck(response: Response):
         "asset_url_prefix": ASSET_URL_PREFIX,
         "object_storage_enabled": asset_store.enabled,
         "object_storage_bucket": asset_store.bucket or None,
+        "worker_orchestration_enabled": _remote_worker_mode_enabled(),
     }
 
 
@@ -248,6 +315,7 @@ def root():
     return {
         "status": "ok",
         "service": "Memory Engineering API",
+        "role": APP_ROLE,
         "healthcheck": "/api/health",
         "tasks_endpoint": "/api/tasks",
         "assets_prefix": ASSET_URL_PREFIX,
@@ -280,6 +348,9 @@ async def create_task(
             detail=f"max_photos 必须在 1 到 {MAX_UPLOAD_PHOTOS} 之间",
         )
 
+    if _remote_worker_mode_enabled():
+        return await _create_remote_task(files, max_photos, use_cache, current_user)
+
     task_id = uuid.uuid4().hex
     task_dir = task_store.task_dir(task_id)
     uploads_dir = task_dir / "uploads"
@@ -290,20 +361,20 @@ async def create_task(
     saved_files = []
     upload_failures = []
     for index, upload in enumerate(files, start=1):
-        stored_name = _stored_upload_filename(upload.filename or "", index)
+        stored_name = stored_upload_filename(upload.filename or "", index)
         destination = uploads_dir / stored_name
-        preview_name = _preview_filename(upload.filename or "", index)
+        preview_name = preview_filename(upload.filename or "", index)
         preview_destination = previews_dir / preview_name
         try:
-            payload, image_info = _save_upload_original(upload, destination)
-            original_asset_path = _task_asset_path("uploads", stored_name)
+            payload, image_info = save_upload_original(upload, destination)
+            original_asset_path = task_asset_path("uploads", stored_name)
             if asset_store.enabled:
                 asset_store.upload_file(task_id, original_asset_path, destination)
 
             preview_url = None
             try:
-                _save_preview_as_webp(payload, preview_destination)
-                preview_asset_path = _task_asset_path("previews", preview_name)
+                save_preview_as_webp(payload, preview_destination)
+                preview_asset_path = task_asset_path("previews", preview_name)
                 if asset_store.enabled:
                     asset_store.upload_file(task_id, preview_asset_path, preview_destination)
                 preview_url = asset_store.asset_url(task_id, preview_asset_path)
@@ -331,7 +402,7 @@ async def create_task(
         finally:
             await upload.close()
 
-    _write_upload_failures(task_dir, upload_failures)
+    write_upload_failures(task_dir, upload_failures)
     if asset_store.enabled:
         upload_failures_path = task_dir / UPLOAD_FAILURES_FILENAME
         if upload_failures_path.exists():
@@ -367,7 +438,7 @@ def get_task(task_id: str, response: Response, current_user: dict = Depends(get_
     task = task_store.get_task(task_id, user_id=current_user["user_id"])
     if not task:
         raise HTTPException(status_code=404, detail="任务不存在")
-    return task
+    return _sync_task_from_worker(task, current_user["user_id"])
 
 
 @app.delete("/api/tasks/{task_id}")
@@ -381,6 +452,17 @@ def delete_task(task_id: str, response: Response, current_user: dict = Depends(g
         raise HTTPException(status_code=409, detail="任务处理中，暂不支持删除")
 
     task_dir = task_store.task_dir(task_id)
+
+    if task.get("worker_instance_id"):
+        task_store.mark_delete_requested(task_id, user_id=current_user["user_id"])
+        private_ip = task.get("worker_private_ip")
+        if private_ip and worker_client.enabled:
+            try:
+                worker_client.request_delete(private_ip, task_id)
+            except Exception:
+                pass
+        worker_manager.terminate_worker(task["worker_instance_id"])
+        task_store.mark_deleted(task_id, user_id=current_user["user_id"])
 
     try:
         asset_store.delete_task_assets(task_id)
@@ -406,6 +488,16 @@ def get_asset(task_id: str, asset_path: str, current_user: dict = Depends(get_cu
     task = task_store.get_task(task_id, user_id=current_user["user_id"])
     if not task:
         raise HTTPException(status_code=404, detail="任务不存在")
+
+    task = _sync_task_from_worker(task, current_user["user_id"])
+    private_ip = task.get("worker_private_ip")
+    if task.get("worker_instance_id") and private_ip and worker_client.enabled:
+        try:
+            payload, content_type = worker_client.fetch_asset(private_ip, task_id, asset_path)
+            response = Response(content=payload, media_type=content_type)
+            return _apply_no_store_headers(response)
+        except Exception:
+            pass
 
     task_dir = task_store.task_dir(task_id)
     if asset_store.enabled:

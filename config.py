@@ -44,17 +44,38 @@ COOKIE_SECURE = os.getenv(
     "COOKIE_SECURE",
     "true" if FRONTEND_ORIGIN.startswith("https://") else "false",
 ).lower() == "true"
+APP_ROLE = os.getenv("APP_ROLE", "control-plane").strip().lower() or "control-plane"
+WORKER_ORCHESTRATION_ENABLED = os.getenv("WORKER_ORCHESTRATION_ENABLED", "false").lower() == "true"
+AWS_REGION = os.getenv("AWS_REGION", "").strip()
+WORKER_LAUNCH_TEMPLATE_ID = os.getenv("WORKER_LAUNCH_TEMPLATE_ID", "").strip()
+WORKER_LAUNCH_TEMPLATE_VERSION = os.getenv("WORKER_LAUNCH_TEMPLATE_VERSION", "").strip() or "$Default"
+WORKER_AMI_ID = os.getenv("WORKER_AMI_ID", "").strip()
+WORKER_INSTANCE_TYPE = os.getenv("WORKER_INSTANCE_TYPE", "").strip()
+WORKER_IAM_INSTANCE_PROFILE = os.getenv("WORKER_IAM_INSTANCE_PROFILE", "").strip()
+WORKER_SECURITY_GROUP_ID = os.getenv("WORKER_SECURITY_GROUP_ID", "").strip()
+WORKER_INSTANCE_NAME_PREFIX = os.getenv("WORKER_INSTANCE_NAME_PREFIX", "memory-worker").strip() or "memory-worker"
+WORKER_INTERNAL_PORT = int(os.getenv("WORKER_INTERNAL_PORT", "9000"))
+WORKER_SHARED_TOKEN = os.getenv("WORKER_SHARED_TOKEN", "").strip()
+WORKER_TASK_ROOT = os.getenv("WORKER_TASK_ROOT", "/mnt/secure-tasks").strip() or "/mnt/secure-tasks"
+RESULT_TTL_HOURS = int(os.getenv("RESULT_TTL_HOURS", "24"))
+WORKER_POLL_SECONDS = int(os.getenv("WORKER_POLL_SECONDS", "3"))
+WORKER_BOOT_TIMEOUT_SECONDS = int(os.getenv("WORKER_BOOT_TIMEOUT_SECONDS", "300"))
 
 
-def _parse_origin_list(value: str) -> tuple[str, ...]:
+def _parse_csv_list(value: str) -> tuple[str, ...]:
     return tuple(
-        item.rstrip("/")
+        item
         for item in (part.strip() for part in value.split(","))
         if item
     )
 
 
+def _parse_origin_list(value: str) -> tuple[str, ...]:
+    return tuple(item.rstrip("/") for item in _parse_csv_list(value))
+
+
 _extra_cors_origins = _parse_origin_list(os.getenv("CORS_ALLOW_ORIGINS", ""))
+WORKER_SUBNET_IDS = _parse_csv_list(os.getenv("WORKER_SUBNET_IDS", ""))
 CORS_ALLOW_ORIGINS = tuple(
     dict.fromkeys(
         _extra_cors_origins
