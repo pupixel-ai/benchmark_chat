@@ -137,6 +137,7 @@ class MemoryPipelineService:
             image_entries.append({
                 "image_id": image.get("photo_id"),
                 "filename": image.get("filename"),
+                "source_hash": image.get("source_hash"),
                 "timestamp": image.get("timestamp"),
                 "status": "processed",
                 "detection_seconds": image.get("detection_seconds", 0.0),
@@ -151,6 +152,7 @@ class MemoryPipelineService:
                     {
                         **face,
                         "image_id": image.get("photo_id"),
+                        "source_hash": image.get("source_hash"),
                         "boxed_image_url": self._public_url(boxed_path) if boxed_path else None,
                     }
                     for face in image.get("faces", [])
@@ -194,6 +196,17 @@ class MemoryPipelineService:
             }
             for item in self.failed_images
         ]
+        ambiguous_faces = 0
+        low_quality_faces = 0
+        new_person_from_ambiguity = 0
+        for image in images:
+            for face in image.get("faces", []):
+                if face.get("quality_score", 0.0) < 0.40:
+                    low_quality_faces += 1
+                if face.get("match_decision") in {"gray_match", "new_person_from_ambiguity"}:
+                    ambiguous_faces += 1
+                if face.get("match_decision") == "new_person_from_ambiguity":
+                    new_person_from_ambiguity += 1
         detection_seconds = sum(float(image.get("detection_seconds") or 0.0) for image in images)
         embedding_seconds = sum(float(image.get("embedding_seconds") or 0.0) for image in images)
         total_processing_seconds = detection_seconds + embedding_seconds
@@ -207,6 +220,9 @@ class MemoryPipelineService:
             "total_faces": metrics.get("total_faces", 0),
             "total_persons": metrics.get("total_persons", 0),
             "failed_images": len(self.failed_images),
+            "ambiguous_faces": ambiguous_faces,
+            "low_quality_faces": low_quality_faces,
+            "new_person_from_ambiguity": new_person_from_ambiguity,
             "no_face_images": no_face_images,
             "failed_items": failed_items,
             "engine": {
@@ -241,6 +257,8 @@ class MemoryPipelineService:
                     "photo_count": group.get("photo_count", 0),
                     "face_count": group.get("face_count", 0),
                     "avg_score": group.get("avg_score", 0.0),
+                    "avg_quality": group.get("avg_quality", 0.0),
+                    "high_quality_face_count": group.get("high_quality_face_count", 0),
                 }
                 for group in person_groups
             ],
@@ -268,6 +286,8 @@ class MemoryPipelineService:
                         "photo_count": stats_map.get(person_id, {}).get("photo_count", 0),
                         "face_count": stats_map.get(person_id, {}).get("face_count", 0),
                         "avg_score": stats_map.get(person_id, {}).get("avg_score", 0.0),
+                        "avg_quality": stats_map.get(person_id, {}).get("avg_quality", 0.0),
+                        "high_quality_face_count": stats_map.get(person_id, {}).get("high_quality_face_count", 0),
                         "avatar_url": None,
                         "images": [],
                         "_seen_images": set(),
@@ -285,9 +305,14 @@ class MemoryPipelineService:
                         "timestamp": image.get("timestamp"),
                         "display_image_url": image.get("display_image_url"),
                         "boxed_image_url": image.get("boxed_image_url"),
+                        "source_hash": image.get("source_hash"),
                         "face_id": face["face_id"],
                         "score": face["score"],
                         "similarity": face["similarity"],
+                        "quality_score": face.get("quality_score", 0.0),
+                        "quality_flags": face.get("quality_flags", []),
+                        "match_decision": face.get("match_decision"),
+                        "match_reason": face.get("match_reason"),
                     })
 
                 if photo is not None and float(face["score"]) > group["_best_score"]:
@@ -309,6 +334,8 @@ class MemoryPipelineService:
                 "photo_count": group["photo_count"] or len(images),
                 "face_count": group["face_count"] or len(images),
                 "avg_score": group["avg_score"],
+                "avg_quality": group["avg_quality"],
+                "high_quality_face_count": group["high_quality_face_count"],
                 "avatar_url": group["avatar_url"],
                 "images": images,
             })

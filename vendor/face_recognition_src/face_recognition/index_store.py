@@ -44,17 +44,36 @@ class SimilarityIndexStore:
         embedding: Sequence[float],
         pending_embeddings: Optional[Sequence[Sequence[float]]] = None,
     ) -> SearchMatch:
-        best = SearchMatch()
-        scores, ids = self._backend.search(embedding, 1)
-        if scores and ids and ids[0] >= 0:
-            best = SearchMatch(score=scores[0], faiss_id=ids[0])
+        matches = self.search_many(embedding, pending_embeddings=pending_embeddings, top_k=1)
+        if matches:
+            return matches[0]
+        return SearchMatch()
+
+    def search_many(
+        self,
+        embedding: Sequence[float],
+        pending_embeddings: Optional[Sequence[Sequence[float]]] = None,
+        top_k: int = 5,
+    ) -> List[SearchMatch]:
+        combined: List[SearchMatch] = []
+        scores, ids = self._backend.search(embedding, top_k)
+        for score, faiss_id in zip(scores, ids):
+            if faiss_id < 0:
+                continue
+            combined.append(SearchMatch(score=score, faiss_id=faiss_id))
 
         base_id = self._backend.ntotal
         for offset, pending in enumerate(pending_embeddings or ()):
-            score = dot_product(embedding, pending)
-            if best.score is None or score > best.score:
-                best = SearchMatch(score=score, faiss_id=base_id + offset)
-        return best
+            combined.append(SearchMatch(score=dot_product(embedding, pending), faiss_id=base_id + offset))
+
+        combined.sort(
+            key=lambda item: (
+                float("-inf") if item.score is None else float(item.score),
+                -1 if item.faiss_id is None else -int(item.faiss_id),
+            ),
+            reverse=True,
+        )
+        return combined[: max(1, int(top_k))]
 
     def persist_pending(self, pending_embeddings: Sequence[Sequence[float]]) -> None:
         if not pending_embeddings:

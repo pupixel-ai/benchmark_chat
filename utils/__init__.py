@@ -1,6 +1,7 @@
 """
 工具函数
 """
+import hashlib
 import json
 import os
 from datetime import datetime
@@ -248,3 +249,12 @@ def cosine_similarity(vec1, vec2) -> float:
     import numpy as np
 
     return np.dot(vec1, vec2) / (np.linalg.norm(vec1) * np.linalg.norm(vec2))
+
+
+def file_sha256(path: str) -> str:
+    """计算文件 SHA256。"""
+    digest = hashlib.sha256()
+    with open(path, "rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()

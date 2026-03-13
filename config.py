@@ -23,7 +23,7 @@ if load_dotenv is not None:
 # Demo配置
 MAX_PHOTOS = 50  # Demo阶段最多处理50张照片
 DEMO_MODE = True  # Demo模式
-MAX_UPLOAD_PHOTOS = 100
+MAX_UPLOAD_PHOTOS = int(os.getenv("MAX_UPLOAD_PHOTOS", "5000"))
 
 # Web 服务配置
 BACKEND_HOST = os.getenv("BACKEND_HOST", "0.0.0.0")
@@ -152,6 +152,21 @@ FACE_MAX_SIDE = int(os.getenv("FACE_MAX_SIDE", "1920"))
 FACE_DET_THRESHOLD = float(os.getenv("FACE_DET_THRESHOLD", "0.60"))
 FACE_SIM_THRESHOLD = float(os.getenv("FACE_SIM_THRESHOLD", "0.50"))
 FACE_MIN_SIZE = int(os.getenv("FACE_MIN_SIZE", "48"))  # 最小人脸尺寸（像素）
+FACE_MATCH_TOP_K = int(os.getenv("FACE_MATCH_TOP_K", "5"))
+FACE_MATCH_MARGIN_THRESHOLD = float(os.getenv("FACE_MATCH_MARGIN_THRESHOLD", "0.03"))
+FACE_MATCH_WEAK_DELTA = float(os.getenv("FACE_MATCH_WEAK_DELTA", "0.04"))
+FACE_MATCH_MIN_QUALITY_GRAY_ZONE = float(os.getenv("FACE_MATCH_MIN_QUALITY_GRAY_ZONE", "0.40"))
+FACE_MATCH_HIGH_QUALITY_THRESHOLD = float(
+    os.getenv("FACE_MATCH_HIGH_QUALITY_THRESHOLD", str(FACE_MATCH_MIN_QUALITY_GRAY_ZONE))
+)
+LFW_BENCHMARK_DIR = os.getenv(
+    "LFW_BENCHMARK_DIR",
+    os.path.join(RUNTIME_DIR, "benchmarks", "lfw"),
+)
+FACE_MATCH_THRESHOLD_PATH = os.getenv(
+    "FACE_MATCH_THRESHOLD_PATH",
+    os.path.join(LFW_BENCHMARK_DIR, "latest.json"),
+)
 FACE_PROVIDERS = tuple(
     provider.strip()
     for provider in os.getenv("FACE_PROVIDERS", "CPUExecutionProvider").split(",")

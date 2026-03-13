@@ -11,6 +11,11 @@ from config import (
     FACE_DET_THRESHOLD,
     FACE_INDEX_PATH,
     FACE_MAX_SIDE,
+    FACE_MATCH_HIGH_QUALITY_THRESHOLD,
+    FACE_MATCH_MARGIN_THRESHOLD,
+    FACE_MATCH_MIN_QUALITY_GRAY_ZONE,
+    FACE_MATCH_TOP_K,
+    FACE_MATCH_WEAK_DELTA,
     FACE_MIN_SIZE,
     FACE_MODEL_NAME,
     FACE_OUTPUT_PATH,
@@ -20,6 +25,12 @@ from config import (
     FACE_STATE_PATH,
 )
 from models import Person, Photo
+from services.face_precision import (
+    aggregate_candidate_matches,
+    compute_face_quality,
+    decide_match,
+    load_strong_threshold,
+)
 from utils import load_json, save_json
 
 
@@ -73,6 +84,12 @@ class FaceRecognition:
         self.index_store = SimilarityIndexStore(Path(self.index_path))
         self.load_image = load_image
         self.resize_image = resize_image
+        self.strong_threshold = load_strong_threshold(FACE_SIM_THRESHOLD)
+        self.weak_threshold = self.strong_threshold - FACE_MATCH_WEAK_DELTA
+        self.margin_threshold = FACE_MATCH_MARGIN_THRESHOLD
+        self.min_quality_for_gray_zone = FACE_MATCH_MIN_QUALITY_GRAY_ZONE
+        self.high_quality_threshold = FACE_MATCH_HIGH_QUALITY_THRESHOLD
+        self.match_top_k = FACE_MATCH_TOP_K
 
         self.state = self._load_state()
         self.faiss_person_map = {
@@ -93,7 +110,7 @@ class FaceRecognition:
             return data
 
         return {
-            "version": 1,
+            "version": 2,
             "next_person_number": 1,
             "primary_person_id": None,
             "faiss_person_map": {},
@@ -106,6 +123,10 @@ class FaceRecognition:
                 "max_side": FACE_MAX_SIDE,
                 "det_threshold": FACE_DET_THRESHOLD,
                 "sim_threshold": FACE_SIM_THRESHOLD,
+                "strong_threshold": self.strong_threshold,
+                "weak_threshold": self.weak_threshold,
+                "margin_threshold": self.margin_threshold,
+                "match_top_k": self.match_top_k,
                 "index_path": self.index_path,
             },
         }
@@ -121,6 +142,8 @@ class FaceRecognition:
                 first_seen=self._parse_datetime(person_data.get("first_seen")),
                 last_seen=self._parse_datetime(person_data.get("last_seen")),
                 avg_confidence=person_data.get("avg_score", 0.0),
+                avg_quality=person_data.get("avg_quality", 0.0),
+                high_quality_face_count=person_data.get("high_quality_face_count", 0),
             )
         return restored
 
@@ -151,6 +174,8 @@ class FaceRecognition:
                 "last_seen": None,
                 "avg_score": 0.0,
                 "avg_similarity": 0.0,
+                "avg_quality": 0.0,
+                "high_quality_face_count": 0,
                 "sample_photo_ids": [],
                 "label": "",
             }
@@ -179,6 +204,7 @@ class FaceRecognition:
         if cached_image:
             photo.faces = [dict(face) for face in cached_image.get("faces", [])]
             photo.face_image_hash = image_hash
+            photo.source_hash = cached_image.get("source_hash", photo.source_hash)
             self.photo_results[photo.photo_id] = cached_image
             return photo.faces
 
@@ -206,24 +232,28 @@ class FaceRecognition:
             if min_dim < FACE_MIN_SIZE:
                 continue
 
-            search = self.index_store.search(
+            quality = compute_face_quality(raw_image.pixels, bbox["bbox_xywh"])
+            search_matches = self.index_store.search_many(
                 detected_face.embedding,
                 pending_embeddings=pending_embeddings,
+                top_k=self.match_top_k,
             )
-            matched_person_id = None
-            if search.faiss_id is not None:
-                matched_person_id = self.faiss_person_map.get(search.faiss_id)
-                if matched_person_id is None:
-                    matched_person_id = pending_person_map.get(search.faiss_id)
+            candidate_summaries = aggregate_candidate_matches(
+                search_matches,
+                self.faiss_person_map,
+                pending_person_map,
+            )
+            match_decision = decide_match(
+                candidate_summaries,
+                float(quality["quality_score"]),
+                strong_threshold=self.strong_threshold,
+                weak_threshold=self.weak_threshold,
+                margin_threshold=self.margin_threshold,
+                min_quality_for_gray_zone=self.min_quality_for_gray_zone,
+            )
 
-            similarity = float(search.score) if search.score is not None else 0.0
-            if (
-                matched_person_id is not None
-                and search.score is not None
-                and search.score > self.config.sim_threshold
-            ):
-                person_id = matched_person_id
-            else:
+            person_id = match_decision.get("person_id")
+            if not person_id:
                 person_id = self._next_person_id()
 
             faiss_id = self.index_store.committed_count + len(pending_embeddings)
@@ -236,11 +266,15 @@ class FaceRecognition:
                 "face_id": face_id,
                 "person_id": person_id,
                 "score": float(detected_face.score),
-                "similarity": similarity,
+                "similarity": float(match_decision.get("best_similarity") or 0.0),
                 "faiss_id": faiss_id,
                 "bbox": bbox["bbox"],
                 "bbox_xywh": bbox["bbox_xywh"],
                 "kps": detected_face.kps,
+                "quality_score": float(quality["quality_score"]),
+                "quality_flags": list(quality["quality_flags"]),
+                "match_decision": str(match_decision["decision"]),
+                "match_reason": str(match_decision["reason"]),
             }
             faces_output.append(face_output)
 
@@ -254,8 +288,15 @@ class FaceRecognition:
             person_state["avg_similarity"] = self._rolling_average(
                 person_state["avg_similarity"],
                 person_state["face_count"],
-                similarity,
+                float(match_decision.get("best_similarity") or 0.0),
             )
+            person_state["avg_quality"] = self._rolling_average(
+                person_state["avg_quality"],
+                person_state["face_count"],
+                float(quality["quality_score"]),
+            )
+            if float(quality["quality_score"]) >= self.high_quality_threshold:
+                person_state["high_quality_face_count"] += 1
             if person_id not in seen_persons_in_photo:
                 seen_persons_in_photo.add(person_id)
                 person_state["photo_count"] += 1
@@ -280,6 +321,7 @@ class FaceRecognition:
             "photo_id": photo.photo_id,
             "filename": photo.filename,
             "path": photo.path,
+            "source_hash": photo.source_hash,
             "timestamp": photo.timestamp.isoformat(),
             "location": photo.location,
             "width": raw_image.width,
@@ -312,6 +354,8 @@ class FaceRecognition:
                 first_seen=self._parse_datetime(person_state.get("first_seen")),
                 last_seen=self._parse_datetime(person_state.get("last_seen")),
                 avg_confidence=person_state.get("avg_score", 0.0),
+                avg_quality=person_state.get("avg_quality", 0.0),
+                high_quality_face_count=person_state.get("high_quality_face_count", 0),
             )
 
     def _compute_primary_person_id(self) -> Optional[str]:
@@ -374,6 +418,10 @@ class FaceRecognition:
         }
         self.state["engine"]["providers"] = list(self.engine.applied_providers())
         self.state["engine"]["index_path"] = self.index_path
+        self.state["engine"]["strong_threshold"] = self.strong_threshold
+        self.state["engine"]["weak_threshold"] = self.weak_threshold
+        self.state["engine"]["margin_threshold"] = self.margin_threshold
+        self.state["engine"]["match_top_k"] = self.match_top_k
         save_json(self.state, self.state_path)
         save_json(self.get_face_output(), self.output_path)
 

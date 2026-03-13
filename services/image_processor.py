@@ -9,7 +9,7 @@ from pillow_heif import register_heif_opener
 import exifread
 from models import Photo
 from config import CACHE_DIR, MAX_IMAGE_SIZE, JPEG_QUALITY, DEDUP_TIME_WINDOW, AMAP_API_KEY, PROJECT_ROOT
-from utils import compress_image, normalized_exif_bytes, smart_deduplicate
+from utils import compress_image, file_sha256, normalized_exif_bytes, smart_deduplicate
 
 # 注册HEIC格式支持
 register_heif_opener()
@@ -84,7 +84,8 @@ class ImageProcessor:
                     filename=filename,
                     path=path,
                     timestamp=exif.get("datetime", datetime.now()),
-                    location=exif.get("location", {})
+                    location=exif.get("location", {}),
+                    source_hash=file_sha256(path),
                 )
 
                 photos.append(photo)

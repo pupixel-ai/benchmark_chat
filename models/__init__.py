@@ -14,6 +14,7 @@ class Photo:
     path: str
     timestamp: datetime
     location: Dict[str, Any]  # {lat, lng, name}
+    source_hash: Optional[str] = None  # 原始上传文件的稳定哈希
     original_path: Optional[str] = None  # 原始照片路径（HEIC等）
     compressed_path: Optional[str] = None  # 压缩后的JPEG路径（用于VLM）
     boxed_path: Optional[str] = None  # 带框图片路径（用于VLM提示）
@@ -81,6 +82,8 @@ class Person:
     first_seen: Optional[datetime] = None
     last_seen: Optional[datetime] = None
     avg_confidence: float = 0.0
+    avg_quality: float = 0.0
+    high_quality_face_count: int = 0
 
 
 @dataclass
