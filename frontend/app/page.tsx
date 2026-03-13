@@ -588,6 +588,19 @@ function PersonGroupsPanel({
                                 placeholder="Comment"
                                 className="min-h-[74px] w-full resize-none rounded-[10px] border border-black/8 bg-white/80 px-3 py-2 text-sm text-black/70 outline-none"
                               />
+                              <div className="mt-3 flex justify-end">
+                                <button
+                                  type="button"
+                                  aria-label="Submit comment"
+                                  title="Submit comment"
+                                  disabled={Boolean(reviewBusy[image.face_id])}
+                                  onMouseDown={(event) => event.preventDefault()}
+                                  onClick={() => onCommentCommit(image)}
+                                  className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#8a5637] bg-[#8a5637] text-white transition hover:bg-[#6f442c] disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                  <ArrowUp size={16} strokeWidth={2.3} />
+                                </button>
+                              </div>
                             </div>
                           ) : null}
                         </div>
