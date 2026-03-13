@@ -28,9 +28,37 @@ MAX_UPLOAD_PHOTOS = 100
 # Web 服务配置
 BACKEND_HOST = os.getenv("BACKEND_HOST", "0.0.0.0")
 BACKEND_PORT = int(os.getenv("PORT", os.getenv("BACKEND_PORT", "8000")))
+BACKEND_RELOAD = os.getenv("BACKEND_RELOAD", "false").lower() == "true"
 FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "http://localhost:3000")
 RUNS_URL_PREFIX = "/runs"
 ASSET_URL_PREFIX = "/api/assets"
+AUTH_SESSION_COOKIE_NAME = os.getenv("AUTH_SESSION_COOKIE_NAME", "memory_session")
+AUTH_SESSION_DAYS = int(os.getenv("AUTH_SESSION_DAYS", "14"))
+COOKIE_SECURE = os.getenv(
+    "COOKIE_SECURE",
+    "true" if FRONTEND_ORIGIN.startswith("https://") else "false",
+).lower() == "true"
+
+
+def _parse_origin_list(value: str) -> tuple[str, ...]:
+    return tuple(
+        item.rstrip("/")
+        for item in (part.strip() for part in value.split(","))
+        if item
+    )
+
+
+_extra_cors_origins = _parse_origin_list(os.getenv("CORS_ALLOW_ORIGINS", ""))
+CORS_ALLOW_ORIGINS = tuple(
+    dict.fromkeys(
+        _extra_cors_origins
+        or (
+            FRONTEND_ORIGIN.rstrip("/"),
+            "http://127.0.0.1:3000",
+            "http://localhost:3000",
+        )
+    )
+)
 
 
 def _normalize_database_url(value: str) -> str:
@@ -76,7 +104,7 @@ OBJECT_STORAGE_ADDRESSING_STYLE = os.getenv("OBJECT_STORAGE_ADDRESSING_STYLE", "
 
 # API配置 - 从环境变量读取
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-AMAP_API_KEY = "263f3f40b5ac8921c2a98616ffa96201"  # 高德地图API（逆地理编码）
+AMAP_API_KEY = os.getenv("AMAP_API_KEY", "")
 
 # 代理服务配置（可选）
 USE_API_PROXY = os.getenv("USE_API_PROXY", "false").lower() == "true"

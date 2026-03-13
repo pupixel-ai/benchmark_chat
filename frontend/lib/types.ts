@@ -155,6 +155,7 @@ export type TaskResult = {
 
 export type TaskState = {
   task_id: string;
+  user_id?: string | null;
   status: "queued" | "running" | "completed" | "failed";
   stage: string;
   created_at: string;
@@ -168,4 +169,14 @@ export type TaskState = {
 
 export type TaskListResponse = {
   tasks: TaskState[];
+};
+
+export type AuthUser = {
+  user_id: string;
+  username: string;
+  created_at: string;
+};
+
+export type AuthResponse = {
+  user: AuthUser;
 };

@@ -1,0 +1,18 @@
+[Unit]
+Description=Memory Engineering FastAPI Backend
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/opt/memory_engineering
+Environment=PYTHONUNBUFFERED=1
+EnvironmentFile=/opt/memory_engineering/.env
+ExecStart=/opt/memory_engineering/.venv/bin/uvicorn backend.app:app --host 127.0.0.1 --port 8000
+Restart=always
+RestartSec=5
+TimeoutStopSec=60
+
+[Install]
+WantedBy=multi-user.target

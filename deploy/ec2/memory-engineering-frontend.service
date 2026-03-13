@@ -1,0 +1,20 @@
+[Unit]
+Description=Memory Engineering Next.js Frontend
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/opt/memory_engineering/frontend
+Environment=HOME=/home/ubuntu
+Environment=NVM_DIR=/home/ubuntu/.nvm
+Environment=NODE_ENV=production
+EnvironmentFile=/opt/memory_engineering/frontend/.env.production
+ExecStart=/bin/bash -lc '. "$NVM_DIR/nvm.sh" && npm run start'
+Restart=always
+RestartSec=5
+TimeoutStopSec=60
+
+[Install]
+WantedBy=multi-user.target

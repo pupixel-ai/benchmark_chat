@@ -9,17 +9,28 @@ import uuid
 from pathlib import Path
 from typing import List
 
-from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import BackgroundTasks, Cookie, Depends, FastAPI, File, Form, HTTPException, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse
+from pydantic import BaseModel
 from PIL import Image, ImageOps
 from pillow_heif import register_heif_opener
 
+from backend.auth import (
+    AUTH_SESSION_COOKIE_NAME,
+    authenticate_response,
+    get_current_user,
+    login_user,
+    logout_current_session,
+    register_user,
+)
 from backend.task_store import TaskStore
 from config import (
     ASSET_URL_PREFIX,
     BACKEND_HOST,
     BACKEND_PORT,
+    BACKEND_RELOAD,
+    CORS_ALLOW_ORIGINS,
     FRONTEND_ORIGIN,
     MAX_UPLOAD_PHOTOS,
     TASKS_DIR,
@@ -39,7 +50,7 @@ asset_store = TaskAssetStore()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[FRONTEND_ORIGIN, "http://127.0.0.1:3000", "http://localhost:3000"],
+    allow_origins=list(CORS_ALLOW_ORIGINS),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -48,6 +59,11 @@ app.add_middleware(
 Path(TASKS_DIR).mkdir(parents=True, exist_ok=True)
 
 ORIENTATION_TAG = 274
+
+
+class AuthPayload(BaseModel):
+    username: str
+    password: str
 
 
 def _safe_filename(filename: str, fallback: str) -> str:
@@ -179,6 +195,35 @@ def healthcheck():
     }
 
 
+@app.post("/api/auth/register")
+def register(payload: AuthPayload, response: Response):
+    user = register_user(payload.username, payload.password)
+    _, session_token = login_user(payload.username, payload.password)
+    return authenticate_response(response, user, session_token)
+
+
+@app.post("/api/auth/login")
+def login(payload: AuthPayload, response: Response):
+    user, session_token = login_user(payload.username, payload.password)
+    return authenticate_response(response, user, session_token)
+
+
+@app.get("/api/auth/me")
+def current_user(user: dict = Depends(get_current_user)):
+    return {"user": user}
+
+
+@app.post("/api/auth/logout")
+def logout(
+    response: Response,
+    session_token: str | None = Cookie(default=None, alias=AUTH_SESSION_COOKIE_NAME),
+    user: dict = Depends(get_current_user),
+):
+    del user
+    logout_current_session(session_token, response)
+    return {"status": "ok"}
+
+
 @app.get("/")
 def root():
     return {
@@ -187,6 +232,7 @@ def root():
         "healthcheck": "/api/health",
         "tasks_endpoint": "/api/tasks",
         "assets_prefix": ASSET_URL_PREFIX,
+        "auth_me": "/api/auth/me",
     }
 
 
@@ -196,6 +242,7 @@ async def create_task(
     files: List[UploadFile] = File(...),
     max_photos: int = Form(MAX_UPLOAD_PHOTOS),
     use_cache: bool = Form(False),
+    current_user: dict = Depends(get_current_user),
 ):
     if not files:
         raise HTTPException(status_code=400, detail="至少上传一张图片")
@@ -269,7 +316,7 @@ async def create_task(
         if upload_failures_path.exists():
             asset_store.upload_file(task_id, UPLOAD_FAILURES_FILENAME, upload_failures_path)
 
-    task_payload = task_store.create_task(task_id, upload_count=len(files))
+    task_payload = task_store.create_task(task_id, upload_count=len(files), user_id=current_user["user_id"])
     task_payload["uploads"] = saved_files
     task_store.update_task(task_id, uploads=saved_files)
 
@@ -285,23 +332,27 @@ async def create_task(
 
 
 @app.get("/api/tasks")
-def list_tasks(limit: int = 20):
+def list_tasks(limit: int = 20, current_user: dict = Depends(get_current_user)):
     safe_limit = max(1, min(limit, 100))
     return {
-        "tasks": task_store.list_tasks(limit=safe_limit),
+        "tasks": task_store.list_tasks(user_id=current_user["user_id"], limit=safe_limit),
     }
 
 
 @app.get("/api/tasks/{task_id}")
-def get_task(task_id: str):
-    task = task_store.get_task(task_id)
+def get_task(task_id: str, current_user: dict = Depends(get_current_user)):
+    task = task_store.get_task(task_id, user_id=current_user["user_id"])
     if not task:
         raise HTTPException(status_code=404, detail="任务不存在")
     return task
 
 
 @app.get(f"{ASSET_URL_PREFIX}" + "/{task_id}/{asset_path:path}")
-def get_asset(task_id: str, asset_path: str):
+def get_asset(task_id: str, asset_path: str, current_user: dict = Depends(get_current_user)):
+    task = task_store.get_task(task_id, user_id=current_user["user_id"])
+    if not task:
+        raise HTTPException(status_code=404, detail="任务不存在")
+
     task_dir = task_store.task_dir(task_id)
     if asset_store.enabled:
         try:
@@ -320,4 +371,4 @@ def get_asset(task_id: str, asset_path: str):
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run("backend.app:app", host=BACKEND_HOST, port=BACKEND_PORT, reload=True)
+    uvicorn.run("backend.app:app", host=BACKEND_HOST, port=BACKEND_PORT, reload=BACKEND_RELOAD)

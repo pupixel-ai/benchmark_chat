@@ -1,189 +1,407 @@
-# 记忆工程项目 - 部署指南
+# 记忆工程项目部署指南
 
-## 系统要求
+本文优先说明如何把当前仓库部署到 AWS EC2，默认采用：
 
-- Python 3.9+
-- macOS / Linux
-- 至少 4GB 内存
+- 一台 Ubuntu EC2
+- `systemd` 守护后端和前端
+- `nginx` 做同域反向代理
+- 单机 SQLite 起步
 
-## Railway 部署
+这样改动最少，也最适合先把服务跑通。后续如果你要升级成 `EC2 + RDS + S3`，本仓库也已经支持通过环境变量切换。
 
-### 后端服务
+## 部署架构
 
-1. 在 Railway 新建一个 Python service，根目录指向仓库根目录。
-2. 再附加一个 MySQL service。
-3. 在后端 service 的 Variables 里至少设置：
+```text
+浏览器
+  ↓ https://memory.example.com
+Nginx (80/443)
+  ├─ /        → Next.js 前端 (127.0.0.1:3000)
+  └─ /api/*   → FastAPI 后端 (127.0.0.1:8000)
+
+后端本地依赖
+  ├─ SQLite: runtime/local_preview.db
+  ├─ 任务目录: runtime/tasks/
+  └─ 模型/缓存: cache/、runtime/
+```
+
+## 上线前准备
+
+### 1. 创建 EC2
+
+推荐先用：
+
+- Ubuntu 22.04 LTS 或 24.04 LTS
+- 至少 2 vCPU / 8 GB 内存
+- 系统盘至少 40 GB
+
+说明：
+
+- 这个项目会做图片解码、人脸识别和本地文件落盘，内存太小会明显拖慢。
+- 初次运行 InsightFace / ONNX 相关模型时，还会有额外下载和缓存。
+
+### 2. 安全组开放端口
+
+至少开放：
+
+- `22`：你的公网 IP
+- `80`：`0.0.0.0/0`
+- `443`：`0.0.0.0/0`
+
+如果你暂时不接域名，也可以临时开放 `3000` 和 `8000` 做排查，但正式环境不建议长期暴露。
+
+### 3. 域名
+
+建议先准备一个域名，比如：
+
+- `memory.example.com`
+
+然后把它解析到 EC2 公网 IP。
+
+## Step By Step
+
+以下命令默认在一台全新 Ubuntu EC2 上执行，系统用户为 `ubuntu`。
+
+### Step 1. 连接服务器
 
 ```bash
-DATABASE_URL=${{MySQL.MYSQL_URL}}
-FRONTEND_ORIGIN=https://你的前端域名
-GEMINI_API_KEY=...
-AMAP_API_KEY=...
+ssh -i /path/to/your-key.pem ubuntu@YOUR_EC2_PUBLIC_IP
 ```
 
-如果不显式设置 `DATABASE_URL`，后端也会自动尝试读取 Railway 注入的 `MYSQL_URL`、`MYSQLHOST`、`MYSQLPORT`、`MYSQLUSER`、`MYSQLPASSWORD`、`MYSQLDATABASE`。
-
-4. 再附加一个 Railway Bucket（或其他 S3 兼容对象存储），后端会优先读取：
+### Step 2. 安装系统依赖
 
 ```bash
-BUCKET
-ENDPOINT
-REGION
-ACCESS_KEY_ID
-SECRET_ACCESS_KEY
+sudo apt update
+sudo apt install -y python3 python3-venv python3-pip build-essential git nginx certbot python3-certbot-nginx curl
 ```
 
-也可以改用自定义变量：
+检查版本：
 
 ```bash
-OBJECT_STORAGE_BUCKET
-OBJECT_STORAGE_ENDPOINT
-OBJECT_STORAGE_REGION
-OBJECT_STORAGE_ACCESS_KEY_ID
-OBJECT_STORAGE_SECRET_ACCESS_KEY
-OBJECT_STORAGE_PREFIX
-OBJECT_STORAGE_ADDRESSING_STYLE
+python3 --version
+node --version
+npm --version
 ```
 
-### 前端服务
-
-前端建议作为单独的 Railway Node service 部署，根目录指向 `frontend/`，并设置：
+然后安装 Node.js 20：
 
 ```bash
-NEXT_PUBLIC_API_BASE_URL=https://你的后端域名
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+nvm install 20
+nvm alias default 20
+node --version
+npm --version
 ```
 
-### 关键说明
+当前仓库里的 Next.js 版本建议使用 Node 20.9 或更高版本。
 
-- 不要把数据库地址写成 `127.0.0.1`，Railway 容器内没有本机 MySQL。
-- 仓库已内置 `vendor/face_recognition_src/face_recognition`，不再依赖本机 `/Users/...` 路径。
-- 原始上传图、预览图、boxed 图、face crops、缓存与结果文件会同步到对象存储，并通过 `/api/assets/{task_id}/...` 由后端代理访问。
-- `runtime/tasks/` 仍会作为任务执行时的临时工作目录存在，但持久化依赖对象存储而不是容器本地磁盘。
-
-## 快速开始
-
-### 1. 解压项目
+### Step 3. 拉取代码
 
 ```bash
-unzip memory_engineering.zip
-cd memory_engineering
+cd /opt
+sudo git clone <你的仓库地址> memory_engineering
+sudo chown -R ubuntu:ubuntu /opt/memory_engineering
+cd /opt/memory_engineering
 ```
 
-### 2. 安装依赖
+如果你不是通过 Git 部署，也可以先在本地上传压缩包，再在服务器解压到 `/opt/memory_engineering`。
+
+### Step 4. 创建 Python 虚拟环境并安装后端依赖
 
 ```bash
-pip3 install -r requirements.txt
+cd /opt/memory_engineering
+python3 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
+pip install -r requirements.txt
 ```
 
-如果安装失败，尝试：
+### Step 5. 安装前端依赖并构建
 
 ```bash
-pip3 install --upgrade pip
-pip3 install -r requirements.txt
+cd /opt/memory_engineering/frontend
+npm install
+cp /opt/memory_engineering/deploy/ec2/frontend.env.example .env.production
+npm run build
 ```
 
-### 3. 配置API密钥
+说明：
+
+- `frontend/.env.production` 里默认让前端走同域 `/api`，这样 Nginx 反代后不需要单独处理跨域。
+
+### Step 6. 配置后端环境变量
 
 ```bash
-# 复制配置模板
-cp .env.example .env
-
-# 编辑 .env 文件，填入你的密钥
-nano .env  # 或使用其他编辑器
+cd /opt/memory_engineering
+cp deploy/ec2/backend.env.example .env
 ```
 
-必需的API密钥：
-- **GEMINI_API_KEY**: Gemini API密钥（[获取地址](https://makersuite.google.com/app/apikey)）
-
-可选的API密钥：
-- **AMAP_API_KEY**: 高德地图API密钥，用于地址解析（[获取地址](https://console.amap.com/dev/key/app)）
-
-### 4. 运行测试
+然后编辑 `/opt/memory_engineering/.env`，至少填这些：
 
 ```bash
-# 用几张照片测试
-python3 main.py --photos /path/to/test/photos --max-photos 5
+USE_API_PROXY=false
+GEMINI_API_KEY=你的真实密钥
+AMAP_API_KEY=你的真实密钥
+FRONTEND_ORIGIN=https://memory.example.com
+COOKIE_SECURE=true
+BACKEND_HOST=127.0.0.1
+BACKEND_PORT=8000
+BACKEND_RELOAD=false
+DATABASE_URL=sqlite:////opt/memory_engineering/runtime/local_preview.db
 ```
 
-## 参数说明
-
-| 参数 | 说明 | 默认值 |
-|------|------|--------|
-| `--photos` | 照片目录路径（必需） | - |
-| `--max-photos` | 最多处理多少张照片 | 50 |
-| `--use-cache` | 使用VLM缓存（跳过VLM分析） | - |
-
-## 运行示例
+如果你使用代理模式，则改成：
 
 ```bash
-# 基本用法
-python3 main.py --photos ~/Pictures/2026 --max-photos 10
-
-# 使用缓存（快速调试，第二次运行时）
-python3 main.py --photos ~/Pictures/2026 --use-cache
+USE_API_PROXY=true
+API_PROXY_URL=https://your-proxy-host.example.com
+API_PROXY_KEY=your_proxy_api_key_here
+API_PROXY_MODEL=gemini-2.0-flash
 ```
 
-## 输出说明
+### Step 7. 先在命令行手动验证后端
 
-运行完成后，查看 `output/` 目录：
-- `memory_output.json` - 结构化数据（JSON格式）
-- `memory_detailed.md` - 详细报告（Markdown格式）
-
-## 项目结构
-
-```
-memory_engineering/
-├── main.py              # 主程序入口
-├── config.py            # 配置文件
-├── requirements.txt     # Python依赖列表
-├── .env.example         # API密钥配置模板
-├── utils.py             # 工具函数
-├── models/              # 数据模型定义
-├── services/            # 核心服务
-│   ├── image_processor.py    # 图片处理（HEIC转JPEG、压缩）
-│   ├── face_recognition.py   # 人脸识别
-│   ├── vlm_analyzer.py       # VLM分析（Gemini）
-│   └── llm_processor.py      # LLM处理
-├── cache/               # 运行时生成（缓存）
-└── output/              # 输出结果
+```bash
+cd /opt/memory_engineering
+source .venv/bin/activate
+uvicorn backend.app:app --host 127.0.0.1 --port 8000
 ```
 
-## 常见问题
+另开一个 SSH 窗口检查：
 
-### Q: 提示找不到模块
-**A**: 确保在项目根目录运行，且已安装所有依赖
+```bash
+curl http://127.0.0.1:8000/api/health
+```
 
-### Q: 提示API密钥无效
-**A**: 检查 `.env` 文件是否正确配置，确认API密钥有效
+如果返回 JSON，说明后端基础链路正常。
 
-### Q: HEIC照片无法处理
-**A**: `pillow-heif` 已包含在 requirements.txt 中，确保已安装
+### Step 8. 手动验证前端
 
-### Q: 人脸识别不准
-**A**: 编辑 `config.py`，调整 `FACE_THRESHOLD`（当前0.70）
+```bash
+cd /opt/memory_engineering/frontend
+npm run start
+```
 
-### Q: 处理速度慢
-**A**:
-- 减少 `--max-photos` 数量
-- 使用 `--use-cache` 参数跳过VLM分析
+另开一个 SSH 窗口检查：
 
-### Q: 人脸识别模型下载慢
-**A**: 首次运行时会自动下载模型，可能需要几分钟
+```bash
+curl -I http://127.0.0.1:3000
+```
 
-## 技术架构
+如果返回 `200` 或 `307` 一类状态码，说明前端可启动。
 
-| 模块 | 技术 |
-|------|------|
-| 人脸识别 | DeepFace (Facenet512 + OpenCV) |
-| 视觉理解 | Gemini 2.0 Flash |
-| 文本推理 | Gemini 2.0 Flash |
-| 图像处理 | Pillow + pillow-heif |
-| 地址解析 | 高德地图API |
+### Step 9. 配置 systemd 后端服务
 
-## 注意事项
+```bash
+sudo cp /opt/memory_engineering/deploy/ec2/memory-engineering-backend.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable memory-engineering-backend
+sudo systemctl start memory-engineering-backend
+sudo systemctl status memory-engineering-backend
+```
 
-1. **API成本**: VLM和LLM调用Google Gemini API，会产生费用
-2. **隐私**: 照片会上传到Google服务器进行分析
-3. **性能**: 处理大量照片需要较长时间（VLM分析最耗时）
+看日志：
 
-祝使用顺利！
+```bash
+journalctl -u memory-engineering-backend -n 100 --no-pager
+```
+
+### Step 10. 配置 systemd 前端服务
+
+```bash
+sudo cp /opt/memory_engineering/deploy/ec2/memory-engineering-frontend.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable memory-engineering-frontend
+sudo systemctl start memory-engineering-frontend
+sudo systemctl status memory-engineering-frontend
+```
+
+看日志：
+
+```bash
+journalctl -u memory-engineering-frontend -n 100 --no-pager
+```
+
+### Step 11. 配置 Nginx
+
+先复制模板：
+
+```bash
+sudo cp /opt/memory_engineering/deploy/ec2/nginx-memory-engineering.conf /etc/nginx/sites-available/memory-engineering
+```
+
+编辑 `/etc/nginx/sites-available/memory-engineering`，把：
+
+```nginx
+server_name memory.example.com;
+```
+
+替换成你的真实域名。
+
+启用站点：
+
+```bash
+sudo ln -sf /etc/nginx/sites-available/memory-engineering /etc/nginx/sites-enabled/memory-engineering
+sudo rm -f /etc/nginx/sites-enabled/default
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+### Step 12. 申请 HTTPS 证书
+
+确认域名已经解析到 EC2 后执行：
+
+```bash
+sudo certbot --nginx -d memory.example.com
+```
+
+成功后检查：
+
+```bash
+curl -I https://memory.example.com
+curl https://memory.example.com/api/health
+```
+
+### Step 13. 首次登录和上传测试
+
+浏览器打开：
+
+```text
+https://memory.example.com
+```
+
+然后按顺序测试：
+
+1. 注册一个测试账号
+2. 上传 1 到 3 张照片
+3. 观察任务是否能进入 `completed`
+4. 检查人脸框、预览图、任务详情是否能正常加载
+
+## 生产注意事项
+
+### 1. 后端只建议单进程运行
+
+当前任务执行依赖：
+
+- FastAPI `BackgroundTasks`
+- 本地任务目录 `runtime/tasks/`
+- 本地 SQLite
+
+所以在单机 EC2 方案里，后端建议保持：
+
+- 1 个 `uvicorn` 进程
+- 不要直接开多 worker
+
+否则你会很难排查任务目录、锁竞争和本地状态一致性问题。
+
+### 2. 首次模型下载会比较慢
+
+第一次触发人脸识别时，相关模型可能会在服务器上下载或初始化，属于正常现象。
+
+### 3. EC2 重启后的持久化
+
+以下目录建议保留在实例磁盘上：
+
+- `/opt/memory_engineering/runtime`
+- `/opt/memory_engineering/cache`
+
+如果你后续改成 Auto Scaling 或多机部署，就不要依赖本地磁盘了，建议迁移到：
+
+- 数据库：RDS MySQL
+- 文件：S3
+
+### 4. 对象存储是可选项
+
+当前仓库在没有对象存储配置时，也可以直接从后端读取本地任务文件。
+
+如果你想切换到 S3 或兼容存储，在 `.env` 填这些变量即可：
+
+```bash
+OBJECT_STORAGE_BUCKET=your-bucket
+OBJECT_STORAGE_ENDPOINT=https://s3.ap-southeast-1.amazonaws.com
+OBJECT_STORAGE_REGION=ap-southeast-1
+OBJECT_STORAGE_ACCESS_KEY_ID=your_access_key
+OBJECT_STORAGE_SECRET_ACCESS_KEY=your_secret_key
+OBJECT_STORAGE_PREFIX=tasks
+OBJECT_STORAGE_ADDRESSING_STYLE=auto
+```
+
+### 5. 数据库升级到 MySQL / RDS
+
+把 `.env` 里的：
+
+```bash
+DATABASE_URL=sqlite:////opt/memory_engineering/runtime/local_preview.db
+```
+
+改成：
+
+```bash
+DATABASE_URL=mysql+pymysql://USER:PASSWORD@HOST:3306/DATABASE
+```
+
+即可切换到 MySQL。
+
+## 常用排查命令
+
+### 看后端日志
+
+```bash
+journalctl -u memory-engineering-backend -f
+```
+
+### 看前端日志
+
+```bash
+journalctl -u memory-engineering-frontend -f
+```
+
+### 看 Nginx 日志
+
+```bash
+sudo tail -f /var/log/nginx/access.log
+sudo tail -f /var/log/nginx/error.log
+```
+
+### 看服务状态
+
+```bash
+systemctl status memory-engineering-backend
+systemctl status memory-engineering-frontend
+systemctl status nginx
+```
+
+### 重启服务
+
+```bash
+sudo systemctl restart memory-engineering-backend
+sudo systemctl restart memory-engineering-frontend
+sudo systemctl reload nginx
+```
+
+## 更新发布流程
+
+每次代码更新后，按这个顺序执行：
+
+```bash
+cd /opt/memory_engineering
+git pull
+source .venv/bin/activate
+pip install -r requirements.txt
+cd frontend
+npm install
+npm run build
+sudo systemctl restart memory-engineering-backend
+sudo systemctl restart memory-engineering-frontend
+```
+
+## Railway 说明
+
+如果你之后仍然想部署到 Railway，仓库原有能力仍可用：
+
+- 后端优先读取 `DATABASE_URL`
+- 未设置时会尝试 Railway 注入的 MySQL 变量
+- 对象存储优先读取 `BUCKET / ENDPOINT / ACCESS_KEY_ID / SECRET_ACCESS_KEY`
+
+但对当前这个仓库来说，EC2 更适合做长任务和大图处理。

@@ -104,6 +104,8 @@ NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
 
 当前仓库只提供前端代码路径；如果本机未安装 Node.js，需要先安装后再执行 `npm install` / `npm run dev`。
 
+生产部署时，前端建议通过 Nginx 与后端同域部署，此时可以把 `NEXT_PUBLIC_API_BASE_URL` 留空，让浏览器直接访问当前域名下的 `/api`。
+
 ## 配置说明
 
 编辑 `config.py` 调整参数：

@@ -3,9 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
 import { ArrowUp, Plus } from "lucide-react";
-import type { FaceReport, PersonGroupEntry, TaskListResponse, TaskState, UploadItem } from "@/lib/types";
+import type { AuthResponse, AuthUser, FaceReport, PersonGroupEntry, TaskListResponse, TaskState, UploadItem } from "@/lib/types";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+const API_BASE = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "").replace(/\/$/, "");
 const MAX_UPLOADS = 100;
 const FACE_RECOGNITION_STAGES = new Set(["queued", "starting", "loading", "converting", "face_recognition"]);
 
@@ -55,6 +55,17 @@ function toAbsoluteUrl(url?: string | null) {
 
 function formatStage(stage: string) {
   return stageLabelMap[stage] ?? stage;
+}
+
+async function apiFetch(input: string, init?: RequestInit) {
+  return fetch(input, {
+    ...init,
+    credentials: "include",
+    headers: {
+      ...(init?.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
+      ...(init?.headers ?? {})
+    }
+  });
 }
 
 function formatStatus(status: TaskState["status"]) {
@@ -194,6 +205,110 @@ function WaitingDots({
       </svg>
       <span>{label}</span>
     </div>
+  );
+}
+
+function LoginPanel({
+  mode,
+  username,
+  password,
+  error,
+  busy,
+  onModeChange,
+  onUsernameChange,
+  onPasswordChange,
+  onSubmit
+}: {
+  mode: "login" | "register";
+  username: string;
+  password: string;
+  error: string | null;
+  busy: boolean;
+  onModeChange: (mode: "login" | "register") => void;
+  onUsernameChange: (value: string) => void;
+  onPasswordChange: (value: string) => void;
+  onSubmit: () => void;
+}) {
+  const isRegister = mode === "register";
+
+  return (
+    <section className="mx-auto flex min-h-[calc(100vh-3rem)] w-full max-w-[1180px] items-center px-2 py-6 md:px-4">
+      <div className="grid w-full gap-6 lg:grid-cols-[1.15fr_0.85fr]">
+        <div className="rounded-[12px] border border-[#d8c9b7] bg-[rgba(250,246,239,0.92)] px-6 py-7 shadow-card">
+          <p className="font-mono text-xs uppercase tracking-[0.24em] text-black/40">Memory Engineering</p>
+          <h1 className="mt-4 font-display text-5xl leading-[1.06] tracking-tight text-ink md:text-6xl">
+            先登录，再进入你自己的任务空间
+          </h1>
+          <p className="mt-4 max-w-3xl text-base leading-7 text-black/62">
+            这是一个原型环境，但从现在开始我们把任务列表、图片和识别结果按用户隔离。你登录后，只会看到你自己的任务。
+          </p>
+          <div className="mt-6 grid gap-3 md:grid-cols-3">
+            <div className="rounded-[12px] border border-[#ddcebb] bg-white/70 px-4 py-4 text-sm text-black/60">
+              每个账号拥有独立任务列表
+            </div>
+            <div className="rounded-[12px] border border-[#ddcebb] bg-white/70 px-4 py-4 text-sm text-black/60">
+              任务图片和识别结果跟随当前会话访问
+            </div>
+            <div className="rounded-[12px] border border-[#ddcebb] bg-white/70 px-4 py-4 text-sm text-black/60">
+              原型阶段仍建议仅上传测试数据
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-[12px] border border-[#d8c9b7] bg-[rgba(249,244,237,0.94)] p-6 shadow-card">
+          <div className="inline-flex rounded-[12px] border border-[#d8c9b7] bg-[#f5ede3] p-1">
+            <button
+              type="button"
+              onClick={() => onModeChange("login")}
+              className={`rounded-[10px] px-4 py-2 text-sm transition ${!isRegister ? "bg-white text-ink shadow-sm" : "text-black/55"}`}
+            >
+              登录
+            </button>
+            <button
+              type="button"
+              onClick={() => onModeChange("register")}
+              className={`rounded-[10px] px-4 py-2 text-sm transition ${isRegister ? "bg-white text-ink shadow-sm" : "text-black/55"}`}
+            >
+              注册
+            </button>
+          </div>
+
+          <div className="mt-6 space-y-4">
+            <label className="block">
+              <span className="mb-2 block text-sm text-black/60">用户名</span>
+              <input
+                value={username}
+                onChange={(event) => onUsernameChange(event.target.value)}
+                placeholder="至少 3 个字符"
+                className="w-full rounded-[12px] border border-[#d8c9b7] bg-white/80 px-4 py-3 text-sm outline-none"
+              />
+            </label>
+
+            <label className="block">
+              <span className="mb-2 block text-sm text-black/60">密码</span>
+              <input
+                type="password"
+                value={password}
+                onChange={(event) => onPasswordChange(event.target.value)}
+                placeholder="至少 8 个字符"
+                className="w-full rounded-[12px] border border-[#d8c9b7] bg-white/80 px-4 py-3 text-sm outline-none"
+              />
+            </label>
+          </div>
+
+          {error ? <p className="mt-4 text-sm text-[#8a5637]">{error}</p> : null}
+
+          <button
+            type="button"
+            onClick={onSubmit}
+            disabled={busy}
+            className="mt-6 inline-flex w-full items-center justify-center rounded-[12px] bg-[#1f1a15] px-5 py-3 text-sm font-medium text-white transition hover:bg-[#2d251e] disabled:cursor-not-allowed disabled:bg-black/20"
+          >
+            {busy ? (isRegister ? "正在创建账号..." : "正在登录...") : isRegister ? "注册并进入任务台" : "登录进入任务台"}
+          </button>
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -396,6 +511,11 @@ export default function HomePage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const pollTimerRef = useRef<number | null>(null);
 
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
+  const [authMode, setAuthMode] = useState<"login" | "register">("login");
+  const [authUsername, setAuthUsername] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [authBusy, setAuthBusy] = useState(true);
   const [tasks, setTasks] = useState<TaskState[]>([]);
   const [currentTask, setCurrentTask] = useState<TaskState | null>(null);
   const [isDraftView, setIsDraftView] = useState(false);
@@ -441,11 +561,83 @@ export default function HomePage() {
         FACE_RECOGNITION_STAGES.has(currentTask.stage)
     );
 
+  async function loadCurrentUser() {
+    const response = await apiFetch(`${API_BASE}/api/auth/me`, { cache: "no-store" });
+    if (response.status === 401) {
+      setAuthUser(null);
+      setTasks([]);
+      setCurrentTask(null);
+      setIsDraftView(false);
+      return null;
+    }
+    if (!response.ok) {
+      throw new Error("读取登录状态失败");
+    }
+    const payload = (await response.json()) as AuthResponse;
+    setAuthUser(payload.user);
+    return payload.user;
+  }
+
+  async function submitAuth() {
+    setAuthBusy(true);
+    setError(null);
+    try {
+      const endpoint = authMode === "register" ? "/api/auth/register" : "/api/auth/login";
+      const response = await apiFetch(`${API_BASE}${endpoint}`, {
+        method: "POST",
+        body: JSON.stringify({
+          username: authUsername,
+          password: authPassword
+        })
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.detail ?? "登录失败");
+      }
+
+      const payload = (await response.json()) as AuthResponse;
+      setAuthUser(payload.user);
+      setAuthPassword("");
+      setAuthMode("login");
+      await fetchTasks({ selectInitial: true, preserveCurrent: false });
+    } catch (authError) {
+      setError(authError instanceof Error ? authError.message : "登录失败");
+    } finally {
+      setAuthBusy(false);
+    }
+  }
+
+  async function logout() {
+    setAuthBusy(true);
+    try {
+      await apiFetch(`${API_BASE}/api/auth/logout`, { method: "POST" });
+    } finally {
+      setAuthBusy(false);
+      setAuthUser(null);
+      setTasks([]);
+      setCurrentTask(null);
+      setIsDraftView(false);
+      setSelectedFiles([]);
+      setPendingUploads((previous) => {
+        revokePendingUploads(previous);
+        return [];
+      });
+    }
+  }
+
   async function fetchTasks(options?: { selectInitial?: boolean; preserveCurrent?: boolean }) {
     const selectInitial = options?.selectInitial ?? false;
     const preserveCurrent = options?.preserveCurrent ?? true;
 
-    const response = await fetch(`${API_BASE}/api/tasks?limit=30`, { cache: "no-store" });
+    const response = await apiFetch(`${API_BASE}/api/tasks?limit=30`, { cache: "no-store" });
+    if (response.status === 401) {
+      setAuthUser(null);
+      setTasks([]);
+      setCurrentTask(null);
+      setIsDraftView(false);
+      return;
+    }
     if (!response.ok) {
       throw new Error("获取任务列表失败");
     }
@@ -476,7 +668,14 @@ export default function HomePage() {
   }
 
   async function fetchTask(taskId: string) {
-    const response = await fetch(`${API_BASE}/api/tasks/${taskId}`, { cache: "no-store" });
+    const response = await apiFetch(`${API_BASE}/api/tasks/${taskId}`, { cache: "no-store" });
+    if (response.status === 401) {
+      setAuthUser(null);
+      setTasks([]);
+      setCurrentTask(null);
+      setIsDraftView(false);
+      return;
+    }
     if (!response.ok) {
       throw new Error("读取任务详情失败");
     }
@@ -490,9 +689,19 @@ export default function HomePage() {
   }
 
   useEffect(() => {
-    fetchTasks({ selectInitial: true }).catch((loadError) => {
-      setError(loadError instanceof Error ? loadError.message : "初始化任务列表失败");
-    });
+    loadCurrentUser()
+      .then((user) => {
+        if (!user) {
+          return;
+        }
+        return fetchTasks({ selectInitial: true, preserveCurrent: false });
+      })
+      .catch((loadError) => {
+        setError(loadError instanceof Error ? loadError.message : "初始化任务列表失败");
+      })
+      .finally(() => {
+        setAuthBusy(false);
+      });
   }, []);
 
   useEffect(() => {
@@ -532,11 +741,15 @@ export default function HomePage() {
       formData.append("max_photos", String(Math.min(files.length, MAX_UPLOADS)));
       formData.append("use_cache", "false");
 
-      const response = await fetch(`${API_BASE}/api/tasks`, {
+      const response = await apiFetch(`${API_BASE}/api/tasks`, {
         method: "POST",
         body: formData
       });
 
+      if (response.status === 401) {
+        setAuthUser(null);
+        throw new Error("登录已失效，请重新登录");
+      }
       if (!response.ok) {
         const payload = await response.json().catch(() => null);
         throw new Error(payload?.detail ?? "创建任务失败");
@@ -586,6 +799,34 @@ export default function HomePage() {
     }
   }
 
+  if (authBusy && !authUser) {
+    return (
+      <main className="min-h-screen px-2 py-6 md:px-4">
+        <section className="mx-auto flex min-h-[calc(100vh-3rem)] max-w-[1180px] items-center justify-center">
+          <WaitingDots label="正在检查登录状态" />
+        </section>
+      </main>
+    );
+  }
+
+  if (!authUser) {
+    return (
+      <main className="min-h-screen">
+        <LoginPanel
+          mode={authMode}
+          username={authUsername}
+          password={authPassword}
+          error={error}
+          busy={authBusy}
+          onModeChange={setAuthMode}
+          onUsernameChange={setAuthUsername}
+          onPasswordChange={setAuthPassword}
+          onSubmit={() => void submitAuth()}
+        />
+      </main>
+    );
+  }
+
   const draftSelected = isDraftView && !currentTask;
 
   return (
@@ -603,16 +844,28 @@ export default function HomePage() {
       <div className="mx-auto flex max-w-[1680px] gap-0">
         <aside className="min-h-[calc(100vh-3rem)] w-full max-w-[300px] shrink-0 border-r border-black/10 pr-3">
           <div className="sticky top-6 flex h-[calc(100vh-3rem)] flex-col">
-            <div className="flex items-center justify-between px-2.5 pb-4">
-              <p className="text-sm font-medium text-black/70">任务列表</p>
-              <button
-                type="button"
-                onClick={openDraftTask}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-black/10 bg-white/70 text-black/65 transition hover:bg-white"
-                aria-label="新建任务"
-              >
-                <Plus size={17} strokeWidth={2.6} />
-              </button>
+            <div className="space-y-3 px-2.5 pb-4">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium text-black/70">任务列表</p>
+                <button
+                  type="button"
+                  onClick={openDraftTask}
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-black/10 bg-white/70 text-black/65 transition hover:bg-white"
+                  aria-label="新建任务"
+                >
+                  <Plus size={17} strokeWidth={2.6} />
+                </button>
+              </div>
+              <div className="rounded-[12px] border border-[#ddcebb] bg-white/65 px-3 py-3">
+                <p className="truncate text-sm font-medium text-ink">{authUser.username}</p>
+                <button
+                  type="button"
+                  onClick={() => void logout()}
+                  className="mt-2 text-xs text-black/45 transition hover:text-black/70"
+                >
+                  退出登录
+                </button>
+              </div>
             </div>
 
             <div className="space-y-1 overflow-y-auto pr-1">

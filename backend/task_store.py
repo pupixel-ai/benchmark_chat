@@ -9,7 +9,7 @@ from typing import Dict, List, Optional
 
 from sqlalchemy import desc, select
 
-from backend.db import Base, SessionLocal, engine
+from backend.db import Base, SessionLocal, engine, ensure_schema
 from backend.models import TaskRecord
 from config import TASKS_DIR
 
@@ -20,18 +20,20 @@ class TaskStore:
     def __init__(self, tasks_root: str = TASKS_DIR):
         self.tasks_root = Path(tasks_root)
         self.tasks_root.mkdir(parents=True, exist_ok=True)
+        ensure_schema()
         Base.metadata.create_all(bind=engine)
 
     def task_dir(self, task_id: str) -> Path:
         return self.tasks_root / task_id
 
-    def create_task(self, task_id: str, upload_count: int) -> Dict:
+    def create_task(self, task_id: str, upload_count: int, user_id: str) -> Dict:
         task_dir = self.task_dir(task_id)
         task_dir.mkdir(parents=True, exist_ok=True)
         now = datetime.now()
 
         record = TaskRecord(
             task_id=task_id,
+            user_id=user_id,
             status="queued",
             stage="queued",
             upload_count=upload_count,
@@ -51,16 +53,26 @@ class TaskStore:
 
         return self._serialize(record)
 
-    def get_task(self, task_id: str) -> Optional[Dict]:
+    def get_task(self, task_id: str, user_id: str) -> Optional[Dict]:
         with SessionLocal() as session:
-            record = session.get(TaskRecord, task_id)
+            record = session.execute(
+                select(TaskRecord).where(
+                    TaskRecord.task_id == task_id,
+                    TaskRecord.user_id == user_id,
+                )
+            ).scalar_one_or_none()
             if record is None:
                 return None
             return self._serialize(record)
 
-    def list_tasks(self, limit: int = 20) -> List[Dict]:
+    def list_tasks(self, user_id: str, limit: int = 20) -> List[Dict]:
         with SessionLocal() as session:
-            stmt = select(TaskRecord).order_by(desc(TaskRecord.created_at)).limit(limit)
+            stmt = (
+                select(TaskRecord)
+                .where(TaskRecord.user_id == user_id)
+                .order_by(desc(TaskRecord.created_at))
+                .limit(limit)
+            )
             records = session.execute(stmt).scalars().all()
             return [self._serialize(record) for record in records]
 
@@ -82,6 +94,7 @@ class TaskStore:
     def _serialize(self, record: TaskRecord) -> Dict:
         return {
             "task_id": record.task_id,
+            "user_id": record.user_id,
             "status": record.status,
             "stage": record.stage,
             "upload_count": record.upload_count,
