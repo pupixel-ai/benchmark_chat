@@ -112,6 +112,15 @@ function formatTaskTime(value?: string) {
   }
 }
 
+function taskCreatedAtRank(task: TaskState) {
+  const timestamp = Date.parse(task.created_at);
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+function sortTasksByCreatedAt(tasks: TaskState[]) {
+  return [...tasks].sort((left, right) => taskCreatedAtRank(right) - taskCreatedAtRank(left));
+}
+
 function taskDisplayLabel(task: TaskState) {
   const summaryTitle =
     task.result?.summary?.title ??
@@ -823,12 +832,13 @@ export default function HomePage() {
       throw new Error("获取任务列表失败");
     }
     const payload = (await response.json()) as TaskListResponse;
-    setTasks(payload.tasks);
+    const orderedTasks = sortTasksByCreatedAt(payload.tasks);
+    setTasks(orderedTasks);
 
     if (selectInitial) {
-      if (payload.tasks.length > 0) {
+      if (orderedTasks.length > 0) {
         setIsDraftView(false);
-        await fetchTask(payload.tasks[0].task_id);
+        await fetchTask(orderedTasks[0].task_id);
       } else {
         setCurrentTask(null);
         setIsDraftView(true);
@@ -841,10 +851,10 @@ export default function HomePage() {
     }
 
     if (currentTask) {
-      const matched = payload.tasks.find((task) => task.task_id === currentTask.task_id);
+      const matched = orderedTasks.find((task) => task.task_id === currentTask.task_id);
       if (!matched) {
         setCurrentTask(null);
-        setIsDraftView(payload.tasks.length === 0);
+        setIsDraftView(orderedTasks.length === 0);
       }
     }
   }
@@ -865,8 +875,14 @@ export default function HomePage() {
     setCurrentTask(payload);
     setIsDraftView(false);
     setTasks((previous) => {
-      const next = previous.filter((task) => task.task_id !== payload.task_id);
-      return [payload, ...next];
+      const taskIndex = previous.findIndex((task) => task.task_id === payload.task_id);
+      if (taskIndex === -1) {
+        return sortTasksByCreatedAt([...previous, payload]);
+      }
+
+      const next = [...previous];
+      next[taskIndex] = payload;
+      return next;
     });
   }
 
@@ -1226,7 +1242,7 @@ export default function HomePage() {
                       >
                         <p className="truncate text-sm font-medium text-ink">{taskDisplayLabel(task)}</p>
                         <p className="mt-1 truncate text-xs text-black/45">
-                          {formatStatus(task.status)} · {formatTaskTime(task.updated_at) || formatStage(task.stage)}
+                          {formatStatus(task.status)} · {formatTaskTime(task.created_at) || formatStage(task.stage)}
                         </p>
                       </button>
                       <button
