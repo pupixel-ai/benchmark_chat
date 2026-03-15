@@ -325,6 +325,14 @@ def decide_cluster_merge(
     best_similarity = ranked_scores[0]
     top_two_mean = sum(ranked_scores[:2]) / min(len(ranked_scores), 2)
     profile_bridge = _has_profile_bridge(left_list, right_list)
+    singleton_bridge = _should_allow_singleton_bridge_merge(
+        left_faces=left_list,
+        right_faces=right_list,
+        best_similarity=best_similarity,
+        top_two_mean=top_two_mean,
+        strong_threshold=strong_threshold,
+        high_quality_threshold=high_quality_threshold,
+    )
 
     if best_similarity >= strong_threshold + 0.12 and high_quality_support >= 1:
         return ClusterMergeCandidate(
@@ -363,6 +371,21 @@ def decide_cluster_merge(
             decision="profile_bridge_cluster_merge",
             reason=(
                 f"姿态桥接合并: best={best_similarity:.3f}, top2_mean={top_two_mean:.3f}, "
+                f"support={support_count}"
+            ),
+            best_similarity=best_similarity,
+            top_two_mean=top_two_mean,
+            support_count=support_count,
+            profile_bridge=profile_bridge,
+        )
+
+    if singleton_bridge:
+        return ClusterMergeCandidate(
+            left_person_id=left_person_id,
+            right_person_id=right_person_id,
+            decision="singleton_bridge_cluster_merge",
+            reason=(
+                f"单脸桥接合并: best={best_similarity:.3f}, top2_mean={top_two_mean:.3f}, "
                 f"support={support_count}"
             ),
             best_similarity=best_similarity,
@@ -442,6 +465,44 @@ def _has_profile_bridge(
     left_has_frontal = "frontal" in left_buckets
     right_has_frontal = "frontal" in right_buckets
     return (left_has_profile and right_has_frontal) or (right_has_profile and left_has_frontal)
+
+
+def _should_allow_singleton_bridge_merge(
+    *,
+    left_faces: List[Dict[str, object]],
+    right_faces: List[Dict[str, object]],
+    best_similarity: float,
+    top_two_mean: float,
+    strong_threshold: float,
+    high_quality_threshold: float,
+) -> bool:
+    if min(len(left_faces), len(right_faces)) != 1 or max(len(left_faces), len(right_faces)) < 2:
+        return False
+
+    singleton_faces = left_faces if len(left_faces) == 1 else right_faces
+    anchor_faces = right_faces if len(left_faces) == 1 else left_faces
+    singleton_face = singleton_faces[0]
+
+    singleton_quality = float(singleton_face.get("quality_score") or 0.0)
+    singleton_decision = str(singleton_face.get("match_decision") or "")
+    if singleton_quality < max(high_quality_threshold, 0.45):
+        return False
+    if singleton_decision not in {"new_person_from_ambiguity", "profile_rescue_match"}:
+        return False
+    if best_similarity < strong_threshold + 0.04:
+        return False
+    if top_two_mean < strong_threshold - 0.01:
+        return False
+    if not _has_pose_mix(anchor_faces):
+        return False
+    return True
+
+
+def _has_pose_mix(faces: Iterable[Dict[str, object]]) -> bool:
+    buckets = {str(face.get("pose_bucket") or "unknown") for face in faces}
+    has_frontal = "frontal" in buckets
+    has_profile = bool(buckets & {"left_profile", "right_profile"})
+    return has_frontal and has_profile
 
 
 def _clip01(value: float) -> float:

@@ -191,6 +191,51 @@ class FacePrecisionTests(unittest.TestCase):
         )
         self.assertIsNone(decision)
 
+    def test_decide_cluster_merge_allows_singleton_bridge_into_pose_mixed_cluster(self) -> None:
+        embeddings = {
+            1: np.asarray([1.0, 0.0], dtype=np.float32),
+            2: np.asarray([0.20, 0.98], dtype=np.float32),
+            3: np.asarray([0.347, 0.20], dtype=np.float32),
+        }
+        decision = decide_cluster_merge(
+            "Person_002",
+            [
+                {
+                    "faiss_id": 1,
+                    "image_id": "img-010",
+                    "quality_score": 0.79,
+                    "score": 0.94,
+                    "pose_bucket": "frontal",
+                    "match_decision": "strong_match",
+                },
+                {
+                    "faiss_id": 2,
+                    "image_id": "img-872",
+                    "quality_score": 0.67,
+                    "score": 0.82,
+                    "pose_bucket": "left_profile",
+                    "match_decision": "profile_rescue_match",
+                },
+            ],
+            "Person_007",
+            [
+                {
+                    "faiss_id": 3,
+                    "image_id": "img-003",
+                    "quality_score": 0.63,
+                    "score": 0.63,
+                    "pose_bucket": "unknown",
+                    "match_decision": "new_person_from_ambiguity",
+                }
+            ],
+            embedding_lookup=lambda faiss_id: embeddings.get(faiss_id),
+            strong_threshold=0.30,
+            high_quality_threshold=0.40,
+        )
+        self.assertIsNotNone(decision)
+        assert decision is not None
+        self.assertEqual(decision.decision, "singleton_bridge_cluster_merge")
+
 
 if __name__ == "__main__":
     unittest.main()
