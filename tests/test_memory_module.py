@@ -42,11 +42,14 @@ class MemoryModuleTests(unittest.TestCase):
             self.assertIn("brunch", [value.lower() for value in profile_fields["interests"]["values"]])
             self.assertGreater(len(profile_fields["interests"]["evidence_refs"]), 0)
             self.assertEqual(profile_fields["interests"]["profile_version"], 1)
+            self.assertTrue(result["storage"]["redis"]["profile_core"]["key"].startswith("profile:"))
 
             self.assertEqual(result["transparency"]["vlm_stage"]["cached_hits"], 1)
             self.assertGreater(len(result["transparency"]["traces"]), 0)
             self.assertTrue(Path(result["artifacts"]["envelope_path"]).exists())
             self.assertTrue(Path(result["artifacts"]["storage_path"]).exists())
+            self.assertEqual(result["summary"]["external_sinks_published"], 0)
+            self.assertEqual(result["external_publish"]["redis"]["status"], "skipped")
 
     def test_person_uuid_is_stable_for_same_user_and_face_person_id(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir_one, tempfile.TemporaryDirectory() as tmpdir_two:

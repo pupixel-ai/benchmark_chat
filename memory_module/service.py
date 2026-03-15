@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence
 from uuid import NAMESPACE_URL, uuid5
 
+from memory_module.adapters import MemoryStoragePublisher
 from memory_module.domain import MaterializationInputBundle, ProfileEvidenceItem
 from memory_module.dto import (
     ArtifactRefDTO,
@@ -218,6 +219,13 @@ class MemoryModuleService:
             "transparency": transparency,
             "evaluation": evaluation,
         }
+        external_publish = MemoryStoragePublisher(task_dir=self.task_dir).publish(storage, user_id=self.user_id)
+        memory_payload["external_publish"] = external_publish
+        memory_payload["summary"]["external_sinks_published"] = sum(
+            1
+            for sink_name in ("redis", "neo4j", "milvus")
+            if external_publish.get(sink_name, {}).get("status") == "published"
+        )
         artifact_paths = self._save_outputs(memory_payload)
         memory_payload["artifacts"] = artifact_paths
         return memory_payload
@@ -1054,12 +1062,12 @@ class MemoryModuleService:
         )
 
         return {
-            "profile_core": self._serialize(profile_core.payload),
-            "profile_relationships": self._serialize(profile_relationships.payload),
-            "profile_recent_events": self._serialize(profile_recent_events.payload),
-            "profile_recent_timelines": self._serialize(profile_recent_timelines.payload),
-            "profile_meta": self._serialize(profile_meta.payload),
-            "profile_debug_refs": self._serialize(profile_debug_refs.payload),
+            "profile_core": {"key": profile_core.key, **self._serialize(profile_core.payload)},
+            "profile_relationships": {"key": profile_relationships.key, **self._serialize(profile_relationships.payload)},
+            "profile_recent_events": {"key": profile_recent_events.key, **self._serialize(profile_recent_events.payload)},
+            "profile_recent_timelines": {"key": profile_recent_timelines.key, **self._serialize(profile_recent_timelines.payload)},
+            "profile_meta": {"key": profile_meta.key, **self._serialize(profile_meta.payload)},
+            "profile_debug_refs": {"key": profile_debug_refs.key, **self._serialize(profile_debug_refs.payload)},
         }
 
     def _build_transparency(
@@ -1268,20 +1276,25 @@ class MemoryModuleService:
             "storage": self.output_dir / "memory_storage.json",
             "transparency": self.output_dir / "memory_transparency.json",
             "evaluation": self.output_dir / "memory_evaluation.json",
+            "external_publish": self.output_dir / "external_publish_report.json",
         }
         save_json(memory_payload["envelope"], str(paths["envelope"]))
         save_json(memory_payload["storage"], str(paths["storage"]))
         save_json(memory_payload["transparency"], str(paths["transparency"]))
         save_json(memory_payload["evaluation"], str(paths["evaluation"]))
+        if "external_publish" in memory_payload:
+            save_json(memory_payload["external_publish"], str(paths["external_publish"]))
         return {
             "envelope_path": str(paths["envelope"]),
             "storage_path": str(paths["storage"]),
             "transparency_path": str(paths["transparency"]),
             "evaluation_path": str(paths["evaluation"]),
+            "external_publish_path": str(paths["external_publish"]),
             "envelope_url": self._public_url(paths["envelope"]),
             "storage_url": self._public_url(paths["storage"]),
             "transparency_url": self._public_url(paths["transparency"]),
             "evaluation_url": self._public_url(paths["evaluation"]),
+            "external_publish_url": self._public_url(paths["external_publish"]),
         }
 
     def _event_bounds(self, event: Event) -> tuple[str, str]:

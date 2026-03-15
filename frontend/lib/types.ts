@@ -233,7 +233,19 @@ export type MemorySummary = {
   relationship_count: number;
   profile_field_count: number;
   segment_count: number;
+  external_sinks_published?: number;
   generated_at: string;
+};
+
+export type ExternalPublishStatus = {
+  status: string;
+  reason?: string;
+  key_count?: number;
+  node_count?: number;
+  edge_count?: number;
+  segment_count?: number;
+  collection?: string;
+  keys?: string[];
 };
 
 export type MemoryStageSummary = {
@@ -322,6 +334,15 @@ export type MemoryPayload = {
   };
   transparency: MemoryTransparency;
   evaluation: Record<string, unknown>;
+  external_publish?: {
+    enabled: boolean;
+    generated_at?: string;
+    user_id?: string;
+    redis?: ExternalPublishStatus;
+    neo4j?: ExternalPublishStatus;
+    milvus?: ExternalPublishStatus;
+    report_path?: string;
+  };
   artifacts?: Record<string, string | null>;
 };
 

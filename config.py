@@ -143,6 +143,22 @@ OBJECT_STORAGE_SECRET_ACCESS_KEY = os.getenv("SECRET_ACCESS_KEY", os.getenv("OBJ
 OBJECT_STORAGE_PREFIX = os.getenv("OBJECT_STORAGE_PREFIX", "tasks")
 OBJECT_STORAGE_ADDRESSING_STYLE = os.getenv("OBJECT_STORAGE_ADDRESSING_STYLE", "auto")
 
+# Memory 外部存储适配器（可选）
+MEMORY_EXTERNAL_SINKS_ENABLED = os.getenv("MEMORY_EXTERNAL_SINKS_ENABLED", "false").lower() == "true"
+MEMORY_REDIS_URL = os.getenv("MEMORY_REDIS_URL", "").strip()
+MEMORY_REDIS_PREFIX = os.getenv("MEMORY_REDIS_PREFIX", "memory").strip() or "memory"
+MEMORY_NEO4J_URI = os.getenv("MEMORY_NEO4J_URI", "").strip()
+MEMORY_NEO4J_USERNAME = os.getenv("MEMORY_NEO4J_USERNAME", "").strip()
+MEMORY_NEO4J_PASSWORD = os.getenv("MEMORY_NEO4J_PASSWORD", "").strip()
+MEMORY_NEO4J_DATABASE = os.getenv("MEMORY_NEO4J_DATABASE", "").strip()
+MEMORY_MILVUS_URI = os.getenv("MEMORY_MILVUS_URI", "").strip()
+MEMORY_MILVUS_USER = os.getenv("MEMORY_MILVUS_USER", "").strip()
+MEMORY_MILVUS_PASSWORD = os.getenv("MEMORY_MILVUS_PASSWORD", "").strip()
+MEMORY_MILVUS_TOKEN = os.getenv("MEMORY_MILVUS_TOKEN", "").strip()
+MEMORY_MILVUS_DB_NAME = os.getenv("MEMORY_MILVUS_DB_NAME", "").strip()
+MEMORY_MILVUS_COLLECTION = os.getenv("MEMORY_MILVUS_COLLECTION", "memory_segments").strip() or "memory_segments"
+MEMORY_MILVUS_VECTOR_DIM = int(os.getenv("MEMORY_MILVUS_VECTOR_DIM", "32"))
+
 # API配置 - 从环境变量读取
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 AMAP_API_KEY = os.getenv("AMAP_API_KEY", "")

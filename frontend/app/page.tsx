@@ -562,6 +562,7 @@ function MemoryPanel({ memory, profileMarkdown }: { memory: MemoryPayload; profi
   const profileFields = memory.storage?.redis?.profile_core?.fields ?? {};
   const relationships = memory.storage?.redis?.profile_relationships?.items ?? [];
   const recentEvents = memory.storage?.redis?.profile_recent_events?.items ?? [];
+  const externalPublish = memory.external_publish ?? null;
   const stageCards = [
     {
       key: "face",
@@ -635,6 +636,26 @@ function MemoryPanel({ memory, profileMarkdown }: { memory: MemoryPayload; profi
         <MetricCard label="Events" value={memory.summary.event_candidate_count} detail={`${memory.summary.relationship_count} relationships`} />
         <MetricCard label="Profile Fields" value={memory.summary.profile_field_count} detail={`${memory.summary.segment_count} segments`} />
       </div>
+
+      {externalPublish ? (
+        <div className="mt-5 grid gap-3 md:grid-cols-3">
+          <MetricCard
+            label="Redis Publish"
+            value={externalPublish.redis?.status ?? "unknown"}
+            detail={externalPublish.redis?.reason ?? `${externalPublish.redis?.key_count ?? 0} keys`}
+          />
+          <MetricCard
+            label="Neo4j Publish"
+            value={externalPublish.neo4j?.status ?? "unknown"}
+            detail={externalPublish.neo4j?.reason ?? `${externalPublish.neo4j?.edge_count ?? 0} edges`}
+          />
+          <MetricCard
+            label="Milvus Publish"
+            value={externalPublish.milvus?.status ?? "unknown"}
+            detail={externalPublish.milvus?.reason ?? `${externalPublish.milvus?.segment_count ?? 0} segments`}
+          />
+        </div>
+      ) : null}
 
       <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {stageCards.map((item) => (
@@ -712,6 +733,7 @@ function MemoryPanel({ memory, profileMarkdown }: { memory: MemoryPayload; profi
         <JsonDetails title="Neo4j / Milvus / Redis State" value={memory.storage} />
         <JsonDetails title="Transparency Views" value={memory.transparency} />
         <JsonDetails title="Evaluation Objects" value={memory.evaluation} />
+        {externalPublish ? <JsonDetails title="External Publish Report" value={externalPublish} /> : null}
       </div>
     </section>
   );
@@ -1667,7 +1689,7 @@ export default function HomePage() {
                   <p className="font-mono text-xs uppercase tracking-[0.24em] text-black/40">Current Task</p>
                   <h1 className="mt-4 font-display text-5xl leading-[1.06] tracking-tight text-ink md:text-6xl">{taskDisplayLabel(currentTask)}</h1>
                   <p className="mt-4 max-w-3xl text-base leading-7 text-black/62">
-                    这条链路现在会把 `Face -> VLM -> Sequence -> LLM -> Memory` 全部跑完。任务完成后既能看人物聚合，也能直接回看画像、关系、事件和底层 trace。
+                    这条链路现在会把 Face to VLM to Sequence to LLM to Memory 全部跑完。任务完成后既能看人物聚合，也能直接回看画像、关系、事件和底层 trace。
                   </p>
                 </div>
 
