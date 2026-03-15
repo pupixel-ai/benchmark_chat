@@ -2,10 +2,22 @@
 VLM分析模块
 """
 import json
+import mimetypes
 import os
+import time
 from typing import List, Dict, Any
 from models import Photo
-from config import GEMINI_API_KEY, VLM_MODEL, VLM_CACHE_PATH, USE_API_PROXY, API_PROXY_URL, API_PROXY_KEY, API_PROXY_MODEL
+from config import (
+    API_PROXY_KEY,
+    API_PROXY_MODEL,
+    API_PROXY_URL,
+    GEMINI_API_KEY,
+    MAX_RETRIES,
+    RETRY_DELAY,
+    USE_API_PROXY,
+    VLM_CACHE_PATH,
+    VLM_MODEL,
+)
 from utils import save_json, load_json
 
 
@@ -17,6 +29,7 @@ class VLMAnalyzer:
         self.model = VLM_MODEL
         self.cache_path = cache_path
         self.results = []  # 缓存分析结果
+        self._result_index: Dict[str, int] = {}
         self.requests = None
         self.genai = None
         self.types = None
@@ -114,13 +127,24 @@ class VLMAnalyzer:
             # 读取图片
             with open(image_path, 'rb') as f:
                 image_data = f.read()
+            mime_type = self._guess_mime_type(image_path)
 
-            if self.use_proxy:
-                # 使用代理服务
-                result = self._analyze_via_proxy(prompt, image_data, image_path)
-            else:
-                # 使用官方 Gemini API
-                result = self._analyze_via_official_api(prompt, image_data)
+            result = None
+            for attempt in range(MAX_RETRIES):
+                try:
+                    if self.use_proxy:
+                        # 使用代理服务
+                        result = self._analyze_via_proxy(prompt, image_data, mime_type)
+                    else:
+                        # 使用官方 Gemini API
+                        result = self._analyze_via_official_api(prompt, image_data, mime_type)
+                    break
+                except Exception as exc:
+                    if attempt == MAX_RETRIES - 1 or not self._is_retryable_error(exc):
+                        raise
+                    delay_seconds = RETRY_DELAY * (2 ** attempt)
+                    print(f"[VLM] 可重试错误，{delay_seconds}s 后重试 ({attempt + 1}/{MAX_RETRIES}): {exc}")
+                    time.sleep(delay_seconds)
 
             result = self._normalize_result(result)
 
@@ -136,13 +160,22 @@ class VLMAnalyzer:
             print(f"警告：VLM分析失败 ({photo.filename}): {e}")
             return None
 
-    def _analyze_via_official_api(self, prompt: str, image_data: bytes) -> Dict:
+    def _guess_mime_type(self, image_path: str) -> str:
+        guessed, _ = mimetypes.guess_type(image_path)
+        return guessed or "image/jpeg"
+
+    def _is_retryable_error(self, exc: Exception) -> bool:
+        message = str(exc).lower()
+        retry_keywords = ["429", "rate limit", "connection", "timeout", "temporarily unavailable", "reset by peer"]
+        return any(keyword in message for keyword in retry_keywords)
+
+    def _analyze_via_official_api(self, prompt: str, image_data: bytes, mime_type: str) -> Dict:
         """通过官方 Gemini API 分析"""
         response = self.client.models.generate_content(
             model=self.model,
             contents=[
                 prompt,
-                self.types.Part.from_bytes(data=image_data, mime_type="image/jpeg")
+                self.types.Part.from_bytes(data=image_data, mime_type=mime_type)
             ],
             config=self.genai.types.GenerateContentConfig(
                 response_mime_type="application/json"
@@ -151,7 +184,7 @@ class VLMAnalyzer:
         result = json.loads(response.text)
         return result
 
-    def _analyze_via_proxy(self, prompt: str, image_data: bytes, image_path: str) -> Dict:
+    def _analyze_via_proxy(self, prompt: str, image_data: bytes, mime_type: str) -> Dict:
         """通过代理服务分析"""
         import base64
 
@@ -174,7 +207,7 @@ class VLMAnalyzer:
                         },
                         {
                             "inline_data": {
-                                "mime_type": "image/jpeg",
+                                "mime_type": mime_type,
                                 "data": image_base64
                             }
                         }
@@ -186,7 +219,7 @@ class VLMAnalyzer:
         # 调用代理 API
         url = f"{self.proxy_url}/api/gemini/v1beta/models/{self.proxy_model}:generateContent"
 
-        response = self.requests.post(url, json=payload, headers=headers, timeout=30)
+        response = self.requests.post(url, json=payload, headers=headers, timeout=60)
 
         if response.status_code == 200:
             response_data = response.json()
@@ -397,6 +430,13 @@ class VLMAnalyzer:
 
         save_json(data, self.cache_path)
 
+    def _rebuild_result_index(self):
+        self._result_index = {}
+        for index, item in enumerate(self.results):
+            photo_id = item.get("photo_id")
+            if photo_id:
+                self._result_index[photo_id] = index
+
     def load_cache(self) -> bool:
         """
         加载VLM结果缓存
@@ -422,12 +462,22 @@ class VLMAnalyzer:
                 normalized_results.append(normalized_item)
 
             self.results = normalized_results
+            self._rebuild_result_index()
             print(f"加载VLM缓存：{len(self.results)} 张照片")
             return True
 
         return False
 
-    def add_result(self, photo: Photo, vlm_result: Dict):
+    def has_result(self, photo_id: str) -> bool:
+        return photo_id in self._result_index
+
+    def get_result(self, photo_id: str) -> Dict | None:
+        index = self._result_index.get(photo_id)
+        if index is None:
+            return None
+        return self.results[index]
+
+    def add_result(self, photo: Photo, vlm_result: Dict, persist: bool = False):
         """添加一个VLM结果到缓存"""
         vlm_result = self._normalize_result(vlm_result)
 
@@ -440,4 +490,11 @@ class VLMAnalyzer:
             "vlm_analysis": vlm_result
         }
 
-        self.results.append(result)
+        existing_index = self._result_index.get(photo.photo_id)
+        if existing_index is not None:
+            self.results[existing_index] = result
+        else:
+            self.results.append(result)
+        self._rebuild_result_index()
+        if persist:
+            self.save_cache()

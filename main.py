@@ -17,6 +17,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from config import *
+from memory_module import MemoryModuleService
 from services.image_processor import ImageProcessor
 from services.face_recognition import FaceRecognition
 from services.vlm_analyzer import VLMAnalyzer
@@ -151,6 +152,8 @@ def save_final_output(
     events: List,
     relationships: List,
     face_output: dict,
+    memory_output: dict = None,
+    profile_markdown: str = "",
     primary_person_id: str = None,
 ):
     """保存最终输出（JSON格式）- 不包含用户画像（画像单独保存为Markdown）"""
@@ -200,6 +203,8 @@ def save_final_output(
             for r in relationships
         ],
         "face_recognition": face_output,
+        "profile_markdown": profile_markdown,
+        "memory": memory_output or {},
     }
 
     save_json(output, OUTPUT_PATH)
@@ -303,6 +308,7 @@ def main():
     print("\n[7/9] LLM处理（事件提取、关系推断、画像生成）...")
     events = []
     relationships = []
+    profile_markdown = ""
     profile_path = None
 
     if not vlm.results:
@@ -329,9 +335,31 @@ def main():
         else:
             print("    画像生成失败")
 
-    # Step 8: 保存结果
-    print("\n[8/9] 保存结果...")
-    save_final_output(events, relationships, face_output, primary_person_id)
+    # Step 8: Memory 框架物化
+    print("\n[8/9] 生成 Memory Framework 输出...")
+    memory_output = MemoryModuleService(
+        task_id="cli_run",
+        task_dir=PROJECT_ROOT,
+        pipeline_version=APP_VERSION,
+    ).materialize(
+        photos=photos,
+        face_output=face_output,
+        vlm_results=vlm.results,
+        events=events,
+        relationships=relationships,
+        profile_markdown=profile_markdown,
+    )
+
+    # Step 9: 保存结果
+    print("\n[9/9] 保存结果...")
+    save_final_output(
+        events,
+        relationships,
+        face_output,
+        memory_output=memory_output,
+        profile_markdown=profile_markdown,
+        primary_person_id=primary_person_id,
+    )
     save_detailed_report(events, relationships, face_output)
 
     # 输出摘要

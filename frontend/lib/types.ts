@@ -174,6 +174,157 @@ export type FaceReport = {
   }>;
 };
 
+export type TaskEvent = {
+  event_id: string;
+  date?: string;
+  time_range?: string;
+  duration?: string;
+  title: string;
+  type?: string;
+  participants?: string[];
+  location?: string;
+  description?: string;
+  photo_count?: number;
+  confidence?: number;
+  reason?: string;
+  narrative?: string;
+  narrative_synthesis?: string;
+  meta_info?: Record<string, unknown>;
+  objective_fact?: Record<string, unknown>;
+  social_interaction?: Record<string, unknown>;
+  social_dynamics?: Array<Record<string, unknown>>;
+  evidence_photos?: string[];
+  lifestyle_tags?: string[];
+  tags?: string[];
+  social_slices?: Array<Record<string, unknown>>;
+  persona_evidence?: Record<string, unknown>;
+};
+
+export type TaskRelationship = {
+  person_id: string;
+  relationship_type: string;
+  label: string;
+  confidence: number;
+  evidence?: Record<string, unknown>;
+  reason?: string;
+};
+
+export type MemoryProfileField = {
+  field_key: string;
+  values: string[];
+  confidence: number;
+  evidence_refs: Array<Record<string, string>>;
+  supporting_event_ids: string[];
+  generated_at: string;
+  profile_version: number;
+  evaluation_status: string;
+};
+
+export type MemorySummary = {
+  ingestion_id: string;
+  profile_version: number;
+  photo_count: number;
+  person_count: number;
+  burst_count: number;
+  session_count: number;
+  movement_count: number;
+  timeline_count: number;
+  event_candidate_count: number;
+  relationship_count: number;
+  profile_field_count: number;
+  segment_count: number;
+  generated_at: string;
+};
+
+export type MemoryStageSummary = {
+  [key: string]: unknown;
+};
+
+export type MemoryTransparency = {
+  face_stage?: {
+    total_faces: number;
+    total_persons: number;
+    primary_face_person_id?: string | null;
+    failed_images: number;
+  };
+  vlm_stage?: {
+    processed_photos: number;
+    cached_hits: number;
+    summaries: MemoryStageSummary[];
+  };
+  sequence_stage?: {
+    burst_count: number;
+    session_count: number;
+    movement_count: number;
+    timeline_count: number;
+    summaries: MemoryStageSummary[];
+  };
+  llm_stage?: {
+    event_candidate_count: number;
+    relationship_hypothesis_count: number;
+    profile_evidence_count: number;
+    summaries: MemoryStageSummary[];
+  };
+  neo4j_state?: {
+    node_counts: Record<string, number>;
+    edge_count: number;
+  };
+  milvus_state?: {
+    segment_count: number;
+    segment_type_counts: Record<string, number>;
+  };
+  redis_state?: {
+    profile_version: number;
+    published_field_count: number;
+    relationship_count: number;
+    recent_event_count: number;
+    recent_timeline_count: number;
+  };
+  object_diff?: {
+    change_count: number;
+    changes: Array<Record<string, unknown>>;
+  };
+  traces?: Array<Record<string, unknown>>;
+  evidence_chains?: Array<Record<string, unknown>>;
+  publish_decisions?: Array<Record<string, unknown>>;
+};
+
+export type MemoryPayload = {
+  summary: MemorySummary;
+  envelope: Record<string, unknown>;
+  storage: {
+    identity_maps?: Record<string, unknown>;
+    neo4j?: {
+      nodes?: Record<string, Array<Record<string, unknown>>>;
+      edges?: Array<Record<string, unknown>>;
+    };
+    milvus?: {
+      segments?: Array<Record<string, unknown>>;
+    };
+    redis?: {
+      profile_core?: {
+        fields?: Record<string, MemoryProfileField>;
+        profile_markdown?: string;
+      };
+      profile_relationships?: {
+        items?: Array<Record<string, unknown>>;
+      };
+      profile_recent_events?: {
+        items?: Array<Record<string, unknown>>;
+      };
+      profile_recent_timelines?: {
+        items?: Array<Record<string, unknown>>;
+      };
+      profile_meta?: Record<string, unknown>;
+      profile_debug_refs?: Record<string, unknown>;
+    };
+    materialization_bundle?: Record<string, unknown>;
+  };
+  transparency: MemoryTransparency;
+  evaluation: Record<string, unknown>;
+  artifacts?: Record<string, string | null>;
+};
+
 export type TaskResult = {
   task_id: string;
   generated_at: string;
@@ -187,12 +338,20 @@ export type TaskResult = {
     total_faces: number;
     total_persons: number;
     primary_person_id?: string | null;
+    event_count?: number;
+    relationship_count?: number;
+    session_count?: number;
+    profile_version?: number;
   };
   face_recognition: FaceRecognitionPayload;
   face_report?: FaceReport | null;
   failed_images: FailureItem[];
   warnings: Array<{ stage: string; message: string }>;
-  events?: Array<{ title?: string }>;
+  events?: TaskEvent[];
+  relationships?: TaskRelationship[];
+  profile_markdown?: string | null;
+  memory?: MemoryPayload | null;
+  artifacts?: Record<string, string | null>;
 };
 
 export type TaskState = {

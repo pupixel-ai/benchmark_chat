@@ -8,6 +8,7 @@ import type {
   AuthUser,
   FaceReport,
   HealthResponse,
+  MemoryPayload,
   PersonGroupEntry,
   PersonGroupImage,
   TaskListResponse,
@@ -65,6 +66,7 @@ const stageLabelMap: Record<string, string> = {
   preprocess: "图片压缩",
   vlm: "视觉分析",
   llm: "推理生成",
+  memory: "记忆框架",
   completed: "已完成",
   failed: "失败"
 };
@@ -506,6 +508,215 @@ function UploadCarousel({
   );
 }
 
+function formatJson(value: unknown) {
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
+}
+
+function JsonDetails({
+  title,
+  value,
+  defaultOpen = false
+}: {
+  title: string;
+  value: unknown;
+  defaultOpen?: boolean;
+}) {
+  return (
+    <details
+      open={defaultOpen}
+      className="rounded-[12px] border border-[#ddcebb] bg-white/70 p-4"
+    >
+      <summary className="cursor-pointer font-mono text-[11px] uppercase tracking-[0.16em] text-black/42">
+        {title}
+      </summary>
+      <pre className="mt-3 overflow-x-auto whitespace-pre-wrap break-all rounded-[10px] bg-[#f6eee3] p-3 text-xs leading-6 text-[#5f4e42]">
+        {formatJson(value)}
+      </pre>
+    </details>
+  );
+}
+
+function MetricCard({
+  label,
+  value,
+  detail
+}: {
+  label: string;
+  value: string | number;
+  detail?: string;
+}) {
+  return (
+    <div className="rounded-[12px] border border-[#ddcebb] bg-white/70 px-4 py-3">
+      <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-black/42">{label}</p>
+      <p className="mt-2 text-xl font-semibold text-ink">{value}</p>
+      {detail ? <p className="mt-2 text-sm leading-6 text-black/56">{detail}</p> : null}
+    </div>
+  );
+}
+
+function MemoryPanel({ memory, profileMarkdown }: { memory: MemoryPayload; profileMarkdown?: string | null }) {
+  const profileFields = memory.storage?.redis?.profile_core?.fields ?? {};
+  const relationships = memory.storage?.redis?.profile_relationships?.items ?? [];
+  const recentEvents = memory.storage?.redis?.profile_recent_events?.items ?? [];
+  const stageCards = [
+    {
+      key: "face",
+      label: "Face",
+      value: memory.transparency.face_stage?.total_faces ?? 0,
+      detail: `${memory.transparency.face_stage?.total_persons ?? 0} persons`,
+    },
+    {
+      key: "vlm",
+      label: "VLM",
+      value: memory.transparency.vlm_stage?.processed_photos ?? 0,
+      detail: `${memory.transparency.vlm_stage?.cached_hits ?? 0} cached`,
+    },
+    {
+      key: "sequence",
+      label: "Sequence",
+      value: memory.transparency.sequence_stage?.session_count ?? 0,
+      detail: `${memory.transparency.sequence_stage?.timeline_count ?? 0} timelines`,
+    },
+    {
+      key: "llm",
+      label: "LLM",
+      value: memory.transparency.llm_stage?.event_candidate_count ?? 0,
+      detail: `${memory.transparency.llm_stage?.relationship_hypothesis_count ?? 0} relationships`,
+    },
+    {
+      key: "neo4j",
+      label: "Neo4j",
+      value: memory.transparency.neo4j_state?.edge_count ?? 0,
+      detail: `${Object.values(memory.transparency.neo4j_state?.node_counts ?? {}).reduce((sum, count) => sum + count, 0)} nodes`,
+    },
+    {
+      key: "milvus",
+      label: "Milvus",
+      value: memory.transparency.milvus_state?.segment_count ?? 0,
+      detail: `${Object.keys(memory.transparency.milvus_state?.segment_type_counts ?? {}).length} segment types`,
+    },
+    {
+      key: "redis",
+      label: "Redis",
+      value: memory.transparency.redis_state?.published_field_count ?? 0,
+      detail: `profile v${memory.transparency.redis_state?.profile_version ?? 0}`,
+    },
+    {
+      key: "changes",
+      label: "Changes",
+      value: memory.transparency.object_diff?.change_count ?? 0,
+      detail: `${(memory.transparency.publish_decisions ?? []).length} publish decisions`,
+    },
+  ];
+
+  return (
+    <section className="w-full rounded-[12px] border border-[#d8c9b7] bg-[rgba(249,244,237,0.94)] p-6 shadow-card">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <p className="font-mono text-xs uppercase tracking-[0.24em] text-black/40">Memory Transparency</p>
+          <h2 className="mt-3 text-2xl font-semibold text-ink">记忆框架已物化到任务结果</h2>
+          <p className="mt-3 max-w-3xl text-sm leading-6 text-black/60">
+            这里直接展开 `Face / VLM / Sequence / LLM / Neo4j / Milvus / Redis / changes` 八层结果，方便做画像、关系和事件精度回看。
+          </p>
+        </div>
+        <div className="rounded-[12px] border border-[#ddcebb] bg-white/70 px-5 py-4">
+          <p className="font-mono text-xs uppercase tracking-[0.2em] text-black/42">Profile Version</p>
+          <p className="mt-2 text-xl font-semibold">{memory.summary.profile_version}</p>
+        </div>
+      </div>
+
+      <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <MetricCard label="Photos" value={memory.summary.photo_count} detail={`${memory.summary.person_count} persons`} />
+        <MetricCard label="Sessions" value={memory.summary.session_count} detail={`${memory.summary.timeline_count} timelines`} />
+        <MetricCard label="Events" value={memory.summary.event_candidate_count} detail={`${memory.summary.relationship_count} relationships`} />
+        <MetricCard label="Profile Fields" value={memory.summary.profile_field_count} detail={`${memory.summary.segment_count} segments`} />
+      </div>
+
+      <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        {stageCards.map((item) => (
+          <MetricCard key={item.key} label={item.label} value={item.value} detail={item.detail} />
+        ))}
+      </div>
+
+      <div className="mt-5 grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
+        <div className="rounded-[12px] border border-[#ddcebb] bg-white/70 p-4">
+          <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-black/42">Redis Profile</p>
+          <div className="mt-3 space-y-3">
+            {Object.entries(profileFields).length > 0 ? (
+              Object.entries(profileFields).map(([fieldKey, field]) => (
+                <div key={fieldKey} className="rounded-[10px] bg-[#f6eee3] px-3 py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-[#6f5847]">{fieldKey}</p>
+                    <p className="text-xs text-[#6f5847]">confidence {field.confidence.toFixed(2)}</p>
+                  </div>
+                  <p className="mt-2 text-sm leading-6 text-[#5f4e42]">{field.values.join(" / ") || "No values"}</p>
+                  <p className="mt-2 text-xs text-[#7a6858]">
+                    events: {field.supporting_event_ids.length} · refs: {field.evidence_refs.length}
+                  </p>
+                </div>
+              ))
+            ) : (
+              <p className="text-sm text-black/56">当前还没有可发布到 Redis 的画像字段。</p>
+            )}
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div className="rounded-[12px] border border-[#ddcebb] bg-white/70 p-4">
+            <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-black/42">Relationships</p>
+            <div className="mt-3 space-y-2">
+              {relationships.length > 0 ? (
+                relationships.slice(0, 6).map((item, index) => (
+                  <div key={`${String(item.person_uuid ?? item.face_person_id)}-${index}`} className="rounded-[10px] bg-[#f6eee3] px-3 py-3 text-sm leading-6 text-[#5f4e42]">
+                    {String(item.face_person_id ?? "unknown")} · {String(item.label ?? "unknown")} · {Number(item.confidence ?? 0).toFixed(2)}
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-black/56">当前还没有人物关系候选。</p>
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-[12px] border border-[#ddcebb] bg-white/70 p-4">
+            <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-black/42">Recent Events</p>
+            <div className="mt-3 space-y-2">
+              {recentEvents.length > 0 ? (
+                recentEvents.slice(0, 6).map((item, index) => (
+                  <div key={`${String(item.event_uuid ?? item.event_id)}-${index}`} className="rounded-[10px] bg-[#f6eee3] px-3 py-3 text-sm leading-6 text-[#5f4e42]">
+                    {String(item.title ?? "Untitled")} · {String(item.location ?? "unknown")}
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-black/56">当前还没有事件候选。</p>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {profileMarkdown ? (
+        <div className="mt-5 rounded-[12px] border border-[#ddcebb] bg-white/70 p-4">
+          <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-black/42">Profile Markdown</p>
+          <pre className="mt-3 max-h-[360px] overflow-auto whitespace-pre-wrap rounded-[10px] bg-[#f6eee3] p-3 text-sm leading-6 text-[#5f4e42]">
+            {profileMarkdown}
+          </pre>
+        </div>
+      ) : null}
+
+      <div className="mt-5 grid gap-4 xl:grid-cols-2">
+        <JsonDetails title="Envelope DTO" value={memory.envelope} />
+        <JsonDetails title="Neo4j / Milvus / Redis State" value={memory.storage} />
+        <JsonDetails title="Transparency Views" value={memory.transparency} />
+        <JsonDetails title="Evaluation Objects" value={memory.evaluation} />
+      </div>
+    </section>
+  );
+}
+
 function PersonGroupsPanel({
   groups,
   commentDrafts,
@@ -772,6 +983,7 @@ export default function HomePage() {
 
   const personGroups = currentTask?.result?.face_recognition?.person_groups ?? [];
   const faceReport = useMemo(() => normalizeFaceReport(currentTask?.result?.face_report ?? null), [currentTask]);
+  const memoryResult = currentTask?.result?.memory ?? null;
   const currentUploads = currentTask?.uploads ?? [];
   const taskGroups = useMemo(() => groupTasksByCreatedAt(tasks), [tasks]);
   const currentTaskVersion = currentTask?.version ?? LEGACY_TASK_VERSION;
@@ -1455,7 +1667,7 @@ export default function HomePage() {
                   <p className="font-mono text-xs uppercase tracking-[0.24em] text-black/40">Current Task</p>
                   <h1 className="mt-4 font-display text-5xl leading-[1.06] tracking-tight text-ink md:text-6xl">{taskDisplayLabel(currentTask)}</h1>
                   <p className="mt-4 max-w-3xl text-base leading-7 text-black/62">
-                    当前阶段我们只聚焦人脸识别。任务完成后会给出本次 session 的识别报告，并按人物聚合展示所有对应图片。
+                    这条链路现在会把 `Face -> VLM -> Sequence -> LLM -> Memory` 全部跑完。任务完成后既能看人物聚合，也能直接回看画像、关系、事件和底层 trace。
                   </p>
                 </div>
 
@@ -1594,6 +1806,10 @@ export default function HomePage() {
                 </div>
               ) : null}
             </section>
+          ) : null}
+
+          {!isDraftView && currentTask && memoryResult ? (
+            <MemoryPanel memory={memoryResult} profileMarkdown={currentTask.result?.profile_markdown} />
           ) : null}
 
           {!isDraftView && currentTask ? (

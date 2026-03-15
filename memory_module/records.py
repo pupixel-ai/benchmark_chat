@@ -1,0 +1,137 @@
+"""Storage-layer records for the memory module."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional
+
+
+@dataclass(slots=True)
+class PersonIdentityMapRecord:
+    user_id: str
+    tenant_id: Optional[str]
+    face_person_id: str
+    person_uuid: str
+    source_system: str
+
+
+@dataclass(slots=True)
+class PhotoIdentityMapRecord:
+    user_id: str
+    tenant_id: Optional[str]
+    photo_id: str
+    photo_uuid: str
+    source_hash: str
+    source_system: str
+
+
+@dataclass(slots=True)
+class Neo4jUserNodeRecord:
+    user_id: str
+    tenant_id: Optional[str]
+    labels: List[str] = field(default_factory=lambda: ["User"])
+    properties: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(slots=True)
+class Neo4jPersonNodeRecord:
+    person_uuid: str
+    labels: List[str] = field(default_factory=lambda: ["Person"])
+    properties: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(slots=True)
+class Neo4jPhotoNodeRecord:
+    photo_uuid: str
+    labels: List[str] = field(default_factory=lambda: ["Photo"])
+    properties: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(slots=True)
+class Neo4jSessionNodeRecord:
+    session_uuid: str
+    labels: List[str] = field(default_factory=lambda: ["Session"])
+    properties: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(slots=True)
+class Neo4jMovementNodeRecord:
+    movement_uuid: str
+    labels: List[str] = field(default_factory=lambda: ["Movement"])
+    properties: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(slots=True)
+class Neo4jTimelineNodeRecord:
+    timeline_uuid: str
+    labels: List[str] = field(default_factory=lambda: ["DayTimeline"])
+    properties: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(slots=True)
+class Neo4jEventNodeRecord:
+    event_uuid: str
+    labels: List[str] = field(default_factory=lambda: ["Event"])
+    properties: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(slots=True)
+class Neo4jRelationshipEdgeRecord:
+    edge_id: str
+    from_id: str
+    to_id: str
+    edge_type: str
+    properties: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(slots=True)
+class MilvusSegmentRecord:
+    segment_uuid: str
+    tenant_id: Optional[str]
+    user_id: str
+    photo_uuid: str
+    event_uuid: Optional[str]
+    person_uuid: Optional[str]
+    session_uuid: Optional[str]
+    segment_type: str
+    text: str
+    sparse_terms: List[str] = field(default_factory=list)
+    embedding_source: str = "textual_stub"
+    importance_score: float = 0.0
+    evidence_refs: List[Dict[str, str]] = field(default_factory=list)
+
+
+@dataclass(slots=True)
+class RedisProfileCoreRecord:
+    key: str
+    payload: Dict[str, Any]
+
+
+@dataclass(slots=True)
+class RedisProfileRelationshipsRecord:
+    key: str
+    payload: Dict[str, Any]
+
+
+@dataclass(slots=True)
+class RedisProfileRecentEventsRecord:
+    key: str
+    payload: Dict[str, Any]
+
+
+@dataclass(slots=True)
+class RedisProfileRecentTimelinesRecord:
+    key: str
+    payload: Dict[str, Any]
+
+
+@dataclass(slots=True)
+class RedisProfileMetaRecord:
+    key: str
+    payload: Dict[str, Any]
+
+
+@dataclass(slots=True)
+class RedisProfileDebugRefsRecord:
+    key: str
+    payload: Dict[str, Any]

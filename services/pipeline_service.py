@@ -9,10 +9,13 @@ from typing import Callable, Dict, List, Optional
 
 from backend.face_review_store import FaceReviewStore
 from config import DEFAULT_TASK_VERSION, FACE_MIN_SIZE, MAX_UPLOAD_PHOTOS, TASK_VERSION_V0315
+from memory_module import MemoryModuleService
 from services.asset_store import TaskAssetStore
 from services.face_recognition import FaceRecognition
 from services.image_processor import ImageProcessor
+from services.llm_processor import LLMProcessor
 from utils import load_json, save_json
+from services.vlm_analyzer import VLMAnalyzer
 
 
 class MemoryPipelineService:
@@ -54,6 +57,8 @@ class MemoryPipelineService:
         self.initial_upload_failures = self._load_upload_failures()
         self.failed_images: List[Dict] = list(self.initial_upload_failures)
         self.warnings: List[Dict] = []
+        self.vlm_cache_path = self.cache_dir / "vlm_cache.json"
+        self.profile_report_path = self.output_dir / "user_profile_report.md"
 
     def run(
         self,
@@ -94,6 +99,76 @@ class MemoryPipelineService:
         self.face_recognition.save()
         face_output = self.face_recognition.get_face_output()
         face_payload = self._build_face_recognition_payload(photos, face_output)
+        face_db = self.face_recognition.get_all_persons()
+
+        self._notify(progress_callback, "preprocess", {"message": "压缩图片并进行去重"})
+        photos_for_vlm = self.image_processor.preprocess(face_ready_photos)
+
+        self._notify(progress_callback, "vlm", {"message": "进行视觉分析", "photo_count": len(photos_for_vlm)})
+        vlm = VLMAnalyzer(cache_path=str(self.vlm_cache_path))
+        cached_photo_ids = set()
+        if use_cache:
+            vlm.load_cache()
+
+        for index, photo in enumerate(photos_for_vlm, start=1):
+            cached = vlm.get_result(photo.photo_id) if use_cache else None
+            if cached:
+                cached_photo_ids.add(photo.photo_id)
+                photo.vlm_analysis = cached.get("vlm_analysis")
+            else:
+                result = vlm.analyze_photo(photo, face_db, primary_person_id)
+                if result:
+                    vlm.add_result(photo, result, persist=True)
+                else:
+                    self.warnings.append({
+                        "stage": "vlm",
+                        "message": f"{photo.filename} 的 VLM 分析失败，已跳过",
+                    })
+
+            self._notify(
+                progress_callback,
+                "vlm",
+                {
+                    "message": "进行视觉分析",
+                    "photo_count": len(photos_for_vlm),
+                    "processed": index,
+                    "cached_hits": len(cached_photo_ids),
+                },
+            )
+
+        events = []
+        relationships = []
+        profile_markdown = ""
+
+        if vlm.results:
+            self._notify(progress_callback, "llm", {"message": "提取事件、关系与画像"})
+            llm = LLMProcessor()
+            events = llm.extract_events(vlm.results, primary_person_id)
+            relationships = llm.infer_relationships(vlm.results, face_db, primary_person_id)
+            profile_markdown = llm.generate_profile(events, relationships, primary_person_id)
+            self._write_profile_report(profile_markdown)
+        else:
+            self.warnings.append({
+                "stage": "llm",
+                "message": "VLM 结果为空，LLM 只保留空结果",
+            })
+
+        self._notify(progress_callback, "memory", {"message": "构建记忆框架输出"})
+        memory = MemoryModuleService(
+            task_id=self.task_id,
+            task_dir=str(self.task_dir),
+            user_id=self.user_id,
+            pipeline_version=self.task_version,
+            public_url_builder=self._public_url,
+        ).materialize(
+            photos=photos_for_vlm,
+            face_output=face_output,
+            vlm_results=vlm.results,
+            events=events,
+            relationships=relationships,
+            profile_markdown=profile_markdown,
+            cached_photo_ids=cached_photo_ids,
+        )
 
         detailed_output = {
             "task_id": self.task_id,
@@ -105,18 +180,23 @@ class MemoryPipelineService:
                 "loaded_images": len(photos),
                 "failed_images": len(self.failed_images),
                 "face_processed_images": len(face_ready_photos),
-                "vlm_processed_images": 0,
+                "vlm_processed_images": len(vlm.results),
                 "total_faces": face_output.get("metrics", {}).get("total_faces", 0),
                 "total_persons": face_output.get("metrics", {}).get("total_persons", 0),
                 "primary_person_id": primary_person_id,
+                "event_count": len(events),
+                "relationship_count": len(relationships),
+                "session_count": memory.get("summary", {}).get("session_count", 0),
+                "profile_version": memory.get("summary", {}).get("profile_version", 0),
             },
             "face_recognition": face_payload,
             "face_report": self._build_face_report(face_payload),
             "failed_images": self.failed_images,
             "warnings": self.warnings,
-            "events": [],
-            "relationships": [],
-            "profile_markdown": "",
+            "events": [self._serialize_event(event) for event in events],
+            "relationships": [self._serialize_relationship(item) for item in relationships],
+            "profile_markdown": profile_markdown,
+            "memory": memory,
             "artifacts": {},
         }
 
@@ -124,6 +204,11 @@ class MemoryPipelineService:
         save_json(detailed_output, str(result_path))
         detailed_output["artifacts"]["result_url"] = self._public_url(result_path)
         detailed_output["artifacts"]["face_output_url"] = self._public_url(self.cache_dir / "face_recognition_output.json")
+        detailed_output["artifacts"]["vlm_cache_url"] = self._public_url(self.vlm_cache_path)
+        detailed_output["artifacts"]["profile_report_url"] = self._public_url(self.profile_report_path) if self.profile_report_path.exists() else None
+        for artifact_key, artifact_value in memory.get("artifacts", {}).items():
+            if artifact_key.endswith("_url"):
+                detailed_output["artifacts"][artifact_key] = artifact_value
         self.asset_store.sync_task_directory(self.task_id, self.task_dir)
 
         return detailed_output
@@ -451,6 +536,48 @@ class MemoryPipelineService:
     def _notify(self, callback: Optional[Callable[[str, Dict], None]], stage: str, payload: Dict):
         if callback:
             callback(stage, payload)
+
+    def _write_profile_report(self, profile_markdown: str):
+        if not profile_markdown:
+            return
+        self.profile_report_path.write_text(profile_markdown, encoding="utf-8")
+
+    def _serialize_event(self, event) -> Dict:
+        return {
+            "event_id": event.event_id,
+            "date": event.date,
+            "time_range": event.time_range,
+            "duration": event.duration,
+            "title": event.title,
+            "type": event.type,
+            "participants": list(event.participants or []),
+            "location": event.location,
+            "description": event.description,
+            "photo_count": event.photo_count,
+            "confidence": event.confidence,
+            "reason": event.reason,
+            "narrative": event.narrative,
+            "narrative_synthesis": event.narrative_synthesis,
+            "meta_info": dict(event.meta_info or {}),
+            "objective_fact": dict(event.objective_fact or {}),
+            "social_interaction": dict(event.social_interaction or {}),
+            "social_dynamics": list(event.social_dynamics or []),
+            "evidence_photos": list(event.evidence_photos or []),
+            "lifestyle_tags": list(event.lifestyle_tags or []),
+            "tags": list(event.tags or []),
+            "social_slices": list(event.social_slices or []),
+            "persona_evidence": dict(event.persona_evidence or {}),
+        }
+
+    def _serialize_relationship(self, relationship) -> Dict:
+        return {
+            "person_id": relationship.person_id,
+            "relationship_type": relationship.relationship_type,
+            "label": relationship.label,
+            "confidence": relationship.confidence,
+            "evidence": dict(relationship.evidence or {}),
+            "reason": relationship.reason,
+        }
 
     def _public_url(self, file_path: Optional[Path | str]) -> Optional[str]:
         if not file_path:

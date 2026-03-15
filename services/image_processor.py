@@ -166,9 +166,8 @@ class ImageProcessor:
         # Step 1: 压缩
         compressed = self._compress_photos(photos)
 
-        # Step 2: 暂时禁用去重（因为EXIF时间读取问题）
-        # deduped = smart_deduplicate(compressed, DEDUP_TIME_WINDOW)
-        deduped = compressed
+        # Step 2: 去重，降低 VLM token 成本并减少连拍对事件抽取的偏置
+        deduped = smart_deduplicate(compressed, DEDUP_TIME_WINDOW)
 
         return deduped
 
