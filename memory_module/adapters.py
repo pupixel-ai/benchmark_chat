@@ -6,9 +6,10 @@ import hashlib
 import json
 import math
 import re
+import socket
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from config import (
     MEMORY_EXTERNAL_SINKS_ENABLED,
@@ -201,24 +202,20 @@ class MilvusStorageAdapter:
         if not segments:
             return {"status": "skipped", "reason": "no segments to publish"}
 
+        client = None
+        local_server = None
         try:
             from pymilvus import DataType, MilvusClient
 
-            client = MilvusClient(
-                uri=MEMORY_MILVUS_URI,
-                user=MEMORY_MILVUS_USER,
-                password=MEMORY_MILVUS_PASSWORD,
-                token=MEMORY_MILVUS_TOKEN,
-                db_name=MEMORY_MILVUS_DB_NAME,
-            )
+            client, local_server = self._open_client(MilvusClient)
             if not client.has_collection(MEMORY_MILVUS_COLLECTION):
                 schema = MilvusClient.create_schema(auto_id=False, enable_dynamic_field=True)
                 schema.add_field("segment_uuid", DataType.VARCHAR, is_primary=True, max_length=64)
                 schema.add_field("user_id", DataType.VARCHAR, max_length=128)
                 schema.add_field("photo_uuid", DataType.VARCHAR, max_length=64)
-                schema.add_field("event_uuid", DataType.VARCHAR, max_length=64, nullable=True)
-                schema.add_field("person_uuid", DataType.VARCHAR, max_length=64, nullable=True)
-                schema.add_field("session_uuid", DataType.VARCHAR, max_length=64, nullable=True)
+                schema.add_field("event_uuid", DataType.VARCHAR, max_length=64)
+                schema.add_field("person_uuid", DataType.VARCHAR, max_length=64)
+                schema.add_field("session_uuid", DataType.VARCHAR, max_length=64)
                 schema.add_field("segment_type", DataType.VARCHAR, max_length=64)
                 schema.add_field("text", DataType.VARCHAR, max_length=8192)
                 schema.add_field("sparse_terms", DataType.VARCHAR, max_length=2048)
@@ -241,9 +238,53 @@ class MilvusStorageAdapter:
                 "collection": MEMORY_MILVUS_COLLECTION,
                 "segment_count": len(rows),
                 "vector_dim": MEMORY_MILVUS_VECTOR_DIM,
+                "mode": "local-db" if local_server is not None else "remote",
             }
         except Exception as exc:
             return {"status": "failed", "reason": str(exc)}
+        finally:
+            try:
+                if client is not None:
+                    client.close()
+            except Exception:
+                pass
+            try:
+                if local_server is not None:
+                    local_server.stop()
+            except Exception:
+                pass
+
+    def _open_client(self, client_cls: Any) -> Tuple[Any, Any | None]:
+        if MEMORY_MILVUS_URI.endswith(".db"):
+            from milvus_lite.server import Server
+
+            db_path = Path(MEMORY_MILVUS_URI).expanduser().resolve()
+            db_path.parent.mkdir(parents=True, exist_ok=True)
+            address = f"127.0.0.1:{self._find_free_port()}"
+            local_server = Server(str(db_path), address)
+            if not local_server.init() or not local_server.start():
+                raise RuntimeError(f"failed to start milvus-lite tcp bridge for {db_path}")
+
+            client = client_cls(
+                uri=f"http://{address}",
+                timeout=10,
+            )
+            return client, local_server
+
+        client = client_cls(
+            uri=MEMORY_MILVUS_URI,
+            user=MEMORY_MILVUS_USER,
+            password=MEMORY_MILVUS_PASSWORD,
+            token=MEMORY_MILVUS_TOKEN,
+            db_name=MEMORY_MILVUS_DB_NAME,
+        )
+        return client, None
+
+    def _find_free_port(self) -> int:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.bind(("127.0.0.1", 0))
+            sock.listen(1)
+            return int(sock.getsockname()[1])
 
     def _segment_row(self, segment: Dict[str, Any]) -> Dict[str, Any]:
         text = str(segment.get("text") or "")

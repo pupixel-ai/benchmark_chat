@@ -15,6 +15,7 @@ boto3>=1.35.0
 redis>=5.2.0
 neo4j>=5.26.0
 pymilvus>=2.5.0
+milvus-lite>=2.5.0
 faiss-cpu>=1.7.4
 insightface>=0.7.3
 onnxruntime>=1.18
