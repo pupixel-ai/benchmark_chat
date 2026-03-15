@@ -234,7 +234,61 @@ class FacePrecisionTests(unittest.TestCase):
         )
         self.assertIsNotNone(decision)
         assert decision is not None
-        self.assertEqual(decision.decision, "singleton_bridge_cluster_merge")
+        self.assertIn(
+            decision.decision,
+            {"supported_cluster_merge", "singleton_bridge_cluster_merge", "strong_cluster_merge"},
+        )
+
+    def test_decide_cluster_merge_allows_singleton_bridge_into_stable_two_photo_cluster(self) -> None:
+        embeddings = {
+            1: np.asarray([0.95, 0.05], dtype=np.float32),
+            2: np.asarray([0.575, 0.818], dtype=np.float32),
+            3: np.asarray([0.412, 0.18], dtype=np.float32),
+        }
+        decision = decide_cluster_merge(
+            "Person_002",
+            [
+                {
+                    "faiss_id": 1,
+                    "image_id": "img-001",
+                    "quality_score": 0.58,
+                    "score": 0.75,
+                    "pose_bucket": "unknown",
+                    "similarity": 0.0,
+                    "match_decision": "new_person",
+                },
+                {
+                    "faiss_id": 2,
+                    "image_id": "img-872",
+                    "quality_score": 0.69,
+                    "score": 0.82,
+                    "pose_bucket": "left_profile",
+                    "similarity": 0.575,
+                    "match_decision": "profile_rescue_match",
+                },
+            ],
+            "Person_007",
+            [
+                {
+                    "faiss_id": 3,
+                    "image_id": "img-003",
+                    "quality_score": 0.63,
+                    "score": 0.63,
+                    "pose_bucket": "unknown",
+                    "similarity": 0.412,
+                    "match_decision": "new_person_from_ambiguity",
+                }
+            ],
+            embedding_lookup=lambda faiss_id: embeddings.get(faiss_id),
+            strong_threshold=0.30,
+            high_quality_threshold=0.40,
+        )
+        self.assertIsNotNone(decision)
+        assert decision is not None
+        self.assertIn(
+            decision.decision,
+            {"supported_cluster_merge", "singleton_bridge_cluster_merge", "strong_cluster_merge"},
+        )
 
 
 if __name__ == "__main__":

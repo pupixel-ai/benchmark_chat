@@ -493,7 +493,15 @@ def _should_allow_singleton_bridge_merge(
         return False
     if top_two_mean < strong_threshold - 0.01:
         return False
-    if not _has_pose_mix(anchor_faces):
+    if _has_pose_mix(anchor_faces):
+        return True
+    if not _has_stable_anchor_cluster(
+        anchor_faces,
+        strong_threshold=strong_threshold,
+        high_quality_threshold=high_quality_threshold,
+        best_similarity=best_similarity,
+        top_two_mean=top_two_mean,
+    ):
         return False
     return True
 
@@ -503,6 +511,45 @@ def _has_pose_mix(faces: Iterable[Dict[str, object]]) -> bool:
     has_frontal = "frontal" in buckets
     has_profile = bool(buckets & {"left_profile", "right_profile"})
     return has_frontal and has_profile
+
+
+def _has_stable_anchor_cluster(
+    faces: Iterable[Dict[str, object]],
+    *,
+    strong_threshold: float,
+    high_quality_threshold: float,
+    best_similarity: float,
+    top_two_mean: float,
+) -> bool:
+    face_list = list(faces)
+    distinct_images = {
+        str(face.get("image_id") or "")
+        for face in face_list
+        if str(face.get("image_id") or "")
+    }
+    if len(distinct_images) < 2:
+        return False
+    if best_similarity < strong_threshold + 0.11:
+        return False
+    if top_two_mean < strong_threshold + 0.02:
+        return False
+
+    strong_anchor_count = 0
+    for face in face_list:
+        if float(face.get("quality_score") or 0.0) < high_quality_threshold:
+            continue
+        decision = str(face.get("match_decision") or "")
+        similarity = float(face.get("similarity") or 0.0)
+        if decision in {
+            "strong_match",
+            "gray_match",
+            "profile_rescue_match",
+            "cluster_merge_match",
+            "singleton_bridge_cluster_merge",
+        } or similarity >= strong_threshold + 0.10:
+            strong_anchor_count += 1
+
+    return strong_anchor_count >= 1
 
 
 def _clip01(value: float) -> float:
