@@ -81,6 +81,9 @@ class SimilarityIndexStore:
         self._backend.add(pending_embeddings)
         self._backend.save(self.index_path)
 
+    def vector_at(self, faiss_id: int) -> Optional[Tuple[float, ...]]:
+        return self._backend.vector_at(faiss_id)
+
     def _create_backend(self, index_path: Path, dimension: int) -> "_BackendBase":
         backend = self._create_empty_backend(dimension)
         if not index_path.exists():
@@ -110,6 +113,9 @@ class _BackendBase:
         raise NotImplementedError
 
     def search(self, embedding: Sequence[float], top_k: int) -> Tuple[List[float], List[int]]:
+        raise NotImplementedError
+
+    def vector_at(self, faiss_id: int) -> Optional[Tuple[float, ...]]:
         raise NotImplementedError
 
 
@@ -159,6 +165,11 @@ class _PythonIndexBackend(_BackendBase):
         top = scored[:top_k]
         return [score for score, _ in top], [index for _, index in top]
 
+    def vector_at(self, faiss_id: int) -> Optional[Tuple[float, ...]]:
+        if faiss_id < 0 or faiss_id >= len(self.vectors):
+            return None
+        return tuple(self.vectors[faiss_id])
+
 
 class _FaissBackend(_BackendBase):
     def __init__(self, dimension: int, faiss_module: object, index: object) -> None:
@@ -206,3 +217,12 @@ class _FaissBackend(_BackendBase):
         query = self._np.asarray([embedding], dtype="float32")
         scores, ids = self._index.search(query, top_k)
         return scores[0].tolist(), ids[0].tolist()
+
+    def vector_at(self, faiss_id: int) -> Optional[Tuple[float, ...]]:
+        if faiss_id < 0 or faiss_id >= self.ntotal:
+            return None
+        try:
+            vector = self._index.reconstruct(int(faiss_id))
+        except Exception:
+            return None
+        return tuple(float(value) for value in vector.tolist())

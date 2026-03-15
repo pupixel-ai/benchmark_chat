@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional
+from typing import Callable, Dict, Iterable, List, Optional, Sequence
 
 import numpy as np
 
@@ -35,6 +35,18 @@ class CandidateSummary:
     best_similarity: float
     mean_similarity: float
     support_count: int
+
+
+@dataclass(frozen=True)
+class ClusterMergeCandidate:
+    left_person_id: str
+    right_person_id: str
+    decision: str
+    reason: str
+    best_similarity: float
+    top_two_mean: float
+    support_count: int
+    profile_bridge: bool
 
 
 def load_strong_threshold(
@@ -262,6 +274,106 @@ def filter_same_photo_candidates(
     ]
 
 
+def decide_cluster_merge(
+    left_person_id: str,
+    left_faces: Iterable[Dict[str, object]],
+    right_person_id: str,
+    right_faces: Iterable[Dict[str, object]],
+    *,
+    embedding_lookup: Callable[[int], Optional[Sequence[float]]],
+    strong_threshold: float,
+    high_quality_threshold: float,
+) -> Optional[ClusterMergeCandidate]:
+    left_list = _top_cluster_faces(left_faces)
+    right_list = _top_cluster_faces(right_faces)
+    if not left_list or not right_list:
+        return None
+
+    left_images = {str(face.get("image_id") or "") for face in left_list}
+    right_images = {str(face.get("image_id") or "") for face in right_list}
+    if left_images & right_images:
+        return None
+
+    cross_scores: List[float] = []
+    support_count = 0
+    high_quality_support = 0
+
+    for left_face in left_list:
+        left_embedding = _lookup_embedding(embedding_lookup, left_face.get("faiss_id"))
+        if left_embedding is None:
+            continue
+        left_quality = float(left_face.get("quality_score") or 0.0)
+        for right_face in right_list:
+            right_embedding = _lookup_embedding(embedding_lookup, right_face.get("faiss_id"))
+            if right_embedding is None:
+                continue
+            score = float(np.dot(left_embedding, right_embedding))
+            cross_scores.append(score)
+            if score >= strong_threshold + 0.02:
+                support_count += 1
+            if (
+                score >= strong_threshold
+                and left_quality >= high_quality_threshold
+                and float(right_face.get("quality_score") or 0.0) >= high_quality_threshold
+            ):
+                high_quality_support += 1
+
+    if not cross_scores:
+        return None
+
+    ranked_scores = sorted(cross_scores, reverse=True)
+    best_similarity = ranked_scores[0]
+    top_two_mean = sum(ranked_scores[:2]) / min(len(ranked_scores), 2)
+    profile_bridge = _has_profile_bridge(left_list, right_list)
+
+    if best_similarity >= strong_threshold + 0.12 and high_quality_support >= 1:
+        return ClusterMergeCandidate(
+            left_person_id=left_person_id,
+            right_person_id=right_person_id,
+            decision="strong_cluster_merge",
+            reason=(
+                f"簇强合并: best={best_similarity:.3f}, top2_mean={top_two_mean:.3f}, "
+                f"high_quality_support={high_quality_support}"
+            ),
+            best_similarity=best_similarity,
+            top_two_mean=top_two_mean,
+            support_count=support_count,
+            profile_bridge=profile_bridge,
+        )
+
+    if support_count >= 2 and top_two_mean >= strong_threshold + 0.01:
+        return ClusterMergeCandidate(
+            left_person_id=left_person_id,
+            right_person_id=right_person_id,
+            decision="supported_cluster_merge",
+            reason=(
+                f"簇支持合并: best={best_similarity:.3f}, top2_mean={top_two_mean:.3f}, "
+                f"support={support_count}"
+            ),
+            best_similarity=best_similarity,
+            top_two_mean=top_two_mean,
+            support_count=support_count,
+            profile_bridge=profile_bridge,
+        )
+
+    if profile_bridge and len(ranked_scores) >= 2 and best_similarity >= strong_threshold + 0.06 and top_two_mean >= strong_threshold:
+        return ClusterMergeCandidate(
+            left_person_id=left_person_id,
+            right_person_id=right_person_id,
+            decision="profile_bridge_cluster_merge",
+            reason=(
+                f"姿态桥接合并: best={best_similarity:.3f}, top2_mean={top_two_mean:.3f}, "
+                f"support={support_count}"
+            ),
+            best_similarity=best_similarity,
+            top_two_mean=top_two_mean,
+            support_count=support_count,
+            profile_bridge=profile_bridge,
+        )
+
+    return None
+
+
 def _should_allow_profile_rescue(
     *,
     pose_bucket: str | None,
@@ -285,6 +397,51 @@ def _should_allow_profile_rescue(
     if margin < profile_rescue_margin:
         return False
     return True
+
+
+def _top_cluster_faces(faces: Iterable[Dict[str, object]], limit: int = 6) -> List[Dict[str, object]]:
+    ranked = sorted(
+        (
+            dict(face)
+            for face in faces
+            if face.get("faiss_id") is not None
+        ),
+        key=lambda face: (
+            float(face.get("quality_score") or 0.0),
+            float(face.get("score") or 0.0),
+            float(face.get("similarity") or 0.0),
+        ),
+        reverse=True,
+    )
+    return ranked[:limit]
+
+
+def _lookup_embedding(
+    embedding_lookup: Callable[[int], Optional[Sequence[float]]],
+    faiss_id: object,
+) -> Optional[np.ndarray]:
+    if faiss_id is None:
+        return None
+    try:
+        vector = embedding_lookup(int(faiss_id))
+    except (TypeError, ValueError):
+        return None
+    if vector is None:
+        return None
+    return np.asarray(vector, dtype="float32")
+
+
+def _has_profile_bridge(
+    left_faces: Iterable[Dict[str, object]],
+    right_faces: Iterable[Dict[str, object]],
+) -> bool:
+    left_buckets = {str(face.get("pose_bucket") or "unknown") for face in left_faces}
+    right_buckets = {str(face.get("pose_bucket") or "unknown") for face in right_faces}
+    left_has_profile = bool(left_buckets & {"left_profile", "right_profile"})
+    right_has_profile = bool(right_buckets & {"left_profile", "right_profile"})
+    left_has_frontal = "frontal" in left_buckets
+    right_has_frontal = "frontal" in right_buckets
+    return (left_has_profile and right_has_frontal) or (right_has_profile and left_has_frontal)
 
 
 def _clip01(value: float) -> float:

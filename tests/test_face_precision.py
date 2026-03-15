@@ -9,6 +9,7 @@ import numpy as np
 from services.face_precision import (
     aggregate_candidate_matches,
     compute_face_quality,
+    decide_cluster_merge,
     decide_match,
     filter_same_photo_candidates,
     load_strong_threshold,
@@ -114,6 +115,81 @@ class FacePrecisionTests(unittest.TestCase):
         ]
         filtered = filter_same_photo_candidates(candidates, {"Person_001"}, same_photo_match_threshold=0.52)
         self.assertEqual([candidate.person_id for candidate in filtered], ["Person_002", "Person_003"])
+
+    def test_decide_cluster_merge_uses_profile_bridge_with_two_supporting_links(self) -> None:
+        embeddings = {
+            1: np.asarray([1.0, 0.0], dtype=np.float32),
+            2: np.asarray([0.95, 0.05], dtype=np.float32),
+            3: np.asarray([0.93, 0.07], dtype=np.float32),
+        }
+        decision = decide_cluster_merge(
+            "Person_002",
+            [
+                {
+                    "faiss_id": 1,
+                    "image_id": "img-010",
+                    "quality_score": 0.72,
+                    "score": 0.95,
+                    "pose_bucket": "frontal",
+                },
+                {
+                    "faiss_id": 2,
+                    "image_id": "img-872",
+                    "quality_score": 0.66,
+                    "score": 0.91,
+                    "pose_bucket": "left_profile",
+                },
+            ],
+            "Person_009",
+            [
+                {
+                    "faiss_id": 3,
+                    "image_id": "img-003",
+                    "quality_score": 0.69,
+                    "score": 0.93,
+                    "pose_bucket": "right_profile",
+                }
+            ],
+            embedding_lookup=lambda faiss_id: embeddings.get(faiss_id),
+            strong_threshold=0.30,
+            high_quality_threshold=0.40,
+        )
+        self.assertIsNotNone(decision)
+        assert decision is not None
+        self.assertIn(decision.decision, {"strong_cluster_merge", "supported_cluster_merge"})
+        self.assertTrue(decision.profile_bridge)
+
+    def test_decide_cluster_merge_rejects_people_that_coexist_in_same_photo(self) -> None:
+        embeddings = {
+            1: np.asarray([1.0, 0.0], dtype=np.float32),
+            2: np.asarray([0.95, 0.05], dtype=np.float32),
+        }
+        decision = decide_cluster_merge(
+            "Person_010",
+            [
+                {
+                    "faiss_id": 1,
+                    "image_id": "img-shared",
+                    "quality_score": 0.72,
+                    "score": 0.95,
+                    "pose_bucket": "frontal",
+                }
+            ],
+            "Person_011",
+            [
+                {
+                    "faiss_id": 2,
+                    "image_id": "img-shared",
+                    "quality_score": 0.74,
+                    "score": 0.94,
+                    "pose_bucket": "frontal",
+                }
+            ],
+            embedding_lookup=lambda faiss_id: embeddings.get(faiss_id),
+            strong_threshold=0.30,
+            high_quality_threshold=0.40,
+        )
+        self.assertIsNone(decision)
 
 
 if __name__ == "__main__":

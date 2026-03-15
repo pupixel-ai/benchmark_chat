@@ -4,6 +4,7 @@
 import os
 import sys
 import uuid
+from collections import defaultdict
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -31,6 +32,7 @@ from models import Person, Photo
 from services.face_precision import (
     aggregate_candidate_matches,
     compute_face_quality,
+    decide_cluster_merge,
     decide_match,
     filter_same_photo_candidates,
     load_strong_threshold,
@@ -457,9 +459,16 @@ class FaceRecognition:
         """
         保留 face-recognition 的原生 Person_### 编号，仅计算主人物。
         """
+        merge_summaries: List[Dict[str, object]] = []
+        if self.task_version == TASK_VERSION_V0315:
+            merge_summaries = self._run_second_pass_cluster_merge()
+            if merge_summaries:
+                self._refresh_photo_faces(photos)
         self._sync_person_cache()
+        if merge_summaries:
+            self.state["cluster_merges"] = merge_summaries
         self._save_state()
-        return {}
+        return {"cluster_merges": merge_summaries}
 
     def _save_state(self):
         self.state["faiss_person_map"] = {
@@ -473,6 +482,208 @@ class FaceRecognition:
         self.state["engine"]["match_top_k"] = self.match_top_k
         save_json(self.state, self.state_path)
         save_json(self.get_face_output(), self.output_path)
+
+    def _run_second_pass_cluster_merge(self) -> List[Dict[str, object]]:
+        merge_summaries: List[Dict[str, object]] = []
+
+        while True:
+            candidate = self._best_cluster_merge_candidate()
+            if candidate is None:
+                break
+
+            target_person_id, source_person_id = self._select_merge_target(
+                candidate.left_person_id,
+                candidate.right_person_id,
+            )
+            merge_reason = (
+                f"{candidate.reason}; source={source_person_id}; target={target_person_id}"
+            )
+            self._merge_person_cluster(source_person_id, target_person_id, merge_reason)
+            merge_summaries.append(
+                {
+                    "source_person_id": source_person_id,
+                    "target_person_id": target_person_id,
+                    "decision": candidate.decision,
+                    "reason": merge_reason,
+                    "best_similarity": round(candidate.best_similarity, 6),
+                    "top_two_mean": round(candidate.top_two_mean, 6),
+                    "support_count": candidate.support_count,
+                    "profile_bridge": candidate.profile_bridge,
+                }
+            )
+
+        if merge_summaries:
+            self._rebuild_person_state_from_images()
+        return merge_summaries
+
+    def _best_cluster_merge_candidate(self):
+        person_faces: Dict[str, List[Dict]] = defaultdict(list)
+        for image in self.state.get("images", {}).values():
+            image_id = image.get("photo_id")
+            for face in image.get("faces", []):
+                person_faces[str(face.get("person_id"))].append(
+                    {
+                        **face,
+                        "image_id": image_id,
+                    }
+                )
+
+        person_ids = sorted(person_id for person_id in person_faces.keys() if person_id)
+        best_candidate = None
+
+        for left_index, left_person_id in enumerate(person_ids):
+            for right_person_id in person_ids[left_index + 1 :]:
+                candidate = decide_cluster_merge(
+                    left_person_id,
+                    person_faces[left_person_id],
+                    right_person_id,
+                    person_faces[right_person_id],
+                    embedding_lookup=self.index_store.vector_at,
+                    strong_threshold=self.strong_threshold,
+                    high_quality_threshold=self.high_quality_threshold,
+                )
+                if candidate is None:
+                    continue
+                if best_candidate is None or (
+                    candidate.best_similarity,
+                    candidate.top_two_mean,
+                    candidate.support_count,
+                ) > (
+                    best_candidate.best_similarity,
+                    best_candidate.top_two_mean,
+                    best_candidate.support_count,
+                ):
+                    best_candidate = candidate
+
+        return best_candidate
+
+    def _select_merge_target(self, left_person_id: str, right_person_id: str) -> tuple[str, str]:
+        persons_state = self.state.get("persons", {})
+        left_state = persons_state.get(left_person_id, {})
+        right_state = persons_state.get(right_person_id, {})
+        left_rank = (
+            int(left_state.get("photo_count", 0)),
+            int(left_state.get("face_count", 0)),
+            -self._person_number(left_person_id),
+        )
+        right_rank = (
+            int(right_state.get("photo_count", 0)),
+            int(right_state.get("face_count", 0)),
+            -self._person_number(right_person_id),
+        )
+        if left_rank >= right_rank:
+            return left_person_id, right_person_id
+        return right_person_id, left_person_id
+
+    def _merge_person_cluster(self, source_person_id: str, target_person_id: str, merge_reason: str) -> None:
+        if source_person_id == target_person_id:
+            return
+
+        for image in self.state.get("images", {}).values():
+            for face in image.get("faces", []):
+                if face.get("person_id") != source_person_id:
+                    continue
+                face["person_id"] = target_person_id
+                face["cluster_merge_reason"] = merge_reason
+                if face.get("match_decision") == "new_person_from_ambiguity":
+                    face["match_decision"] = "cluster_merge_match"
+                    face["match_reason"] = merge_reason
+
+        for faiss_id, person_id in list(self.faiss_person_map.items()):
+            if person_id == source_person_id:
+                self.faiss_person_map[faiss_id] = target_person_id
+
+        source_state = self.state.get("persons", {}).pop(source_person_id, None)
+        target_state = self.state.get("persons", {}).get(target_person_id)
+        if source_state and target_state and not target_state.get("representative_face_id"):
+            target_state["representative_face_id"] = source_state.get("representative_face_id")
+
+    def _rebuild_person_state_from_images(self) -> None:
+        rebuilt: Dict[str, Dict] = {}
+
+        for image in self.state.get("images", {}).values():
+            image_id = image.get("photo_id")
+            timestamp = image.get("timestamp")
+            seen_in_photo = set()
+            for face in image.get("faces", []):
+                person_id = str(face.get("person_id") or "")
+                if not person_id:
+                    continue
+                person_state = rebuilt.setdefault(
+                    person_id,
+                    {
+                        "person_id": person_id,
+                        "representative_face_id": face.get("face_id"),
+                        "photo_count": 0,
+                        "face_count": 0,
+                        "first_seen": None,
+                        "last_seen": None,
+                        "avg_score": 0.0,
+                        "avg_similarity": 0.0,
+                        "avg_quality": 0.0,
+                        "high_quality_face_count": 0,
+                        "sample_photo_ids": [],
+                        "pose_counts": {},
+                        "label": "",
+                        "_best_score": -1.0,
+                    },
+                )
+                person_state["face_count"] += 1
+                person_state["avg_score"] = self._rolling_average(
+                    person_state["avg_score"],
+                    person_state["face_count"],
+                    float(face.get("score") or 0.0),
+                )
+                person_state["avg_similarity"] = self._rolling_average(
+                    person_state["avg_similarity"],
+                    person_state["face_count"],
+                    float(face.get("similarity") or 0.0),
+                )
+                person_state["avg_quality"] = self._rolling_average(
+                    person_state["avg_quality"],
+                    person_state["face_count"],
+                    float(face.get("quality_score") or 0.0),
+                )
+                if float(face.get("quality_score") or 0.0) >= self.high_quality_threshold:
+                    person_state["high_quality_face_count"] += 1
+                pose_bucket = str(face.get("pose_bucket") or "unknown")
+                pose_counts = person_state.setdefault("pose_counts", {})
+                pose_counts[pose_bucket] = int(pose_counts.get(pose_bucket, 0)) + 1
+                if float(face.get("score") or 0.0) > float(person_state.get("_best_score", -1.0)):
+                    person_state["_best_score"] = float(face.get("score") or 0.0)
+                    person_state["representative_face_id"] = face.get("face_id")
+
+                if person_id not in seen_in_photo:
+                    seen_in_photo.add(person_id)
+                    person_state["photo_count"] += 1
+                    if timestamp:
+                        person_state["first_seen"] = self._min_datetime(
+                            person_state.get("first_seen"),
+                            timestamp,
+                        )
+                        person_state["last_seen"] = self._max_datetime(
+                            person_state.get("last_seen"),
+                            timestamp,
+                        )
+                    if image_id and image_id not in person_state["sample_photo_ids"] and len(person_state["sample_photo_ids"]) < 10:
+                        person_state["sample_photo_ids"].append(image_id)
+
+        for person_state in rebuilt.values():
+            person_state.pop("_best_score", None)
+
+        self.state["persons"] = rebuilt
+
+    def _refresh_photo_faces(self, photos: List[Photo]) -> None:
+        for photo in photos:
+            cached = self.photo_results.get(photo.photo_id)
+            if cached:
+                photo.faces = [dict(face) for face in cached.get("faces", [])]
+
+    def _person_number(self, person_id: str) -> int:
+        try:
+            return int(str(person_id).split("_")[-1])
+        except (TypeError, ValueError):
+            return 10**9
 
     def save(self):
         """保存当前识别状态"""
