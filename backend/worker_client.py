@@ -33,7 +33,7 @@ class WorkerClient:
                 time.sleep(3)
         raise TimeoutError(f"等待 worker 健康检查通过超时: {last_error}")
 
-    def upload_batch(self, private_ip: str, task_id: str, files: list[dict]) -> dict:
+    def upload_batch(self, private_ip: str, task_id: str, files: list[dict], *, version: str) -> dict:
         multipart = [
             (
                 "files",
@@ -48,19 +48,21 @@ class WorkerClient:
         response = requests.post(
             f"{self._base_url(private_ip)}/internal/tasks/{task_id}/upload-batches",
             headers=self._headers(),
+            data={"version": version},
             files=multipart,
             timeout=(10, 120),
         )
         self._raise_for_status(response, "上传分片到 worker 失败")
         return response.json()
 
-    def start_task(self, private_ip: str, task_id: str, max_photos: int, use_cache: bool) -> dict:
+    def start_task(self, private_ip: str, task_id: str, max_photos: int, use_cache: bool, *, version: str) -> dict:
         response = requests.post(
             f"{self._base_url(private_ip)}/internal/tasks/{task_id}/start",
             headers=self._headers(),
             json={
                 "max_photos": max_photos,
                 "use_cache": use_cache,
+                "version": version,
             },
             timeout=(10, 30),
         )

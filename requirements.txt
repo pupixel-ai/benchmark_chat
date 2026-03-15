@@ -16,3 +16,4 @@ faiss-cpu>=1.7.4
 insightface>=0.7.3
 onnxruntime>=1.18
 opencv-python-headless>=4.9
+mediapipe>=0.10.20

@@ -9,6 +9,7 @@ cache/
 output/
 data/
 runtime/
+runtime/fixtures/
 frontend/.next/
 frontend/.next-dev/
 frontend/.next-build/

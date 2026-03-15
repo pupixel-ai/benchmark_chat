@@ -36,16 +36,20 @@ from backend.worker_client import WorkerClient
 from backend.worker_manager import WorkerManager
 from config import (
     ALLOW_SELF_REGISTRATION,
+    APP_VERSION,
     APP_ROLE,
     ASSET_URL_PREFIX,
+    AVAILABLE_TASK_VERSIONS,
     BACKEND_HOST,
     BACKEND_PORT,
     BACKEND_RELOAD,
     CORS_ALLOW_ORIGINS,
+    DEFAULT_TASK_VERSION,
     FRONTEND_ORIGIN,
     HIGH_SECURITY_MODE,
     MAX_UPLOAD_PHOTOS,
     TASKS_DIR,
+    normalize_task_version,
 )
 from services.asset_store import TaskAssetStore
 from services.pipeline_service import MemoryPipelineService
@@ -81,6 +85,10 @@ class AuthPayload(BaseModel):
 class TaskStartPayload(BaseModel):
     max_photos: Optional[int] = None
     use_cache: bool = False
+
+
+class TaskCreatePayload(BaseModel):
+    version: Optional[str] = None
 
 
 class FaceReviewPayload(BaseModel):
@@ -318,7 +326,7 @@ def _sync_task_from_worker(task: dict, user_id: str) -> dict:
         return task
 
     updates = {}
-    for key in ("status", "stage", "progress", "result", "error"):
+    for key in ("status", "stage", "progress", "result", "error", "version"):
         if key in remote_payload:
             updates[key] = remote_payload[key]
     if "uploads" in remote_payload and not task.get("uploads"):
@@ -381,7 +389,7 @@ def _chunk_remote_upload_entries(entries: List[dict]) -> List[List[dict]]:
     return batches
 
 
-def _run_pipeline_task(task_id: str, user_id: Optional[str], max_photos: int, use_cache: bool):
+def _run_pipeline_task(task_id: str, user_id: Optional[str], max_photos: int, use_cache: bool, task_version: str):
     task_dir = task_store.task_dir(task_id)
 
     def progress_callback(stage: str, payload: dict):
@@ -395,6 +403,7 @@ def _run_pipeline_task(task_id: str, user_id: Optional[str], max_photos: int, us
             asset_store=asset_store,
             user_id=user_id,
             face_review_store=face_review_store,
+            task_version=task_version,
         )
         result = service.run(
             max_photos=max_photos,
@@ -423,9 +432,12 @@ def healthcheck(response: Response):
     _apply_no_store_headers(response)
     return {
         "status": "ok",
+        "app_version": APP_VERSION,
         "app_role": APP_ROLE,
         "frontend_origin": FRONTEND_ORIGIN,
         "max_upload_photos": MAX_UPLOAD_PHOTOS,
+        "default_task_version": DEFAULT_TASK_VERSION,
+        "available_task_versions": list(AVAILABLE_TASK_VERSIONS),
         "self_registration_enabled": ALLOW_SELF_REGISTRATION,
         "high_security_mode": HIGH_SECURITY_MODE,
         "asset_url_prefix": ASSET_URL_PREFIX,
@@ -484,18 +496,28 @@ def root():
 
 
 @app.post("/api/tasks")
-def create_task(response: Response, current_user: dict = Depends(get_current_user)):
+def create_task(
+    response: Response,
+    payload: TaskCreatePayload | None = None,
+    current_user: dict = Depends(get_current_user),
+):
     _apply_no_store_headers(response)
+    try:
+        task_version = normalize_task_version(payload.version if payload else None)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     task_id = uuid.uuid4().hex
     task_store.create_task(
         task_id,
         upload_count=0,
         user_id=current_user["user_id"],
+        version=task_version,
         status="draft",
         stage="draft",
     )
     return {
         "task_id": task_id,
+        "version": task_version,
         "status": "draft",
         "stage": "draft",
         "upload_count": 0,
@@ -532,6 +554,7 @@ async def upload_task_batch(
     updated_task = task_store.append_uploads(task_id, saved_files, status="uploading", stage="uploading")
     return {
         "task_id": task_id,
+        "version": updated_task["version"],
         "status": updated_task["status"],
         "stage": updated_task["stage"],
         "batch_count": len(saved_files),
@@ -564,6 +587,7 @@ def start_task(
     if requested_max < 1 or requested_max > MAX_UPLOAD_PHOTOS:
         raise HTTPException(status_code=400, detail=f"max_photos 必须在 1 到 {MAX_UPLOAD_PHOTOS} 之间")
     max_photos = min(requested_max, len(uploads), MAX_UPLOAD_PHOTOS)
+    task_version = task.get("version") or DEFAULT_TASK_VERSION
 
     if _remote_worker_mode_enabled():
         launched_worker = None
@@ -598,16 +622,19 @@ def start_task(
                         }
                         for item in batch
                     ],
+                    version=task_version,
                 )
             start_payload = worker_client.start_task(
                 ready_worker.private_ip,
                 task_id,
                 max_photos=max_photos,
                 use_cache=payload.use_cache,
+                version=task_version,
             )
             task_store.update_worker_state(
                 task_id,
                 worker_status=start_payload.get("worker_status", ready_worker.state),
+                version=start_payload.get("version", task_version),
                 status=start_payload.get("status", "queued"),
                 stage=start_payload.get("stage", "queued"),
                 progress=start_payload.get("progress"),
@@ -617,6 +644,7 @@ def start_task(
                 "task_id": task_id,
                 "status": start_payload.get("status", "queued"),
                 "stage": start_payload.get("stage", "queued"),
+                "version": start_payload.get("version", task_version),
                 "upload_count": len(uploads),
                 "skipped_uploads": skipped_uploads,
                 "max_photos": max_photos,
@@ -640,9 +668,11 @@ def start_task(
         current_user["user_id"],
         max_photos,
         payload.use_cache,
+        task_version,
     )
     return {
         "task_id": task_id,
+        "version": task_version,
         "status": "queued",
         "stage": "queued",
         "upload_count": len(uploads),

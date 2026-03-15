@@ -24,6 +24,13 @@ if load_dotenv is not None:
 MAX_PHOTOS = 50  # Demo阶段最多处理50张照片
 DEMO_MODE = True  # Demo模式
 MAX_UPLOAD_PHOTOS = int(os.getenv("MAX_UPLOAD_PHOTOS", "5000"))
+TASK_VERSION_V0312 = "v0312"
+TASK_VERSION_V0315 = "v0315"
+AVAILABLE_TASK_VERSIONS = (TASK_VERSION_V0312, TASK_VERSION_V0315)
+APP_VERSION = os.getenv("APP_VERSION", TASK_VERSION_V0315).strip() or TASK_VERSION_V0315
+DEFAULT_TASK_VERSION = os.getenv("DEFAULT_TASK_VERSION", TASK_VERSION_V0315).strip() or TASK_VERSION_V0315
+if DEFAULT_TASK_VERSION not in AVAILABLE_TASK_VERSIONS:
+    DEFAULT_TASK_VERSION = TASK_VERSION_V0315
 
 # Web 服务配置
 BACKEND_HOST = os.getenv("BACKEND_HOST", "0.0.0.0")
@@ -60,6 +67,13 @@ WORKER_TASK_ROOT = os.getenv("WORKER_TASK_ROOT", "/mnt/secure-tasks").strip() or
 RESULT_TTL_HOURS = int(os.getenv("RESULT_TTL_HOURS", "24"))
 WORKER_POLL_SECONDS = int(os.getenv("WORKER_POLL_SECONDS", "3"))
 WORKER_BOOT_TIMEOUT_SECONDS = int(os.getenv("WORKER_BOOT_TIMEOUT_SECONDS", "300"))
+
+
+def normalize_task_version(value: str | None, *, fallback: str = DEFAULT_TASK_VERSION) -> str:
+    candidate = (value or "").strip() or fallback
+    if candidate not in AVAILABLE_TASK_VERSIONS:
+        raise ValueError(f"不支持的任务版本: {candidate}")
+    return candidate
 
 
 def _parse_csv_list(value: str) -> tuple[str, ...]:
@@ -172,6 +186,22 @@ FACE_PROVIDERS = tuple(
     for provider in os.getenv("FACE_PROVIDERS", "CPUExecutionProvider").split(",")
     if provider.strip()
 )
+FACE_LANDMARKS_ENABLED = os.getenv("FACE_LANDMARKS_ENABLED", "true").lower() == "true"
+FACE_LANDMARK_MODEL_PATH = os.getenv(
+    "FACE_LANDMARK_MODEL_PATH",
+    os.path.join(RUNTIME_DIR, "models", "face_landmarker.task"),
+)
+FACE_LANDMARK_MODEL_URL = os.getenv(
+    "FACE_LANDMARK_MODEL_URL",
+    "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/latest/face_landmarker.task",
+)
+FACE_POSE_PROFILE_YAW_THRESHOLD = float(os.getenv("FACE_POSE_PROFILE_YAW_THRESHOLD", "18.0"))
+FACE_PROFILE_RESCUE_DELTA = float(os.getenv("FACE_PROFILE_RESCUE_DELTA", "0.04"))
+FACE_PROFILE_RESCUE_MARGIN = float(os.getenv("FACE_PROFILE_RESCUE_MARGIN", "0.02"))
+FACE_PROFILE_RESCUE_MIN_QUALITY = float(
+    os.getenv("FACE_PROFILE_RESCUE_MIN_QUALITY", str(FACE_MATCH_MIN_QUALITY_GRAY_ZONE))
+)
+FACE_SAME_PHOTO_MATCH_THRESHOLD = float(os.getenv("FACE_SAME_PHOTO_MATCH_THRESHOLD", "0.52"))
 
 # 图片处理配置
 MAX_IMAGE_SIZE = 1536  # 压缩后最大边长

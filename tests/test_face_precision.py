@@ -10,6 +10,7 @@ from services.face_precision import (
     aggregate_candidate_matches,
     compute_face_quality,
     decide_match,
+    filter_same_photo_candidates,
     load_strong_threshold,
 )
 from vendor.face_recognition_src.face_recognition.index_store import SearchMatch
@@ -82,11 +83,37 @@ class FacePrecisionTests(unittest.TestCase):
         self.assertEqual(decision["decision"], "new_person_from_ambiguity")
         self.assertIsNone(decision["person_id"])
 
+    def test_decide_match_allows_profile_rescue_when_side_face_is_clear(self) -> None:
+        decision = decide_match(
+            candidates=[
+                type("Candidate", (), {"person_id": "Person_001", "best_similarity": 0.57, "mean_similarity": 0.55, "support_count": 1})(),
+                type("Candidate", (), {"person_id": "Person_002", "best_similarity": 0.54, "mean_similarity": 0.54, "support_count": 1})(),
+            ],
+            quality_score=0.66,
+            strong_threshold=0.60,
+            weak_threshold=0.56,
+            margin_threshold=0.03,
+            min_quality_for_gray_zone=0.40,
+            pose_bucket="left_profile",
+            pose_yaw=-28.0,
+        )
+        self.assertEqual(decision["decision"], "profile_rescue_match")
+        self.assertEqual(decision["person_id"], "Person_001")
+
     def test_load_strong_threshold_reads_benchmark_file(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             path = Path(tmpdir) / "latest.json"
             path.write_text('{"recommended_threshold": 0.33}', encoding="utf-8")
             self.assertAlmostEqual(load_strong_threshold(fallback=0.5, threshold_path=str(path)), 0.33)
+
+    def test_filter_same_photo_candidates_prefers_new_person_unless_similarity_is_very_high(self) -> None:
+        candidates = [
+            type("Candidate", (), {"person_id": "Person_001", "best_similarity": 0.34, "mean_similarity": 0.34, "support_count": 1})(),
+            type("Candidate", (), {"person_id": "Person_002", "best_similarity": 0.28, "mean_similarity": 0.28, "support_count": 1})(),
+            type("Candidate", (), {"person_id": "Person_003", "best_similarity": 0.60, "mean_similarity": 0.60, "support_count": 1})(),
+        ]
+        filtered = filter_same_photo_candidates(candidates, {"Person_001"}, same_photo_match_threshold=0.52)
+        self.assertEqual([candidate.person_id for candidate in filtered], ["Person_002", "Person_003"])
 
 
 if __name__ == "__main__":

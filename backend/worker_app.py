@@ -8,7 +8,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import List
 
-from fastapi import BackgroundTasks, Depends, FastAPI, File, Header, HTTPException, Response, UploadFile, status
+from fastapi import BackgroundTasks, Depends, FastAPI, File, Form, Header, HTTPException, Response, UploadFile, status
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
@@ -19,7 +19,14 @@ from backend.upload_utils import (
     task_asset_path,
     write_upload_failures,
 )
-from config import ASSET_URL_PREFIX, MAX_UPLOAD_PHOTOS, WORKER_SHARED_TOKEN, WORKER_TASK_ROOT
+from config import (
+    ASSET_URL_PREFIX,
+    DEFAULT_TASK_VERSION,
+    MAX_UPLOAD_PHOTOS,
+    WORKER_SHARED_TOKEN,
+    WORKER_TASK_ROOT,
+    normalize_task_version,
+)
 from services.asset_store import TaskAssetStore
 from services.pipeline_service import MemoryPipelineService
 from utils import load_json, save_json
@@ -35,6 +42,7 @@ UPLOAD_BATCH_MAX_FILES = 50
 class TaskStartPayload(BaseModel):
     max_photos: int = MAX_UPLOAD_PHOTOS
     use_cache: bool = False
+    version: str = DEFAULT_TASK_VERSION
 
 
 def _require_internal_token(authorization: str | None = Header(default=None)) -> None:
@@ -90,15 +98,28 @@ def _build_asset_manifest(task_dir: Path) -> dict:
     }
 
 
-def _run_pipeline_task(task_id: str, max_photos: int, use_cache: bool) -> None:
+def _run_pipeline_task(task_id: str, max_photos: int, use_cache: bool, task_version: str) -> None:
     task_dir = _task_dir(task_id)
 
     def progress_callback(stage: str, payload: dict) -> None:
         _update_status(task_id, status="running", stage=stage, progress=payload, worker_status="running")
 
     try:
-        _update_status(task_id, status="running", stage="starting", progress=None, error=None, worker_status="running")
-        result = MemoryPipelineService(task_id=task_id, task_dir=str(task_dir), asset_store=asset_store).run(
+        _update_status(
+            task_id,
+            status="running",
+            stage="starting",
+            progress=None,
+            error=None,
+            worker_status="running",
+            version=task_version,
+        )
+        result = MemoryPipelineService(
+            task_id=task_id,
+            task_dir=str(task_dir),
+            asset_store=asset_store,
+            task_version=task_version,
+        ).run(
             max_photos=max_photos,
             use_cache=use_cache,
             progress_callback=progress_callback,
@@ -113,6 +134,7 @@ def _run_pipeline_task(task_id: str, max_photos: int, use_cache: bool) -> None:
             asset_manifest=_build_asset_manifest(task_dir),
             error=None,
             worker_status="running",
+            version=task_version,
         )
     except Exception as exc:
         _update_status(
@@ -145,10 +167,15 @@ def _existing_upload_failures(task_dir: Path) -> list[dict]:
 async def upload_task_batch(
     task_id: str,
     response: Response,
+    version: str = Form(DEFAULT_TASK_VERSION),
     files: List[UploadFile] = File(...),
     _: None = Depends(_require_internal_token),
 ):
     _apply_no_store_headers(response)
+    try:
+        task_version = normalize_task_version(version)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     if not files:
         raise HTTPException(status_code=400, detail="至少上传一张图片")
     if len(files) > UPLOAD_BATCH_MAX_FILES:
@@ -157,6 +184,8 @@ async def upload_task_batch(
     current = _read_status(task_id)
     if current.get("status") in {"queued", "running", "completed"}:
         raise HTTPException(status_code=409, detail="worker 任务已开始处理，不能继续追加上传")
+    if current and current.get("version") and current.get("version") != task_version:
+        raise HTTPException(status_code=409, detail="worker 任务版本已锁定，不能修改")
     task_dir = _task_dir(task_id)
     uploads_dir = task_dir / "uploads"
     uploads_dir.mkdir(parents=True, exist_ok=True)
@@ -215,6 +244,7 @@ async def upload_task_batch(
         "error": None,
         "worker_status": "running",
         "created_at": datetime.utcnow().isoformat(),
+        "version": task_version,
     }
     initial_status.update(
         {
@@ -223,6 +253,7 @@ async def upload_task_batch(
             "upload_count": len(uploads),
             "uploads": uploads,
             "error": None,
+            "version": task_version,
         }
     )
     _write_status(task_id, initial_status)
@@ -231,6 +262,7 @@ async def upload_task_batch(
         "task_id": task_id,
         "status": "uploading",
         "stage": "uploading",
+        "version": task_version,
         "upload_count": len(uploads),
         "uploads": uploads,
         "worker_status": "running",
@@ -254,14 +286,29 @@ def start_task(
         raise HTTPException(status_code=400, detail="请先上传图片，再开始处理")
     if current.get("status") in {"queued", "running", "completed"}:
         raise HTTPException(status_code=409, detail="worker 任务已开始或已完成")
+    try:
+        task_version = normalize_task_version(payload.version)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if current.get("version") and current.get("version") != task_version:
+        raise HTTPException(status_code=409, detail="worker 任务版本已锁定，不能修改")
 
     max_photos = min(max(1, int(payload.max_photos)), len(uploads), MAX_UPLOAD_PHOTOS)
-    _update_status(task_id, status="queued", stage="queued", progress=None, error=None, worker_status="running")
-    background_tasks.add_task(_run_pipeline_task, task_id, max_photos, payload.use_cache)
+    _update_status(
+        task_id,
+        status="queued",
+        stage="queued",
+        progress=None,
+        error=None,
+        worker_status="running",
+        version=task_version,
+    )
+    background_tasks.add_task(_run_pipeline_task, task_id, max_photos, payload.use_cache, task_version)
     return {
         "task_id": task_id,
         "status": "queued",
         "stage": "queued",
+        "version": task_version,
         "upload_count": len(uploads),
         "worker_status": "running",
     }

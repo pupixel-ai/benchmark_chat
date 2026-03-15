@@ -5,6 +5,9 @@ from typing import Dict, List, Optional, Sequence
 
 Embedding = Sequence[float]
 Keypoints = Sequence[Sequence[float]]
+PoseVector = Sequence[float]
+Landmark2D = Sequence[Sequence[float]]
+Landmark3D = Sequence[Sequence[float]]
 
 
 @dataclass(frozen=True)
@@ -13,6 +16,9 @@ class DetectedFace:
     score: float
     embedding: Embedding
     kps: Optional[Keypoints] = None
+    insight_pose: Optional[PoseVector] = None
+    insight_landmark_2d_106: Optional[Landmark2D] = None
+    insight_landmark_3d_68: Optional[Landmark3D] = None
 
 
 @dataclass(frozen=True)

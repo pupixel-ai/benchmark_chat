@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from config import (
+    DEFAULT_TASK_VERSION,
     FACE_DET_THRESHOLD,
     FACE_INDEX_PATH,
     FACE_MAX_SIDE,
@@ -21,16 +22,20 @@ from config import (
     FACE_OUTPUT_PATH,
     FACE_PROVIDERS,
     FACE_RECOGNITION_SRC_PATH,
+    FACE_SAME_PHOTO_MATCH_THRESHOLD,
     FACE_SIM_THRESHOLD,
     FACE_STATE_PATH,
+    TASK_VERSION_V0315,
 )
 from models import Person, Photo
 from services.face_precision import (
     aggregate_candidate_matches,
     compute_face_quality,
     decide_match,
+    filter_same_photo_candidates,
     load_strong_threshold,
 )
+from services.face_landmarks import FaceLandmarkAnalyzer
 from utils import load_json, save_json
 
 
@@ -61,6 +66,7 @@ class FaceRecognition:
         index_path: str = FACE_INDEX_PATH,
         output_path: str = FACE_OUTPUT_PATH,
         workspace_dir: Optional[str] = None,
+        task_version: str = DEFAULT_TASK_VERSION,
     ):
         PipelineConfig, FaceEngine, SimilarityIndexStore, load_image, resize_image = (
             _load_face_recognition_modules()
@@ -69,6 +75,9 @@ class FaceRecognition:
         self.index_path = index_path
         self.output_path = output_path
         self.workspace_dir = workspace_dir or os.getcwd()
+        self.task_version = task_version
+        self.pose_evidence_enabled = self.task_version == TASK_VERSION_V0315
+        self.same_photo_guard_enabled = self.task_version == TASK_VERSION_V0315
 
         self.config = PipelineConfig.from_args(
             input_dir=self.workspace_dir,
@@ -90,6 +99,8 @@ class FaceRecognition:
         self.min_quality_for_gray_zone = FACE_MATCH_MIN_QUALITY_GRAY_ZONE
         self.high_quality_threshold = FACE_MATCH_HIGH_QUALITY_THRESHOLD
         self.match_top_k = FACE_MATCH_TOP_K
+        self.same_photo_match_threshold = FACE_SAME_PHOTO_MATCH_THRESHOLD
+        self.landmark_analyzer = FaceLandmarkAnalyzer(enabled=self.pose_evidence_enabled)
 
         self.state = self._load_state()
         self.faiss_person_map = {
@@ -127,6 +138,12 @@ class FaceRecognition:
                 "weak_threshold": self.weak_threshold,
                 "margin_threshold": self.margin_threshold,
                 "match_top_k": self.match_top_k,
+                "task_version": self.task_version,
+                "landmark_source": (
+                    "mediapipe-first-with-insightface-fallback"
+                    if self.pose_evidence_enabled
+                    else "disabled_for_v0312"
+                ),
                 "index_path": self.index_path,
             },
         }
@@ -233,6 +250,20 @@ class FaceRecognition:
                 continue
 
             quality = compute_face_quality(raw_image.pixels, bbox["bbox_xywh"])
+            if self.pose_evidence_enabled:
+                pose = self.landmark_analyzer.analyze_face(
+                    raw_image.pixels,
+                    bbox["bbox_xywh"],
+                    insight_pose=detected_face.insight_pose,
+                    insight_landmark_2d_106=detected_face.insight_landmark_2d_106,
+                    insight_landmark_3d_68=detected_face.insight_landmark_3d_68,
+                )
+            else:
+                pose = self.landmark_analyzer.analyze_face(raw_image.pixels, bbox["bbox_xywh"])
+            if pose.get("pose_bucket") in {"left_profile", "right_profile"}:
+                quality["quality_flags"] = sorted(
+                    set([*quality["quality_flags"], "profile_face"])
+                )
             search_matches = self.index_store.search_many(
                 detected_face.embedding,
                 pending_embeddings=pending_embeddings,
@@ -243,6 +274,12 @@ class FaceRecognition:
                 self.faiss_person_map,
                 pending_person_map,
             )
+            if self.same_photo_guard_enabled:
+                candidate_summaries = filter_same_photo_candidates(
+                    candidate_summaries,
+                    seen_persons_in_photo,
+                    same_photo_match_threshold=self.same_photo_match_threshold,
+                )
             match_decision = decide_match(
                 candidate_summaries,
                 float(quality["quality_score"]),
@@ -250,6 +287,8 @@ class FaceRecognition:
                 weak_threshold=self.weak_threshold,
                 margin_threshold=self.margin_threshold,
                 min_quality_for_gray_zone=self.min_quality_for_gray_zone,
+                pose_bucket=str(pose.get("pose_bucket") or "unknown"),
+                pose_yaw=float(pose["pose_yaw"]) if pose.get("pose_yaw") is not None else None,
             )
 
             person_id = match_decision.get("person_id")
@@ -275,6 +314,13 @@ class FaceRecognition:
                 "quality_flags": list(quality["quality_flags"]),
                 "match_decision": str(match_decision["decision"]),
                 "match_reason": str(match_decision["reason"]),
+                "pose_yaw": pose.get("pose_yaw"),
+                "pose_pitch": pose.get("pose_pitch"),
+                "pose_roll": pose.get("pose_roll"),
+                "pose_bucket": pose.get("pose_bucket"),
+                "eye_visibility_ratio": pose.get("eye_visibility_ratio"),
+                "landmark_detected": pose.get("landmark_detected"),
+                "landmark_source": pose.get("landmark_source"),
             }
             faces_output.append(face_output)
 
@@ -297,6 +343,9 @@ class FaceRecognition:
             )
             if float(quality["quality_score"]) >= self.high_quality_threshold:
                 person_state["high_quality_face_count"] += 1
+            pose_counts = person_state.setdefault("pose_counts", {})
+            pose_bucket = str(pose.get("pose_bucket") or "unknown")
+            pose_counts[pose_bucket] = int(pose_counts.get(pose_bucket, 0)) + 1
             if person_id not in seen_persons_in_photo:
                 seen_persons_in_photo.add(person_id)
                 person_state["photo_count"] += 1

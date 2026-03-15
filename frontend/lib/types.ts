@@ -12,6 +12,13 @@ export type FaceItem = {
   quality_flags?: string[];
   match_decision?: string | null;
   match_reason?: string | null;
+  pose_yaw?: number | null;
+  pose_pitch?: number | null;
+  pose_roll?: number | null;
+  pose_bucket?: string | null;
+  eye_visibility_ratio?: number | null;
+  landmark_detected?: boolean;
+  landmark_source?: string | null;
   is_inaccurate?: boolean;
   comment_text?: string;
 };
@@ -49,6 +56,13 @@ export type PersonGroupImage = {
   quality_flags?: string[];
   match_decision?: string | null;
   match_reason?: string | null;
+  pose_yaw?: number | null;
+  pose_pitch?: number | null;
+  pose_roll?: number | null;
+  pose_bucket?: string | null;
+  eye_visibility_ratio?: number | null;
+  landmark_detected?: boolean;
+  landmark_source?: string | null;
   is_inaccurate?: boolean;
   comment_text?: string;
   is_abandoned?: boolean;
@@ -184,6 +198,7 @@ export type TaskResult = {
 export type TaskState = {
   task_id: string;
   user_id?: string | null;
+  version?: string | null;
   status: "draft" | "uploading" | "queued" | "running" | "completed" | "failed";
   stage: string;
   created_at: string;
@@ -212,6 +227,9 @@ export type AuthResponse = {
 
 export type HealthResponse = {
   status: string;
+  app_version: string;
+  default_task_version: string;
+  available_task_versions: string[];
   frontend_origin: string;
   max_upload_photos: number;
   self_registration_enabled?: boolean;

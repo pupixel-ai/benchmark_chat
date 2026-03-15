@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Callable, Dict, List, Optional
 
 from backend.face_review_store import FaceReviewStore
-from config import FACE_MIN_SIZE, MAX_UPLOAD_PHOTOS
+from config import DEFAULT_TASK_VERSION, FACE_MIN_SIZE, MAX_UPLOAD_PHOTOS, TASK_VERSION_V0315
 from services.asset_store import TaskAssetStore
 from services.face_recognition import FaceRecognition
 from services.image_processor import ImageProcessor
@@ -25,12 +25,14 @@ class MemoryPipelineService:
         asset_store: Optional[TaskAssetStore] = None,
         user_id: Optional[str] = None,
         face_review_store: Optional[FaceReviewStore] = None,
+        task_version: str = DEFAULT_TASK_VERSION,
     ):
         self.task_id = task_id
         self.task_dir = Path(task_dir)
         self.asset_store = asset_store or TaskAssetStore()
         self.user_id = user_id
         self.face_review_store = face_review_store or FaceReviewStore()
+        self.task_version = task_version
 
         self.upload_dir = self.task_dir / "uploads"
         self.cache_dir = self.task_dir / "cache"
@@ -47,6 +49,7 @@ class MemoryPipelineService:
             index_path=str(self.cache_dir / "faces.index"),
             output_path=str(self.cache_dir / "face_recognition_output.json"),
             workspace_dir=str(self.task_dir),
+            task_version=self.task_version,
         )
         self.initial_upload_failures = self._load_upload_failures()
         self.failed_images: List[Dict] = list(self.initial_upload_failures)
@@ -94,8 +97,10 @@ class MemoryPipelineService:
 
         detailed_output = {
             "task_id": self.task_id,
+            "version": self.task_version,
             "generated_at": datetime.now().isoformat(),
             "summary": {
+                "task_version": self.task_version,
                 "total_uploaded": self._count_uploaded_files(),
                 "loaded_images": len(photos),
                 "failed_images": len(self.failed_images),
@@ -274,18 +279,14 @@ class MemoryPipelineService:
                 "boxed_format": "webp",
                 "recognition_input": "原始上传文件保持不变；HEIC 或带方向标签的图片会先生成标准朝向的 JPEG 工作图供识别使用",
             },
-            "precision_enhancements": [
-                "原始上传文件原样保留，后续可直接读取完整 EXIF",
-                "识别与画框统一使用方向归一化后的工作图，避免展示翻转与坐标错位",
-                f"最小人脸尺寸阈值调整为 {FACE_MIN_SIZE}px，提升小脸检出能力",
-            ],
+            "precision_enhancements": self._precision_enhancements(),
             "score_guide": {
                 "detection_score": "检测分数表示模型对该人脸框本身的置信度，越高越可信",
                 "similarity": "相似度表示这张脸与已入库人物特征的接近程度，越高越像同一个人",
             },
             "persons": [
                 {
-                    "person_id": group["person_id"],
+                "person_id": group["person_id"],
                     "is_primary": group.get("is_primary", False),
                     "photo_count": group.get("photo_count", 0),
                     "face_count": group.get("face_count", 0),
@@ -296,6 +297,20 @@ class MemoryPipelineService:
                 for group in person_groups
             ],
         }
+
+    def _precision_enhancements(self) -> List[str]:
+        base_items = [
+            "原始上传文件原样保留，后续可直接读取完整 EXIF",
+            "识别与画框统一使用方向归一化后的工作图，避免展示翻转与坐标错位",
+            f"最小人脸尺寸阈值调整为 {FACE_MIN_SIZE}px，提升小脸检出能力",
+        ]
+        if self.task_version == TASK_VERSION_V0315:
+            return [
+                *base_items,
+                "MediaPipe Face Landmarker 为每张脸补充 pose 诊断，MediaPipe 失败时回退到 InsightFace pose",
+                "同图人物复用保护已开启，避免多人合影被错误并入同一个 person_id",
+            ]
+        return base_items
 
     def _build_person_groups(
         self,
@@ -346,6 +361,13 @@ class MemoryPipelineService:
                         "quality_flags": face.get("quality_flags", []),
                         "match_decision": face.get("match_decision"),
                         "match_reason": face.get("match_reason"),
+                        "pose_yaw": face.get("pose_yaw"),
+                        "pose_pitch": face.get("pose_pitch"),
+                        "pose_roll": face.get("pose_roll"),
+                        "pose_bucket": face.get("pose_bucket"),
+                        "eye_visibility_ratio": face.get("eye_visibility_ratio"),
+                        "landmark_detected": face.get("landmark_detected", False),
+                        "landmark_source": face.get("landmark_source"),
                     })
 
                 if photo is not None and float(face["score"]) > group["_best_score"]:

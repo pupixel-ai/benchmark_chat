@@ -11,7 +11,7 @@ from sqlalchemy import delete, desc, or_, select
 
 from backend.db import Base, SessionLocal, engine, ensure_schema
 from backend.models import TaskRecord
-from config import TASKS_DIR
+from config import TASKS_DIR, TASK_VERSION_V0312
 
 
 class TaskStore:
@@ -31,6 +31,7 @@ class TaskStore:
         task_id: str,
         upload_count: int,
         user_id: str,
+        version: str,
         provision_local_dir: bool = True,
         status: str = "queued",
         stage: str = "queued",
@@ -43,6 +44,7 @@ class TaskStore:
         record = TaskRecord(
             task_id=task_id,
             user_id=user_id,
+            version=version,
             status=status,
             stage=stage,
             upload_count=upload_count,
@@ -227,6 +229,7 @@ class TaskStore:
         return {
             "task_id": record.task_id,
             "user_id": record.user_id,
+            "version": record.version or TASK_VERSION_V0312,
             "status": record.status,
             "stage": record.stage,
             "upload_count": record.upload_count,

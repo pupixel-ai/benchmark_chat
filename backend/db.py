@@ -6,7 +6,7 @@ from __future__ import annotations
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import declarative_base, sessionmaker
 
-from config import DATABASE_URL, SQL_ECHO
+from config import DATABASE_URL, SQL_ECHO, TASK_VERSION_V0312
 
 
 engine = create_engine(
@@ -37,6 +37,7 @@ def ensure_schema() -> None:
     nullable_suffix = "" if DATABASE_URL.startswith("sqlite") else " NULL"
 
     add_task_column("user_id", f"VARCHAR(64){nullable_suffix}")
+    add_task_column("version", f"VARCHAR(16){nullable_suffix}")
     add_task_column("result_summary", f"JSON{nullable_suffix}")
     add_task_column("asset_manifest", f"JSON{nullable_suffix}")
     add_task_column("worker_instance_id", f"VARCHAR(64){nullable_suffix}")
@@ -46,3 +47,8 @@ def ensure_schema() -> None:
     add_task_column("expires_at", f"DATETIME{nullable_suffix}")
     add_task_column("deleted_at", f"DATETIME{nullable_suffix}")
     add_task_column("last_worker_sync_at", f"DATETIME{nullable_suffix}")
+    with engine.begin() as connection:
+        connection.execute(
+            text("UPDATE tasks SET version = :default_version WHERE version IS NULL"),
+            {"default_version": TASK_VERSION_V0312},
+        )

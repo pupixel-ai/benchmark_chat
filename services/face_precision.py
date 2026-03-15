@@ -10,6 +10,11 @@ from typing import Dict, Iterable, List, Optional
 import numpy as np
 
 from config import (
+    FACE_POSE_PROFILE_YAW_THRESHOLD,
+    FACE_PROFILE_RESCUE_DELTA,
+    FACE_PROFILE_RESCUE_MARGIN,
+    FACE_PROFILE_RESCUE_MIN_QUALITY,
+    FACE_SAME_PHOTO_MATCH_THRESHOLD,
     FACE_MATCH_MARGIN_THRESHOLD,
     FACE_MATCH_MIN_QUALITY_GRAY_ZONE,
     FACE_MATCH_THRESHOLD_PATH,
@@ -154,6 +159,11 @@ def decide_match(
     weak_threshold: Optional[float] = None,
     margin_threshold: float = FACE_MATCH_MARGIN_THRESHOLD,
     min_quality_for_gray_zone: float = FACE_MATCH_MIN_QUALITY_GRAY_ZONE,
+    pose_bucket: str | None = None,
+    pose_yaw: float | None = None,
+    profile_rescue_delta: float = FACE_PROFILE_RESCUE_DELTA,
+    profile_rescue_margin: float = FACE_PROFILE_RESCUE_MARGIN,
+    profile_rescue_min_quality: float = FACE_PROFILE_RESCUE_MIN_QUALITY,
 ) -> Dict[str, object]:
     weak_threshold = strong_threshold - FACE_MATCH_WEAK_DELTA if weak_threshold is None else weak_threshold
     if not candidates:
@@ -186,6 +196,28 @@ def decide_match(
             "runner_up_similarity": runner_up_similarity,
         }
 
+    if _should_allow_profile_rescue(
+        pose_bucket=pose_bucket,
+        pose_yaw=pose_yaw,
+        quality_score=quality_score,
+        best_similarity=best.best_similarity,
+        margin=margin,
+        strong_threshold=strong_threshold,
+        profile_rescue_delta=profile_rescue_delta,
+        profile_rescue_margin=profile_rescue_margin,
+        profile_rescue_min_quality=profile_rescue_min_quality,
+    ):
+        return {
+            "person_id": best.person_id,
+            "decision": "profile_rescue_match",
+            "reason": (
+                f"侧脸补救: best={best.best_similarity:.3f}, margin={margin:.3f}, "
+                f"quality={quality_score:.3f}, yaw={0.0 if pose_yaw is None else pose_yaw:.2f}"
+            ),
+            "best_similarity": best.best_similarity,
+            "runner_up_similarity": runner_up_similarity,
+        }
+
     if (
         quality_score >= min_quality_for_gray_zone
         and best.support_count >= 2
@@ -212,6 +244,47 @@ def decide_match(
         "best_similarity": best.best_similarity,
         "runner_up_similarity": runner_up_similarity,
     }
+
+
+def filter_same_photo_candidates(
+    candidates: Iterable[CandidateSummary],
+    seen_person_ids: Iterable[str],
+    *,
+    same_photo_match_threshold: float = FACE_SAME_PHOTO_MATCH_THRESHOLD,
+) -> List[CandidateSummary]:
+    seen = set(seen_person_ids)
+    if not seen:
+        return list(candidates)
+    return [
+        candidate
+        for candidate in candidates
+        if candidate.person_id not in seen or candidate.best_similarity >= same_photo_match_threshold
+    ]
+
+
+def _should_allow_profile_rescue(
+    *,
+    pose_bucket: str | None,
+    pose_yaw: float | None,
+    quality_score: float,
+    best_similarity: float,
+    margin: float,
+    strong_threshold: float,
+    profile_rescue_delta: float,
+    profile_rescue_margin: float,
+    profile_rescue_min_quality: float,
+) -> bool:
+    if pose_bucket not in {"left_profile", "right_profile"}:
+        return False
+    if pose_yaw is not None and abs(float(pose_yaw)) < FACE_POSE_PROFILE_YAW_THRESHOLD:
+        return False
+    if quality_score < profile_rescue_min_quality:
+        return False
+    if best_similarity < strong_threshold - profile_rescue_delta:
+        return False
+    if margin < profile_rescue_margin:
+        return False
+    return True
 
 
 def _clip01(value: float) -> float:

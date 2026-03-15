@@ -36,6 +36,7 @@ class TaskRecord(Base):
 
     task_id: Mapped[str] = mapped_column(String(64), primary_key=True)
     user_id: Mapped[str | None] = mapped_column(ForeignKey("users.user_id"), nullable=True, index=True)
+    version: Mapped[str | None] = mapped_column(String(16), nullable=True, index=True)
     status: Mapped[str] = mapped_column(String(32), nullable=False)
     stage: Mapped[str] = mapped_column(String(64), nullable=False)
     upload_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

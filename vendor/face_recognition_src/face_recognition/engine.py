@@ -13,7 +13,10 @@ class FaceEngine:
         self.config = config
         self._app = None
         self._recognition_model = None
+        self._landmark_2d_model = None
+        self._landmark_3d_model = None
         self._face_align = None
+        self._face_class = None
         self._applied_providers: tuple[str, ...] = ()
 
     def detect_and_embed(self, image: object) -> EngineResult:
@@ -49,12 +52,44 @@ class FaceEngine:
             except AttributeError:
                 vector = list(raw_embedding)
 
+            insight_pose = None
+            insight_landmark_2d_106 = None
+            insight_landmark_3d_68 = None
+            if self._face_class is not None:
+                face_obj = self._face_class(bbox=bbox[:4], kps=kps, det_score=score)
+                try:
+                    if self._landmark_2d_model is not None:
+                        self._landmark_2d_model.get(image, face_obj)
+                    if self._landmark_3d_model is not None:
+                        self._landmark_3d_model.get(image, face_obj)
+                except Exception:
+                    face_obj = None
+                if face_obj is not None:
+                    pose_value = getattr(face_obj, "pose", None)
+                    if pose_value is not None:
+                        insight_pose = (
+                            pose_value.tolist() if hasattr(pose_value, "tolist") else list(pose_value)
+                        )
+                    landmark_2d = getattr(face_obj, "landmark_2d_106", None)
+                    if landmark_2d is not None:
+                        insight_landmark_2d_106 = (
+                            landmark_2d.tolist() if hasattr(landmark_2d, "tolist") else landmark_2d
+                        )
+                    landmark_3d = getattr(face_obj, "landmark_3d_68", None)
+                    if landmark_3d is not None:
+                        insight_landmark_3d_68 = (
+                            landmark_3d.tolist() if hasattr(landmark_3d, "tolist") else landmark_3d
+                        )
+
             faces.append(
                 DetectedFace(
                     bbox=[float(value) for value in bbox[:4]],
                     score=score,
                     embedding=l2_normalize(vector),
                     kps=kps.tolist() if hasattr(kps, "tolist") else kps,
+                    insight_pose=insight_pose,
+                    insight_landmark_2d_106=insight_landmark_2d_106,
+                    insight_landmark_3d_68=insight_landmark_3d_68,
                 )
             )
 
@@ -73,6 +108,7 @@ class FaceEngine:
 
         try:
             from insightface.app import FaceAnalysis  # type: ignore
+            from insightface.app.common import Face  # type: ignore
             from insightface.utils import face_align  # type: ignore
         except ImportError as exc:
             raise RuntimeError(
@@ -92,6 +128,15 @@ class FaceEngine:
         if recognition_model is None:
             raise RuntimeError("unable to locate an InsightFace recognition model")
 
+        landmark_2d_model = None
+        landmark_3d_model = None
+        for model in getattr(app, "models", {}).values():
+            task_name = getattr(model, "taskname", "")
+            if task_name == "landmark_2d_106" and hasattr(model, "get"):
+                landmark_2d_model = model
+            elif task_name == "landmark_3d_68" and hasattr(model, "get"):
+                landmark_3d_model = model
+
         providers = tuple(self.config.providers)
         session = getattr(recognition_model, "session", None)
         if session is not None and hasattr(session, "get_providers"):
@@ -102,5 +147,8 @@ class FaceEngine:
 
         self._app = app
         self._recognition_model = recognition_model
+        self._landmark_2d_model = landmark_2d_model
+        self._landmark_3d_model = landmark_3d_model
         self._face_align = face_align
+        self._face_class = Face
         self._applied_providers = providers

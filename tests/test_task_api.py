@@ -58,6 +58,7 @@ class TaskApiTests(unittest.TestCase):
         self.assertEqual(create_response.status_code, 200)
         task_id = create_response.json()["task_id"]
         self.task_ids.append(task_id)
+        self.assertEqual(create_response.json()["version"], "v0315")
 
         batch_response = self.client.post(
             f"/api/tasks/{task_id}/upload-batches",
@@ -69,10 +70,12 @@ class TaskApiTests(unittest.TestCase):
         self.assertEqual(batch_response.status_code, 200)
         self.assertEqual(batch_response.json()["status"], "uploading")
         self.assertEqual(batch_response.json()["upload_count"], 2)
+        self.assertEqual(batch_response.json()["version"], "v0315")
 
         task = task_store.get_task(task_id, user_id=self.user_id)
         self.assertIsNotNone(task)
         assert task is not None
+        self.assertEqual(task["version"], "v0315")
         self.assertEqual(len(task.get("uploads") or []), 2)
         self.assertTrue((task_store.task_dir(task_id) / "uploads").exists())
         self.assertTrue(all(upload.get("source_hash") for upload in task["uploads"]))
@@ -85,7 +88,71 @@ class TaskApiTests(unittest.TestCase):
 
         self.assertEqual(start_response.status_code, 200)
         self.assertEqual(start_response.json()["status"], "queued")
-        run_pipeline.assert_called_once_with(task_id, self.user_id, 2, False)
+        self.assertEqual(start_response.json()["version"], "v0315")
+        run_pipeline.assert_called_once_with(task_id, self.user_id, 2, False, "v0315")
+
+    def test_create_task_accepts_explicit_version_and_rejects_invalid_values(self) -> None:
+        create_response = self.client.post("/api/tasks", json={"version": "v0312"})
+        self.assertEqual(create_response.status_code, 200)
+        payload = create_response.json()
+        self.task_ids.append(payload["task_id"])
+        self.assertEqual(payload["version"], "v0312")
+
+        task = task_store.get_task(payload["task_id"], user_id=self.user_id)
+        self.assertIsNotNone(task)
+        assert task is not None
+        self.assertEqual(task["version"], "v0312")
+
+        invalid_response = self.client.post("/api/tasks", json={"version": "v9999"})
+        self.assertEqual(invalid_response.status_code, 400)
+        self.assertIn("不支持的任务版本", invalid_response.json()["detail"])
+
+    def test_health_reports_available_task_versions(self) -> None:
+        response = self.client.get("/api/health")
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["app_version"], "v0315")
+        self.assertEqual(payload["default_task_version"], "v0315")
+        self.assertEqual(payload["available_task_versions"], ["v0312", "v0315"])
+
+    def test_legacy_task_without_version_is_serialized_as_v0312(self) -> None:
+        task_id = uuid.uuid4().hex
+        self.task_ids.append(task_id)
+        task_dir = task_store.task_dir(task_id)
+        task_dir.mkdir(parents=True, exist_ok=True)
+        with SessionLocal() as session:
+            session.add(
+                TaskRecord(
+                    task_id=task_id,
+                    user_id=self.user_id,
+                    version=None,
+                    status="completed",
+                    stage="completed",
+                    upload_count=0,
+                    task_dir=str(task_dir),
+                    progress=None,
+                    uploads=[],
+                    result=None,
+                    result_summary=None,
+                    asset_manifest=None,
+                    error=None,
+                    worker_instance_id=None,
+                    worker_private_ip=None,
+                    worker_status=None,
+                    delete_state=None,
+                    created_at=datetime.utcnow(),
+                    updated_at=datetime.utcnow(),
+                    expires_at=None,
+                    deleted_at=None,
+                    last_worker_sync_at=None,
+                )
+            )
+            session.commit()
+
+        task = task_store.get_task(task_id, user_id=self.user_id)
+        self.assertIsNotNone(task)
+        assert task is not None
+        self.assertEqual(task["version"], "v0312")
 
     def test_review_and_policy_are_merged_into_task_detail(self) -> None:
         create_response = self.client.post("/api/tasks")

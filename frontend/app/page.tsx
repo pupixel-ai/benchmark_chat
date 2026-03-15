@@ -21,6 +21,9 @@ const MAX_BATCH_FILES = 50;
 const MAX_BATCH_BYTES = 64 * 1024 * 1024;
 const GALLERY_PREVIEW_LIMIT = 120;
 const FACE_RECOGNITION_STAGES = new Set(["queued", "starting", "loading", "converting", "face_recognition"]);
+const FALLBACK_TASK_VERSIONS = ["v0315", "v0312"];
+const FALLBACK_DEFAULT_TASK_VERSION = FALLBACK_TASK_VERSIONS[0];
+const LEGACY_TASK_VERSION = FALLBACK_TASK_VERSIONS[FALLBACK_TASK_VERSIONS.length - 1];
 
 type PendingUpload = {
   id: string;
@@ -34,6 +37,12 @@ type GalleryCard = {
   filename: string;
   imageUrl: string | null;
   meta?: string;
+};
+
+type TaskGroup = {
+  key: string;
+  label: string;
+  tasks: TaskState[];
 };
 
 const statusLabelMap: Record<TaskState["status"], string> = {
@@ -112,6 +121,57 @@ function formatTaskTime(value?: string) {
   }
 }
 
+function formatTaskDate(value?: string) {
+  if (!value) {
+    return "";
+  }
+  try {
+    return new Intl.DateTimeFormat("en-US", {
+      month: "2-digit",
+      day: "2-digit",
+      year: "numeric"
+    }).format(new Date(value));
+  } catch {
+    return value;
+  }
+}
+
+function startOfLocalDay(value: Date) {
+  return new Date(value.getFullYear(), value.getMonth(), value.getDate()).getTime();
+}
+
+function taskDayDifference(value?: string) {
+  if (!value) {
+    return null;
+  }
+  const target = new Date(value);
+  if (Number.isNaN(target.getTime())) {
+    return null;
+  }
+  const todayStart = startOfLocalDay(new Date());
+  const targetStart = startOfLocalDay(target);
+  return Math.max(0, Math.round((todayStart - targetStart) / (24 * 60 * 60 * 1000)));
+}
+
+function taskGroupLabel(value?: string) {
+  const difference = taskDayDifference(value);
+  if (difference === 0) {
+    return "今天";
+  }
+  if (difference !== null && difference >= 1 && difference <= 3) {
+    return `${difference}天前`;
+  }
+  return formatTaskDate(value);
+}
+
+function taskGroupKey(value?: string) {
+  const difference = taskDayDifference(value);
+  if (difference !== null && difference <= 3) {
+    return `recent-${difference}`;
+  }
+  return `date-${formatTaskDate(value)}`;
+}
+
 function taskCreatedAtRank(task: TaskState) {
   const timestamp = Date.parse(task.created_at);
   return Number.isFinite(timestamp) ? timestamp : 0;
@@ -119,6 +179,24 @@ function taskCreatedAtRank(task: TaskState) {
 
 function sortTasksByCreatedAt(tasks: TaskState[]) {
   return [...tasks].sort((left, right) => taskCreatedAtRank(right) - taskCreatedAtRank(left));
+}
+
+function groupTasksByCreatedAt(tasks: TaskState[]) {
+  const groups = new Map<string, TaskGroup>();
+  tasks.forEach((task) => {
+    const key = taskGroupKey(task.created_at);
+    const existing = groups.get(key);
+    if (existing) {
+      existing.tasks.push(task);
+      return;
+    }
+    groups.set(key, {
+      key,
+      label: taskGroupLabel(task.created_at),
+      tasks: [task]
+    });
+  });
+  return Array.from(groups.values());
 }
 
 function taskDisplayLabel(task: TaskState) {
@@ -676,6 +754,9 @@ export default function HomePage() {
   const [authBusy, setAuthBusy] = useState(true);
   const [registrationEnabled, setRegistrationEnabled] = useState(true);
   const [maxUploadPhotos, setMaxUploadPhotos] = useState(DEFAULT_MAX_UPLOADS);
+  const [availableTaskVersions, setAvailableTaskVersions] = useState<string[]>(FALLBACK_TASK_VERSIONS);
+  const [defaultTaskVersion, setDefaultTaskVersion] = useState(FALLBACK_DEFAULT_TASK_VERSION);
+  const [selectedTaskVersion, setSelectedTaskVersion] = useState(FALLBACK_DEFAULT_TASK_VERSION);
   const [tasks, setTasks] = useState<TaskState[]>([]);
   const [currentTask, setCurrentTask] = useState<TaskState | null>(null);
   const [isDraftView, setIsDraftView] = useState(false);
@@ -692,6 +773,12 @@ export default function HomePage() {
   const personGroups = currentTask?.result?.face_recognition?.person_groups ?? [];
   const faceReport = useMemo(() => normalizeFaceReport(currentTask?.result?.face_report ?? null), [currentTask]);
   const currentUploads = currentTask?.uploads ?? [];
+  const taskGroups = useMemo(() => groupTasksByCreatedAt(tasks), [tasks]);
+  const currentTaskVersion = currentTask?.version ?? LEGACY_TASK_VERSION;
+  const visibleTaskVersions = useMemo(() => Array.from(new Set([currentTaskVersion, ...availableTaskVersions])), [availableTaskVersions, currentTaskVersion]);
+  const currentStatusLabel = currentTask ? formatStatus(currentTask.status) : "";
+  const currentStageLabel = currentTask ? formatStage(currentTask.stage) : "";
+  const showCurrentStageLabel = Boolean(currentTask && currentStageLabel !== currentStatusLabel);
 
   useEffect(() => {
     return () => {
@@ -749,6 +836,14 @@ export default function HomePage() {
 
     const payload = (await response.json()) as HealthResponse;
     setMaxUploadPhotos(Number(payload.max_upload_photos ?? DEFAULT_MAX_UPLOADS));
+    const nextVersions =
+      Array.isArray(payload.available_task_versions) && payload.available_task_versions.length > 0
+        ? payload.available_task_versions
+        : FALLBACK_TASK_VERSIONS;
+    const nextDefaultVersion = payload.default_task_version ?? nextVersions[0] ?? FALLBACK_DEFAULT_TASK_VERSION;
+    setAvailableTaskVersions(nextVersions);
+    setDefaultTaskVersion(nextDefaultVersion);
+    setSelectedTaskVersion(nextDefaultVersion);
     const enabled = payload.self_registration_enabled !== false;
     setRegistrationEnabled(enabled);
     if (!enabled) {
@@ -948,7 +1043,12 @@ export default function HomePage() {
     let createdTaskId: string | null = null;
 
     try {
-      const response = await apiFetch(`${API_BASE}/api/tasks`, { method: "POST" });
+      const response = await apiFetch(`${API_BASE}/api/tasks`, {
+        method: "POST",
+        body: JSON.stringify({
+          version: selectedTaskVersion
+        })
+      });
 
       if (response.status === 401) {
         setAuthUser(null);
@@ -1141,6 +1241,7 @@ export default function HomePage() {
     setIsDraftView(true);
     setCurrentTask(null);
     setError(null);
+    setSelectedTaskVersion(defaultTaskVersion);
     setSelectedFiles([]);
     setCommentDrafts({});
     setExpandedComments({});
@@ -1225,7 +1326,7 @@ export default function HomePage() {
               </div>
             </div>
 
-            <div className="space-y-1 overflow-y-auto pr-1">
+            <div className="space-y-4 overflow-y-auto pr-1">
               {draftSelected ? (
                 <button
                   type="button"
@@ -1237,41 +1338,46 @@ export default function HomePage() {
                 </button>
               ) : null}
 
-              {tasks.map((task) => {
-                const active = !isDraftView && currentTask?.task_id === task.task_id;
-                const deleting = deletingTaskId === task.task_id;
-                return (
-                  <div
-                    key={task.task_id}
-                    className={`w-full rounded-[12px] px-2.5 py-3 text-left transition ${
-                      active ? "bg-white/75 shadow-sm" : "hover:bg-white/45"
-                    }`}
-                  >
-                    <div className="flex items-start gap-2">
-                      <button
-                        type="button"
-                        onClick={() => fetchTask(task.task_id).catch(() => null)}
-                        className="min-w-0 flex-1 text-left"
+              {taskGroups.map((group) => (
+                <section key={group.key} className="space-y-1">
+                  <p className="px-2.5 font-mono text-[11px] uppercase tracking-[0.18em] text-black/36">{group.label}</p>
+                  {group.tasks.map((task) => {
+                    const active = !isDraftView && currentTask?.task_id === task.task_id;
+                    const deleting = deletingTaskId === task.task_id;
+                    return (
+                      <div
+                        key={task.task_id}
+                        className={`w-full rounded-[12px] px-2.5 py-3 text-left transition ${
+                          active ? "bg-white/75 shadow-sm" : "hover:bg-white/45"
+                        }`}
                       >
-                        <p className="truncate text-sm font-medium text-ink">{taskDisplayLabel(task)}</p>
-                        <p className="mt-1 truncate text-xs text-black/45">
-                          {formatStatus(task.status)} · {formatTaskTime(task.created_at) || formatStage(task.stage)}
-                        </p>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void deleteTask(task)}
-                        disabled={deleting || (task.status !== "completed" && task.status !== "failed")}
-                        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-black/35 transition hover:bg-black/5 hover:text-black/60 disabled:cursor-not-allowed disabled:text-black/15"
-                        aria-label={`删除任务 ${taskDisplayLabel(task)}`}
-                        title={task.status === "completed" || task.status === "failed" ? "删除任务及其文件" : "任务处理中，暂不可删除"}
-                      >
-                        <X size={16} strokeWidth={2.3} />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
+                        <div className="flex items-start gap-2">
+                          <button
+                            type="button"
+                            onClick={() => fetchTask(task.task_id).catch(() => null)}
+                            className="min-w-0 flex-1 text-left"
+                          >
+                            <p className="truncate text-sm font-medium text-ink">{taskDisplayLabel(task)}</p>
+                            <p className="mt-1 truncate text-xs text-black/45">
+                              {formatStatus(task.status)} · {formatTaskTime(task.created_at) || formatStage(task.stage)}
+                            </p>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void deleteTask(task)}
+                            disabled={deleting || (task.status !== "completed" && task.status !== "failed")}
+                            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-black/35 transition hover:bg-black/5 hover:text-black/60 disabled:cursor-not-allowed disabled:text-black/15"
+                            aria-label={`删除任务 ${taskDisplayLabel(task)}`}
+                            title={task.status === "completed" || task.status === "failed" ? "删除任务及其文件" : "任务处理中，暂不可删除"}
+                          >
+                            <X size={16} strokeWidth={2.3} />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </section>
+              ))}
 
               {tasks.length === 0 && !draftSelected ? (
                 <div className="rounded-[12px] px-2.5 py-3 text-sm text-black/50">
@@ -1303,14 +1409,34 @@ export default function HomePage() {
                     ) : null}
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={isUploading}
-                    className="inline-flex items-center justify-center rounded-full bg-[#1f1a15] px-5 py-3 text-sm font-medium text-white transition hover:bg-[#2d251e] disabled:cursor-not-allowed disabled:bg-black/20"
-                  >
-                    选择图片并开始
-                  </button>
+                  <div className="flex flex-col items-start gap-3 md:items-end">
+                    <label className="w-full md:min-w-[180px]">
+                      <span className="mb-2 block font-mono text-[11px] uppercase tracking-[0.18em] text-black/42">
+                        版本
+                      </span>
+                      <select
+                        value={selectedTaskVersion}
+                        onChange={(event) => setSelectedTaskVersion(event.target.value)}
+                        disabled={isUploading}
+                        className="w-full rounded-[12px] border border-[#1f1a15] bg-white/85 px-4 py-2.5 text-base text-ink outline-none disabled:cursor-not-allowed disabled:bg-black/5"
+                      >
+                        {availableTaskVersions.map((version) => (
+                          <option key={version} value={version}>
+                            {version}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isUploading}
+                      className="inline-flex items-center justify-center rounded-full bg-[#1f1a15] px-5 py-3 text-sm font-medium text-white transition hover:bg-[#2d251e] disabled:cursor-not-allowed disabled:bg-black/20"
+                    >
+                      选择图片并开始
+                    </button>
+                  </div>
                 </div>
 
                 {isUploading ? (
@@ -1324,7 +1450,7 @@ export default function HomePage() {
             </>
           ) : currentTask ? (
             <section className="w-full rounded-[12px] border border-[#d8c9b7] bg-[rgba(250,246,239,0.92)] px-6 py-7 shadow-card">
-              <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+              <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
                 <div>
                   <p className="font-mono text-xs uppercase tracking-[0.24em] text-black/40">Current Task</p>
                   <h1 className="mt-4 font-display text-5xl leading-[1.06] tracking-tight text-ink md:text-6xl">{taskDisplayLabel(currentTask)}</h1>
@@ -1333,10 +1459,27 @@ export default function HomePage() {
                   </p>
                 </div>
 
-                <div className="rounded-[12px] border border-[#ddcebb] bg-white/70 px-5 py-4">
-                  <p className="font-mono text-xs uppercase tracking-[0.2em] text-black/42">状态</p>
-                  <p className="mt-2 text-xl font-semibold">{formatStatus(currentTask.status)}</p>
-                  <p className="mt-1 text-sm text-black/56">{formatStage(currentTask.stage)}</p>
+                <div className="flex flex-col items-start gap-3 lg:items-end">
+                  <label className="w-full lg:min-w-[190px]">
+                    <span className="sr-only">任务版本</span>
+                    <select
+                      value={currentTaskVersion}
+                      disabled
+                      className="w-full rounded-[12px] border border-[#1f1a15] bg-white/85 px-4 py-2.5 text-base text-ink outline-none disabled:cursor-not-allowed disabled:text-ink"
+                    >
+                      {visibleTaskVersions.map((version) => (
+                        <option key={version} value={version}>
+                          {version}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <div className="rounded-[12px] border border-[#ddcebb] bg-white/70 px-5 py-4">
+                    <p className="font-mono text-xs uppercase tracking-[0.2em] text-black/42">状态</p>
+                    <p className="mt-2 text-xl font-semibold">{currentStatusLabel}</p>
+                    {showCurrentStageLabel ? <p className="mt-1 text-sm text-black/56">{currentStageLabel}</p> : null}
+                  </div>
                 </div>
               </div>
             </section>
