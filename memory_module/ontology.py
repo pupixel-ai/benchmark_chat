@@ -137,20 +137,27 @@ def concept_metadata(canonical_name: str) -> Dict[str, object]:
     return dict(CANONICAL_CONCEPTS.get(canonical_name, {}))
 
 
-def normalize_concept(raw_text: str, *, preferred_type: Optional[str] = None) -> Optional[str]:
+def match_concepts(raw_text: str, *, preferred_type: Optional[str] = None) -> List[str]:
     normalized = str(raw_text or "").strip().lower()
     if not normalized:
-        return None
+        return []
 
+    matches: List[str] = []
     for canonical_name, payload in CANONICAL_CONCEPTS.items():
         if preferred_type and payload.get("concept_type") != preferred_type:
             continue
         aliases = [canonical_name, *[str(item).lower() for item in payload.get("aliases", [])]]
         if normalized in aliases:
-            return canonical_name
+            matches.append(canonical_name)
+            continue
         if any(alias in normalized or normalized in alias for alias in aliases):
-            return canonical_name
-    return None
+            matches.append(canonical_name)
+    return matches
+
+
+def normalize_concept(raw_text: str, *, preferred_type: Optional[str] = None) -> Optional[str]:
+    matches = match_concepts(raw_text, preferred_type=preferred_type)
+    return matches[0] if matches else None
 
 
 def suggest_candidate_concept(raw_text: str, *, concept_type: str, user_id: Optional[str] = None) -> Dict[str, object]:
@@ -172,7 +179,7 @@ def suggest_candidate_concept(raw_text: str, *, concept_type: str, user_id: Opti
 def collect_concepts(values: Iterable[str], *, preferred_type: Optional[str] = None) -> List[str]:
     concepts: List[str] = []
     for value in values:
-        concept = normalize_concept(value, preferred_type=preferred_type)
-        if concept and concept not in concepts:
-            concepts.append(concept)
+        for concept in match_concepts(value, preferred_type=preferred_type):
+            if concept not in concepts:
+                concepts.append(concept)
     return concepts

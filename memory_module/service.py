@@ -30,9 +30,14 @@ from memory_module.dto import (
     ScopeDTO,
     VLMPhotoObservationDTO,
 )
-from memory_module.embeddings import DEFAULT_EMBEDDING_MODEL, DEFAULT_EMBEDDING_VERSION, build_embedding_payload
+from memory_module.embeddings import (
+    DEFAULT_EMBEDDING_MODEL,
+    DEFAULT_EMBEDDING_VERSION,
+    EmbeddingProvider,
+    build_embedding_payload,
+)
 from memory_module.evaluation import ErrorBucketDTO, EvaluationRunDTO, MetricSnapshotDTO
-from memory_module.ontology import concept_metadata, normalize_concept, suggest_candidate_concept
+from memory_module.ontology import collect_concepts, concept_metadata, normalize_concept, suggest_candidate_concept
 from memory_module.records import (
     MilvusSegmentRecord,
     Neo4jConceptNodeRecord,
@@ -109,6 +114,7 @@ class MemoryModuleService:
         self.output_dir = self.task_dir / "output" / "memory"
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.scope_key = f"{self.user_id}:{self.task_id}:{self.pipeline_version or 'unknown'}"
+        self.embedder = EmbeddingProvider.from_config()
 
     def materialize(
         self,
@@ -815,26 +821,35 @@ class MemoryModuleService:
             for raw_value in [*session.activity_hints, str((session.location_hint or {}).get("name") or ""), session.summary_hint]:
                 if not raw_value:
                     continue
-                canonical = normalize_concept(raw_value)
-                if canonical:
-                    add_concept(canonical)
+                matched = collect_concepts([str(raw_value)])
+                if matched:
+                    for canonical in matched:
+                        add_concept(canonical)
                 elif len(str(raw_value).strip()) > 2:
                     add_candidate(str(raw_value), "context")
 
         for event in event_candidates:
-            for raw_value in [event.event_type, event.title, event.location, *event.tags]:
+            for raw_value in [
+                event.event_type,
+                event.title,
+                event.location,
+                event.description,
+                event.narrative_synthesis,
+                *event.tags,
+            ]:
                 if not raw_value:
                     continue
-                canonical = normalize_concept(str(raw_value))
-                if canonical:
-                    add_concept(canonical)
+                matched = collect_concepts([str(raw_value)])
+                if matched:
+                    for canonical in matched:
+                        add_concept(canonical)
                 elif len(str(raw_value).strip()) > 2:
                     add_candidate(str(raw_value), "event")
 
         for relationship in relationships:
             for raw_value in [relationship.relationship_type, relationship.label]:
-                canonical = normalize_concept(str(raw_value), preferred_type="relationship") or normalize_concept(str(raw_value))
-                if canonical:
+                matched = collect_concepts([str(raw_value)], preferred_type="relationship") or collect_concepts([str(raw_value)])
+                for canonical in matched:
                     add_concept(canonical)
 
         add_concept("recent_period")
@@ -1189,44 +1204,41 @@ class MemoryModuleService:
         return self._unique(refs)
 
     def _session_concepts(self, session) -> List[str]:
-        concepts = []
         raw_values = [*session.activity_hints, str((session.location_hint or {}).get("name") or "")]
-        for raw_value in raw_values:
-            concept = normalize_concept(raw_value)
-            if concept and concept not in concepts:
-                concepts.append(concept)
+        concepts = collect_concepts(raw_values)
         if not concepts and session.summary_hint:
-            fallback = normalize_concept(session.summary_hint)
-            if fallback:
-                concepts.append(fallback)
+            concepts = collect_concepts([session.summary_hint])
         return concepts
 
     def _event_concepts(self, event: EventCandidateDTO) -> List[str]:
-        concepts = []
-        raw_values = [event.event_type, event.title, event.location, *event.tags]
-        for raw_value in raw_values:
-            concept = normalize_concept(str(raw_value))
-            if concept and concept not in concepts:
-                concepts.append(concept)
-        return concepts
+        raw_values = [
+            event.event_type,
+            event.title,
+            event.location,
+            event.description,
+            event.narrative_synthesis,
+            *event.tags,
+        ]
+        return collect_concepts([str(raw_value) for raw_value in raw_values if raw_value])
 
     def _relationship_concepts(self, relationship: RelationshipHypothesisDTO) -> List[str]:
-        concepts = []
-        for raw_value in [relationship.relationship_type, relationship.label]:
-            concept = normalize_concept(str(raw_value), preferred_type="relationship") or normalize_concept(str(raw_value))
-            if concept and concept not in concepts:
-                concepts.append(concept)
+        concepts = collect_concepts(
+            [relationship.relationship_type, relationship.label],
+            preferred_type="relationship",
+        )
+        if not concepts:
+            concepts = collect_concepts([relationship.relationship_type, relationship.label])
         return concepts
 
     def _mood_concepts(self, mood: MoodStateHypothesisDTO) -> List[str]:
         return [mood.mood_label] if mood.mood_label else []
 
     def _period_concepts(self, period: PeriodHypothesisDTO) -> List[str]:
-        concepts = [period.period_type]
+        concepts = collect_concepts([period.period_type])
         if period.period_type == "college_period":
-            concepts.append("campus")
+            concepts.extend(concept for concept in collect_concepts(["campus"]) if concept not in concepts)
         if period.period_type == "job_period":
-            concepts.append("work")
+            concepts.extend(concept for concept in collect_concepts(["work"]) if concept not in concepts)
         return self._unique(concepts)
 
     def _period_session_uuids(self, period: PeriodHypothesisDTO, sessions: Sequence) -> List[str]:
@@ -1244,9 +1256,11 @@ class MemoryModuleService:
     def _embedding_props(self, search_text: str) -> Dict[str, Any]:
         return build_embedding_payload(
             search_text,
-            dim=32,
+            dim=self.embedder.dim,
             model=DEFAULT_EMBEDDING_MODEL,
             version=DEFAULT_EMBEDDING_VERSION,
+            embedder=self.embedder,
+            task_type="document",
         )
 
     def _build_materialization_bundle(

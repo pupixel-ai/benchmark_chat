@@ -158,6 +158,11 @@ MEMORY_MILVUS_TOKEN = os.getenv("MEMORY_MILVUS_TOKEN", "").strip()
 MEMORY_MILVUS_DB_NAME = os.getenv("MEMORY_MILVUS_DB_NAME", "").strip()
 MEMORY_MILVUS_COLLECTION = os.getenv("MEMORY_MILVUS_COLLECTION", "memory_segments").strip() or "memory_segments"
 MEMORY_MILVUS_VECTOR_DIM = int(os.getenv("MEMORY_MILVUS_VECTOR_DIM", "32"))
+MEMORY_REAL_EMBEDDINGS_ENABLED = os.getenv("MEMORY_REAL_EMBEDDINGS_ENABLED", "false").lower() == "true"
+MEMORY_EMBEDDING_PROVIDER = os.getenv("MEMORY_EMBEDDING_PROVIDER", "auto").strip().lower() or "auto"
+MEMORY_EMBEDDING_MODEL = os.getenv("MEMORY_EMBEDDING_MODEL", "").strip()
+MEMORY_EMBEDDING_VERSION = os.getenv("MEMORY_EMBEDDING_VERSION", "v1").strip() or "v1"
+MEMORY_EMBEDDING_TIMEOUT_SECONDS = float(os.getenv("MEMORY_EMBEDDING_TIMEOUT_SECONDS", "30"))
 
 # API配置 - 从环境变量读取
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")

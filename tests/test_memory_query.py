@@ -23,6 +23,11 @@ class MemoryQueryTests(unittest.TestCase):
             self.assertGreaterEqual(len(concert_answer["supporting_events"]), 1)
             self.assertIn("Live Concert Night", concert_answer["summary"])
 
+            recent_live_answer = query_service.answer(memory_payload, "最近去过哪些 live")["answer"]
+            self.assertEqual(recent_live_answer["answer_type"], "event_search")
+            self.assertIn("concert", recent_live_answer["resolved_concepts"])
+            self.assertGreaterEqual(len(recent_live_answer["supporting_events"]), 1)
+
             relationship_answer = query_service.answer(memory_payload, "帮我探索一下用户和父亲的关系")["answer"]
             self.assertEqual(relationship_answer["answer_type"], "relationship_explore")
             self.assertGreaterEqual(len(relationship_answer["supporting_relationships"]), 1)

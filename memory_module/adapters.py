@@ -26,7 +26,7 @@ from config import (
     MEMORY_REDIS_PREFIX,
     MEMORY_REDIS_URL,
 )
-from memory_module.embeddings import deterministic_vector
+from memory_module.embeddings import EmbeddingProvider
 from utils import save_json
 
 
@@ -307,6 +307,7 @@ class Neo4jStorageAdapter:
 class MilvusStorageAdapter:
     def __init__(self, user_id: str) -> None:
         self.user_id = user_id
+        self.embedder = EmbeddingProvider.from_config(dim=MEMORY_MILVUS_VECTOR_DIM)
 
     def publish(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         if not MEMORY_MILVUS_URI:
@@ -406,6 +407,7 @@ class MilvusStorageAdapter:
         text = str(segment.get("text") or "")
         sparse_terms = ",".join(segment.get("sparse_terms", [])[:64])
         evidence_refs_json = json.dumps(segment.get("evidence_refs", []), ensure_ascii=False)
+        embedding, embedding_source, _ = self.embedder.embed_text(text, task_type="document")
         return {
             "segment_uuid": str(segment.get("segment_uuid")),
             "user_id": self.user_id,
@@ -418,11 +420,8 @@ class MilvusStorageAdapter:
             "segment_type": str(segment.get("segment_type") or ""),
             "text": text[:8192],
             "sparse_terms": sparse_terms[:2048],
-            "embedding_source": str(segment.get("embedding_source") or "textual_stub"),
+            "embedding_source": str(segment.get("embedding_source") or embedding_source),
             "importance_score": float(segment.get("importance_score") or 0.0),
             "evidence_refs_json": evidence_refs_json[:8192],
-            "vector": self._deterministic_vector(text, MEMORY_MILVUS_VECTOR_DIM),
+            "vector": embedding,
         }
-
-    def _deterministic_vector(self, text: str, dim: int) -> List[float]:
-        return deterministic_vector(text, dim)

@@ -16,7 +16,7 @@ from memory_module.dto import (
     QueryDSLDTO,
     TimeScopeDTO,
 )
-from memory_module.embeddings import cosine_similarity, deterministic_vector
+from memory_module.embeddings import EmbeddingProvider, cosine_similarity
 from memory_module.ontology import canonical_concept_names, concept_metadata, normalize_concept
 
 
@@ -38,9 +38,15 @@ NODE_GROUP_ID_FIELDS = {
 class MemoryQueryService:
     """Transforms natural-language agent questions into graph-backed answers."""
 
-    def __init__(self, now: Optional[datetime] = None, vector_dim: int = 32) -> None:
+    def __init__(
+        self,
+        now: Optional[datetime] = None,
+        vector_dim: int = 32,
+        embedder: Optional[EmbeddingProvider] = None,
+    ) -> None:
         self.now = now or datetime.now()
-        self.vector_dim = vector_dim
+        self.embedder = embedder or EmbeddingProvider.from_config(dim=vector_dim)
+        self.vector_dim = self.embedder.dim
 
     def answer(
         self,
@@ -251,7 +257,7 @@ class MemoryQueryService:
         operator_plan: OperatorPlanDTO,
     ) -> List[EntityRecallCandidateDTO]:
         candidates: List[EntityRecallCandidateDTO] = []
-        query_vector = deterministic_vector(question, self.vector_dim)
+        query_vector = self.embedder.embed_query(question)
 
         for concept_node in indexes["nodes_by_group"].get("concepts", []):
             props = concept_node.get("properties", {})
@@ -359,7 +365,11 @@ class MemoryQueryService:
             props = event.get("properties", {})
             if props.get("user_id") != indexes["user_id"]:
                 continue
-            if time_scope.start_at and not self._in_time_scope(props.get("started_at"), time_scope):
+            if time_scope.start_at and not self._overlaps_time_scope(
+                props.get("started_at"),
+                props.get("ended_at") or props.get("started_at"),
+                time_scope,
+            ):
                 continue
             event_concepts = set(self._outgoing_concepts(indexes, event.get("event_uuid")))
             normalized_event_type = str(props.get("normalized_event_type") or props.get("event_type") or "")

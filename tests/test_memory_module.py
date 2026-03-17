@@ -7,10 +7,17 @@ from pathlib import Path
 from unittest.mock import patch
 
 from memory_module import MemoryModuleService
+from memory_module.ontology import collect_concepts
 from models import Event, Photo, Relationship
 
 
 class MemoryModuleTests(unittest.TestCase):
+    def test_collect_concepts_returns_multiple_matches_from_same_text(self) -> None:
+        concepts = collect_concepts(["深夜聚会后又去拍了演唱会海报"])
+
+        self.assertIn("concert", concepts)
+        self.assertIn("leisure", concepts)
+
     def test_materialize_builds_sequences_and_profile_fields(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             task_dir = Path(tmpdir)

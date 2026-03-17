@@ -6,6 +6,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from memory_module.adapters import MemoryStoragePublisher, MilvusStorageAdapter, Neo4jStorageAdapter
+from memory_module.embeddings import EmbeddingProvider
 
 
 class MemoryAdapterTests(unittest.TestCase):
@@ -25,16 +26,20 @@ class MemoryAdapterTests(unittest.TestCase):
             self.assertEqual(report["milvus"]["status"], "skipped")
             self.assertTrue(Path(report["report_path"]).exists())
 
-    def test_milvus_adapter_produces_deterministic_stub_vectors(self) -> None:
-        adapter = MilvusStorageAdapter(user_id="user_alpha")
-        first = adapter._deterministic_vector("hello world", 8)
-        second = adapter._deterministic_vector("hello world", 8)
-        third = adapter._deterministic_vector("another text", 8)
+    def test_embedding_provider_falls_back_to_deterministic_stub(self) -> None:
+        provider = EmbeddingProvider.from_config(dim=8)
+        first, source_first, model_first = provider.embed_text("hello world")
+        second, source_second, model_second = provider.embed_text("hello world")
+        third, _, _ = provider.embed_text("another text")
 
         self.assertEqual(first, second)
         self.assertNotEqual(first, third)
         self.assertEqual(len(first), 8)
         self.assertAlmostEqual(sum(value * value for value in first), 1.0, places=3)
+        self.assertEqual(source_first, "textual_stub")
+        self.assertEqual(source_second, "textual_stub")
+        self.assertEqual(model_first, "textual_stub_v1")
+        self.assertEqual(model_second, "textual_stub_v1")
 
     def test_milvus_adapter_publishes_to_local_db_uri(self) -> None:
         try:
