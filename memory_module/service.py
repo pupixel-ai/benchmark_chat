@@ -165,6 +165,7 @@ class MemoryModuleService:
             photos=photos_dto,
             sessions=sequences.sessions,
         )
+        event_candidates = self._merge_event_candidates(event_candidates)
         prior_storage = self._load_prior_storage()
         place_anchors = self._build_place_anchors(sequences.sessions)
         concept_catalog = self._build_concepts(
@@ -507,6 +508,69 @@ class MemoryModuleService:
             if refined_tags:
                 event.tags = self._unique([*event.tags, *refined_tags])
 
+    def _merge_event_candidates(
+        self,
+        event_candidates: Sequence[EventCandidateDTO],
+    ) -> List[EventCandidateDTO]:
+        merged: List[EventCandidateDTO] = []
+        for event in sorted(event_candidates, key=lambda item: (item.started_at, item.event_uuid)):
+            matched = None
+            for existing in merged:
+                if self._should_merge_events(existing, event):
+                    matched = existing
+                    break
+            if matched is None:
+                merged.append(event)
+                continue
+            self._merge_event_into_target(matched, event)
+        return merged
+
+    def _should_merge_events(
+        self,
+        left: EventCandidateDTO,
+        right: EventCandidateDTO,
+    ) -> bool:
+        left_sessions = set(left.session_uuids or left.session_ids)
+        right_sessions = set(right.session_uuids or right.session_ids)
+        if not left_sessions or not right_sessions:
+            return False
+        if not left_sessions.intersection(right_sessions):
+            return False
+        live_music_types = {"concert", "music_live_event", "music_festival_performance"}
+        left_type = normalize_concept(left.event_type, preferred_type="event") or left.event_type
+        right_type = normalize_concept(right.event_type, preferred_type="event") or right.event_type
+        if left_type not in live_music_types or right_type not in live_music_types:
+            return False
+        return True
+
+    def _merge_event_into_target(
+        self,
+        target: EventCandidateDTO,
+        incoming: EventCandidateDTO,
+    ) -> None:
+        target.started_at = min(filter(None, [target.started_at, incoming.started_at]), default=target.started_at)
+        target.ended_at = max(filter(None, [target.ended_at, incoming.ended_at]), default=target.ended_at)
+        target.time_range = self._format_event_time_range(target.started_at, target.ended_at)
+        target.confidence = max(float(target.confidence or 0.0), float(incoming.confidence or 0.0))
+        target.event_type = self._preferred_event_type(target.event_type, incoming.event_type)
+        target.title = self._preferred_event_title(target.title, incoming.title, event_type=target.event_type)
+        target.location = self._preferred_text(target.location, incoming.location)
+        target.description = self._join_event_text(target.description, incoming.description)
+        target.narrative_synthesis = self._join_event_text(target.narrative_synthesis, incoming.narrative_synthesis)
+        target.participant_face_person_ids = self._unique([*target.participant_face_person_ids, *incoming.participant_face_person_ids])
+        target.participant_person_uuids = self._unique([*target.participant_person_uuids, *incoming.participant_person_uuids])
+        target.photo_ids = self._unique([*target.photo_ids, *incoming.photo_ids])
+        target.photo_uuids = self._unique([*target.photo_uuids, *incoming.photo_uuids])
+        target.session_ids = self._unique([*target.session_ids, *incoming.session_ids])
+        target.session_uuids = self._unique([*target.session_uuids, *incoming.session_uuids])
+        target.tags = self._unique([*target.tags, *incoming.tags])
+        target.evidence_refs = self._unique_refs([*target.evidence_refs, *incoming.evidence_refs])
+        target.persona_evidence = self._merge_persona_evidence(target.persona_evidence, incoming.persona_evidence)
+        target.upstream_ref = {
+            "object_type": "merged_event_candidate",
+            "object_id": target.event_id,
+        }
+
     def _infer_event_normalization(
         self,
         event: EventCandidateDTO,
@@ -562,13 +626,13 @@ class MemoryModuleService:
         refined_title = current_title
         if normalized_event_type == "music_festival_performance":
             if artist_hint:
-                refined_title = f"有{artist_hint}的音乐节"
+                refined_title = f"{artist_hint}相关演出活动"
             elif generic_title or not current_title:
-                refined_title = "音乐节活动记录"
+                refined_title = "相关演出活动记录"
         elif normalized_event_type == "concert" and (generic_title or not current_title):
-            refined_title = f"{artist_hint}相关演出活动" if artist_hint else "现场演出活动记录"
+            refined_title = f"{artist_hint}相关演出活动" if artist_hint else "相关演出活动记录"
         elif normalized_event_type == "music_live_event" and (generic_title or not current_title):
-            refined_title = "音乐现场活动记录"
+            refined_title = f"{artist_hint}相关演出活动" if artist_hint else "相关演出活动记录"
 
         if not normalized_event_type:
             normalized_event_type = event.event_type or "其他"
@@ -652,6 +716,65 @@ class MemoryModuleService:
             return True
         generic_tokens = ("活动记录", "聚会", "街头", "日常", "其他", "复合场景")
         return any(token in normalized for token in generic_tokens)
+
+    def _preferred_event_type(self, left: str, right: str) -> str:
+        rank = {
+            "music_festival_performance": 3,
+            "concert": 2,
+            "music_live_event": 1,
+        }
+        left_norm = normalize_concept(left, preferred_type="event") or left
+        right_norm = normalize_concept(right, preferred_type="event") or right
+        return left if rank.get(left_norm, 0) >= rank.get(right_norm, 0) else right
+
+    def _preferred_event_title(self, left: str, right: str, *, event_type: str) -> str:
+        left = str(left or "").strip()
+        right = str(right or "").strip()
+        preferred_generic = "相关演出活动记录" if normalize_concept(event_type, preferred_type="event") in {
+            "concert",
+            "music_live_event",
+            "music_festival_performance",
+        } else ""
+        for candidate in (left, right):
+            if candidate and "相关演出活动" in candidate:
+                return candidate
+        if left and not self._is_generic_event_title(left):
+            return left
+        if right and not self._is_generic_event_title(right):
+            return right
+        return left or right or preferred_generic
+
+    def _preferred_text(self, left: str, right: str) -> str:
+        left = str(left or "").strip()
+        right = str(right or "").strip()
+        if left and left.lower() != "unknown":
+            return left
+        return right
+
+    def _join_event_text(self, left: str, right: str) -> str:
+        parts = self._unique([str(left or "").strip(), str(right or "").strip()])
+        return "；".join(part for part in parts if part)
+
+    def _merge_persona_evidence(self, left: Dict[str, Any], right: Dict[str, Any]) -> Dict[str, Any]:
+        merged: Dict[str, Any] = {}
+        for key in set(left or {}).union(right or {}):
+            left_value = (left or {}).get(key)
+            right_value = (right or {}).get(key)
+            if isinstance(left_value, list) or isinstance(right_value, list):
+                merged[key] = self._unique([*(left_value or []), *(right_value or [])])
+            elif left_value is not None:
+                merged[key] = left_value
+            else:
+                merged[key] = right_value
+        return merged
+
+    def _format_event_time_range(self, started_at: str, ended_at: str) -> str:
+        try:
+            start_dt = datetime.fromisoformat(started_at)
+            end_dt = datetime.fromisoformat(ended_at)
+        except ValueError:
+            return ""
+        return f"{start_dt.strftime('%H:%M')} - {end_dt.strftime('%H:%M')}"
 
     def _build_relationships(
         self,
@@ -2385,6 +2508,17 @@ class MemoryModuleService:
                             evidence_refs=[{"ref_type": "photo", "ref_id": photo.photo_id}],
                         )
                     )
+                interaction = photo.vlm_observation.event.get("interaction") if isinstance(photo.vlm_observation.event, dict) else None
+                if interaction:
+                    segments.append(
+                        self._segment_record(
+                            photo_uuid=photo.photo_uuid,
+                            segment_type="interaction",
+                            text=str(interaction),
+                            session_uuid=self._photo_session_uuid(photo.photo_id, sequences.sessions),
+                            evidence_refs=[{"ref_type": "photo", "ref_id": photo.photo_id}],
+                        )
+                    )
 
             for person in photo.people_observations:
                 text = " | ".join(part for part in [person.appearance, person.clothing, person.interaction] if part)
@@ -2415,6 +2549,17 @@ class MemoryModuleService:
                             text=str(raw_text),
                             session_uuid=self._photo_session_uuid(photo.photo_id, sequences.sessions),
                             evidence_refs=[{"ref_type": "photo", "ref_id": photo.photo_id}],
+                        )
+                    )
+                if person.interaction:
+                    segments.append(
+                        self._segment_record(
+                            photo_uuid=photo.photo_uuid,
+                            segment_type="interaction",
+                            text=str(person.interaction),
+                            person_uuid=person.person_uuid,
+                            session_uuid=self._photo_session_uuid(photo.photo_id, sequences.sessions),
+                            evidence_refs=[{"ref_type": "photo_person_observation", "ref_id": person.observation_id}],
                         )
                     )
 

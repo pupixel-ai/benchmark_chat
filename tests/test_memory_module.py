@@ -84,8 +84,68 @@ class MemoryModuleTests(unittest.TestCase):
             service._refine_event_candidates([event], [photo], [session])
 
             self.assertEqual(event.event_type, "music_festival_performance")
-            self.assertEqual(event.title, "有吴嘉轩的音乐节")
+            self.assertEqual(event.title, "吴嘉轩相关演出活动")
             self.assertIn("concert", event.tags)
+
+    def test_merge_music_events_within_same_session(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            service = MemoryModuleService(
+                task_id="task_merge_event",
+                task_dir=tmpdir,
+                user_id="user_merge_event",
+                pipeline_version="v0315",
+            )
+            left = EventCandidateDTO(
+                event_id="EVT_001",
+                event_uuid="evt-001",
+                upstream_ref={"object_type": "event_candidate", "object_id": "EVT_001"},
+                title="吴嘉轩相关演出活动",
+                event_type="music_festival_performance",
+                time_range="01:25 - 01:26",
+                started_at="2026-03-16T01:25:00",
+                ended_at="2026-03-16T01:26:00",
+                location="户外舞台",
+                participant_face_person_ids=["Person_003"],
+                participant_person_uuids=["person-003"],
+                photo_ids=["photo_001"],
+                photo_uuids=["photo-uuid-001"],
+                session_ids=["session_001"],
+                session_uuids=["session-uuid-001"],
+                description="舞台海报",
+                narrative_synthesis="拍摄艺人宣传海报",
+                tags=["concert"],
+                confidence=0.72,
+                evidence_refs=[{"ref_type": "photo", "ref_id": "photo_001"}],
+            )
+            right = EventCandidateDTO(
+                event_id="EVT_002",
+                event_uuid="evt-002",
+                upstream_ref={"object_type": "event_candidate", "object_id": "EVT_002"},
+                title="相关演出活动记录",
+                event_type="concert",
+                time_range="01:26 - 01:27",
+                started_at="2026-03-16T01:26:00",
+                ended_at="2026-03-16T01:27:00",
+                location="户外舞台",
+                participant_face_person_ids=["Person_003"],
+                participant_person_uuids=["person-003"],
+                photo_ids=["photo_002"],
+                photo_uuids=["photo-uuid-002"],
+                session_ids=["session_001"],
+                session_uuids=["session-uuid-001"],
+                description="舞台区域",
+                narrative_synthesis="继续拍摄现场宣传物料",
+                tags=["music_festival_performance"],
+                confidence=0.81,
+                evidence_refs=[{"ref_type": "photo", "ref_id": "photo_002"}],
+            )
+
+            merged = service._merge_event_candidates([left, right])
+
+            self.assertEqual(len(merged), 1)
+            self.assertEqual(merged[0].title, "吴嘉轩相关演出活动")
+            self.assertEqual(merged[0].event_type, "music_festival_performance")
+            self.assertEqual(merged[0].photo_ids, ["photo_001", "photo_002"])
 
     def test_materialize_builds_sequences_and_profile_fields(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

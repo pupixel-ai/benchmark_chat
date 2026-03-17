@@ -398,11 +398,16 @@ class MemoryQueryService:
         if events:
             summary = f"共找到 {len(events)} 个事件: " + "；".join(event["title"] for event in supporting_events[:5])
             confidence = round(sum(event["confidence"] for event in supporting_events) / len(supporting_events), 4)
+            explanation = "先按时间窗过滤事件，再按 canonical concepts 过滤，最后补充会话和语义证据。"
+            uncertainty_flags = []
         else:
+            fallback = self._fallback_conflict_answer(indexes, segments, operator_plan)
+            if fallback is not None:
+                return fallback
             summary = "没有找到符合条件的事件。"
             confidence = 0.0
-        explanation = "先按时间窗过滤事件，再按 canonical concepts 过滤，最后补充会话和语义证据。"
-        uncertainty_flags = [] if events else ["no_matching_events"]
+            explanation = "先按时间窗过滤事件，再按 canonical concepts 过滤；当前未命中。"
+            uncertainty_flags = ["no_matching_events"]
         return AnswerDTO(
             answer_type="event_search",
             summary=summary,
@@ -416,6 +421,90 @@ class MemoryQueryService:
             evidence_segment_ids=evidence_segment_ids,
             explanation=explanation,
             uncertainty_flags=uncertainty_flags,
+        )
+
+    def _fallback_conflict_answer(
+        self,
+        indexes: Dict[str, Any],
+        segments: List[Dict[str, Any]],
+        operator_plan: OperatorPlanDTO,
+    ) -> Optional[AnswerDTO]:
+        concept_filters = set(operator_plan.target_concepts)
+        if "conflict" not in concept_filters:
+            return None
+
+        relationships = []
+        time_scope = operator_plan.time_scope
+        for relationship in indexes["nodes_by_group"].get("relationship_hypotheses", []):
+            props = relationship.get("properties", {})
+            if props.get("status") not in {"active", "cooling"}:
+                continue
+            if time_scope.start_at and props.get("window_end") and not self._overlaps_time_scope(
+                props.get("window_start"),
+                props.get("window_end"),
+                time_scope,
+            ):
+                continue
+            rel_concepts = set(self._outgoing_concepts(indexes, relationship.get("relationship_uuid")))
+            reason_summary = str(props.get("reason_summary") or "")
+            feature_snapshot = props.get("feature_snapshot", {})
+            conflict_score = float(feature_snapshot.get("conflict_signal_count") or 0.0)
+            if (
+                "conflict" in rel_concepts
+                or conflict_score > 0
+                or self._contains_conflict_text(reason_summary)
+            ):
+                relationships.append(relationship)
+
+        relationships.sort(
+            key=lambda item: (
+                float(item.get("properties", {}).get("feature_snapshot", {}).get("conflict_signal_count", 0.0)),
+                str(item.get("properties", {}).get("window_end") or ""),
+                float(item.get("properties", {}).get("confidence") or 0.0),
+            ),
+            reverse=True,
+        )
+
+        if not relationships:
+            return None
+
+        supporting_relationships = [self._relationship_payload(indexes, item) for item in relationships[:3]]
+        supporting_sessions = self._supporting_sessions_for_relationships(indexes, relationships[:3])
+        supporting_events = self._supporting_events_for_relationships(indexes, relationships[:3])
+        representative_photo_ids = self._unique(
+            photo_id
+            for relationship in supporting_relationships
+            for photo_id in relationship.get("representative_photo_ids", [])
+        )
+        evidence_segment_ids = self._segment_ids_for_conflict_fallback(
+            segments,
+            relationship_uuids=[item.get("relationship_uuid") for item in relationships[:3]],
+            session_uuids=[item.get("session_uuid") for item in supporting_sessions],
+            event_uuids=[item.get("event_uuid") for item in supporting_events],
+        )
+        target_names = [item.get("target_face_person_id") for item in supporting_relationships if item.get("target_face_person_id")]
+        if target_names:
+            summary = f"没有找到显式冲突事件，已回退到关系与交互证据：最近更值得关注的是与 {'、'.join(target_names[:3])} 的冲突线索。"
+        else:
+            summary = "没有找到显式冲突事件，已回退到关系与交互证据。"
+        confidence = round(
+            sum(float(item.get("confidence") or 0.0) for item in supporting_relationships) / len(supporting_relationships),
+            4,
+        )
+        return AnswerDTO(
+            answer_type="event_search",
+            summary=summary,
+            confidence=confidence,
+            resolved_entities=supporting_relationships,
+            resolved_concepts=list(concept_filters),
+            time_window=asdict(time_scope),
+            supporting_sessions=supporting_sessions,
+            supporting_events=supporting_events,
+            supporting_relationships=supporting_relationships,
+            representative_photo_ids=representative_photo_ids,
+            evidence_segment_ids=evidence_segment_ids,
+            explanation="先查 Event(conflict)；未命中后回退到 RelationshipHypothesis.reason_summary，再补充 Milvus 的 interaction/relationship_reason/negative-mood 证据。",
+            uncertainty_flags=["derived_from_relationship_fallback"],
         )
 
     def _answer_relationship(
@@ -808,8 +897,41 @@ class MemoryQueryService:
                 selected.append(str(segment.get("segment_uuid")))
                 continue
             if relationship_set and str(segment.get("relationship_uuid") or "") in relationship_set:
-                selected.append(str(segment.get("segment_uuid")))
+                    selected.append(str(segment.get("segment_uuid")))
         return self._unique(selected)
+
+    def _segment_ids_for_conflict_fallback(
+        self,
+        segments: List[Dict[str, Any]],
+        *,
+        relationship_uuids: List[str],
+        session_uuids: List[str],
+        event_uuids: List[str],
+    ) -> List[str]:
+        relationship_set = {str(item) for item in relationship_uuids if item}
+        session_set = {str(item) for item in session_uuids if item}
+        event_set = {str(item) for item in event_uuids if item}
+        selected: List[str] = []
+        fallback: List[str] = []
+        for segment in segments:
+            if (
+                str(segment.get("relationship_uuid") or "") not in relationship_set
+                and str(segment.get("session_uuid") or "") not in session_set
+                and str(segment.get("event_uuid") or "") not in event_set
+            ):
+                continue
+            segment_id = str(segment.get("segment_uuid"))
+            segment_type = str(segment.get("segment_type") or "")
+            text = str(segment.get("text") or "")
+            if segment_type in {"interaction", "relationship_reason"} and self._contains_conflict_text(text):
+                selected.append(segment_id)
+                continue
+            if segment_type == "profile_evidence_snippet" and self._contains_negative_mood_text(text):
+                selected.append(segment_id)
+                continue
+            if segment_type in {"relationship_reason", "session_summary", "event_narrative"}:
+                fallback.append(segment_id)
+        return self._unique(selected or fallback)
 
     def _outgoing_concepts(self, indexes: Dict[str, Any], source_id: Optional[str]) -> List[str]:
         concepts = []
@@ -825,6 +947,20 @@ class MemoryQueryService:
             if canonical_name and canonical_name not in concepts:
                 concepts.append(str(canonical_name))
         return concepts
+
+    def _contains_conflict_text(self, text: str) -> bool:
+        normalized = str(text or "").lower()
+        return any(
+            token in normalized
+            for token in ("conflict", "argument", "fight", "tension", "dispute", "disagree", "冲突", "争吵", "矛盾", "冷战", "紧张")
+        )
+
+    def _contains_negative_mood_text(self, text: str) -> bool:
+        normalized = str(text or "").lower()
+        return any(
+            token in normalized
+            for token in ("sad", "down", "tense", "upset", "negative", "难过", "低落", "压抑", "紧张", "不开心")
+        )
 
     def _first_neighbor(self, indexes: Dict[str, Any], source_id: Optional[str], edge_type: str) -> Optional[Dict[str, Any]]:
         if not source_id:
