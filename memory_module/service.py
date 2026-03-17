@@ -6,6 +6,7 @@ from collections import Counter, defaultdict
 from dataclasses import asdict, is_dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+import re
 from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence
 from uuid import NAMESPACE_URL, uuid5
 
@@ -158,6 +159,11 @@ class MemoryModuleService:
             sessions=sequences.sessions,
             photo_uuid_map=photo_uuid_map,
             person_uuid_map=person_uuid_map,
+        )
+        self._refine_event_candidates(
+            event_candidates=event_candidates,
+            photos=photos_dto,
+            sessions=sequences.sessions,
         )
         prior_storage = self._load_prior_storage()
         place_anchors = self._build_place_anchors(sequences.sessions)
@@ -480,6 +486,169 @@ class MemoryModuleService:
                 )
             )
         return candidates
+
+    def _refine_event_candidates(
+        self,
+        event_candidates: Sequence[EventCandidateDTO],
+        photos: Sequence[PhotoFactDTO],
+        sessions: Sequence[SessionDTO],
+    ) -> None:
+        photo_by_id = {photo.photo_id: photo for photo in photos}
+        session_by_id = {session.session_id: session for session in sessions}
+        for event in event_candidates:
+            normalized_event_type, event_subtype, refined_title, refined_tags = self._infer_event_normalization(
+                event,
+                photo_by_id=photo_by_id,
+                session_by_id=session_by_id,
+            )
+            event.event_type = normalized_event_type
+            if refined_title:
+                event.title = refined_title
+            if refined_tags:
+                event.tags = self._unique([*event.tags, *refined_tags])
+
+    def _infer_event_normalization(
+        self,
+        event: EventCandidateDTO,
+        *,
+        photo_by_id: Dict[str, PhotoFactDTO],
+        session_by_id: Dict[str, SessionDTO],
+    ) -> tuple[str, str, str, List[str]]:
+        signal_texts = self._event_signal_texts(event, photo_by_id=photo_by_id, session_by_id=session_by_id)
+        signal_blob = " ".join(signal_texts)
+        normalized_blob = signal_blob.lower()
+        matched_concepts = collect_concepts(signal_texts, preferred_type="event") or collect_concepts(signal_texts)
+
+        has_stage = any(token in signal_blob for token in ("舞台", "钢结构", "灯光", "stage"))
+        has_poster = any(token in signal_blob for token in ("海报", "宣传海报", "poster"))
+        has_music_keywords = any(
+            token in signal_blob
+            for token in ("演唱会", "音乐会", "音乐节", "现场演出", "live", "concert", "festival", "show")
+        )
+        has_artist_signal = any(
+            token in normalized_blob
+            for token in ("rapeter", "next", "rapper", "band", "dj")
+        )
+        artist_hint = self._extract_artist_hint(signal_texts)
+
+        normalized_event_type = normalize_concept(event.event_type, preferred_type="event") or ""
+        event_subtype = event.event_type or ""
+        refined_tags: List[str] = []
+
+        if "音乐节" in signal_blob or (has_stage and has_poster and (artist_hint or has_artist_signal)):
+            normalized_event_type = "music_festival_performance"
+            event_subtype = "festival_poster"
+        elif "music_festival_performance" in matched_concepts:
+            normalized_event_type = "music_festival_performance"
+            event_subtype = "music_festival_performance"
+        elif "concert" in matched_concepts:
+            normalized_event_type = "concert"
+            event_subtype = "concert"
+        elif "music_live_event" in matched_concepts:
+            normalized_event_type = "music_live_event"
+            event_subtype = "music_live_event"
+
+        if not normalized_event_type and (has_music_keywords or has_stage):
+            normalized_event_type = "music_festival_performance" if (has_poster and (artist_hint or has_artist_signal)) else "concert"
+            event_subtype = "festival_poster" if normalized_event_type == "music_festival_performance" else "concert_scene"
+
+        if normalized_event_type == "music_festival_performance":
+            refined_tags.extend(["music_festival_performance", "concert"])
+        elif normalized_event_type == "concert":
+            refined_tags.append("concert")
+
+        current_title = (event.title or "").strip()
+        generic_title = self._is_generic_event_title(current_title)
+        refined_title = current_title
+        if normalized_event_type == "music_festival_performance" and (generic_title or not current_title):
+            refined_title = f"有{artist_hint}的音乐节" if artist_hint else "音乐节活动记录"
+        elif normalized_event_type == "concert" and (generic_title or not current_title):
+            refined_title = f"{artist_hint}相关演出活动" if artist_hint else "现场演出活动记录"
+        elif normalized_event_type == "music_live_event" and (generic_title or not current_title):
+            refined_title = "音乐现场活动记录"
+
+        if not normalized_event_type:
+            normalized_event_type = event.event_type or "其他"
+        if not event_subtype:
+            event_subtype = normalized_event_type
+        return normalized_event_type, event_subtype, refined_title, refined_tags
+
+    def _event_signal_texts(
+        self,
+        event: EventCandidateDTO,
+        *,
+        photo_by_id: Dict[str, PhotoFactDTO],
+        session_by_id: Dict[str, SessionDTO],
+    ) -> List[str]:
+        texts: List[str] = [
+            event.event_type,
+            event.title,
+            event.location,
+            event.description,
+            event.narrative_synthesis,
+            *event.tags,
+        ]
+
+        for session_id in event.session_ids:
+            session = session_by_id.get(session_id)
+            if not session:
+                continue
+            texts.extend(
+                [
+                    str((session.location_hint or {}).get("name") or ""),
+                    session.summary_hint,
+                    *session.activity_hints,
+                ]
+            )
+
+        for photo_id in event.photo_ids:
+            photo = photo_by_id.get(photo_id)
+            if not photo or not photo.vlm_observation:
+                continue
+            observation = photo.vlm_observation
+            scene = observation.scene or {}
+            event_meta = observation.event or {}
+            texts.extend(
+                [
+                    observation.summary,
+                    str(scene.get("environment_description") or ""),
+                    str(scene.get("location_detected") or ""),
+                    str(scene.get("weather") or ""),
+                    str(event_meta.get("activity") or ""),
+                    str(event_meta.get("social_context") or ""),
+                    str(event_meta.get("interaction") or ""),
+                    str(event_meta.get("mood") or ""),
+                    *[str(item) for item in observation.details],
+                    *[str(item) for item in observation.key_objects],
+                ]
+            )
+
+        return [text.strip() for text in texts if str(text or "").strip()]
+
+    def _extract_artist_hint(self, signal_texts: Sequence[str]) -> str:
+        combined = " ".join(signal_texts)
+        for pattern in (
+            r"[A-Za-z]+\s*([一-龥]{2,4})",
+            r"[‘'\"“]([一-龥]{2,4})[”'\"’]",
+        ):
+            match = re.search(pattern, combined)
+            if match:
+                candidate = match.group(1).strip()
+                if candidate and candidate not in {"拍摄者", "宣传海报", "户外舞台", "音乐活动"}:
+                    return candidate
+        for candidate in re.findall(r"[一-龥]{2,4}", combined):
+            if candidate in {"拍摄者", "宣传海报", "户外舞台", "夜间街道", "室内咖啡", "同伴密友"}:
+                continue
+            if candidate in combined and any(prefix in combined for prefix in (candidate, f"Rapeter{candidate}", f"NEXT{candidate}")):
+                return candidate
+        return ""
+
+    def _is_generic_event_title(self, title: str) -> bool:
+        normalized = str(title or "").strip()
+        if not normalized:
+            return True
+        generic_tokens = ("活动记录", "聚会", "街头", "日常", "其他", "复合场景")
+        return any(token in normalized for token in generic_tokens)
 
     def _build_relationships(
         self,

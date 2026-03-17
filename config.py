@@ -157,7 +157,7 @@ MEMORY_MILVUS_PASSWORD = os.getenv("MEMORY_MILVUS_PASSWORD", "").strip()
 MEMORY_MILVUS_TOKEN = os.getenv("MEMORY_MILVUS_TOKEN", "").strip()
 MEMORY_MILVUS_DB_NAME = os.getenv("MEMORY_MILVUS_DB_NAME", "").strip()
 MEMORY_MILVUS_COLLECTION = os.getenv("MEMORY_MILVUS_COLLECTION", "memory_segments").strip() or "memory_segments"
-MEMORY_MILVUS_VECTOR_DIM = int(os.getenv("MEMORY_MILVUS_VECTOR_DIM", "32"))
+MEMORY_MILVUS_VECTOR_DIM = int(os.getenv("MEMORY_MILVUS_VECTOR_DIM", "512"))
 MEMORY_REAL_EMBEDDINGS_ENABLED = os.getenv("MEMORY_REAL_EMBEDDINGS_ENABLED", "false").lower() == "true"
 MEMORY_EMBEDDING_PROVIDER = os.getenv("MEMORY_EMBEDDING_PROVIDER", "auto").strip().lower() or "auto"
 MEMORY_EMBEDDING_MODEL = os.getenv("MEMORY_EMBEDDING_MODEL", "").strip()
@@ -182,12 +182,12 @@ OPENROUTER_APP_NAME = (
     or "Memory Engineering"
 )
 OPENROUTER_VLM_MODEL = (
-    os.getenv("OPENROUTER_VLM_MODEL", "google/gemini-2.0-flash-001").strip()
-    or "google/gemini-2.0-flash-001"
+    os.getenv("OPENROUTER_VLM_MODEL", "z-ai/glm-4.6v").strip()
+    or "z-ai/glm-4.6v"
 )
 OPENROUTER_LLM_MODEL = (
-    os.getenv("OPENROUTER_LLM_MODEL", "google/gemini-2.5-flash").strip()
-    or "google/gemini-2.5-flash"
+    os.getenv("OPENROUTER_LLM_MODEL", "minimax/minimax-m2.5").strip()
+    or "minimax/minimax-m2.5"
 )
 
 # 代理服务配置（可选）

@@ -12,6 +12,12 @@ CANONICAL_CONCEPTS: Dict[str, Dict[str, object]] = {
         "description": "Live music performances attended or observed by the user.",
         "parents": ["music_live_event"],
     },
+    "music_festival_performance": {
+        "aliases": ["音乐节", "music festival", "festival set", "festival performance", "音乐节演出", "音乐节活动"],
+        "concept_type": "event",
+        "description": "Festival-style live music performance or related on-site activity.",
+        "parents": ["concert", "music_live_event"],
+    },
     "music_live_event": {
         "aliases": ["演出", "现场演出", "音乐节", "festival", "live performance"],
         "concept_type": "event",
@@ -183,3 +189,22 @@ def collect_concepts(values: Iterable[str], *, preferred_type: Optional[str] = N
             if concept not in concepts:
                 concepts.append(concept)
     return concepts
+
+
+def expand_concepts(concepts: Iterable[str]) -> List[str]:
+    expanded: List[str] = []
+    pending = [str(item) for item in concepts if item]
+    while pending:
+        current = pending.pop(0)
+        if current in expanded:
+            continue
+        expanded.append(current)
+        meta = CANONICAL_CONCEPTS.get(current, {})
+        for parent in meta.get("parents", []):
+            if parent and parent not in expanded:
+                pending.append(str(parent))
+        for candidate, payload in CANONICAL_CONCEPTS.items():
+            parents = [str(item) for item in payload.get("parents", [])]
+            if current in parents and candidate not in expanded:
+                pending.append(candidate)
+    return expanded

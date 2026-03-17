@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import math
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
@@ -29,6 +30,7 @@ DEFAULT_EMBEDDING_SOURCE = "textual_stub"
 
 DEFAULT_OPENROUTER_EMBEDDING_MODEL = "openai/text-embedding-3-small"
 DEFAULT_GEMINI_EMBEDDING_MODEL = "text-embedding-004"
+DEFAULT_FASTEMBED_MODEL = "BAAI/bge-small-zh-v1.5"
 
 
 def deterministic_vector(text: str, dim: int) -> List[float]:
@@ -113,6 +115,7 @@ class EmbeddingProvider:
         self.gemini_api_key = gemini_api_key
         self._cache: Dict[Tuple[str, str], Dict[str, Any]] = {}
         self._gemini_client: Any = None
+        self._fastembed_model: Any = None
 
     @classmethod
     def from_config(cls, *, dim: Optional[int] = None) -> "EmbeddingProvider":
@@ -136,10 +139,12 @@ class EmbeddingProvider:
     @staticmethod
     def _resolve_provider() -> str:
         explicit = MEMORY_EMBEDDING_PROVIDER
-        if explicit in {"stub", "gemini", "openrouter"}:
+        if explicit in {"stub", "gemini", "openrouter", "fastembed"}:
             return explicit
         if not MEMORY_REAL_EMBEDDINGS_ENABLED:
             return "stub"
+        if importlib.util.find_spec("fastembed") is not None:
+            return "fastembed"
         if MODEL_PROVIDER == "openrouter" or OPENROUTER_API_KEY or GEMINI_API_KEY.startswith("sk-"):
             return "openrouter"
         if GEMINI_API_KEY:
@@ -155,6 +160,8 @@ class EmbeddingProvider:
             return DEFAULT_OPENROUTER_EMBEDDING_MODEL
         if provider == "gemini":
             return DEFAULT_GEMINI_EMBEDDING_MODEL
+        if provider == "fastembed":
+            return DEFAULT_FASTEMBED_MODEL
         return DEFAULT_EMBEDDING_MODEL
 
     def build_payload(self, text: str, *, task_type: str = "document") -> Dict[str, object]:
@@ -190,6 +197,19 @@ class EmbeddingProvider:
             }
             self._cache[cache_key] = payload
             return list(payload["embedding"]), str(payload["embedding_source"]), str(payload["embedding_model"])
+
+        if self.enabled and self.provider == "fastembed":
+            try:
+                vector = self._embed_fastembed(normalized, task_type=task_type)
+                payload = {
+                    "embedding": vector,
+                    "embedding_source": f"fastembed:{self.model}",
+                    "embedding_model": self.model,
+                }
+                self._cache[cache_key] = payload
+                return list(vector), str(payload["embedding_source"]), self.model
+            except Exception:
+                pass
 
         if self.enabled and self.provider == "openrouter" and self.openrouter_api_key:
             try:
@@ -285,6 +305,21 @@ class EmbeddingProvider:
         if not isinstance(values, list):
             raise RuntimeError("Gemini embeddings response missing vector values")
         return _fit_vector([float(item) for item in values], self.dim)
+
+    def _embed_fastembed(self, text: str, *, task_type: str) -> List[float]:
+        from fastembed import TextEmbedding
+
+        if self._fastembed_model is None:
+            self._fastembed_model = TextEmbedding(model_name=self.model)
+
+        if task_type == "query":
+            vectors = list(self._fastembed_model.query_embed([text]))
+        else:
+            vectors = list(self._fastembed_model.embed([text]))
+
+        if not vectors:
+            raise RuntimeError("FastEmbed response missing vectors")
+        return _fit_vector(vectors[0].tolist(), self.dim)
 
 
 def build_embedding_payload(

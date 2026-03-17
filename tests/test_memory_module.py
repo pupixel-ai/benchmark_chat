@@ -7,6 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from memory_module import MemoryModuleService
+from memory_module.dto import EventCandidateDTO, PhotoFactDTO, SessionDTO, VLMPhotoObservationDTO
 from memory_module.ontology import collect_concepts
 from models import Event, Photo, Relationship
 
@@ -17,6 +18,74 @@ class MemoryModuleTests(unittest.TestCase):
 
         self.assertIn("concert", concepts)
         self.assertIn("leisure", concepts)
+
+    def test_refine_event_candidate_uses_stage_poster_and_artist_signals(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            service = MemoryModuleService(
+                task_id="task_refine_event",
+                task_dir=tmpdir,
+                user_id="user_refine_event",
+                pipeline_version="v0315",
+            )
+            event = EventCandidateDTO(
+                event_id="EVT_FESTIVAL",
+                event_uuid="evt-festival",
+                upstream_ref={"object_type": "event_candidate", "object_id": "EVT_FESTIVAL"},
+                title="深夜街头聚会与活动记录",
+                event_type="其他",
+                time_range="01:25 - 01:26",
+                started_at="2026-03-16T01:25:00",
+                ended_at="2026-03-16T01:26:00",
+                location="复合场景",
+                photo_ids=["photo_001"],
+                session_ids=["session_001"],
+                description="凌晨街头与户外舞台活动",
+                narrative_synthesis="拍摄带有艺人名字的舞台宣传海报",
+            )
+            photo = PhotoFactDTO(
+                photo_id="photo_001",
+                photo_uuid="photo-uuid-001",
+                upstream_ref={"object_type": "photo", "object_id": "photo_001"},
+                filename="festival.jpg",
+                source_hash="hash-photo-001",
+                captured_at_original="2026-03-16T01:25:00",
+                captured_at_utc="2026-03-16T01:25:00",
+                timezone_guess=None,
+                time_confidence=1.0,
+                location={"name": "户外舞台"},
+                primary_face_person_id=None,
+                vlm_observation=VLMPhotoObservationDTO(
+                    summary="【拍摄者】正在拍摄舞台上的宣传海报，海报上显示‘NEXT’和‘Rapeter吴嘉轩’字样",
+                    scene={
+                        "environment_description": "户外舞台区域，背景有树木和舞台钢结构",
+                        "location_detected": "户外舞台（可能为演唱会或活动场地）",
+                    },
+                    event={"activity": "拍摄舞台宣传海报", "mood": "平静"},
+                    details=["NEXT", "Rapeter吴嘉轩"],
+                    key_objects=["宣传海报", "舞台钢结构", "舞台灯光"],
+                ),
+            )
+            session = SessionDTO(
+                session_id="session_001",
+                session_uuid="session-uuid-001",
+                upstream_ref={"object_type": "session", "object_id": "session_001"},
+                day_key="2026-03-16",
+                photo_ids=["photo_001"],
+                photo_uuids=["photo-uuid-001"],
+                burst_ids=["burst_001"],
+                started_at="2026-03-16T01:25:00",
+                ended_at="2026-03-16T01:26:00",
+                duration_seconds=60,
+                location_hint={"name": "户外舞台"},
+                activity_hints=["音乐节海报拍摄"],
+                summary_hint="带有艺人名字的舞台宣传海报",
+            )
+
+            service._refine_event_candidates([event], [photo], [session])
+
+            self.assertEqual(event.event_type, "music_festival_performance")
+            self.assertEqual(event.title, "有吴嘉轩的音乐节")
+            self.assertIn("concert", event.tags)
 
     def test_materialize_builds_sequences_and_profile_fields(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

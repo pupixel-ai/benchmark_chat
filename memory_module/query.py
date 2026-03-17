@@ -17,7 +17,7 @@ from memory_module.dto import (
     TimeScopeDTO,
 )
 from memory_module.embeddings import EmbeddingProvider, cosine_similarity
-from memory_module.ontology import canonical_concept_names, concept_metadata, normalize_concept
+from memory_module.ontology import canonical_concept_names, concept_metadata, expand_concepts, normalize_concept
 
 
 NODE_GROUP_ID_FIELDS = {
@@ -41,7 +41,7 @@ class MemoryQueryService:
     def __init__(
         self,
         now: Optional[datetime] = None,
-        vector_dim: int = 32,
+        vector_dim: Optional[int] = None,
         embedder: Optional[EmbeddingProvider] = None,
     ) -> None:
         self.now = now or datetime.now()
@@ -306,6 +306,7 @@ class MemoryQueryService:
         for candidate in recall_candidates:
             if candidate.entity_type == "concept" and candidate.matched_concept and candidate.matched_concept not in concept_filters:
                 concept_filters.append(candidate.matched_concept)
+        concept_filters = expand_concepts(concept_filters)
 
         graph_filters = {
             "concept_filters": concept_filters,
