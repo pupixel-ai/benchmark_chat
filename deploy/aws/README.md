@@ -10,6 +10,10 @@
 - `Neo4j`: 单独 EC2 + Docker Compose
 - `Milvus`: 单独 EC2 + Docker Compose（standalone）
 
+如果你要按新加坡私网 + IPSec 的正式态从零部署，请直接看：
+
+- `deploy/aws/SINGAPORE_PRIVATE_DEPLOYMENT.md`
+
 ## 推荐拓扑
 
 ```text
