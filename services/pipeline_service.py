@@ -101,7 +101,7 @@ class MemoryPipelineService:
         face_payload = self._build_face_recognition_payload(photos, face_output)
         face_db = self.face_recognition.get_all_persons()
 
-        self._notify(progress_callback, "preprocess", {"message": "压缩图片并进行去重"})
+        self._notify(progress_callback, "preprocess", {"message": "压缩图片"})
         photos_for_vlm = self.image_processor.preprocess(face_ready_photos)
 
         self._notify(progress_callback, "vlm", {"message": "进行视觉分析", "photo_count": len(photos_for_vlm)})

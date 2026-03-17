@@ -8,8 +8,8 @@ from PIL import Image, ExifTags, ImageDraw, ImageFont, ImageOps
 from pillow_heif import register_heif_opener
 import exifread
 from models import Photo
-from config import CACHE_DIR, MAX_IMAGE_SIZE, JPEG_QUALITY, DEDUP_TIME_WINDOW, AMAP_API_KEY, PROJECT_ROOT
-from utils import compress_image, file_sha256, normalized_exif_bytes, smart_deduplicate
+from config import CACHE_DIR, MAX_IMAGE_SIZE, JPEG_QUALITY, AMAP_API_KEY, PROJECT_ROOT
+from utils import compress_image, file_sha256, normalized_exif_bytes
 
 # 注册HEIC格式支持
 register_heif_opener()
@@ -155,7 +155,7 @@ class ImageProcessor:
 
     def preprocess(self, photos: List[Photo]) -> List[Photo]:
         """
-        预处理照片：压缩 + 去重
+        预处理照片：压缩
 
         Args:
             photos: 照片列表
@@ -163,13 +163,7 @@ class ImageProcessor:
         Returns:
             处理后的照片列表
         """
-        # Step 1: 压缩
-        compressed = self._compress_photos(photos)
-
-        # Step 2: 去重，降低 VLM token 成本并减少连拍对事件抽取的偏置
-        deduped = smart_deduplicate(compressed, DEDUP_TIME_WINDOW)
-
-        return deduped
+        return self._compress_photos(photos)
 
     def _compress_photos(self, photos: List[Photo]) -> List[Photo]:
         """

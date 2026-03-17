@@ -8,6 +8,7 @@ import type {
   AuthUser,
   FaceReport,
   HealthResponse,
+  MemoryFocusGraph,
   MemoryPayload,
   PersonGroupEntry,
   PersonGroupImage,
@@ -558,11 +559,233 @@ function MetricCard({
   );
 }
 
+function truncateGraphLabel(value: string, max = 18) {
+  if (value.length <= max) {
+    return value;
+  }
+  return `${value.slice(0, max - 1)}…`;
+}
+
+function graphNodeColor(nodeType: string) {
+  switch (nodeType) {
+    case "primary_person":
+      return { fill: "#d85a31", stroke: "#8d2c0d" };
+    case "related_person":
+    case "participant_person":
+      return { fill: "#f3b470", stroke: "#9d6425" };
+    case "event":
+      return { fill: "#7bb88f", stroke: "#356f49" };
+    case "session":
+      return { fill: "#8eb7c8", stroke: "#426e80" };
+    case "timeline":
+      return { fill: "#c8a6d6", stroke: "#6f4c7d" };
+    case "photo":
+      return { fill: "#e7d7bc", stroke: "#8c7357" };
+    default:
+      return { fill: "#d8c9b7", stroke: "#786657" };
+  }
+}
+
+function FocusGraphPanel({ graph }: { graph?: MemoryFocusGraph | null }) {
+  const layout = useMemo(() => {
+    if (!graph || graph.nodes.length === 0) {
+      return null;
+    }
+
+    const width = 820;
+    const height = 560;
+    const centerX = width / 2;
+    const centerY = height / 2;
+    const ringRadii: Record<number, number> = { 0: 0, 1: 150, 2: 245, 3: 330 };
+    const grouped = new Map<number, MemoryFocusGraph["nodes"]>();
+    for (const node of graph.nodes) {
+      const ring = Math.max(0, Math.min(3, Number(node.ring ?? 0)));
+      const bucket = grouped.get(ring) ?? [];
+      bucket.push(node);
+      grouped.set(ring, bucket);
+    }
+
+    const positions = new Map<string, { x: number; y: number }>();
+    for (const [ring, nodes] of grouped.entries()) {
+      const ordered = [...nodes].sort((left, right) => {
+        if (left.node_id === graph.center_node_id) {
+          return -1;
+        }
+        if (right.node_id === graph.center_node_id) {
+          return 1;
+        }
+        if (left.node_type === "user_account") {
+          return -1;
+        }
+        if (right.node_type === "user_account") {
+          return 1;
+        }
+        return left.label.localeCompare(right.label);
+      });
+
+      if (ring === 0 || ordered.length === 1) {
+        positions.set(ordered[0].node_id, { x: centerX, y: centerY });
+        continue;
+      }
+
+      const radius = ringRadii[ring] ?? 150;
+      const angleStep = (Math.PI * 2) / ordered.length;
+      const startAngle = -Math.PI / 2;
+      ordered.forEach((node, index) => {
+        const angle = startAngle + angleStep * index;
+        positions.set(node.node_id, {
+          x: centerX + Math.cos(angle) * radius,
+          y: centerY + Math.sin(angle) * radius
+        });
+      });
+    }
+
+    return {
+      width,
+      height,
+      centerX,
+      centerY,
+      ringRadii,
+      positions
+    };
+  }, [graph]);
+
+  if (!graph || !layout) {
+    return null;
+  }
+
+  return (
+    <div className="mt-5 rounded-[12px] border border-[#ddcebb] bg-white/70 p-4">
+      <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+        <div>
+          <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-black/42">Primary-Centered Graph</p>
+          <p className="mt-2 text-sm leading-6 text-black/60">
+            这张图以 `primary user` 为中心发散，优先展示主角、关系对象、事件、会话和时间线。
+          </p>
+        </div>
+        <div className="rounded-[10px] bg-[#f6eee3] px-3 py-2 text-xs leading-6 text-[#5f4e42]">
+          nodes {graph.node_count} · edges {graph.edge_count} · primary {graph.primary_face_person_id ?? "unresolved"}
+        </div>
+      </div>
+
+      <div className="mt-4 overflow-x-auto">
+        <svg
+          viewBox={`0 0 ${layout.width} ${layout.height}`}
+          className="h-[560px] w-full min-w-[760px] rounded-[12px] bg-[#f8f1e8]"
+        >
+          {[1, 2, 3].map((ring) => (
+            <circle
+              key={ring}
+              cx={layout.centerX}
+              cy={layout.centerY}
+              r={layout.ringRadii[ring]}
+              fill="none"
+              stroke="#e3d5c5"
+              strokeDasharray="8 10"
+            />
+          ))}
+
+          {graph.edges.map((edge) => {
+            const source = layout.positions.get(edge.source_id);
+            const target = layout.positions.get(edge.target_id);
+            if (!source || !target) {
+              return null;
+            }
+            const labelX = (source.x + target.x) / 2;
+            const labelY = (source.y + target.y) / 2;
+            return (
+              <g key={edge.edge_id}>
+                <line
+                  x1={source.x}
+                  y1={source.y}
+                  x2={target.x}
+                  y2={target.y}
+                  stroke="#b89976"
+                  strokeWidth={edge.edge_type === "RELATIONSHIP_HYPOTHESIS" ? 2.4 : 1.8}
+                  opacity={0.9}
+                />
+                <text
+                  x={labelX}
+                  y={labelY}
+                  textAnchor="middle"
+                  className="fill-[#7b6654] text-[10px] font-mono uppercase tracking-[0.12em]"
+                >
+                  {truncateGraphLabel(edge.label || edge.edge_type, 14)}
+                </text>
+              </g>
+            );
+          })}
+
+          {graph.nodes.map((node) => {
+            const position = layout.positions.get(node.node_id);
+            if (!position) {
+              return null;
+            }
+            const palette = graphNodeColor(node.node_type);
+            const radius = node.is_primary ? 34 : node.node_type === "event" ? 26 : 22;
+            return (
+              <g key={node.node_id}>
+                <circle
+                  cx={position.x}
+                  cy={position.y}
+                  r={radius}
+                  fill={palette.fill}
+                  stroke={palette.stroke}
+                  strokeWidth={node.is_primary ? 4 : 2}
+                />
+                <text
+                  x={position.x}
+                  y={position.y - 2}
+                  textAnchor="middle"
+                  className="fill-[#1d130c] text-[11px] font-semibold"
+                >
+                  {truncateGraphLabel(node.label, 16)}
+                </text>
+                <text
+                  x={position.x}
+                  y={position.y + 14}
+                  textAnchor="middle"
+                  className="fill-[#3d2f25] text-[9px] font-mono uppercase tracking-[0.12em]"
+                >
+                  {node.node_type}
+                </text>
+              </g>
+            );
+          })}
+        </svg>
+      </div>
+
+      <div className="mt-4 grid gap-2 md:grid-cols-3 xl:grid-cols-6">
+        {[
+          ["primary_person", "Primary"],
+          ["related_person", "Related"],
+          ["event", "Event"],
+          ["session", "Session"],
+          ["timeline", "Timeline"],
+          ["photo", "Photo"]
+        ].map(([nodeType, label]) => {
+          const palette = graphNodeColor(nodeType);
+          return (
+            <div key={nodeType} className="flex items-center gap-2 rounded-[10px] bg-[#f6eee3] px-3 py-2 text-xs text-[#5f4e42]">
+              <span
+                className="inline-block h-3 w-3 rounded-full"
+                style={{ backgroundColor: palette.fill, border: `1px solid ${palette.stroke}` }}
+              />
+              {label}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function MemoryPanel({ memory, profileMarkdown }: { memory: MemoryPayload; profileMarkdown?: string | null }) {
   const profileFields = memory.storage?.redis?.profile_core?.fields ?? {};
   const relationships = memory.storage?.redis?.profile_relationships?.items ?? [];
   const recentEvents = memory.storage?.redis?.profile_recent_events?.items ?? [];
   const externalPublish = memory.external_publish ?? null;
+  const focusGraph = memory.transparency.focus_graph ?? memory.storage?.neo4j?.focus_graph ?? null;
   const stageCards = [
     {
       key: "face",
@@ -719,6 +942,8 @@ function MemoryPanel({ memory, profileMarkdown }: { memory: MemoryPayload; profi
         </div>
       </div>
 
+      <FocusGraphPanel graph={focusGraph} />
+
       {profileMarkdown ? (
         <div className="mt-5 rounded-[12px] border border-[#ddcebb] bg-white/70 p-4">
           <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-black/42">Profile Markdown</p>
@@ -732,6 +957,7 @@ function MemoryPanel({ memory, profileMarkdown }: { memory: MemoryPayload; profi
         <JsonDetails title="Envelope DTO" value={memory.envelope} />
         <JsonDetails title="Neo4j / Milvus / Redis State" value={memory.storage} />
         <JsonDetails title="Transparency Views" value={memory.transparency} />
+        {focusGraph ? <JsonDetails title="Focus Graph Mermaid" value={focusGraph.mermaid} /> : null}
         <JsonDetails title="Evaluation Objects" value={memory.evaluation} />
         {externalPublish ? <JsonDetails title="External Publish Report" value={externalPublish} /> : null}
       </div>

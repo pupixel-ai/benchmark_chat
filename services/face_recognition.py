@@ -409,6 +409,36 @@ class FaceRecognition:
                 high_quality_face_count=person_state.get("high_quality_face_count", 0),
             )
 
+    def _select_confident_primary_person_id(self, stats_by_person: Dict[str, Dict]) -> Optional[str]:
+        if not stats_by_person:
+            return None
+
+        ranked = sorted(
+            stats_by_person.items(),
+            key=lambda item: (
+                int(item[1].get("photo_count", 0)),
+                int(item[1].get("face_count", 0)),
+                item[1].get("first_seen") or "",
+            ),
+            reverse=True,
+        )
+        top_person_id, top_stats = ranked[0]
+        top_photo_count = int(top_stats.get("photo_count", 0))
+
+        # 主角推断需要稳定锚点；只出现 1 次或出现次数平票时都视为不可靠。
+        if top_photo_count < 2:
+            return None
+
+        tied_top_people = [
+            person_id
+            for person_id, stats in ranked
+            if int(stats.get("photo_count", 0)) == top_photo_count
+        ]
+        if len(tied_top_people) > 1:
+            return None
+
+        return top_person_id
+
     def _compute_primary_person_id(self) -> Optional[str]:
         if self.photo_results:
             counts = {}
@@ -428,32 +458,25 @@ class FaceRecognition:
                         if first_seen and (not stats["first_seen"] or first_seen < stats["first_seen"]):
                             stats["first_seen"] = first_seen
 
-            if counts:
-                ranked = sorted(
-                    counts.items(),
-                    key=lambda item: (
-                        item[1]["photo_count"],
-                        item[1]["face_count"],
-                        item[1]["first_seen"],
-                    ),
-                    reverse=True,
-                )
-                return ranked[0][0]
+            primary_person_id = self._select_confident_primary_person_id(counts)
+            if primary_person_id:
+                return primary_person_id
 
         people_state = self.state.get("persons", {})
         if not people_state:
             return None
 
-        ranked = sorted(
-            people_state.values(),
-            key=lambda item: (
-                item.get("photo_count", 0),
-                item.get("face_count", 0),
-                item.get("first_seen") or "",
-            ),
-            reverse=True,
+        primary_person_id = self._select_confident_primary_person_id(
+            {
+                person_id: {
+                    "photo_count": person_state.get("photo_count", 0),
+                    "face_count": person_state.get("face_count", 0),
+                    "first_seen": person_state.get("first_seen") or "",
+                }
+                for person_id, person_state in people_state.items()
+            }
         )
-        return ranked[0]["person_id"]
+        return primary_person_id
 
     def reorder_protagonist(self, photos: list) -> dict:
         """

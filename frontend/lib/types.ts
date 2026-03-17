@@ -252,6 +252,36 @@ export type MemoryStageSummary = {
   [key: string]: unknown;
 };
 
+export type MemoryGraphNode = {
+  node_id: string;
+  label: string;
+  node_type: string;
+  ring: number;
+  is_primary?: boolean;
+  metadata?: Record<string, unknown>;
+};
+
+export type MemoryGraphEdge = {
+  edge_id: string;
+  source_id: string;
+  target_id: string;
+  edge_type: string;
+  label?: string;
+  confidence?: number | null;
+  metadata?: Record<string, unknown>;
+};
+
+export type MemoryFocusGraph = {
+  center_node_id: string;
+  primary_face_person_id?: string | null;
+  primary_person_uuid?: string | null;
+  node_count: number;
+  edge_count: number;
+  nodes: MemoryGraphNode[];
+  edges: MemoryGraphEdge[];
+  mermaid: string;
+};
+
 export type MemoryTransparency = {
   face_stage?: {
     total_faces: number;
@@ -281,6 +311,7 @@ export type MemoryTransparency = {
     node_counts: Record<string, number>;
     edge_count: number;
   };
+  focus_graph?: MemoryFocusGraph;
   milvus_state?: {
     segment_count: number;
     segment_type_counts: Record<string, number>;
@@ -309,6 +340,7 @@ export type MemoryPayload = {
     neo4j?: {
       nodes?: Record<string, Array<Record<string, unknown>>>;
       edges?: Array<Record<string, unknown>>;
+      focus_graph?: MemoryFocusGraph;
     };
     milvus?: {
       segments?: Array<Record<string, unknown>>;

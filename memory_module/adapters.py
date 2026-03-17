@@ -123,6 +123,11 @@ class Neo4jStorageAdapter:
 
             with driver.session(database=MEMORY_NEO4J_DATABASE or None) as session:
                 nodes = payload.get("nodes", {})
+                for record in nodes.get("user", []):
+                    user_id = record.get("user_id")
+                    if not user_id:
+                        continue
+                    self._cleanup_user_focus_edges(session, user_id)
                 for group_name, records in nodes.items():
                     id_field = NODE_GROUP_ID_FIELDS.get(group_name)
                     if not id_field:
@@ -131,8 +136,12 @@ class Neo4jStorageAdapter:
                         if id_field not in record:
                             continue
                         labels = ":".join(self._sanitize_label(label) for label in record.get("labels", [])) or "MemoryNode"
-                        props = dict(record.get("properties", {}))
-                        props[id_field] = record[id_field]
+                        props = self._sanitize_properties(
+                            {
+                                **dict(record.get("properties", {})),
+                                id_field: record[id_field],
+                            }
+                        )
                         session.run(
                             f"MERGE (n:{labels} {{{id_field}: $node_id}}) SET n += $props",
                             node_id=record[id_field],
@@ -151,8 +160,12 @@ class Neo4jStorageAdapter:
                     left_labels, left_id_field = left
                     right_labels, right_id_field = right
                     rel_type = self._sanitize_rel(edge.get("edge_type", "RELATED_TO"))
-                    props = dict(edge.get("properties", {}))
-                    props["edge_id"] = edge.get("edge_id")
+                    props = self._sanitize_properties(
+                        {
+                            **dict(edge.get("properties", {})),
+                            "edge_id": edge.get("edge_id"),
+                        }
+                    )
                     session.run(
                         (
                             f"MATCH (a:{left_labels} {{{left_id_field}: $from_id}}) "
@@ -188,6 +201,82 @@ class Neo4jStorageAdapter:
         if cleaned and cleaned[0].isdigit():
             cleaned = f"REL_{cleaned}"
         return cleaned or "RELATED_TO"
+
+    def _sanitize_property_key(self, value: str) -> str:
+        cleaned = re.sub(r"[^0-9A-Za-z_]", "_", str(value or "prop"))
+        if cleaned and cleaned[0].isdigit():
+            cleaned = f"prop_{cleaned}"
+        return cleaned or "prop"
+
+    def _sanitize_properties(self, props: Dict[str, Any]) -> Dict[str, Any]:
+        sanitized: Dict[str, Any] = {}
+        for key, value in props.items():
+            self._collect_property(
+                sanitized,
+                self._sanitize_property_key(key),
+                value,
+            )
+        return sanitized
+
+    def _collect_property(self, target: Dict[str, Any], key: str, value: Any) -> None:
+        if value is None:
+            return
+
+        if isinstance(value, datetime):
+            target[key] = value.isoformat()
+            return
+
+        if isinstance(value, (str, int, float, bool)):
+            target[key] = value
+            return
+
+        if isinstance(value, dict):
+            if not value:
+                return
+            for nested_key, nested_value in value.items():
+                self._collect_property(
+                    target,
+                    f"{key}_{self._sanitize_property_key(nested_key)}",
+                    nested_value,
+                )
+            return
+
+        if isinstance(value, (list, tuple)):
+            scalar_items: List[Any] = []
+            for item in value:
+                if item is None:
+                    continue
+                if isinstance(item, datetime):
+                    scalar_items.append(item.isoformat())
+                    continue
+                if isinstance(item, (str, int, float, bool)):
+                    scalar_items.append(item)
+                    continue
+                target[f"{key}_json"] = json.dumps(value, ensure_ascii=False, default=str)
+                return
+            target[key] = scalar_items
+            return
+
+        target[key] = str(value)
+
+    def _cleanup_user_focus_edges(self, session: Any, user_id: str) -> None:
+        session.run(
+            (
+                "MATCH (u:User {user_id: $user_id}) "
+                "OPTIONAL MATCH (u)-[r:PRIMARY_USER]->(p:Person) "
+                "DELETE r "
+                "WITH DISTINCT u, p "
+                "REMOVE u.primary_face_person_id, u.primary_person_uuid "
+                "WITH p "
+                "WHERE p IS NOT NULL "
+                "REMOVE p:PrimaryUser"
+            ),
+            user_id=user_id,
+        )
+        session.run(
+            "MATCH (u:User {user_id: $user_id})-[r:OBSERVED_EVENT]->(:Event) DELETE r",
+            user_id=user_id,
+        )
 
 
 class MilvusStorageAdapter:

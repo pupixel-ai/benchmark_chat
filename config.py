@@ -162,6 +162,28 @@ MEMORY_MILVUS_VECTOR_DIM = int(os.getenv("MEMORY_MILVUS_VECTOR_DIM", "32"))
 # API配置 - 从环境变量读取
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 AMAP_API_KEY = os.getenv("AMAP_API_KEY", "")
+MODEL_PROVIDER = os.getenv("MODEL_PROVIDER", "").strip().lower()
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "").strip()
+OPENROUTER_BASE_URL = (
+    os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1").strip()
+    or "https://openrouter.ai/api/v1"
+)
+OPENROUTER_SITE_URL = (
+    os.getenv("OPENROUTER_SITE_URL", FRONTEND_ORIGIN).strip()
+    or FRONTEND_ORIGIN
+)
+OPENROUTER_APP_NAME = (
+    os.getenv("OPENROUTER_APP_NAME", "Memory Engineering").strip()
+    or "Memory Engineering"
+)
+OPENROUTER_VLM_MODEL = (
+    os.getenv("OPENROUTER_VLM_MODEL", "google/gemini-2.0-flash-001").strip()
+    or "google/gemini-2.0-flash-001"
+)
+OPENROUTER_LLM_MODEL = (
+    os.getenv("OPENROUTER_LLM_MODEL", "google/gemini-2.5-flash").strip()
+    or "google/gemini-2.5-flash"
+)
 
 # 代理服务配置（可选）
 USE_API_PROXY = os.getenv("USE_API_PROXY", "false").lower() == "true"
@@ -169,14 +191,28 @@ API_PROXY_URL = os.getenv("API_PROXY_URL", "")  # 代理服务基础 URL
 API_PROXY_KEY = os.getenv("API_PROXY_KEY", "")  # 代理服务 API Key
 API_PROXY_MODEL = os.getenv("API_PROXY_MODEL", "gemini-2.0-flash")  # 代理支持的模型
 
-VLM_MODEL = "gemini-2.0-flash"
-LLM_MODEL = "gemini-2.5-flash"  # 画像生成使用 Flash 2.5
+def _resolve_model_provider() -> str:
+    explicit = MODEL_PROVIDER
+    if explicit in {"gemini", "proxy", "openrouter"}:
+        return explicit
+    if USE_API_PROXY:
+        return "proxy"
+    if OPENROUTER_API_KEY:
+        return "openrouter"
+    if GEMINI_API_KEY.startswith("sk-"):
+        return "openrouter"
+    return "gemini"
+
+
+MODEL_PROVIDER = _resolve_model_provider()
+VLM_MODEL = OPENROUTER_VLM_MODEL if MODEL_PROVIDER == "openrouter" else "gemini-2.0-flash"
+LLM_MODEL = OPENROUTER_LLM_MODEL if MODEL_PROVIDER == "openrouter" else "gemini-2.5-flash"  # 画像生成使用 Flash 2.5
 
 # 人脸识别配置（默认使用仓库内置的 vendored face-recognition 源码）
 FACE_RECOGNITION_SRC_PATH = os.getenv(
     "FACE_RECOGNITION_SRC_PATH",
     BUNDLED_FACE_RECOGNITION_SRC_PATH,
-)
+).strip() or BUNDLED_FACE_RECOGNITION_SRC_PATH
 FACE_MODEL_NAME = os.getenv("FACE_MODEL_NAME", "buffalo_l")
 FACE_MAX_SIDE = int(os.getenv("FACE_MAX_SIDE", "1920"))
 FACE_DET_THRESHOLD = float(os.getenv("FACE_DET_THRESHOLD", "0.60"))
@@ -206,11 +242,11 @@ FACE_LANDMARKS_ENABLED = os.getenv("FACE_LANDMARKS_ENABLED", "true").lower() == 
 FACE_LANDMARK_MODEL_PATH = os.getenv(
     "FACE_LANDMARK_MODEL_PATH",
     os.path.join(RUNTIME_DIR, "models", "face_landmarker.task"),
-)
+).strip() or os.path.join(RUNTIME_DIR, "models", "face_landmarker.task")
 FACE_LANDMARK_MODEL_URL = os.getenv(
     "FACE_LANDMARK_MODEL_URL",
     "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/latest/face_landmarker.task",
-)
+).strip() or "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/latest/face_landmarker.task"
 FACE_POSE_PROFILE_YAW_THRESHOLD = float(os.getenv("FACE_POSE_PROFILE_YAW_THRESHOLD", "18.0"))
 FACE_PROFILE_RESCUE_DELTA = float(os.getenv("FACE_PROFILE_RESCUE_DELTA", "0.04"))
 FACE_PROFILE_RESCUE_MARGIN = float(os.getenv("FACE_PROFILE_RESCUE_MARGIN", "0.02"))
@@ -222,7 +258,6 @@ FACE_SAME_PHOTO_MATCH_THRESHOLD = float(os.getenv("FACE_SAME_PHOTO_MATCH_THRESHO
 # 图片处理配置
 MAX_IMAGE_SIZE = 1536  # 压缩后最大边长
 JPEG_QUALITY = 85  # JPEG质量
-DEDUP_TIME_WINDOW = 60  # 去重时间窗口（秒）
 
 # 事件提取配置
 EVENT_TIME_THRESHOLD = 2  # 时间阈值（小时）

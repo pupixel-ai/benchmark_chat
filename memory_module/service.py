@@ -48,6 +48,9 @@ from memory_module.sequencing import SequenceBundle, build_sequences
 from memory_module.views import (
     EvidenceChainView,
     FaceStageView,
+    FocusGraphView,
+    GraphEdgeView,
+    GraphNodeView,
     LLMStageView,
     MilvusStateView,
     Neo4jStateView,
@@ -111,6 +114,8 @@ class MemoryModuleService:
             face_person_id: self._canonical_person_uuid(face_person_id)
             for face_person_id in sorted(face_person_ids)
         }
+        primary_face_person_id = self._resolve_primary_face_person_id(photos, face_output)
+        primary_person_uuid = person_uuid_map.get(primary_face_person_id) if primary_face_person_id else None
 
         photos_dto = self._build_photo_facts(photos, photo_uuid_map, person_uuid_map, vlm_by_photo_id)
         sequences = build_sequences(photos, photo_uuid_map, person_uuid_map, self.scope_key)
@@ -178,8 +183,20 @@ class MemoryModuleService:
             bundle=bundle,
             profile_markdown=profile_markdown,
             person_uuid_map=person_uuid_map,
+            primary_face_person_id=primary_face_person_id,
+            primary_person_uuid=primary_person_uuid,
             profile_version=profile_version,
         )
+        focus_graph = self._build_focus_graph(
+            photos=photos_dto,
+            sequences=sequences,
+            event_candidates=event_candidates,
+            relationship_hypotheses=relationship_hypotheses,
+            person_uuid_map=person_uuid_map,
+            primary_face_person_id=primary_face_person_id,
+            primary_person_uuid=primary_person_uuid,
+        )
+        storage["neo4j"]["focus_graph"] = self._serialize(focus_graph)
         transparency = self._build_transparency(
             face_output=face_output,
             vlm_results=vlm_results,
@@ -190,6 +207,7 @@ class MemoryModuleService:
             storage=storage,
             change_log=change_log,
             cached_photo_ids=cached_photo_ids,
+            focus_graph=focus_graph,
         )
         evaluation = self._build_evaluation(
             scope=scope,
@@ -603,6 +621,8 @@ class MemoryModuleService:
         bundle: MaterializationInputBundle,
         profile_markdown: str,
         person_uuid_map: Dict[str, str],
+        primary_face_person_id: Optional[str],
+        primary_person_uuid: Optional[str],
         profile_version: int,
     ) -> Dict[str, Any]:
         people_records = [
@@ -628,9 +648,26 @@ class MemoryModuleService:
         ]
 
         neo4j_nodes = {
-            "user": [Neo4jUserNodeRecord(user_id=self.user_id, tenant_id=scope.tenant_id, properties={"task_id": self.task_id})],
+            "user": [
+                Neo4jUserNodeRecord(
+                    user_id=self.user_id,
+                    tenant_id=scope.tenant_id,
+                    properties={
+                        "task_id": self.task_id,
+                        "primary_face_person_id": primary_face_person_id,
+                        "primary_person_uuid": primary_person_uuid,
+                    },
+                )
+            ],
             "persons": [
-                Neo4jPersonNodeRecord(person_uuid=record.person_uuid, properties={"face_person_id": record.face_person_id})
+                Neo4jPersonNodeRecord(
+                    person_uuid=record.person_uuid,
+                    labels=["Person", "PrimaryUser"] if record.person_uuid == primary_person_uuid else ["Person"],
+                    properties={
+                        "face_person_id": record.face_person_id,
+                        "is_primary_user": record.person_uuid == primary_person_uuid,
+                    },
+                )
                 for record in people_records
             ],
             "photos": [
@@ -638,8 +675,12 @@ class MemoryModuleService:
                     photo_uuid=photo.photo_uuid,
                     properties={
                         "photo_id": photo.photo_id,
+                        "filename": photo.filename,
                         "captured_at": photo.captured_at_utc,
                         "location": photo.location,
+                        "contains_primary_user": bool(
+                            primary_person_uuid and any(face.person_uuid == primary_person_uuid for face in photo.faces)
+                        ),
                     },
                 )
                 for photo in photos
@@ -681,8 +722,10 @@ class MemoryModuleService:
                     properties={
                         "event_id": event.event_id,
                         "title": event.title,
+                        "event_type": event.event_type,
                         "location": event.location,
                         "confidence": event.confidence,
+                        "has_primary_user": bool(primary_person_uuid and primary_person_uuid in event.participant_person_uuids),
                     },
                 )
                 for event in event_candidates
@@ -690,6 +733,16 @@ class MemoryModuleService:
         }
 
         neo4j_edges = []
+        if primary_person_uuid:
+            neo4j_edges.append(
+                Neo4jRelationshipEdgeRecord(
+                    edge_id=self._stable_uuid("edge", "primary-user", self.user_id, primary_person_uuid),
+                    from_id=self.user_id,
+                    to_id=primary_person_uuid,
+                    edge_type="PRIMARY_USER",
+                    properties={"face_person_id": primary_face_person_id},
+                )
+            )
         for photo in photos:
             neo4j_edges.append(
                 Neo4jRelationshipEdgeRecord(
@@ -706,6 +759,15 @@ class MemoryModuleService:
                         from_id=photo.photo_uuid,
                         to_id=face.person_uuid,
                         edge_type="VISIBLE_IN",
+                        properties={"face_id": face.face_id, "quality_score": face.quality_score},
+                    )
+                )
+                neo4j_edges.append(
+                    Neo4jRelationshipEdgeRecord(
+                        edge_id=self._stable_uuid("edge", "person-photo", face.person_uuid, photo.photo_uuid, face.face_id),
+                        from_id=face.person_uuid,
+                        to_id=photo.photo_uuid,
+                        edge_type="APPEARS_IN",
                         properties={"face_id": face.face_id, "quality_score": face.quality_score},
                     )
                 )
@@ -753,6 +815,26 @@ class MemoryModuleService:
                 )
 
         for event in event_candidates:
+            if not primary_person_uuid:
+                neo4j_edges.append(
+                    Neo4jRelationshipEdgeRecord(
+                        edge_id=self._stable_uuid("edge", "user-event", self.user_id, event.event_uuid),
+                        from_id=self.user_id,
+                        to_id=event.event_uuid,
+                        edge_type="OBSERVED_EVENT",
+                        properties={"event_type": event.event_type, "confidence": event.confidence},
+                    )
+                )
+            for person_uuid in event.participant_person_uuids:
+                neo4j_edges.append(
+                    Neo4jRelationshipEdgeRecord(
+                        edge_id=self._stable_uuid("edge", "person-event", person_uuid, event.event_uuid),
+                        from_id=person_uuid,
+                        to_id=event.event_uuid,
+                        edge_type="PARTICIPATED_IN",
+                        properties={"event_type": event.event_type, "confidence": event.confidence},
+                    )
+                )
             for session_uuid in event.session_uuids:
                 neo4j_edges.append(
                     Neo4jRelationshipEdgeRecord(
@@ -773,10 +855,11 @@ class MemoryModuleService:
                 )
 
         for relationship in relationship_hypotheses:
+            from_id = primary_person_uuid or self.user_id
             neo4j_edges.append(
                 Neo4jRelationshipEdgeRecord(
-                    edge_id=self._stable_uuid("edge", "relationship", self.user_id, relationship.person_uuid),
-                    from_id=self.user_id,
+                    edge_id=self._stable_uuid("edge", "relationship", from_id, relationship.person_uuid),
+                    from_id=from_id,
                     to_id=relationship.person_uuid,
                     edge_type="RELATIONSHIP_HYPOTHESIS",
                     properties={
@@ -819,6 +902,301 @@ class MemoryModuleService:
             "redis": redis,
             "materialization_bundle": self._serialize(bundle),
         }
+
+    def _build_focus_graph(
+        self,
+        photos: Sequence[PhotoFactDTO],
+        sequences: SequenceBundle,
+        event_candidates: Sequence[EventCandidateDTO],
+        relationship_hypotheses: Sequence[RelationshipHypothesisDTO],
+        person_uuid_map: Dict[str, str],
+        primary_face_person_id: Optional[str],
+        primary_person_uuid: Optional[str],
+    ) -> FocusGraphView:
+        face_person_by_uuid = {
+            person_uuid: face_person_id
+            for face_person_id, person_uuid in person_uuid_map.items()
+        }
+        nodes: List[GraphNodeView] = []
+        edges: List[GraphEdgeView] = []
+        node_index: Dict[str, GraphNodeView] = {}
+
+        def add_node(
+            node_id: str,
+            label: str,
+            node_type: str,
+            ring: int,
+            *,
+            is_primary: bool = False,
+            metadata: Optional[Dict[str, Any]] = None,
+        ) -> None:
+            if not node_id:
+                return
+            current = node_index.get(node_id)
+            payload = metadata or {}
+            if current:
+                current.ring = min(current.ring, ring)
+                current.is_primary = current.is_primary or is_primary
+                current.metadata.update(payload)
+                if len(label) > len(current.label):
+                    current.label = label
+                return
+            item = GraphNodeView(
+                node_id=node_id,
+                label=label,
+                node_type=node_type,
+                ring=ring,
+                is_primary=is_primary,
+                metadata=dict(payload),
+            )
+            node_index[node_id] = item
+            nodes.append(item)
+
+        def add_edge(
+            source_id: str,
+            target_id: str,
+            edge_type: str,
+            *,
+            label: str = "",
+            confidence: Optional[float] = None,
+            metadata: Optional[Dict[str, Any]] = None,
+        ) -> None:
+            if not source_id or not target_id:
+                return
+            edges.append(
+                GraphEdgeView(
+                    edge_id=self._stable_uuid("focus-edge", source_id, target_id, edge_type, label or ""),
+                    source_id=source_id,
+                    target_id=target_id,
+                    edge_type=edge_type,
+                    label=label,
+                    confidence=confidence,
+                    metadata=dict(metadata or {}),
+                )
+            )
+
+        center_node_id = primary_person_uuid or self.user_id
+        if primary_person_uuid:
+            add_node(
+                primary_person_uuid,
+                f"{primary_face_person_id or 'Primary'} · 主用户",
+                "primary_person",
+                0,
+                is_primary=True,
+                metadata={"face_person_id": primary_face_person_id},
+            )
+            add_node(
+                self.user_id,
+                self.user_id,
+                "user_account",
+                1,
+                metadata={"role": "account"},
+            )
+            add_edge(
+                self.user_id,
+                primary_person_uuid,
+                "PRIMARY_USER",
+                label="主角锚点",
+                metadata={"face_person_id": primary_face_person_id},
+            )
+        else:
+            add_node(
+                self.user_id,
+                self.user_id,
+                "user_account",
+                0,
+                metadata={"role": "account"},
+            )
+
+        for relationship in sorted(
+            relationship_hypotheses,
+            key=lambda item: (-item.confidence, item.face_person_id),
+        ):
+            add_node(
+                relationship.person_uuid,
+                f"{relationship.face_person_id} · {relationship.label}",
+                "related_person",
+                1,
+                metadata={
+                    "face_person_id": relationship.face_person_id,
+                    "relationship_type": relationship.relationship_type,
+                },
+            )
+            add_edge(
+                center_node_id,
+                relationship.person_uuid,
+                "RELATIONSHIP_HYPOTHESIS",
+                label=relationship.label,
+                confidence=relationship.confidence,
+                metadata={"relationship_type": relationship.relationship_type},
+            )
+
+        relevant_event_uuids = set()
+        relevant_session_uuids = set()
+        relevant_photo_uuids = set()
+        relevant_timeline_uuids = set()
+
+        for event in sorted(
+            event_candidates,
+            key=lambda item: (item.started_at, item.title),
+        ):
+            involves_primary = bool(
+                primary_person_uuid and primary_person_uuid in event.participant_person_uuids
+            )
+            if primary_person_uuid and not involves_primary:
+                continue
+
+            relevant_event_uuids.add(event.event_uuid)
+            add_node(
+                event.event_uuid,
+                event.title or event.event_id,
+                "event",
+                1,
+                metadata={"event_type": event.event_type, "location": event.location},
+            )
+            add_edge(
+                center_node_id,
+                event.event_uuid,
+                "PARTICIPATED_IN" if primary_person_uuid else "OBSERVED_EVENT",
+                label=event.event_type,
+                confidence=event.confidence,
+                metadata={"location": event.location},
+            )
+
+            for person_uuid in event.participant_person_uuids:
+                if person_uuid == primary_person_uuid:
+                    continue
+                add_node(
+                    person_uuid,
+                    face_person_by_uuid.get(person_uuid, "Person"),
+                    "participant_person",
+                    1,
+                    metadata={"face_person_id": face_person_by_uuid.get(person_uuid)},
+                )
+                add_edge(
+                    event.event_uuid,
+                    person_uuid,
+                    "INVOLVES_PERSON",
+                    label="参与人物",
+                )
+
+            for session_uuid in event.session_uuids:
+                relevant_session_uuids.add(session_uuid)
+
+            for photo_uuid in event.photo_uuids:
+                relevant_photo_uuids.add(photo_uuid)
+
+        for photo in photos:
+            contains_primary = bool(
+                primary_person_uuid and any(face.person_uuid == primary_person_uuid for face in photo.faces)
+            )
+            if contains_primary:
+                relevant_photo_uuids.add(photo.photo_uuid)
+
+        session_by_uuid = {session.session_uuid: session for session in sequences.sessions}
+        for photo in photos:
+            if photo.photo_uuid not in relevant_photo_uuids:
+                continue
+            add_node(
+                photo.photo_uuid,
+                photo.filename,
+                "photo",
+                2,
+                metadata={"photo_id": photo.photo_id, "captured_at": photo.captured_at_utc},
+            )
+            if primary_person_uuid and any(face.person_uuid == primary_person_uuid for face in photo.faces):
+                add_edge(
+                    center_node_id,
+                    photo.photo_uuid,
+                    "APPEARS_IN",
+                    label="出现于照片",
+                )
+            for session in sequences.sessions:
+                if photo.photo_id not in session.photo_ids:
+                    continue
+                relevant_session_uuids.add(session.session_uuid)
+                add_edge(
+                    photo.photo_uuid,
+                    session.session_uuid,
+                    "IN_SESSION",
+                    label=session.day_key,
+                )
+                break
+
+        for session_uuid in sorted(relevant_session_uuids):
+            session = session_by_uuid.get(session_uuid)
+            if not session:
+                continue
+            add_node(
+                session.session_uuid,
+                session.summary_hint or session.session_id,
+                "session",
+                2,
+                metadata={"day_key": session.day_key, "location_hint": session.location_hint},
+            )
+            if primary_person_uuid and primary_person_uuid in session.dominant_person_uuids:
+                add_edge(
+                    center_node_id,
+                    session.session_uuid,
+                    "ACTIVE_IN_SESSION",
+                    label=session.day_key,
+                )
+            for timeline in sequences.day_timelines:
+                if session.session_uuid not in timeline.session_uuids:
+                    continue
+                relevant_timeline_uuids.add(timeline.timeline_uuid)
+
+        for timeline in sequences.day_timelines:
+            if timeline.timeline_uuid not in relevant_timeline_uuids:
+                continue
+            add_node(
+                timeline.timeline_uuid,
+                timeline.day_key,
+                "timeline",
+                3,
+                metadata={"day_key": timeline.day_key},
+            )
+            for session_uuid in timeline.session_uuids:
+                if session_uuid not in relevant_session_uuids:
+                    continue
+                add_edge(
+                    timeline.timeline_uuid,
+                    session_uuid,
+                    "PART_OF_DAY_TIMELINE",
+                    label="时间线",
+                )
+
+        mermaid = self._build_focus_graph_mermaid(nodes, edges)
+        return FocusGraphView(
+            center_node_id=center_node_id,
+            primary_face_person_id=primary_face_person_id,
+            primary_person_uuid=primary_person_uuid,
+            node_count=len(nodes),
+            edge_count=len(edges),
+            nodes=nodes,
+            edges=edges,
+            mermaid=mermaid,
+        )
+
+    def _build_focus_graph_mermaid(
+        self,
+        nodes: Sequence[GraphNodeView],
+        edges: Sequence[GraphEdgeView],
+    ) -> str:
+        if not nodes:
+            return "graph LR\n"
+
+        lines = ["graph LR"]
+        for node in nodes:
+            label = node.label.replace('"', "'")
+            lines.append(f'  {self._mermaid_id(node.node_id)}["{label}"]')
+        for edge in edges:
+            edge_label = edge.label or edge.edge_type
+            edge_label = edge_label.replace('"', "'")
+            lines.append(
+                f"  {self._mermaid_id(edge.source_id)} -->|{edge_label}| {self._mermaid_id(edge.target_id)}"
+            )
+        return "\n".join(lines)
 
     def _build_milvus_segments(
         self,
@@ -1081,6 +1459,7 @@ class MemoryModuleService:
         storage: Dict[str, Any],
         change_log: Sequence[ChangeLogEntryDTO],
         cached_photo_ids: set[str],
+        focus_graph: FocusGraphView,
     ) -> Dict[str, Any]:
         face_stage = FaceStageView(
             total_faces=int(face_output.get("metrics", {}).get("total_faces", 0)),
@@ -1181,6 +1560,7 @@ class MemoryModuleService:
             "sequence_stage": self._serialize(sequence_stage),
             "llm_stage": self._serialize(llm_stage),
             "neo4j_state": self._serialize(neo4j_state),
+            "focus_graph": self._serialize(focus_graph),
             "milvus_state": self._serialize(milvus_state),
             "redis_state": self._serialize(redis_state),
             "object_diff": self._serialize(object_diff),
@@ -1277,11 +1657,20 @@ class MemoryModuleService:
             "transparency": self.output_dir / "memory_transparency.json",
             "evaluation": self.output_dir / "memory_evaluation.json",
             "external_publish": self.output_dir / "external_publish_report.json",
+            "focus_graph": self.output_dir / "memory_focus_graph.json",
+            "focus_graph_mermaid": self.output_dir / "memory_focus_graph.mmd",
         }
         save_json(memory_payload["envelope"], str(paths["envelope"]))
         save_json(memory_payload["storage"], str(paths["storage"]))
         save_json(memory_payload["transparency"], str(paths["transparency"]))
         save_json(memory_payload["evaluation"], str(paths["evaluation"]))
+        focus_graph = memory_payload.get("transparency", {}).get("focus_graph")
+        if focus_graph:
+            save_json(focus_graph, str(paths["focus_graph"]))
+            paths["focus_graph_mermaid"].write_text(
+                str(focus_graph.get("mermaid") or ""),
+                encoding="utf-8",
+            )
         if "external_publish" in memory_payload:
             save_json(memory_payload["external_publish"], str(paths["external_publish"]))
         return {
@@ -1290,11 +1679,15 @@ class MemoryModuleService:
             "transparency_path": str(paths["transparency"]),
             "evaluation_path": str(paths["evaluation"]),
             "external_publish_path": str(paths["external_publish"]),
+            "focus_graph_path": str(paths["focus_graph"]),
+            "focus_graph_mermaid_path": str(paths["focus_graph_mermaid"]),
             "envelope_url": self._public_url(paths["envelope"]),
             "storage_url": self._public_url(paths["storage"]),
             "transparency_url": self._public_url(paths["transparency"]),
             "evaluation_url": self._public_url(paths["evaluation"]),
             "external_publish_url": self._public_url(paths["external_publish"]),
+            "focus_graph_url": self._public_url(paths["focus_graph"]),
+            "focus_graph_mermaid_url": self._public_url(paths["focus_graph_mermaid"]),
         }
 
     def _event_bounds(self, event: Event) -> tuple[str, str]:
@@ -1376,11 +1769,32 @@ class MemoryModuleService:
                 person_ids.add(str(relationship.person_id))
         return person_ids
 
+    def _resolve_primary_face_person_id(self, photos: Sequence, face_output: Dict[str, Any]) -> Optional[str]:
+        primary_person_id = str(face_output.get("primary_person_id") or "").strip()
+        if primary_person_id:
+            return primary_person_id
+
+        candidates = Counter(
+            str(getattr(photo, "primary_person_id", "") or "").strip()
+            for photo in photos
+            if getattr(photo, "primary_person_id", None)
+        )
+        if not candidates:
+            return None
+        primary_person_id, _count = candidates.most_common(1)[0]
+        return primary_person_id or None
+
     def _bbox_to_xywh(self, bbox: Any) -> Dict[str, int]:
         if not isinstance(bbox, (list, tuple)) or len(bbox) != 4:
             return {"x": 0, "y": 0, "w": 0, "h": 0}
         x1, y1, x2, y2 = [int(value) for value in bbox]
         return {"x": x1, "y": y1, "w": max(0, x2 - x1), "h": max(0, y2 - y1)}
+
+    def _mermaid_id(self, raw: str) -> str:
+        sanitized = "".join(char if char.isalnum() else "_" for char in str(raw))
+        if sanitized and sanitized[0].isdigit():
+            sanitized = f"n_{sanitized}"
+        return sanitized or "node"
 
     def _public_url(self, path: Path | str) -> Optional[str]:
         if not self.public_url_builder:

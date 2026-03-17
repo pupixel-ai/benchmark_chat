@@ -4,6 +4,7 @@ import tempfile
 import unittest
 from datetime import datetime
 from pathlib import Path
+from unittest.mock import patch
 
 from memory_module import MemoryModuleService
 from models import Event, Photo, Relationship
@@ -21,15 +22,24 @@ class MemoryModuleTests(unittest.TestCase):
                 pipeline_version="v0315",
             )
 
-            result = service.materialize(
-                photos=photos,
-                face_output=self._face_output(),
-                vlm_results=self._vlm_results(photos),
-                events=self._events(),
-                relationships=self._relationships(),
-                profile_markdown="# profile\n\n- likes brunch",
-                cached_photo_ids={"photo_001"},
-            )
+            with patch(
+                "memory_module.service.MemoryStoragePublisher.publish",
+                return_value={
+                    "enabled": False,
+                    "redis": {"status": "skipped", "reason": "test"},
+                    "neo4j": {"status": "skipped", "reason": "test"},
+                    "milvus": {"status": "skipped", "reason": "test"},
+                },
+            ):
+                result = service.materialize(
+                    photos=photos,
+                    face_output=self._face_output(),
+                    vlm_results=self._vlm_results(photos),
+                    events=self._events(),
+                    relationships=self._relationships(),
+                    profile_markdown="# profile\n\n- likes brunch",
+                    cached_photo_ids={"photo_001"},
+                )
 
             self.assertEqual(result["summary"]["session_count"], 2)
             self.assertEqual(result["summary"]["timeline_count"], 1)
@@ -46,8 +56,33 @@ class MemoryModuleTests(unittest.TestCase):
 
             self.assertEqual(result["transparency"]["vlm_stage"]["cached_hits"], 1)
             self.assertGreater(len(result["transparency"]["traces"]), 0)
+            focus_graph = result["transparency"]["focus_graph"]
+            self.assertEqual(focus_graph["primary_face_person_id"], "Person_001")
+            self.assertGreaterEqual(focus_graph["node_count"], 6)
+            self.assertIn("主用户", focus_graph["mermaid"])
+            primary_node = next(
+                node for node in focus_graph["nodes"] if node["node_type"] == "primary_person"
+            )
+            self.assertTrue(primary_node["is_primary"])
+            self.assertEqual(focus_graph["center_node_id"], primary_node["node_id"])
+
+            relationship_edges = [
+                edge for edge in result["storage"]["neo4j"]["edges"]
+                if edge["edge_type"] == "RELATIONSHIP_HYPOTHESIS"
+            ]
+            self.assertEqual(len(relationship_edges), 2)
+            self.assertTrue(all(edge["from_id"] == primary_node["node_id"] for edge in relationship_edges))
+
+            person_nodes = result["storage"]["neo4j"]["nodes"]["persons"]
+            primary_person_record = next(
+                node for node in person_nodes if node["properties"]["face_person_id"] == "Person_001"
+            )
+            self.assertIn("PrimaryUser", primary_person_record["labels"])
+
             self.assertTrue(Path(result["artifacts"]["envelope_path"]).exists())
             self.assertTrue(Path(result["artifacts"]["storage_path"]).exists())
+            self.assertTrue(Path(result["artifacts"]["focus_graph_path"]).exists())
+            self.assertTrue(Path(result["artifacts"]["focus_graph_mermaid_path"]).exists())
             self.assertEqual(result["summary"]["external_sinks_published"], 0)
             self.assertEqual(result["external_publish"]["redis"]["status"], "skipped")
 
@@ -69,22 +104,31 @@ class MemoryModuleTests(unittest.TestCase):
                 pipeline_version="v0315",
             )
 
-            result_one = service_one.materialize(
-                photos=photos_one,
-                face_output=self._face_output(),
-                vlm_results=self._vlm_results(photos_one),
-                events=self._events(),
-                relationships=self._relationships(),
-                profile_markdown="",
-            )
-            result_two = service_two.materialize(
-                photos=photos_two,
-                face_output=self._face_output(),
-                vlm_results=self._vlm_results(photos_two),
-                events=self._events(),
-                relationships=self._relationships(),
-                profile_markdown="",
-            )
+            with patch(
+                "memory_module.service.MemoryStoragePublisher.publish",
+                return_value={
+                    "enabled": False,
+                    "redis": {"status": "skipped", "reason": "test"},
+                    "neo4j": {"status": "skipped", "reason": "test"},
+                    "milvus": {"status": "skipped", "reason": "test"},
+                },
+            ):
+                result_one = service_one.materialize(
+                    photos=photos_one,
+                    face_output=self._face_output(),
+                    vlm_results=self._vlm_results(photos_one),
+                    events=self._events(),
+                    relationships=self._relationships(),
+                    profile_markdown="",
+                )
+                result_two = service_two.materialize(
+                    photos=photos_two,
+                    face_output=self._face_output(),
+                    vlm_results=self._vlm_results(photos_two),
+                    events=self._events(),
+                    relationships=self._relationships(),
+                    profile_markdown="",
+                )
 
             person_map_one = {
                 item["face_person_id"]: item["person_uuid"]
@@ -97,6 +141,51 @@ class MemoryModuleTests(unittest.TestCase):
 
             self.assertEqual(person_map_one["Person_002"], person_map_two["Person_002"])
             self.assertEqual(person_map_one["Person_003"], person_map_two["Person_003"])
+
+    def test_materialize_without_primary_person_centers_graph_on_user(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            task_dir = Path(tmpdir)
+            photos = self._sample_photos(task_dir)
+            for photo in photos:
+                photo.primary_person_id = None
+
+            service = MemoryModuleService(
+                task_id="task_beta",
+                task_dir=str(task_dir),
+                user_id="user_beta",
+                pipeline_version="v0315",
+            )
+
+            with patch(
+                "memory_module.service.MemoryStoragePublisher.publish",
+                return_value={
+                    "enabled": False,
+                    "redis": {"status": "skipped", "reason": "test"},
+                    "neo4j": {"status": "skipped", "reason": "test"},
+                    "milvus": {"status": "skipped", "reason": "test"},
+                },
+            ):
+                result = service.materialize(
+                    photos=photos,
+                    face_output={**self._face_output(), "primary_person_id": None},
+                    vlm_results=self._vlm_results(photos),
+                    events=self._events(),
+                    relationships=[],
+                    profile_markdown="",
+                    cached_photo_ids=set(),
+                )
+
+            focus_graph = result["transparency"]["focus_graph"]
+            self.assertEqual(focus_graph["center_node_id"], "user_beta")
+            self.assertIsNone(focus_graph["primary_face_person_id"])
+            self.assertEqual(focus_graph["nodes"][0]["node_type"], "user_account")
+
+            observed_event_edges = [
+                edge for edge in result["storage"]["neo4j"]["edges"]
+                if edge["edge_type"] == "OBSERVED_EVENT"
+            ]
+            self.assertGreaterEqual(len(observed_event_edges), 1)
+            self.assertTrue(all(edge["from_id"] == "user_beta" for edge in observed_event_edges))
 
     def _sample_photos(self, task_dir: Path) -> list[Photo]:
         uploads_dir = task_dir / "uploads"

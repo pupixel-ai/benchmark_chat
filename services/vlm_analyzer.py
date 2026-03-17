@@ -1,6 +1,7 @@
 """
 VLM分析模块
 """
+import base64
 import json
 import mimetypes
 import os
@@ -13,8 +14,13 @@ from config import (
     API_PROXY_URL,
     GEMINI_API_KEY,
     MAX_RETRIES,
+    MODEL_PROVIDER,
+    OPENROUTER_API_KEY,
+    OPENROUTER_APP_NAME,
+    OPENROUTER_BASE_URL,
+    OPENROUTER_SITE_URL,
+    OPENROUTER_VLM_MODEL,
     RETRY_DELAY,
-    USE_API_PROXY,
     VLM_CACHE_PATH,
     VLM_MODEL,
 )
@@ -22,11 +28,13 @@ from utils import save_json, load_json
 
 
 class VLMAnalyzer:
-    """VLM分析器 - 支持官方 API 和代理服务"""
+    """VLM分析器 - 支持官方 Gemini、Gemini 代理和 OpenRouter"""
 
     def __init__(self, cache_path: str = VLM_CACHE_PATH):
-        self.use_proxy = USE_API_PROXY
-        self.model = VLM_MODEL
+        self.provider = MODEL_PROVIDER
+        self.use_proxy = self.provider == "proxy"
+        self.use_openrouter = self.provider == "openrouter"
+        self.model = OPENROUTER_VLM_MODEL if self.use_openrouter else VLM_MODEL
         self.cache_path = cache_path
         self.results = []  # 缓存分析结果
         self._result_index: Dict[str, int] = {}
@@ -45,6 +53,17 @@ class VLMAnalyzer:
             self.proxy_key = API_PROXY_KEY
             self.proxy_model = API_PROXY_MODEL
             print(f"[VLM] 使用代理服务: {self.proxy_url}")
+        elif self.use_openrouter:
+            import requests
+
+            self.requests = requests
+            self.openrouter_api_key = OPENROUTER_API_KEY or GEMINI_API_KEY
+            if not self.openrouter_api_key:
+                raise ValueError("使用 OpenRouter 需要配置 OPENROUTER_API_KEY 或 GEMINI_API_KEY")
+            self.openrouter_base_url = OPENROUTER_BASE_URL.rstrip("/")
+            self.openrouter_site_url = OPENROUTER_SITE_URL
+            self.openrouter_app_name = OPENROUTER_APP_NAME
+            print(f"[VLM] 使用 OpenRouter: {self.model}")
         else:
             # 使用官方 Gemini API
             from google import genai
@@ -55,9 +74,29 @@ class VLMAnalyzer:
             self.client = genai.Client(api_key=GEMINI_API_KEY)
             print(f"[VLM] 使用官方 Gemini API")
 
+    def _coerce_text_content(self, content: Any) -> str:
+        if isinstance(content, str):
+            return content.strip()
+        if isinstance(content, list):
+            parts: List[str] = []
+            for item in content:
+                if isinstance(item, str):
+                    parts.append(item)
+                elif isinstance(item, dict):
+                    text = item.get("text")
+                    if isinstance(text, str):
+                        parts.append(text)
+            return "\n".join(part for part in parts if part).strip()
+        if isinstance(content, dict):
+            text = content.get("text")
+            if isinstance(text, str):
+                return text.strip()
+        raise ValueError(f"无法从内容中提取文本: {type(content).__name__}")
+
     def _extract_json_payload(self, raw_text: str) -> Dict[str, Any]:
         """从模型返回的文本中提取 JSON。"""
         text = raw_text.strip()
+        text = text.replace("<|begin_of_box|>", "").replace("<|end_of_box|>", "").strip()
 
         if text.startswith("```"):
             lines = text.splitlines()
@@ -69,7 +108,16 @@ class VLMAnalyzer:
             if text.lower().startswith("json"):
                 text = text[4:].strip()
 
-        return json.loads(text)
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError:
+            start = min((idx for idx in (text.find("{"), text.find("[")) if idx != -1), default=-1)
+            end_object = text.rfind("}")
+            end_array = text.rfind("]")
+            end = max(end_object, end_array)
+            if start != -1 and end != -1 and end > start:
+                return json.loads(text[start : end + 1])
+            raise
 
     def _normalize_result(self, result: Any) -> Dict:
         """统一代理/官方 API 的返回结构。"""
@@ -90,6 +138,28 @@ class VLMAnalyzer:
             return result
 
         raise ValueError(f"不支持的 VLM 返回类型: {type(result).__name__}")
+
+    def _infer_reliable_primary_person_id(self, face_db: Dict) -> str | None:
+        if not face_db:
+            return None
+
+        stats_by_person = []
+        for person_id, person in face_db.items():
+            photo_count = int(getattr(person, "photo_count", 0) or 0)
+            first_seen = getattr(person, "first_seen", None)
+            first_seen_value = first_seen.isoformat() if first_seen else ""
+            stats_by_person.append((person_id, photo_count, first_seen_value))
+
+        stats_by_person.sort(key=lambda item: (item[1], item[2]), reverse=True)
+        top_person_id, top_photo_count, _ = stats_by_person[0]
+        if top_photo_count < 2:
+            return None
+
+        tied_top_people = [person_id for person_id, photo_count, _ in stats_by_person if photo_count == top_photo_count]
+        if len(tied_top_people) > 1:
+            return None
+
+        return top_person_id
 
     def analyze_photo(self, photo: Photo, face_db: Dict, primary_person_id: str = None) -> Dict:
         """
@@ -116,9 +186,9 @@ class VLMAnalyzer:
 
         photo.processing_errors.pop("vlm", None)
 
-        # 如果没有指定主用户，尝试从人脸结果推断（出现次数最多的人）
+        # 如果没有指定主用户，只在存在稳定锚点时才推断，避免把偶发人物误当成主用户。
         if primary_person_id is None:
-            primary_person_id = max(face_db.items(), key=lambda x: x[1].photo_count)[0] if face_db else None
+            primary_person_id = self._infer_reliable_primary_person_id(face_db)
 
         # 构建prompt
         prompt = self._create_prompt(photo, face_db, primary_person_id)
@@ -135,6 +205,8 @@ class VLMAnalyzer:
                     if self.use_proxy:
                         # 使用代理服务
                         result = self._analyze_via_proxy(prompt, image_data, mime_type)
+                    elif self.use_openrouter:
+                        result = self._analyze_via_openrouter(prompt, image_data, mime_type)
                     else:
                         # 使用官方 Gemini API
                         result = self._analyze_via_official_api(prompt, image_data, mime_type)
@@ -186,8 +258,6 @@ class VLMAnalyzer:
 
     def _analyze_via_proxy(self, prompt: str, image_data: bytes, mime_type: str) -> Dict:
         """通过代理服务分析"""
-        import base64
-
         # 将图片转换为 base64
         image_base64 = base64.b64encode(image_data).decode('utf-8')
 
@@ -249,6 +319,67 @@ class VLMAnalyzer:
                     error_msg += f": {response.text[:200]}"
             raise Exception(error_msg)
 
+    def _openrouter_headers(self) -> Dict[str, str]:
+        return {
+            "Authorization": f"Bearer {self.openrouter_api_key}",
+            "Content-Type": "application/json",
+            "HTTP-Referer": self.openrouter_site_url,
+            "X-Title": self.openrouter_app_name,
+        }
+
+    def _extract_openrouter_content(self, response_data: Dict[str, Any]) -> str:
+        choices = response_data.get("choices", [])
+        if not choices:
+            raise ValueError("OpenRouter 未返回 choices")
+        message = choices[0].get("message", {})
+        content = message.get("content")
+        if not content and message.get("reasoning"):
+            content = message["reasoning"]
+        return self._coerce_text_content(content)
+
+    def _analyze_via_openrouter(self, prompt: str, image_data: bytes, mime_type: str) -> Dict:
+        image_base64 = base64.b64encode(image_data).decode("utf-8")
+        payload = {
+            "model": self.model,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": prompt},
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:{mime_type};base64,{image_base64}"
+                            },
+                        },
+                    ],
+                }
+            ],
+            "max_tokens": 4096,
+            "temperature": 0.1,
+        }
+
+        response = self.requests.post(
+            f"{self.openrouter_base_url}/chat/completions",
+            json=payload,
+            headers=self._openrouter_headers(),
+            timeout=60,
+        )
+
+        if response.status_code == 200:
+            response_data = response.json()
+            text = self._extract_openrouter_content(response_data)
+            return self._extract_json_payload(text)
+
+        error_msg = f"OpenRouter 返回状态码 {response.status_code}"
+        if response.text:
+            try:
+                error_data = response.json()
+                error_msg += f": {error_data.get('error', {}).get('message', response.text)}"
+            except Exception:
+                error_msg += f": {response.text[:200]}"
+        raise Exception(error_msg)
+
     def _create_prompt(self, photo: Photo, face_db: Dict, primary_person_id: str) -> str:
         """
         创建VLM prompt
@@ -272,9 +403,11 @@ class VLMAnalyzer:
         else:
             location_str = "未知"
 
+        analysis_anchor = "【主用户】" if primary_person_id else "【拍摄者】"
+
         # 构建人物说明：只在有人脸时才说明谁是主用户
         people_section = ""
-        if photo.faces:
+        if photo.faces and primary_person_id:
             # 获取主用户出现次数
             primary_person = face_db.get(primary_person_id) if primary_person_id else None
             primary_count = primary_person.photo_count if primary_person else 0
@@ -301,8 +434,11 @@ class VLMAnalyzer:
 - 其他人物保持原始 person_id / Person_### 编号
 {people_str}
 
-**分析原则**：围绕【主用户】分析所有内容
-- summary 中使用"【主用户】"指代 {primary_person_id}
+**分析原则**：围绕【主用户】这个身份锚点分析，但必须先判断其是否为现场实体人物
+- 即便 {primary_person_id} 的人脸框出现在画面中，也要先判断该形象是否只存在于屏幕、海报、广告牌、包装印刷、镜面反射或手持照片等载体里
+- 如果 {primary_person_id} 只出现在上述载体中，不得写成“【主用户】在现场出镜/站在现场/正在现场表演”
+- 这类情况应明确写成“载体中的【主用户】”或“屏幕中显示【主用户】”，并优先考虑现场拍摄视角仍来自【主用户】本人
+- 只有确认 {primary_person_id} 是现场实体人物时，summary 才能直接用“【主用户】正在……”
 - people 数组中使用具体的 person_id
 """
             else:
@@ -317,18 +453,36 @@ class VLMAnalyzer:
 - 描述从【主用户】的拍摄视角观察到的场景
 - people 数组中使用照片中具体的 person_id
 """
+        elif photo.faces:
+            people_section = f"""
+**人物说明**：
+- 当前批次没有可靠的主用户身份锚点，以下 person_id 只代表画面中可见的人物，不等于拍摄者本人：
+{chr(10).join([f"- {f['person_id']}" for f in photo.faces])}
+
+**分析原则**：
+- 如果表达拍摄视角，summary 中使用"【拍摄者】"，不要把任何 person_id 写成【主用户】或拍摄者本人
+- people 数组中只使用具体的 person_id
+- 若人物出现在屏幕、海报、广告牌、包装印刷、镜面反射或手持照片中，必须明确写明“载体中的人物”，不要当成现场实体人物
+- 若无法确认人物是否来自上述载体，不要做【主用户】绑定，只描述为“画面中的人物”或“疑似载体中的人物”
+"""
         else:
             people_section = """
 **人物说明**：照片中未检测到人脸，这是【主用户】的拍摄视角。
 
 **分析原则**：从【主用户】的拍摄视角描述场景和事件，summary 中直接使用"【主用户】"。
 """
+            if not primary_person_id:
+                people_section = """
+**人物说明**：照片中未检测到人脸，默认按【拍摄者】的拍摄视角理解。
+
+**分析原则**：从【拍摄者】的拍摄视角描述场景和事件，summary 中直接使用"【拍摄者】"。
+"""
 
         prompt = f"""## Role
-你是一位精通视觉人类学与社会空间重构的专家。你的任务是针对【主用户】的相册，建立一套"高度复原、可供画像分析"的客观视觉档案。
+你是一位精通视觉人类学与社会空间重构的专家。你的任务是针对相册内容，建立一套"高度复原、可供画像分析"的客观视觉档案。
 
 ### Context & Priorities
-- **核心任务**: 以【主用户】为圆心，还原每一张照片的物理现场、人物身份与社会学线索。
+- **核心任务**: 以{analysis_anchor}的视角与画面中的可见人物为线索，还原每一张照片的物理现场、人物身份与社会学线索。
 - **描述准则**: 拒绝模糊词汇（如：肤色白皙），追求物理参数（如：冷白皮、重磅棉、30度斜射光、具体手指动作）。
 {people_section}
 ### EXIF信息
@@ -342,7 +496,11 @@ class VLMAnalyzer:
 请针对每张照片输出以下严格的 JSON 格式（严禁包含主观推测）：
 
 1. **summary** (String, 必须):
-   - 完整叙事句，包含：[精确时刻/天气] + [具体地理/室内场景] + [【主用户】的行为状态] + [核心事件进度]
+   - 完整叙事句，包含：[精确时刻/天气] + [具体地理/室内场景] + [视角主体或主要人物的行为状态] + [核心事件进度]
+   - 只有当 prompt 明确给出可靠主用户锚点时，才能使用【主用户】；否则用【拍摄者】或具体 person_id
+   - 若人物位于屏幕、海报、广告牌、包装印刷、镜面反射或手持照片中，必须明确标注“载体中的人物”
+   - 若无法确认人物是否来自上述载体，不要绑定为【主用户】，只描述为“画面中的人物”或“疑似载体中的人物”
+   - 不要把手持照片默认写成“拍立得”；只有在品牌、相纸边框或器材特征明确可见时才能这么写，否则统一写“手持照片”或“即时成像照片”
 
 2. **people** (List，无人脸时可为空数组):
    - **person_id** (String): 如 Person_001、Person_002
@@ -350,7 +508,7 @@ class VLMAnalyzer:
    - **appearance** (String): 性别、年龄段、发型细节、脸型特征、体型、修饰痕迹
    - **clothing** (String): 衣物材质（重磅棉/尼龙/真丝等）、版型、品牌Logo、配饰
    - **interaction** (String): 物理距离（亲密/社交/公共）、具体动作、与主角的关系
-     这里的“主角”统一理解为【主用户】
+     这里的“主角”仅在存在可靠主用户锚点时才可理解为【主用户】；否则描述其与【拍摄者】或其他 person_id 的关系
 
 3. **scene** (Object):
    - **environment_description** (String): 宏观场景/景色描述
@@ -374,6 +532,9 @@ class VLMAnalyzer:
 ### ⚠️ 输出要求 (Constraints)
 - **拒绝模板**: 严禁多人描述雷同，必须捕捉细微差别
 - **硬核线索**: 必须扫描并记录所有可见的品牌、文字、屏幕内容
+- **严禁误绑身份**: 不要因为人脸框或 person_id 的存在，就把屏幕/海报中的人物认定为【主用户】
+- **严禁误判在场**: 若【主用户】只出现在屏幕、海报、广告牌、包装印刷、镜面反射或手持照片中，不得写成【主用户】本人就在现场实体出镜
+- **严禁滥用“拍立得”**: 看见手持照片时，除非视觉证据非常明确，不要直接写“拍立得”
 - **JSON Only**: 仅输出结构化 JSON，不要任何开头语或解释
 
 输出JSON格式（精简版，仅保留事件提取所需字段）：
@@ -405,7 +566,9 @@ class VLMAnalyzer:
 }}
 
 说明：
-- summary: 完整叙事句，包含时间、地点、【主用户】行为、核心事件
+- summary: 完整叙事句，包含时间、地点、视角主体或主要人物状态、核心事件
+- 如果没有可靠主用户锚点，summary 应改为描述【拍摄者】或具体 person_id 的状态，不能硬写【主用户】
+- 如果可靠主用户锚点只出现在载体中，summary 也不能写成【主用户】本人在现场实体出镜，而应写成“载体中的【主用户】”
 - people: 若检测到人脸，必须逐个输出 person_id，并描述其外貌/穿着/互动
 - scene.environment_details: 关键物品列表（桌椅、蛋糕、花门等，用于识别事件类型）
 - scene.location_detected: 地点识别（餐厅、户外、海边等）

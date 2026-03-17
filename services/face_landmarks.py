@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from threading import Lock
 from typing import Dict, Iterable, Sequence
+import warnings
 
 import numpy as np
 import requests
@@ -77,6 +78,8 @@ class FaceLandmarkAnalyzer:
         self.model_url = model_url
         self._lock = Lock()
         self._landmarker = None
+        self._landmarker_init_failed = False
+        self._landmarker_init_error: str | None = None
 
     def analyze_face(
         self,
@@ -142,15 +145,21 @@ class FaceLandmarkAnalyzer:
     def _get_landmarker(self):
         if self._landmarker is not None:
             return self._landmarker
+        if self._landmarker_init_failed:
+            return None
         if FaceLandmarker is None or FaceLandmarkerOptions is None or BaseOptions is None:
             return None
 
         with self._lock:
             if self._landmarker is not None:
                 return self._landmarker
+            if self._landmarker_init_failed:
+                return None
             ensure_model_downloaded(self.model_path, self.model_url)
+            model_bytes = self.model_path.read_bytes()
             options = FaceLandmarkerOptions(
-                base_options=BaseOptions(model_asset_path=str(self.model_path)),
+                # Prefer in-memory model bytes so MediaPipe does not rely on mmap.
+                base_options=BaseOptions(model_asset_buffer=model_bytes),
                 running_mode=RunningMode.IMAGE,
                 num_faces=1,
                 min_face_detection_confidence=0.35,
@@ -159,7 +168,17 @@ class FaceLandmarkAnalyzer:
                 output_face_blendshapes=False,
                 output_facial_transformation_matrixes=True,
             )
-            self._landmarker = FaceLandmarker.create_from_options(options)
+            try:
+                self._landmarker = FaceLandmarker.create_from_options(options)
+            except Exception as exc:
+                self._landmarker_init_failed = True
+                self._landmarker_init_error = str(exc)
+                warnings.warn(
+                    f"MediaPipe FaceLandmarker 初始化失败，已降级为 InsightFace pose fallback: {exc}",
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
+                return None
             return self._landmarker
 
     def _crop_face_region(self, image: np.ndarray, bbox_xywh: Dict[str, int]) -> np.ndarray:

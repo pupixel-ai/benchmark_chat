@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from memory_module.adapters import MemoryStoragePublisher, MilvusStorageAdapter
+from memory_module.adapters import MemoryStoragePublisher, MilvusStorageAdapter, Neo4jStorageAdapter
 
 
 class MemoryAdapterTests(unittest.TestCase):
@@ -74,6 +74,28 @@ class MemoryAdapterTests(unittest.TestCase):
             self.assertEqual(report["mode"], "local-db")
             self.assertEqual(report["segment_count"], 1)
             self.assertTrue(db_path.exists())
+
+    def test_neo4j_adapter_flattens_nested_properties(self) -> None:
+        adapter = Neo4jStorageAdapter()
+
+        props = adapter._sanitize_properties(
+            {
+                "photo_id": "photo_001",
+                "location": {},
+                "location_hint": {"name": "unknown", "geo": {"lat": 39.9, "lng": 116.3}},
+                "tags": ["music", "festival"],
+                "evidence_refs": [{"photo_id": "photo_001"}],
+                "captured_at": "2026-03-16T01:25:46.093583",
+            }
+        )
+
+        self.assertEqual(props["photo_id"], "photo_001")
+        self.assertEqual(props["location_hint_name"], "unknown")
+        self.assertEqual(props["location_hint_geo_lat"], 39.9)
+        self.assertEqual(props["location_hint_geo_lng"], 116.3)
+        self.assertEqual(props["tags"], ["music", "festival"])
+        self.assertIn("evidence_refs_json", props)
+        self.assertNotIn("location", props)
 
 
 if __name__ == "__main__":

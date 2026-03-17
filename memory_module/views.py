@@ -45,6 +45,39 @@ class Neo4jStateView:
 
 
 @dataclass(slots=True)
+class GraphNodeView:
+    node_id: str
+    label: str
+    node_type: str
+    ring: int
+    is_primary: bool = False
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(slots=True)
+class GraphEdgeView:
+    edge_id: str
+    source_id: str
+    target_id: str
+    edge_type: str
+    label: str = ""
+    confidence: float | None = None
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(slots=True)
+class FocusGraphView:
+    center_node_id: str
+    primary_face_person_id: str | None
+    primary_person_uuid: str | None
+    node_count: int
+    edge_count: int
+    nodes: List[GraphNodeView] = field(default_factory=list)
+    edges: List[GraphEdgeView] = field(default_factory=list)
+    mermaid: str = ""
+
+
+@dataclass(slots=True)
 class MilvusStateView:
     segment_count: int
     segment_type_counts: Dict[str, int]

@@ -3,18 +3,37 @@ LLM处理模块：事件提取、关系推断、画像生成
 """
 import json
 from datetime import datetime
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 from models import Event, Relationship, UserProfile
-from config import GEMINI_API_KEY, LLM_MODEL, MIN_PHOTO_COUNT, MIN_TIME_SPAN_DAYS, MIN_SCENE_VARIETY, USE_API_PROXY, API_PROXY_URL, API_PROXY_KEY, API_PROXY_MODEL
+from config import (
+    API_PROXY_KEY,
+    API_PROXY_MODEL,
+    API_PROXY_URL,
+    GEMINI_API_KEY,
+    LLM_MODEL,
+    MAX_RETRIES,
+    MIN_PHOTO_COUNT,
+    MIN_SCENE_VARIETY,
+    MIN_TIME_SPAN_DAYS,
+    MODEL_PROVIDER,
+    OPENROUTER_API_KEY,
+    OPENROUTER_APP_NAME,
+    OPENROUTER_BASE_URL,
+    OPENROUTER_LLM_MODEL,
+    OPENROUTER_SITE_URL,
+    RETRY_DELAY,
+)
 from utils import calculate_distance, time_overlap, is_weekend
 
 
 class LLMProcessor:
-    """LLM处理器 - 支持官方 API 和代理服务"""
+    """LLM处理器 - 支持官方 Gemini、Gemini 代理和 OpenRouter"""
 
     def __init__(self):
-        self.use_proxy = USE_API_PROXY
-        self.model = LLM_MODEL
+        self.provider = MODEL_PROVIDER
+        self.use_proxy = self.provider == "proxy"
+        self.use_openrouter = self.provider == "openrouter"
+        self.model = OPENROUTER_LLM_MODEL if self.use_openrouter else LLM_MODEL
         self.requests = None
         self.genai = None
 
@@ -29,6 +48,17 @@ class LLMProcessor:
             self.proxy_key = API_PROXY_KEY
             self.proxy_model = API_PROXY_MODEL
             print(f"[LLM] 使用代理服务: {self.proxy_url}")
+        elif self.use_openrouter:
+            import requests
+
+            self.requests = requests
+            self.openrouter_api_key = OPENROUTER_API_KEY or GEMINI_API_KEY
+            if not self.openrouter_api_key:
+                raise ValueError("使用 OpenRouter 需要配置 OPENROUTER_API_KEY 或 GEMINI_API_KEY")
+            self.openrouter_base_url = OPENROUTER_BASE_URL.rstrip("/")
+            self.openrouter_site_url = OPENROUTER_SITE_URL
+            self.openrouter_app_name = OPENROUTER_APP_NAME
+            print(f"[LLM] 使用 OpenRouter: {self.model}")
         else:
             # 使用官方 Gemini API
             from google import genai
@@ -36,6 +66,70 @@ class LLMProcessor:
             self.genai = genai
             self.client = genai.Client(api_key=GEMINI_API_KEY)
             print(f"[LLM] 使用官方 Gemini API")
+
+    def _coerce_text_content(self, content: Any) -> str:
+        if isinstance(content, str):
+            return content.strip()
+        if isinstance(content, list):
+            parts: List[str] = []
+            for item in content:
+                if isinstance(item, str):
+                    parts.append(item)
+                elif isinstance(item, dict):
+                    text = item.get("text")
+                    if isinstance(text, str):
+                        parts.append(text)
+            return "\n".join(part for part in parts if part).strip()
+        if isinstance(content, dict):
+            text = content.get("text")
+            if isinstance(text, str):
+                return text.strip()
+        raise ValueError(f"无法从内容中提取文本: {type(content).__name__}")
+
+    def _extract_json_payload(self, raw_text: str) -> Dict[str, Any]:
+        text = raw_text.strip()
+        text = text.replace("<|begin_of_box|>", "").replace("<|end_of_box|>", "").strip()
+
+        if text.startswith("```"):
+            lines = text.splitlines()
+            if lines:
+                lines = lines[1:]
+            if lines and lines[-1].strip() == "```":
+                lines = lines[:-1]
+            text = "\n".join(lines).strip()
+            if text.lower().startswith("json"):
+                text = text[4:].strip()
+
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError:
+            start = min((idx for idx in (text.find("{"), text.find("[")) if idx != -1), default=-1)
+            end_object = text.rfind("}")
+            end_array = text.rfind("]")
+            end = max(end_object, end_array)
+            if start != -1 and end != -1 and end > start:
+                return json.loads(text[start : end + 1])
+            raise
+
+    def _is_retryable_error(self, exc: Exception) -> bool:
+        message = str(exc).lower()
+        retry_keywords = ["429", "rate limit", "connection", "timeout", "temporarily unavailable", "reset by peer"]
+        return any(keyword in message for keyword in retry_keywords)
+
+    def _call_with_retries(self, callback):
+        last_error = None
+        for attempt in range(MAX_RETRIES):
+            try:
+                return callback()
+            except Exception as exc:
+                last_error = exc
+                if attempt == MAX_RETRIES - 1 or not self._is_retryable_error(exc):
+                    raise
+                delay_seconds = RETRY_DELAY * (2 ** attempt)
+                print(f"[LLM] 可重试错误，{delay_seconds}s 后重试 ({attempt + 1}/{MAX_RETRIES}): {exc}")
+                import time
+                time.sleep(delay_seconds)
+        raise last_error
 
     def _get_people(self, item: Dict) -> List[Dict]:
         people = item.get("vlm_analysis", {}).get("people", [])
@@ -154,9 +248,11 @@ class LLMProcessor:
 
         try:
             if self.use_proxy:
-                result = self._call_llm_via_proxy(prompt)
+                result = self._call_with_retries(lambda: self._call_llm_via_proxy(prompt))
+            elif self.use_openrouter:
+                result = self._call_with_retries(lambda: self._call_llm_via_openrouter(prompt))
             else:
-                result = self._call_llm_via_official_api(prompt)
+                result = self._call_with_retries(lambda: self._call_llm_via_official_api(prompt))
 
             events = []
 
@@ -568,9 +664,11 @@ Output Format (严格执行以下JSON格式):
 
         try:
             if self.use_proxy:
-                result = self._call_llm_via_proxy(prompt)
+                result = self._call_with_retries(lambda: self._call_llm_via_proxy(prompt))
+            elif self.use_openrouter:
+                result = self._call_with_retries(lambda: self._call_llm_via_openrouter(prompt))
             else:
-                result = self._call_llm_via_official_api(prompt)
+                result = self._call_with_retries(lambda: self._call_llm_via_official_api(prompt))
 
             return Relationship(
                 person_id=person_id,
@@ -663,9 +761,11 @@ Output Format (严格执行以下JSON格式):
 
         try:
             if self.use_proxy:
-                result = self._call_profile_via_proxy(prompt)
+                result = self._call_with_retries(lambda: self._call_profile_via_proxy(prompt))
+            elif self.use_openrouter:
+                result = self._call_with_retries(lambda: self._call_profile_via_openrouter(prompt))
             else:
-                result = self._call_profile_via_official_api(prompt)
+                result = self._call_with_retries(lambda: self._call_profile_via_official_api(prompt))
 
             return result
 
@@ -888,6 +988,52 @@ Output Format (严格执行以下JSON格式):
                     error_msg += f": {response.text[:200]}"
             raise Exception(error_msg)
 
+    def _openrouter_headers(self) -> Dict[str, str]:
+        return {
+            "Authorization": f"Bearer {self.openrouter_api_key}",
+            "Content-Type": "application/json",
+            "HTTP-Referer": self.openrouter_site_url,
+            "X-Title": self.openrouter_app_name,
+        }
+
+    def _extract_openrouter_content(self, response_data: Dict[str, Any]) -> str:
+        choices = response_data.get("choices", [])
+        if not choices:
+            raise ValueError("OpenRouter 未返回 choices")
+        message = choices[0].get("message", {})
+        content = message.get("content")
+        if not content and message.get("reasoning"):
+            content = message["reasoning"]
+        return self._coerce_text_content(content)
+
+    def _call_llm_via_openrouter(self, prompt: str) -> dict:
+        payload = {
+            "model": self.model,
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": 8192,
+            "temperature": 0.1,
+        }
+
+        response = self.requests.post(
+            f"{self.openrouter_base_url}/chat/completions",
+            json=payload,
+            headers=self._openrouter_headers(),
+            timeout=60,
+        )
+
+        if response.status_code == 200:
+            response_data = response.json()
+            return self._extract_json_payload(self._extract_openrouter_content(response_data))
+
+        error_msg = f"OpenRouter 返回状态码 {response.status_code}"
+        if response.text:
+            try:
+                error_data = response.json()
+                error_msg += f": {error_data.get('error', {}).get('message', response.text)}"
+            except Exception:
+                error_msg += f": {response.text[:200]}"
+        raise Exception(error_msg)
+
     def _call_profile_via_official_api(self, prompt: str) -> str:
         """通过官方 Gemini API 生成用户画像"""
         response = self.client.models.generate_content(
@@ -942,3 +1088,31 @@ Output Format (严格执行以下JSON格式):
                 except:
                     error_msg += f": {response.text[:200]}"
             raise Exception(error_msg)
+
+    def _call_profile_via_openrouter(self, prompt: str) -> str:
+        payload = {
+            "model": self.model,
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": 8192,
+            "temperature": 0.4,
+        }
+
+        response = self.requests.post(
+            f"{self.openrouter_base_url}/chat/completions",
+            json=payload,
+            headers=self._openrouter_headers(),
+            timeout=60,
+        )
+
+        if response.status_code == 200:
+            response_data = response.json()
+            return self._extract_openrouter_content(response_data)
+
+        error_msg = f"OpenRouter 返回状态码 {response.status_code}"
+        if response.text:
+            try:
+                error_data = response.json()
+                error_msg += f": {error_data.get('error', {}).get('message', response.text)}"
+            except Exception:
+                error_msg += f": {response.text[:200]}"
+        raise Exception(error_msg)

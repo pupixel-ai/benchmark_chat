@@ -71,52 +71,6 @@ def compress_image(image_path: str, output_path: str, max_size: int = 1536, qual
     return output_path
 
 
-def smart_deduplicate(photos: List, time_window_seconds: int = 60) -> List:
-    """
-    智能去重：在时间窗口内选择代表性照片
-
-    Args:
-        photos: 照片列表
-        time_window_seconds: 时间窗口（秒）
-
-    Returns:
-        去重后的照片列表
-    """
-    if len(photos) <= 1:
-        return photos
-
-    # 按时间排序
-    sorted_photos = sorted(photos, key=lambda p: p.timestamp)
-
-    # 分组
-    groups = []
-    current_group = [sorted_photos[0]]
-
-    for photo in sorted_photos[1:]:
-        time_diff = (photo.timestamp - current_group[0].timestamp).total_seconds()
-
-        if time_diff <= time_window_seconds:
-            current_group.append(photo)
-        else:
-            groups.append(current_group)
-            current_group = [photo]
-
-    groups.append(current_group)
-
-    # 每组选择代表性照片
-    selected = []
-
-    for group in groups:
-        if len(group) == 1:
-            selected.append(group[0])
-        else:
-            # 选择人脸最多、最清晰的照片
-            best = max(group, key=lambda p: len(p.faces))
-            selected.append(best)
-
-    return selected
-
-
 def calculate_distance(loc1: Dict, loc2: Dict) -> float:
     """
     计算两个地点之间的距离（km）
