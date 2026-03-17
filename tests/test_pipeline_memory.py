@@ -50,6 +50,9 @@ class FakeImageProcessor:
     def convert_to_jpeg(self, photos):
         return photos
 
+    def dedupe_before_face_recognition(self, photos):
+        return photos
+
     def preprocess(self, photos):
         for photo in photos:
             compressed_path = self.cache_dir / f"compressed_{photo.photo_id}.webp"

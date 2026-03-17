@@ -241,12 +241,17 @@ def main():
     photos = image_processor.convert_to_jpeg(photos)
     print(f"  转换完成")
 
+    # Step 3: 人脸识别前去重
+    print("\n[3/9] 人脸识别前去重...")
+    face_input_photos = image_processor.dedupe_before_face_recognition(photos)
+    print(f"  去重后保留 {len(face_input_photos)} / {len(photos)} 张")
+
     # Step 3: 人脸识别
-    print("\n[3/9] 人脸识别...")
+    print("\n[4/9] 人脸识别...")
     face_rec = FaceRecognition()
 
-    for i, photo in enumerate(photos):
-        show_progress(i + 1, len(photos), f"人脸识别")
+    for i, photo in enumerate(face_input_photos):
+        show_progress(i + 1, len(face_input_photos), f"人脸识别")
         face_rec.process_photo(photo)
 
     face_db = face_rec.get_all_persons()
@@ -254,8 +259,8 @@ def main():
     print(f"\n  识别了 {face_output['metrics']['total_persons']} 个人物")
 
     # Step 4: 确定主用户 + 画框
-    print("\n[4/9] 确定主用户并绘制人脸框...")
-    face_rec.reorder_protagonist(photos)
+    print("\n[5/9] 确定主用户并绘制人脸框...")
+    face_rec.reorder_protagonist(face_input_photos)
     face_db = face_rec.get_all_persons()
     face_output = face_rec.get_face_output()
 
@@ -266,7 +271,7 @@ def main():
 
     # 绘制人脸框
     boxed_count = 0
-    for photo in photos:
+    for photo in face_input_photos:
         if photo.faces:
             photo.primary_person_id = primary_person_id
             boxed_path = image_processor.draw_face_boxes(photo)
@@ -276,17 +281,17 @@ def main():
     print(f"  绘制了 {boxed_count} 张带框图片")
 
     # Step 5: 压缩照片（用于VLM）
-    print("\n[5/9] 压缩照片...")
-    photos = image_processor.preprocess(photos)
+    print("\n[6/9] 压缩照片...")
+    photos = image_processor.preprocess(face_input_photos)
     print(f"  压缩完成")
 
     # Step 6: VLM分析
     vlm = VLMAnalyzer()
 
     if args.use_cache and vlm.load_cache():
-        print("\n[6/9] 使用VLM缓存（跳过VLM分析）...")
+        print("\n[7/9] 使用VLM缓存（跳过VLM分析）...")
     else:
-        print("\n[6/9] VLM分析（这可能需要30-40分钟）...")
+        print("\n[7/9] VLM分析（这可能需要30-40分钟）...")
 
         for i, photo in enumerate(photos):
             show_progress(i + 1, len(photos), f"VLM分析")
@@ -305,7 +310,7 @@ def main():
         print("\n  VLM分析完成，结果已缓存")
 
     # Step 7: LLM处理
-    print("\n[7/9] LLM处理（事件提取、关系推断、画像生成）...")
+    print("\n[8/9] LLM处理（事件提取、关系推断、画像生成）...")
     events = []
     relationships = []
     profile_markdown = ""

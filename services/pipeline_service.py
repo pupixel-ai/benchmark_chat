@@ -81,8 +81,17 @@ class MemoryPipelineService:
         )
         photos = self.image_processor.convert_to_jpeg(photos)
         photos_to_process = self._apply_image_policies(photos)
+        photos_to_process = self.image_processor.dedupe_before_face_recognition(photos_to_process)
 
-        self._notify(progress_callback, "face_recognition", {"message": "进行人脸识别"})
+        self._notify(
+            progress_callback,
+            "face_recognition",
+            {
+                "message": "进行人脸识别",
+                "input_photo_count": len(photos_to_process),
+                "original_photo_count": len(photos),
+            },
+        )
         face_ready_photos = self._run_face_recognition(photos_to_process)
 
         primary_person_id = None

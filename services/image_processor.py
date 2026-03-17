@@ -15,6 +15,11 @@ from utils import compress_image, file_sha256, normalized_exif_bytes
 register_heif_opener()
 
 
+DEDUP_BURST_WINDOW_SECONDS = 5
+DEDUP_HASH_SIZE = 8
+DEDUP_MAX_DISTANCE = 4
+
+
 class ImageProcessor:
     """图片处理器"""
 
@@ -165,6 +170,49 @@ class ImageProcessor:
         """
         return self._compress_photos(photos)
 
+    def dedupe_before_face_recognition(self, photos: List[Photo]) -> List[Photo]:
+        """
+        在人脸识别前做轻量去重，优先消除 burst shots 和重复上传。
+
+        说明：
+        - 这里只影响后续分析链路的输入，不修改原始上传文件。
+        - 同一 source_hash 的照片直接去重。
+        - 对时间接近的照片再做轻量感知哈希比较，减少近重复帧。
+        """
+        if len(photos) <= 1:
+            return photos
+
+        deduped: List[Photo] = []
+        source_hash_seen: Dict[str, str] = {}
+        recent_representatives: List[Tuple[Photo, Optional[str]]] = []
+
+        for photo in photos:
+            if photo.source_hash and photo.source_hash in source_hash_seen:
+                continue
+
+            current_hash = self._compute_average_hash(photo.path)
+            is_duplicate = False
+            updated_recent: List[Tuple[Photo, Optional[str]]] = []
+
+            for representative, representative_hash in recent_representatives:
+                age_seconds = abs((photo.timestamp - representative.timestamp).total_seconds())
+                if age_seconds <= DEDUP_BURST_WINDOW_SECONDS:
+                    updated_recent.append((representative, representative_hash))
+                    if self._is_near_duplicate(photo, current_hash, representative, representative_hash):
+                        is_duplicate = True
+                # 超出 burst window 的代表图不再参与比较
+
+            if is_duplicate:
+                continue
+
+            deduped.append(photo)
+            if photo.source_hash:
+                source_hash_seen[photo.source_hash] = photo.photo_id
+            updated_recent.append((photo, current_hash))
+            recent_representatives = updated_recent
+
+        return deduped
+
     def _compress_photos(self, photos: List[Photo]) -> List[Photo]:
         """
         压缩所有照片
@@ -193,6 +241,48 @@ class ImageProcessor:
                 continue
 
         return photos
+
+    def _compute_average_hash(self, image_path: str) -> Optional[str]:
+        try:
+            with Image.open(image_path) as source:
+                normalized = ImageOps.exif_transpose(source).convert("L")
+                resized = normalized.resize((DEDUP_HASH_SIZE, DEDUP_HASH_SIZE), Image.Resampling.LANCZOS)
+                pixels = list(resized.getdata())
+        except Exception:
+            return None
+
+        if not pixels:
+            return None
+
+        avg = sum(pixels) / len(pixels)
+        return "".join("1" if pixel >= avg else "0" for pixel in pixels)
+
+    def _is_near_duplicate(
+        self,
+        current_photo: Photo,
+        current_hash: Optional[str],
+        representative: Photo,
+        representative_hash: Optional[str],
+    ) -> bool:
+        if not current_hash or not representative_hash:
+            return False
+
+        if not self._shares_location_bucket(current_photo, representative):
+            return False
+
+        return self._hamming_distance(current_hash, representative_hash) <= DEDUP_MAX_DISTANCE
+
+    def _shares_location_bucket(self, left: Photo, right: Photo) -> bool:
+        left_name = str((left.location or {}).get("name") or "").strip().lower()
+        right_name = str((right.location or {}).get("name") or "").strip().lower()
+
+        if left_name and right_name:
+            return left_name == right_name
+
+        return True
+
+    def _hamming_distance(self, left: str, right: str) -> int:
+        return sum(ch1 != ch2 for ch1, ch2 in zip(left, right))
 
     def _read_exif(self, image_path: str) -> dict:
         """

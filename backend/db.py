@@ -69,6 +69,6 @@ def ensure_schema() -> None:
         add_artifact_column("size_bytes", f"INTEGER{nullable_suffix}")
         add_artifact_column("sha256", f"VARCHAR(64){nullable_suffix}")
         add_artifact_column("storage_backend", f"VARCHAR(32){nullable_suffix}")
-        add_artifact_column("object_key", f"VARCHAR(1024){nullable_suffix}")
-        add_artifact_column("asset_url", f"VARCHAR(1024){nullable_suffix}")
+        add_artifact_column("object_key", f"VARCHAR(512){nullable_suffix}")
+        add_artifact_column("asset_url", f"VARCHAR(512){nullable_suffix}")
         add_artifact_column("metadata", f"JSON{nullable_suffix}")
