@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, is_dataclass
 from datetime import datetime, timedelta
+import re
 from typing import Any, Dict, Iterable, List, Optional
 from uuid import NAMESPACE_URL, uuid5
 
@@ -237,10 +238,11 @@ class MemoryQueryService:
 
     def _extract_target_concepts(self, question: str) -> List[str]:
         targets: List[str] = []
+        normalized_question = question.lower()
         for canonical_name in canonical_concept_names():
             meta = concept_metadata(canonical_name)
             aliases = [canonical_name, *[str(item) for item in meta.get("aliases", [])]]
-            if any(alias.lower() in question.lower() for alias in aliases):
+            if any(alias.lower() in normalized_question for alias in aliases):
                 if canonical_name not in targets:
                     targets.append(canonical_name)
         if not targets:
@@ -248,6 +250,25 @@ class MemoryQueryService:
                 concept = normalize_concept(raw_token)
                 if concept and concept not in targets:
                     targets.append(concept)
+        live_music_patterns = (
+            r"\blive\b",
+            r"\bshow\b",
+            r"\bgig\b",
+            r"\bconcert\b",
+            r"演唱会",
+            r"音乐会",
+            r"音乐节",
+            r"巡演",
+            r"现场演出",
+            r"演出现场",
+        )
+        if any(re.search(pattern, normalized_question) for pattern in live_music_patterns):
+            for concept_name in ("concert", "music_live_event"):
+                if concept_name not in targets:
+                    targets.append(concept_name)
+        if any(token in normalized_question for token in ("festival", "音乐节")):
+            if "music_festival_performance" not in targets:
+                targets.append("music_festival_performance")
         return targets
 
     def _recall(

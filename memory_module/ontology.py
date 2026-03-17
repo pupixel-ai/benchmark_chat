@@ -7,7 +7,7 @@ from typing import Dict, Iterable, List, Optional
 
 CANONICAL_CONCEPTS: Dict[str, Dict[str, object]] = {
     "concert": {
-        "aliases": ["演唱会", "concert", "live", "show", "巡演", "音乐会"],
+        "aliases": ["演唱会", "concert", "live", "show", "live show", "gig", "巡演", "音乐会", "live music"],
         "concept_type": "event",
         "description": "Live music performances attended or observed by the user.",
         "parents": ["music_live_event"],
@@ -19,7 +19,7 @@ CANONICAL_CONCEPTS: Dict[str, Dict[str, object]] = {
         "parents": ["concert", "music_live_event"],
     },
     "music_live_event": {
-        "aliases": ["演出", "现场演出", "音乐节", "festival", "live performance"],
+        "aliases": ["演出", "现场演出", "演出现场", "音乐节", "festival", "live performance", "showcase"],
         "concept_type": "event",
         "description": "Broad live music event umbrella concept.",
         "parents": [],
