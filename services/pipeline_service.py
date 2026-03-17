@@ -101,6 +101,47 @@ class MemoryPipelineService:
         face_payload = self._build_face_recognition_payload(photos, face_output)
         face_db = self.face_recognition.get_all_persons()
 
+        if not self._supports_memory_graph():
+            self.warnings.append({
+                "stage": "version_gate",
+                "message": f"{self.task_version} 当前只保留到人脸识别的原始链路，VLM / LLM / Memory 已跳过",
+            })
+            detailed_output = {
+                "task_id": self.task_id,
+                "version": self.task_version,
+                "generated_at": datetime.now().isoformat(),
+                "summary": {
+                    "task_version": self.task_version,
+                    "total_uploaded": self._count_uploaded_files(),
+                    "loaded_images": len(photos),
+                    "failed_images": len(self.failed_images),
+                    "face_processed_images": len(face_ready_photos),
+                    "vlm_processed_images": 0,
+                    "total_faces": face_output.get("metrics", {}).get("total_faces", 0),
+                    "total_persons": face_output.get("metrics", {}).get("total_persons", 0),
+                    "primary_person_id": primary_person_id,
+                    "event_count": 0,
+                    "relationship_count": 0,
+                    "session_count": 0,
+                    "profile_version": 0,
+                },
+                "face_recognition": face_payload,
+                "face_report": self._build_face_report(face_payload),
+                "failed_images": self.failed_images,
+                "warnings": self.warnings,
+                "events": [],
+                "relationships": [],
+                "profile_markdown": "",
+                "memory": None,
+                "artifacts": {},
+            }
+            result_path = self.output_dir / "result.json"
+            save_json(detailed_output, str(result_path))
+            detailed_output["artifacts"]["result_url"] = self._public_url(result_path)
+            detailed_output["artifacts"]["face_output_url"] = self._public_url(self.cache_dir / "face_recognition_output.json")
+            self.asset_store.sync_task_directory(self.task_id, self.task_dir)
+            return detailed_output
+
         self._notify(progress_callback, "preprocess", {"message": "压缩图片"})
         photos_for_vlm = self.image_processor.preprocess(face_ready_photos)
 
@@ -212,6 +253,9 @@ class MemoryPipelineService:
         self.asset_store.sync_task_directory(self.task_id, self.task_dir)
 
         return detailed_output
+
+    def _supports_memory_graph(self) -> bool:
+        return self.task_version == TASK_VERSION_V0317
 
     def _run_face_recognition(self, photos: List) -> List:
         successful = []

@@ -297,6 +297,7 @@ class PipelineMemoryTests(unittest.TestCase):
                     asset_store=FakeAssetStore(),
                     user_id="user_pipeline",
                     face_review_store=FakeFaceReviewStore(),
+                    task_version="v0317",
                 )
                 result = service.run(max_photos=3, use_cache=False)
 
@@ -310,6 +311,42 @@ class PipelineMemoryTests(unittest.TestCase):
             self.assertTrue((task_dir / "output" / "result.json").exists())
             self.assertTrue((task_dir / "output" / "memory" / "memory_envelope.json").exists())
             self.assertTrue((task_dir / "output" / "memory" / "memory_storage.json").exists())
+
+    def test_pre_v0317_pipeline_stops_after_face_recognition(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            task_dir = Path(tmpdir)
+            uploads_dir = task_dir / "uploads"
+            uploads_dir.mkdir(parents=True, exist_ok=True)
+            for name in ("a.jpg", "b.jpg", "c.jpg"):
+                (uploads_dir / name).write_bytes(b"stub")
+
+            with patch("services.pipeline_service.ImageProcessor", FakeImageProcessor), patch(
+                "services.pipeline_service.FaceRecognition", FakeFaceRecognition
+            ), patch("services.pipeline_service.VLMAnalyzer", FakeVLMAnalyzer), patch(
+                "services.pipeline_service.LLMProcessor", FakeLLMProcessor
+            ):
+                from services.pipeline_service import MemoryPipelineService
+
+                service = MemoryPipelineService(
+                    task_id="task_pipeline_face_only",
+                    task_dir=str(task_dir),
+                    asset_store=FakeAssetStore(),
+                    user_id="user_pipeline",
+                    face_review_store=FakeFaceReviewStore(),
+                    task_version="v0315",
+                )
+                result = service.run(max_photos=3, use_cache=False)
+
+            self.assertEqual(result["summary"]["vlm_processed_images"], 0)
+            self.assertEqual(result["summary"]["event_count"], 0)
+            self.assertEqual(result["summary"]["relationship_count"], 0)
+            self.assertIsNone(result["memory"])
+            self.assertEqual(result["events"], [])
+            self.assertEqual(result["relationships"], [])
+            self.assertEqual(result["profile_markdown"], "")
+            self.assertTrue(any(item["stage"] == "version_gate" for item in result["warnings"]))
+            self.assertTrue((task_dir / "output" / "result.json").exists())
+            self.assertFalse((task_dir / "output" / "memory").exists())
 
 
 if __name__ == "__main__":
