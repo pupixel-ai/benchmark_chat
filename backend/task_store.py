@@ -11,7 +11,7 @@ from sqlalchemy import delete, desc, or_, select
 
 from backend.db import Base, SessionLocal, engine, ensure_schema
 from backend.models import TaskRecord
-from config import TASKS_DIR, TASK_VERSION_V0312
+from config import TASKS_DIR, DEFAULT_TASK_VERSION
 
 
 class TaskStore:
@@ -229,7 +229,7 @@ class TaskStore:
         return {
             "task_id": record.task_id,
             "user_id": record.user_id,
-            "version": record.version or TASK_VERSION_V0312,
+            "version": record.version or DEFAULT_TASK_VERSION,
             "status": record.status,
             "stage": record.stage,
             "upload_count": record.upload_count,

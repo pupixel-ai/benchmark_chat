@@ -2483,8 +2483,16 @@ class MemoryModuleService:
         concept_catalog: Sequence[ConceptDTO],
     ) -> List[MilvusSegmentRecord]:
         segments: List[MilvusSegmentRecord] = []
+        session_by_uuid = {session.session_uuid: session for session in sequences.sessions}
+        session_by_photo_id = {
+            photo_id: session
+            for session in sequences.sessions
+            for photo_id in session.photo_ids
+        }
+        event_by_uuid = {event.event_uuid: event for event in event_candidates}
 
         for photo in photos:
+            session = session_by_photo_id.get(photo.photo_id)
             if photo.vlm_observation and photo.vlm_observation.summary:
                 segments.append(
                     self._segment_record(
@@ -2492,6 +2500,10 @@ class MemoryModuleService:
                         segment_type="scene_summary",
                         text=photo.vlm_observation.summary,
                         session_uuid=self._photo_session_uuid(photo.photo_id, sequences.sessions),
+                        started_at=session.started_at if session else None,
+                        ended_at=session.ended_at if session else None,
+                        place_uuid=self._session_place_uuid(session),
+                        location_hint=self._session_location_name(session),
                         evidence_refs=[{"ref_type": "photo", "ref_id": photo.photo_id}],
                     )
                 )
@@ -2505,6 +2517,10 @@ class MemoryModuleService:
                             segment_type="activity",
                             text=str(activity),
                             session_uuid=self._photo_session_uuid(photo.photo_id, sequences.sessions),
+                            started_at=session.started_at if session else None,
+                            ended_at=session.ended_at if session else None,
+                            place_uuid=self._session_place_uuid(session),
+                            location_hint=self._session_location_name(session),
                             evidence_refs=[{"ref_type": "photo", "ref_id": photo.photo_id}],
                         )
                     )
@@ -2516,6 +2532,10 @@ class MemoryModuleService:
                             segment_type="interaction",
                             text=str(interaction),
                             session_uuid=self._photo_session_uuid(photo.photo_id, sequences.sessions),
+                            started_at=session.started_at if session else None,
+                            ended_at=session.ended_at if session else None,
+                            place_uuid=self._session_place_uuid(session),
+                            location_hint=self._session_location_name(session),
                             evidence_refs=[{"ref_type": "photo", "ref_id": photo.photo_id}],
                         )
                     )
@@ -2531,9 +2551,28 @@ class MemoryModuleService:
                         text=text,
                         person_uuid=person.person_uuid,
                         session_uuid=self._photo_session_uuid(photo.photo_id, sequences.sessions),
+                        started_at=session.started_at if session else None,
+                        ended_at=session.ended_at if session else None,
+                        place_uuid=self._session_place_uuid(session),
+                        location_hint=self._session_location_name(session),
                         evidence_refs=[{"ref_type": "photo_person_observation", "ref_id": person.observation_id}],
                     )
                 )
+                if person.interaction:
+                    segments.append(
+                        self._segment_record(
+                            photo_uuid=photo.photo_uuid,
+                            segment_type="interaction",
+                            text=str(person.interaction),
+                            person_uuid=person.person_uuid,
+                            session_uuid=self._photo_session_uuid(photo.photo_id, sequences.sessions),
+                            started_at=session.started_at if session else None,
+                            ended_at=session.ended_at if session else None,
+                            place_uuid=self._session_place_uuid(session),
+                            location_hint=self._session_location_name(session),
+                            evidence_refs=[{"ref_type": "photo_person_observation", "ref_id": person.observation_id}],
+                        )
+                    )
 
             if photo.vlm_observation and photo.vlm_observation.raw:
                 raw_text_candidates = []
@@ -2548,18 +2587,11 @@ class MemoryModuleService:
                             segment_type="ocr_snippet",
                             text=str(raw_text),
                             session_uuid=self._photo_session_uuid(photo.photo_id, sequences.sessions),
+                            started_at=session.started_at if session else None,
+                            ended_at=session.ended_at if session else None,
+                            place_uuid=self._session_place_uuid(session),
+                            location_hint=self._session_location_name(session),
                             evidence_refs=[{"ref_type": "photo", "ref_id": photo.photo_id}],
-                        )
-                    )
-                if person.interaction:
-                    segments.append(
-                        self._segment_record(
-                            photo_uuid=photo.photo_uuid,
-                            segment_type="interaction",
-                            text=str(person.interaction),
-                            person_uuid=person.person_uuid,
-                            session_uuid=self._photo_session_uuid(photo.photo_id, sequences.sessions),
-                            evidence_refs=[{"ref_type": "photo_person_observation", "ref_id": person.observation_id}],
                         )
                     )
 
@@ -2571,6 +2603,10 @@ class MemoryModuleService:
                         segment_type="session_summary",
                         text=session.summary_hint,
                         session_uuid=session.session_uuid,
+                        started_at=session.started_at,
+                        ended_at=session.ended_at,
+                        place_uuid=self._session_place_uuid(session),
+                        location_hint=self._session_location_name(session),
                         evidence_refs=[{"ref_type": "session", "ref_id": session.session_id}],
                     )
                 )
@@ -2578,6 +2614,7 @@ class MemoryModuleService:
         for event in event_candidates:
             text = event.narrative_synthesis or event.description or event.title
             if text:
+                anchor_session = session_by_uuid.get(event.session_uuids[0]) if event.session_uuids else None
                 segments.append(
                     self._segment_record(
                         photo_uuid=event.photo_uuids[0] if event.photo_uuids else "",
@@ -2585,12 +2622,20 @@ class MemoryModuleService:
                         text=text,
                         event_uuid=event.event_uuid,
                         session_uuid=event.session_uuids[0] if event.session_uuids else None,
+                        started_at=event.started_at,
+                        ended_at=event.ended_at,
+                        place_uuid=self._event_place_uuid(event, anchor_session),
+                        location_hint=self._event_location_name(event, anchor_session),
                         evidence_refs=event.evidence_refs,
                     )
                 )
 
         for relationship in relationship_hypotheses:
             if relationship.reason_summary:
+                anchor_session_uuid = relationship.feature_snapshot.get("supporting_session_uuids", [None])[0]
+                anchor_event_uuid = relationship.feature_snapshot.get("supporting_event_uuids", [None])[0]
+                anchor_session = session_by_uuid.get(anchor_session_uuid) if anchor_session_uuid else None
+                anchor_event = event_by_uuid.get(anchor_event_uuid) if anchor_event_uuid else None
                 segments.append(
                     self._segment_record(
                         photo_uuid=None,
@@ -2598,14 +2643,20 @@ class MemoryModuleService:
                         text=relationship.reason_summary,
                         relationship_uuid=relationship.relationship_uuid,
                         person_uuid=relationship.target_person_uuid,
-                        session_uuid=relationship.feature_snapshot.get("supporting_session_uuids", [None])[0],
-                        event_uuid=relationship.feature_snapshot.get("supporting_event_uuids", [None])[0],
+                        session_uuid=anchor_session_uuid,
+                        event_uuid=anchor_event_uuid,
+                        started_at=anchor_event.started_at if anchor_event else (anchor_session.started_at if anchor_session else relationship.window_start),
+                        ended_at=anchor_event.ended_at if anchor_event else (anchor_session.ended_at if anchor_session else relationship.window_end),
+                        place_uuid=self._event_place_uuid(anchor_event, anchor_session),
+                        location_hint=self._event_location_name(anchor_event, anchor_session),
                         evidence_refs=relationship.evidence_refs,
                     )
                 )
 
         for mood in mood_hypotheses:
             if mood.reason_summary:
+                mood_session = session_by_uuid.get(mood.session_uuid) if mood.session_uuid else None
+                mood_event = event_by_uuid.get(mood.event_uuid) if mood.event_uuid else None
                 segments.append(
                     self._segment_record(
                         photo_uuid=None,
@@ -2613,6 +2664,10 @@ class MemoryModuleService:
                         text=f"mood: {mood.reason_summary}",
                         session_uuid=mood.session_uuid,
                         event_uuid=mood.event_uuid,
+                        started_at=mood.window_start or (mood_event.started_at if mood_event else (mood_session.started_at if mood_session else None)),
+                        ended_at=mood.window_end or (mood_event.ended_at if mood_event else (mood_session.ended_at if mood_session else None)),
+                        place_uuid=self._event_place_uuid(mood_event, mood_session),
+                        location_hint=self._event_location_name(mood_event, mood_session),
                         evidence_refs=mood.evidence_refs,
                     )
                 )
@@ -2622,6 +2677,9 @@ class MemoryModuleService:
                 anchor_event_uuid = item.supporting_event_uuids[0]
             else:
                 anchor_event_uuid = None
+            anchor_event = event_by_uuid.get(anchor_event_uuid) if anchor_event_uuid else None
+            anchor_session_uuid = item.supporting_session_uuids[0] if item.supporting_session_uuids else None
+            anchor_session = session_by_uuid.get(anchor_session_uuid) if anchor_session_uuid else None
             segments.append(
                 self._segment_record(
                     photo_uuid="",
@@ -2629,6 +2687,11 @@ class MemoryModuleService:
                     text=f"{item.field_key}: {item.field_value}",
                     event_uuid=anchor_event_uuid,
                     person_uuid=item.supporting_person_uuids[0] if item.supporting_person_uuids else None,
+                    session_uuid=anchor_session_uuid,
+                    started_at=anchor_event.started_at if anchor_event else (anchor_session.started_at if anchor_session else None),
+                    ended_at=anchor_event.ended_at if anchor_event else (anchor_session.ended_at if anchor_session else None),
+                    place_uuid=self._event_place_uuid(anchor_event, anchor_session),
+                    location_hint=self._event_location_name(anchor_event, anchor_session),
                     evidence_refs=item.evidence_refs,
                 )
             )
@@ -2658,6 +2721,10 @@ class MemoryModuleService:
         session_uuid: Optional[str] = None,
         relationship_uuid: Optional[str] = None,
         concept_uuid: Optional[str] = None,
+        started_at: Optional[str] = None,
+        ended_at: Optional[str] = None,
+        place_uuid: Optional[str] = None,
+        location_hint: str = "",
         evidence_refs: Optional[List[Dict[str, str]]] = None,
     ) -> MilvusSegmentRecord:
         return MilvusSegmentRecord(
@@ -2679,12 +2746,41 @@ class MemoryModuleService:
             session_uuid=session_uuid,
             relationship_uuid=relationship_uuid,
             concept_uuid=concept_uuid,
+            started_at=started_at,
+            ended_at=ended_at,
+            place_uuid=place_uuid,
+            location_hint=location_hint,
             segment_type=segment_type,
             text=text,
             sparse_terms=self._tokenize(text),
             importance_score=min(1.0, 0.35 + (len(text) / 200.0)),
             evidence_refs=evidence_refs or [],
         )
+
+    def _session_place_uuid(self, session: Optional[SessionDTO]) -> Optional[str]:
+        if not session:
+            return None
+        location_hint = dict(session.location_hint or {})
+        canonical_name = str(location_hint.get("name") or "unknown").strip() or "unknown"
+        lat = location_hint.get("lat")
+        lng = location_hint.get("lng")
+        geo_hash = f"{round(float(lat), 3) if lat is not None else 'na'}:{round(float(lng), 3) if lng is not None else 'na'}"
+        return self._stable_uuid("place", canonical_name, geo_hash)
+
+    def _session_location_name(self, session: Optional[SessionDTO]) -> str:
+        if not session:
+            return ""
+        return str((session.location_hint or {}).get("name") or "")
+
+    def _event_place_uuid(self, event: Optional[EventCandidateDTO], session: Optional[SessionDTO]) -> Optional[str]:
+        if event and event.location:
+            return self._stable_uuid("place", event.location, "na:na")
+        return self._session_place_uuid(session)
+
+    def _event_location_name(self, event: Optional[EventCandidateDTO], session: Optional[SessionDTO]) -> str:
+        if event and event.location:
+            return event.location
+        return self._session_location_name(session)
 
     def _build_redis_records(
         self,

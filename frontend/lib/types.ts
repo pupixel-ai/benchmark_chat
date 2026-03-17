@@ -332,6 +332,28 @@ export type MemoryTransparency = {
   publish_decisions?: Array<Record<string, unknown>>;
 };
 
+export type MilvusSegment = {
+  segment_uuid: string;
+  tenant_id?: string | null;
+  user_id: string;
+  photo_uuid?: string | null;
+  event_uuid?: string | null;
+  person_uuid?: string | null;
+  session_uuid?: string | null;
+  relationship_uuid?: string | null;
+  concept_uuid?: string | null;
+  segment_type: string;
+  text: string;
+  started_at?: string | null;
+  ended_at?: string | null;
+  place_uuid?: string | null;
+  location_hint?: string | null;
+  sparse_terms?: string[];
+  embedding_source?: string;
+  importance_score?: number;
+  evidence_refs?: Array<Record<string, string>>;
+};
+
 export type MemoryPayload = {
   summary: MemorySummary;
   envelope: Record<string, unknown>;
@@ -343,7 +365,7 @@ export type MemoryPayload = {
       focus_graph?: MemoryFocusGraph;
     };
     milvus?: {
-      segments?: Array<Record<string, unknown>>;
+      segments?: MilvusSegment[];
     };
     redis?: {
       profile_core?: {
@@ -376,6 +398,43 @@ export type MemoryPayload = {
     report_path?: string;
   };
   artifacts?: Record<string, string | null>;
+};
+
+export type MemoryQueryAnswer = {
+  answer_type: string;
+  summary: string;
+  confidence: number;
+  resolved_entities: Array<Record<string, unknown>>;
+  resolved_concepts: string[];
+  time_window: Record<string, unknown>;
+  supporting_sessions: Array<Record<string, unknown>>;
+  supporting_events: Array<Record<string, unknown>>;
+  supporting_relationships: Array<Record<string, unknown>>;
+  representative_photo_ids: string[];
+  evidence_segment_ids: string[];
+  explanation: string;
+  uncertainty_flags: string[];
+};
+
+export type MemoryQueryDebugTrace = {
+  operator_plan: Record<string, unknown>;
+  recall_candidates: Array<Record<string, unknown>>;
+  dsl: Record<string, unknown>;
+  executed_cypher: string;
+  evidence_fill: Record<string, unknown>;
+};
+
+export type MemoryQueryResponse = {
+  request: Record<string, unknown>;
+  answer: MemoryQueryAnswer;
+  debug_trace: MemoryQueryDebugTrace;
+};
+
+export type MemoryQueryHistoryItem = {
+  query_id: string;
+  question: string;
+  requested_at: string;
+  response: MemoryQueryResponse;
 };
 
 export type TaskResult = {

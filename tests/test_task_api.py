@@ -113,9 +113,9 @@ class TaskApiTests(unittest.TestCase):
         payload = response.json()
         self.assertEqual(payload["app_version"], "v0315")
         self.assertEqual(payload["default_task_version"], "v0315")
-        self.assertEqual(payload["available_task_versions"], ["v0312", "v0315"])
+        self.assertEqual(payload["available_task_versions"], ["v0312", "v0315", "v0317"])
 
-    def test_legacy_task_without_version_is_serialized_as_v0312(self) -> None:
+    def test_legacy_task_without_version_is_serialized_as_default_version(self) -> None:
         task_id = uuid.uuid4().hex
         self.task_ids.append(task_id)
         task_dir = task_store.task_dir(task_id)
@@ -152,7 +152,7 @@ class TaskApiTests(unittest.TestCase):
         task = task_store.get_task(task_id, user_id=self.user_id)
         self.assertIsNotNone(task)
         assert task is not None
-        self.assertEqual(task["version"], "v0312")
+        self.assertEqual(task["version"], "v0315")
 
     def test_review_and_policy_are_merged_into_task_detail(self) -> None:
         create_response = self.client.post("/api/tasks")

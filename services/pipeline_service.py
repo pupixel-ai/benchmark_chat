@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Callable, Dict, List, Optional
 
 from backend.face_review_store import FaceReviewStore
-from config import DEFAULT_TASK_VERSION, FACE_MIN_SIZE, MAX_UPLOAD_PHOTOS, TASK_VERSION_V0315
+from config import DEFAULT_TASK_VERSION, FACE_MIN_SIZE, MAX_UPLOAD_PHOTOS, TASK_VERSION_V0315, TASK_VERSION_V0317
 from memory_module import MemoryModuleService
 from services.asset_store import TaskAssetStore
 from services.face_recognition import FaceRecognition
@@ -389,7 +389,7 @@ class MemoryPipelineService:
             "识别与画框统一使用方向归一化后的工作图，避免展示翻转与坐标错位",
             f"最小人脸尺寸阈值调整为 {FACE_MIN_SIZE}px，提升小脸检出能力",
         ]
-        if self.task_version == TASK_VERSION_V0315:
+        if self.task_version in {TASK_VERSION_V0315, TASK_VERSION_V0317}:
             return [
                 *base_items,
                 "MediaPipe Face Landmarker 为每张脸补充 pose 诊断，MediaPipe 失败时回退到 InsightFace pose",

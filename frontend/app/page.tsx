@@ -9,7 +9,10 @@ import type {
   FaceReport,
   HealthResponse,
   MemoryFocusGraph,
+  MemoryQueryHistoryItem,
+  MemoryQueryResponse,
   MemoryPayload,
+  MilvusSegment,
   PersonGroupEntry,
   PersonGroupImage,
   TaskListResponse,
@@ -23,7 +26,7 @@ const MAX_BATCH_FILES = 50;
 const MAX_BATCH_BYTES = 64 * 1024 * 1024;
 const GALLERY_PREVIEW_LIMIT = 120;
 const FACE_RECOGNITION_STAGES = new Set(["queued", "starting", "loading", "converting", "face_recognition"]);
-const FALLBACK_TASK_VERSIONS = ["v0315", "v0312"];
+const FALLBACK_TASK_VERSIONS = ["v0317", "v0315", "v0312"];
 const FALLBACK_DEFAULT_TASK_VERSION = FALLBACK_TASK_VERSIONS[0];
 const LEGACY_TASK_VERSION = FALLBACK_TASK_VERSIONS[FALLBACK_TASK_VERSIONS.length - 1];
 
@@ -137,6 +140,35 @@ function formatTaskDate(value?: string) {
   } catch {
     return value;
   }
+}
+
+function formatDateTime(value?: string) {
+  if (!value) {
+    return "";
+  }
+  try {
+    return new Intl.DateTimeFormat("zh-CN", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit"
+    }).format(new Date(value));
+  } catch {
+    return value;
+  }
+}
+
+function timestampRank(value?: string | null) {
+  if (!value) {
+    return 0;
+  }
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+function sortByRecent<T>(items: T[], selector: (item: T) => string | null | undefined) {
+  return [...items].sort((left, right) => timestampRank(selector(right)) - timestampRank(selector(left)));
 }
 
 function startOfLocalDay(value: Date) {
@@ -559,6 +591,121 @@ function MetricCard({
   );
 }
 
+function StageSummaryPanel({
+  title,
+  items,
+  emptyText
+}: {
+  title: string;
+  items: Array<Record<string, unknown>>;
+  emptyText: string;
+}) {
+  return (
+    <div className="rounded-[12px] border border-[#ddcebb] bg-white/70 p-4">
+      <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-black/42">{title}</p>
+      <div className="mt-3 space-y-3">
+        {items.length > 0 ? (
+          items.slice(0, 6).map((item, index) => (
+            <div key={`${title}-${index}`} className="rounded-[10px] bg-[#f6eee3] px-3 py-3">
+              <pre className="overflow-x-auto whitespace-pre-wrap break-all text-xs leading-6 text-[#5f4e42]">
+                {formatJson(item)}
+              </pre>
+            </div>
+          ))
+        ) : (
+          <p className="text-sm text-black/56">{emptyText}</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function GraphLandingPanel({
+  memory,
+  taskVersion,
+}: {
+  memory: MemoryPayload;
+  taskVersion?: string | null;
+}) {
+  const nodes = memory.storage?.neo4j?.nodes ?? {};
+  const edges = memory.storage?.neo4j?.edges ?? [];
+  const eventNodes = sortByRecent((nodes.events ?? []) as Array<Record<string, unknown>>, (item) =>
+    String(item.started_at ?? item.ended_at ?? "")
+  );
+  const relationshipNodes = sortByRecent(
+    (nodes.relationship_hypotheses ?? []) as Array<Record<string, unknown>>,
+    (item) => String(item.window_end ?? item.window_start ?? "")
+  );
+
+  return (
+    <div className="rounded-[12px] border border-[#ddcebb] bg-white/70 p-4">
+      <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+        <div>
+          <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-black/42">Neo4j Landing</p>
+          <p className="mt-2 text-sm leading-6 text-black/60">
+            当前以 `v0317` 的 canonical graph 方式落位，Photo 不进图，图内只保留 facts + hypotheses。
+          </p>
+        </div>
+        <div className="rounded-[10px] bg-[#f6eee3] px-3 py-2 text-xs leading-6 text-[#5f4e42]">
+          {taskVersion ?? "unknown"} · {Object.keys(nodes).length} groups · {edges.length} edges
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        {Object.entries(memory.transparency.neo4j_state?.node_counts ?? {}).map(([label, count]) => (
+          <MetricCard key={label} label={label} value={count} />
+        ))}
+      </div>
+
+      <div className="mt-4 grid gap-4 xl:grid-cols-2">
+        <StageSummaryPanel
+          title="Event Nodes"
+          items={eventNodes}
+          emptyText="当前还没有 Event hypothesis 落位。"
+        />
+        <StageSummaryPanel
+          title="Relationship Nodes"
+          items={relationshipNodes}
+          emptyText="当前还没有 RelationshipHypothesis 落位。"
+        />
+      </div>
+    </div>
+  );
+}
+
+function MilvusLandingPanel({ segments }: { segments: MilvusSegment[] }) {
+  const orderedSegments = sortByRecent(segments, (segment) => segment.started_at ?? segment.ended_at ?? "");
+
+  return (
+    <div className="rounded-[12px] border border-[#ddcebb] bg-white/70 p-4">
+      <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-black/42">Milvus Landing</p>
+      <p className="mt-2 text-sm leading-6 text-black/60">
+        Milvus 负责 evidence segments，当前已携带 `started_at / ended_at / place_uuid / location_hint` 这类检索辅助 metadata。
+      </p>
+      <div className="mt-4 space-y-3">
+        {orderedSegments.length > 0 ? (
+          orderedSegments.slice(0, 8).map((segment) => (
+            <div key={segment.segment_uuid} className="rounded-[10px] bg-[#f6eee3] px-3 py-3">
+              <div className="flex flex-wrap items-center gap-2 text-xs text-[#6f5847]">
+                <span className="rounded-full bg-white px-2 py-1 font-mono">{segment.segment_type}</span>
+                {segment.started_at ? <span>{formatDateTime(segment.started_at)}</span> : null}
+                {segment.location_hint ? <span>{segment.location_hint}</span> : null}
+              </div>
+              <p className="mt-2 text-sm leading-6 text-[#5f4e42]">{segment.text}</p>
+              <p className="mt-2 text-xs leading-6 text-[#7a6858]">
+                session {segment.session_uuid ?? "n/a"} · event {segment.event_uuid ?? "n/a"} · relationship{" "}
+                {segment.relationship_uuid ?? "n/a"}
+              </p>
+            </div>
+          ))
+        ) : (
+          <p className="text-sm text-black/56">当前还没有落到 Milvus 的 evidence segments。</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function truncateGraphLabel(value: string, max = 18) {
   if (value.length <= max) {
     return value;
@@ -780,12 +927,31 @@ function FocusGraphPanel({ graph }: { graph?: MemoryFocusGraph | null }) {
   );
 }
 
-function MemoryPanel({ memory, profileMarkdown }: { memory: MemoryPayload; profileMarkdown?: string | null }) {
+function MemoryPanel({
+  memory,
+  profileMarkdown,
+  taskVersion,
+  queryHistory
+}: {
+  memory: MemoryPayload;
+  profileMarkdown?: string | null;
+  taskVersion?: string | null;
+  queryHistory: MemoryQueryHistoryItem[];
+}) {
   const profileFields = memory.storage?.redis?.profile_core?.fields ?? {};
   const relationships = memory.storage?.redis?.profile_relationships?.items ?? [];
-  const recentEvents = memory.storage?.redis?.profile_recent_events?.items ?? [];
+  const recentEvents = sortByRecent(
+    (memory.storage?.redis?.profile_recent_events?.items ?? []) as Array<Record<string, unknown>>,
+    (item) => String(item.started_at ?? item.generated_at ?? "")
+  );
   const externalPublish = memory.external_publish ?? null;
   const focusGraph = memory.transparency.focus_graph ?? memory.storage?.neo4j?.focus_graph ?? null;
+  const milvusSegments = memory.storage?.milvus?.segments ?? [];
+  const stageVlmSummaries = (memory.transparency.vlm_stage?.summaries ?? []) as Array<Record<string, unknown>>;
+  const stageSequenceSummaries = (memory.transparency.sequence_stage?.summaries ?? []) as Array<Record<string, unknown>>;
+  const stageLlmSummaries = (memory.transparency.llm_stage?.summaries ?? []) as Array<Record<string, unknown>>;
+  const recentQueries = sortByRecent(queryHistory, (item) => item.requested_at);
+  const segmentById = new Map(milvusSegments.map((segment) => [segment.segment_uuid, segment]));
   const stageCards = [
     {
       key: "face",
@@ -858,6 +1024,24 @@ function MemoryPanel({ memory, profileMarkdown }: { memory: MemoryPayload; profi
         <MetricCard label="Sessions" value={memory.summary.session_count} detail={`${memory.summary.timeline_count} timelines`} />
         <MetricCard label="Events" value={memory.summary.event_candidate_count} detail={`${memory.summary.relationship_count} relationships`} />
         <MetricCard label="Profile Fields" value={memory.summary.profile_field_count} detail={`${memory.summary.segment_count} segments`} />
+      </div>
+
+      <div className="mt-5 grid gap-4 xl:grid-cols-3">
+        <StageSummaryPanel
+          title="VLM Outputs"
+          items={stageVlmSummaries}
+          emptyText="当前还没有可展示的 VLM stage summaries。"
+        />
+        <StageSummaryPanel
+          title="Sequence Outputs"
+          items={stageSequenceSummaries}
+          emptyText="当前还没有 sequence stage summaries。"
+        />
+        <StageSummaryPanel
+          title="LLM Outputs"
+          items={stageLlmSummaries}
+          emptyText="当前还没有可展示的 LLM stage summaries。"
+        />
       </div>
 
       {externalPublish ? (
@@ -943,6 +1127,108 @@ function MemoryPanel({ memory, profileMarkdown }: { memory: MemoryPayload; profi
       </div>
 
       <FocusGraphPanel graph={focusGraph} />
+
+      <div className="mt-5 grid gap-4 xl:grid-cols-2">
+        <GraphLandingPanel memory={memory} taskVersion={taskVersion} />
+        <MilvusLandingPanel segments={milvusSegments} />
+      </div>
+
+      <div className="mt-5 rounded-[12px] border border-[#ddcebb] bg-white/70 p-4">
+        <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+          <div>
+            <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-black/42">Memory Debug / Recall Chain</p>
+            <p className="mt-2 text-sm leading-6 text-black/60">
+              底部 chat bar 发起的问题会在这里按生成时间倒序展开，展示 `OperatorPlan → Recall → Graph → Milvus → Answer` 整条链路。
+            </p>
+          </div>
+          <div className="rounded-[10px] bg-[#f6eee3] px-3 py-2 text-xs leading-6 text-[#5f4e42]">
+            recent first · {recentQueries.length} queries
+          </div>
+        </div>
+
+        <div className="mt-4 space-y-4">
+          {recentQueries.length > 0 ? (
+            recentQueries.map((item) => {
+              const answer = item.response.answer;
+              const trace = item.response.debug_trace;
+              const evidenceSegments = answer.evidence_segment_ids
+                .map((segmentId) => segmentById.get(segmentId))
+                .filter((segment): segment is MilvusSegment => Boolean(segment));
+              return (
+                <article key={item.query_id} className="rounded-[12px] border border-[#eadbcc] bg-[#fcf8f3] p-4">
+                  <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                    <div>
+                      <p className="text-base font-semibold text-ink">{item.question}</p>
+                      <p className="mt-1 text-xs text-black/50">{formatDateTime(item.requested_at)}</p>
+                    </div>
+                    <div className="rounded-[10px] bg-white px-3 py-2 text-xs leading-6 text-[#5f4e42]">
+                      confidence {answer.confidence.toFixed(2)}
+                    </div>
+                  </div>
+
+                  <div className="mt-3 rounded-[10px] bg-white px-4 py-3">
+                    <p className="text-sm leading-6 text-[#5f4e42]">{answer.summary || "暂无摘要输出"}</p>
+                    {answer.uncertainty_flags.length > 0 ? (
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {answer.uncertainty_flags.map((flag) => (
+                          <span key={flag} className="rounded-full bg-[#f6eee3] px-2.5 py-1 text-xs text-[#7a6858]">
+                            {flag}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div className="mt-3 grid gap-3 xl:grid-cols-2">
+                    <div className="rounded-[10px] bg-white px-4 py-3">
+                      <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-black/42">Graph Hits</p>
+                      <p className="mt-2 text-xs leading-6 text-[#7a6858]">
+                        events {answer.supporting_events.length} · sessions {answer.supporting_sessions.length} · relationships {answer.supporting_relationships.length}
+                      </p>
+                      <pre className="mt-2 overflow-x-auto whitespace-pre-wrap break-all text-xs leading-6 text-[#5f4e42]">
+                        {formatJson({
+                          resolved_concepts: answer.resolved_concepts,
+                          resolved_entities: answer.resolved_entities,
+                          supporting_events: answer.supporting_events,
+                          supporting_sessions: answer.supporting_sessions,
+                          supporting_relationships: answer.supporting_relationships
+                        })}
+                      </pre>
+                    </div>
+
+                    <div className="rounded-[10px] bg-white px-4 py-3">
+                      <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-black/42">Milvus Evidence</p>
+                      {evidenceSegments.length > 0 ? (
+                        <div className="mt-2 space-y-2">
+                          {evidenceSegments.slice(0, 6).map((segment) => (
+                            <div key={segment.segment_uuid} className="rounded-[10px] bg-[#f6eee3] px-3 py-3">
+                              <p className="text-xs text-[#7a6858]">
+                                {segment.segment_type} · {segment.location_hint || "unknown place"} · {formatDateTime(segment.started_at ?? segment.ended_at ?? undefined)}
+                              </p>
+                              <p className="mt-2 text-sm leading-6 text-[#5f4e42]">{segment.text}</p>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="mt-2 text-sm text-black/56">当前回答没有额外命中 Milvus evidence。</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="mt-3 grid gap-3 xl:grid-cols-2">
+                    <JsonDetails title="Operator Plan" value={trace.operator_plan} />
+                    <JsonDetails title="Recall Candidates" value={trace.recall_candidates} />
+                    <JsonDetails title="Query DSL" value={trace.dsl} />
+                    <JsonDetails title="Pseudo Cypher / Evidence Fill" value={{ executed_cypher: trace.executed_cypher, evidence_fill: trace.evidence_fill }} />
+                  </div>
+                </article>
+              );
+            })
+          ) : (
+            <p className="text-sm text-black/56">记忆落位后，可以直接在底部 chat bar 里提问；链路会显示在这里。</p>
+          )}
+        </div>
+      </div>
 
       {profileMarkdown ? (
         <div className="mt-5 rounded-[12px] border border-[#ddcebb] bg-white/70 p-4">
@@ -1154,10 +1440,21 @@ function PersonGroupsPanel({
   );
 }
 
-function RecallChatDock() {
+function RecallChatDock({
+  task,
+  hasMemory,
+  onQueryComplete
+}: {
+  task: TaskState | null;
+  hasMemory: boolean;
+  onQueryComplete: (item: MemoryQueryHistoryItem) => void;
+}) {
   const [chatDraft, setChatDraft] = useState("");
   const [isMultiLine, setIsMultiLine] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const canSubmit = Boolean(task && hasMemory && chatDraft.trim() && !isSubmitting);
 
   useEffect(() => {
     const node = textareaRef.current;
@@ -1174,25 +1471,69 @@ function RecallChatDock() {
     setIsMultiLine(resolvedHeight > 44);
   }, [chatDraft]);
 
+  async function submitQuery() {
+    if (!task || !hasMemory || !chatDraft.trim()) {
+      return;
+    }
+    setIsSubmitting(true);
+    setSubmitError(null);
+    const question = chatDraft.trim();
+
+    try {
+      const response = await apiFetch(`${API_BASE}/api/tasks/${task.task_id}/memory/query`, {
+        method: "POST",
+        body: JSON.stringify({ question })
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.detail ?? "记忆查询失败");
+      }
+      const payload = (await response.json()) as MemoryQueryResponse;
+      onQueryComplete({
+        query_id: String(payload.request?.query_id ?? `${task.task_id}-${Date.now()}`),
+        question,
+        requested_at: new Date().toISOString(),
+        response: payload
+      });
+      setChatDraft("");
+    } catch (queryError) {
+      setSubmitError(queryError instanceof Error ? queryError.message : "记忆查询失败");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
   return (
     <div className="fixed bottom-0 left-0 right-0 z-40 md:left-[316px]">
       <div className="w-full rounded-none border border-b-0 border-[#d8c9b7] bg-[rgba(248,243,236,0.98)] px-4 pb-3 pt-3 shadow-card backdrop-blur md:px-5">
+        {submitError ? (
+          <p className="mb-2 text-sm text-[#8a5637]">{submitError}</p>
+        ) : null}
         <div className="flex items-end gap-3">
           <textarea
             ref={textareaRef}
             rows={1}
             value={chatDraft}
             onChange={(event) => setChatDraft(event.target.value)}
-            placeholder="记忆布局完成后可在这里输入召回问题"
+            onKeyDown={(event) => {
+              if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+                event.preventDefault();
+                void submitQuery();
+              }
+            }}
+            placeholder={
+              hasMemory ? "输入记忆召回问题，Cmd/Ctrl + Enter 发送" : "记忆落位完成后可在这里输入召回问题"
+            }
             className={`min-h-[44px] flex-1 resize-none border border-black/8 bg-[#f4efe7] px-4 py-[10px] text-sm leading-6 text-black/70 outline-none ${
               isMultiLine ? "rounded-[12px]" : "rounded-full"
             }`}
           />
           <button
             type="button"
-            disabled
+            disabled={!canSubmit}
             aria-label="发送"
-            className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-black/10 bg-[#ebe4d8] text-black/35"
+            onClick={() => void submitQuery()}
+            className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-black/10 bg-[#8a5637] text-white disabled:bg-[#ebe4d8] disabled:text-black/35"
           >
             <ArrowUp size={17} strokeWidth={2.6} />
           </button>
@@ -1227,6 +1568,7 @@ export default function HomePage() {
   const [policyBusy, setPolicyBusy] = useState<Record<string, boolean>>({});
   const [isUploading, setIsUploading] = useState(false);
   const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
+  const [memoryQueryHistoryByTask, setMemoryQueryHistoryByTask] = useState<Record<string, MemoryQueryHistoryItem[]>>({});
   const [error, setError] = useState<string | null>(null);
 
   const personGroups = currentTask?.result?.face_recognition?.person_groups ?? [];
@@ -1234,6 +1576,7 @@ export default function HomePage() {
   const memoryResult = currentTask?.result?.memory ?? null;
   const currentUploads = currentTask?.uploads ?? [];
   const taskGroups = useMemo(() => groupTasksByCreatedAt(tasks), [tasks]);
+  const currentQueryHistory = currentTask ? memoryQueryHistoryByTask[currentTask.task_id] ?? [] : [];
   const currentTaskVersion = currentTask?.version ?? LEGACY_TASK_VERSION;
   const visibleTaskVersions = useMemo(() => Array.from(new Set([currentTaskVersion, ...availableTaskVersions])), [availableTaskVersions, currentTaskVersion]);
   const currentStatusLabel = currentTask ? formatStatus(currentTask.status) : "";
@@ -1377,6 +1720,7 @@ export default function HomePage() {
       setExpandedComments({});
       setReviewBusy({});
       setPolicyBusy({});
+      setMemoryQueryHistoryByTask({});
       setPendingUploads((previous) => {
         revokePendingUploads(previous);
         return [];
@@ -1640,6 +1984,16 @@ export default function HomePage() {
     }
   }
 
+  function recordMemoryQuery(taskId: string, item: MemoryQueryHistoryItem) {
+    setMemoryQueryHistoryByTask((previous) => {
+      const nextItems = sortByRecent([item, ...(previous[taskId] ?? [])], (entry) => entry.requested_at).slice(0, 12);
+      return {
+        ...previous,
+        [taskId]: nextItems,
+      };
+    });
+  }
+
   async function deleteTask(task: TaskState) {
     if (task.status !== "completed" && task.status !== "failed") {
       setError("任务处理中，暂不支持删除");
@@ -1671,6 +2025,11 @@ export default function HomePage() {
 
       setTasks((previous) => previous.filter((item) => item.task_id !== task.task_id));
       setCurrentTask((previous) => (previous?.task_id === task.task_id ? null : previous));
+      setMemoryQueryHistoryByTask((previous) => {
+        const next = { ...previous };
+        delete next[task.task_id];
+        return next;
+      });
       setIsDraftView((previous) => previous || currentTask?.task_id === task.task_id);
       await fetchTasks({ selectInitial: !currentTask || currentTask.task_id === task.task_id, preserveCurrent: false });
     } catch (deleteError) {
@@ -2057,7 +2416,12 @@ export default function HomePage() {
           ) : null}
 
           {!isDraftView && currentTask && memoryResult ? (
-            <MemoryPanel memory={memoryResult} profileMarkdown={currentTask.result?.profile_markdown} />
+            <MemoryPanel
+              memory={memoryResult}
+              profileMarkdown={currentTask.result?.profile_markdown}
+              taskVersion={currentTask.version}
+              queryHistory={currentQueryHistory}
+            />
           ) : null}
 
           {!isDraftView && currentTask ? (
@@ -2096,7 +2460,16 @@ export default function HomePage() {
             )
           ) : null}
 
-          <RecallChatDock />
+          <RecallChatDock
+            task={currentTask}
+            hasMemory={Boolean(memoryResult)}
+            onQueryComplete={(item) => {
+              if (!currentTask) {
+                return;
+              }
+              recordMemoryQuery(currentTask.task_id, item);
+            }}
+          />
         </section>
       </div>
     </main>

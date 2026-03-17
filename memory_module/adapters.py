@@ -333,6 +333,10 @@ class MilvusStorageAdapter:
                 schema.add_field("session_uuid", DataType.VARCHAR, max_length=64)
                 schema.add_field("relationship_uuid", DataType.VARCHAR, max_length=64)
                 schema.add_field("concept_uuid", DataType.VARCHAR, max_length=64)
+                schema.add_field("started_at", DataType.VARCHAR, max_length=64)
+                schema.add_field("ended_at", DataType.VARCHAR, max_length=64)
+                schema.add_field("place_uuid", DataType.VARCHAR, max_length=64)
+                schema.add_field("location_hint", DataType.VARCHAR, max_length=512)
                 schema.add_field("segment_type", DataType.VARCHAR, max_length=64)
                 schema.add_field("text", DataType.VARCHAR, max_length=8192)
                 schema.add_field("sparse_terms", DataType.VARCHAR, max_length=2048)
@@ -417,6 +421,10 @@ class MilvusStorageAdapter:
             "session_uuid": str(segment.get("session_uuid") or ""),
             "relationship_uuid": str(segment.get("relationship_uuid") or ""),
             "concept_uuid": str(segment.get("concept_uuid") or ""),
+            "started_at": str(segment.get("started_at") or ""),
+            "ended_at": str(segment.get("ended_at") or ""),
+            "place_uuid": str(segment.get("place_uuid") or ""),
+            "location_hint": str(segment.get("location_hint") or "")[:512],
             "segment_type": str(segment.get("segment_type") or ""),
             "text": text[:8192],
             "sparse_terms": sparse_terms[:2048],

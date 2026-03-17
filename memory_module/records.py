@@ -125,6 +125,10 @@ class MilvusSegmentRecord:
     concept_uuid: Optional[str]
     segment_type: str
     text: str
+    started_at: Optional[str] = None
+    ended_at: Optional[str] = None
+    place_uuid: Optional[str] = None
+    location_hint: str = ""
     sparse_terms: List[str] = field(default_factory=list)
     embedding_source: str = "textual_stub"
     importance_score: float = 0.0

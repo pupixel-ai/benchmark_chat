@@ -6,7 +6,7 @@ from __future__ import annotations
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import declarative_base, sessionmaker
 
-from config import DATABASE_URL, SQL_ECHO, TASK_VERSION_V0312
+from config import DATABASE_URL, SQL_ECHO, DEFAULT_TASK_VERSION
 
 
 engine = create_engine(
@@ -50,5 +50,5 @@ def ensure_schema() -> None:
     with engine.begin() as connection:
         connection.execute(
             text("UPDATE tasks SET version = :default_version WHERE version IS NULL"),
-            {"default_version": TASK_VERSION_V0312},
+            {"default_version": DEFAULT_TASK_VERSION},
         )
