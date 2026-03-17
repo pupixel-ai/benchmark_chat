@@ -51,6 +51,7 @@ from config import (
     TASKS_DIR,
     normalize_task_version,
 )
+from memory_module import MemoryQueryService
 from services.asset_store import TaskAssetStore
 from services.pipeline_service import MemoryPipelineService
 from utils import load_json
@@ -98,6 +99,13 @@ class FaceReviewPayload(BaseModel):
 
 class ImagePolicyPayload(BaseModel):
     is_abandoned: bool
+
+
+class MemoryQueryPayload(BaseModel):
+    question: str
+    context_hints: Optional[Dict[str, str]] = None
+    time_hint: Optional[str] = None
+    answer_shape_hint: Optional[str] = None
 
 
 def _apply_no_store_headers(response: Response) -> Response:
@@ -697,6 +705,31 @@ def get_task(task_id: str, response: Response, current_user: dict = Depends(get_
     if not task:
         raise HTTPException(status_code=404, detail="任务不存在")
     return _hydrate_task(task, current_user["user_id"])
+
+
+@app.post("/api/tasks/{task_id}/memory/query")
+def query_task_memory(
+    task_id: str,
+    payload: MemoryQueryPayload,
+    response: Response,
+    current_user: dict = Depends(get_current_user),
+):
+    _apply_no_store_headers(response)
+    task = task_store.get_task(task_id, user_id=current_user["user_id"])
+    if not task:
+        raise HTTPException(status_code=404, detail="任务不存在")
+    hydrated = _hydrate_task(task, current_user["user_id"])
+    memory_payload = (hydrated.get("result") or {}).get("memory")
+    if not isinstance(memory_payload, dict):
+        raise HTTPException(status_code=404, detail="当前任务没有 memory 输出")
+    return MemoryQueryService().answer(
+        memory_payload,
+        payload.question,
+        user_id=current_user["user_id"],
+        context_hints=payload.context_hints or {},
+        time_hint=payload.time_hint,
+        answer_shape_hint=payload.answer_shape_hint,
+    )
 
 
 @app.get("/api/tasks/{task_id}/reviews")

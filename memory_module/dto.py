@@ -176,17 +176,103 @@ class EventCandidateDTO:
 
 
 @dataclass(slots=True)
+class PlaceAnchorDTO:
+    place_uuid: str
+    user_id: str
+    canonical_name: str
+    aliases: List[str] = field(default_factory=list)
+    place_type: str = "unknown"
+    geo_hash: str = ""
+    lat: Optional[float] = None
+    lng: Optional[float] = None
+    source: str = "derived_from_session"
+    confidence: float = 0.0
+    search_text: str = ""
+
+
+@dataclass(slots=True)
+class ConceptDTO:
+    concept_uuid: str
+    canonical_name: str
+    aliases: List[str] = field(default_factory=list)
+    concept_type: str = "unknown"
+    scope: str = "canonical"
+    status: str = "active"
+    version: str = "v1"
+    user_id: Optional[str] = None
+    search_text: str = ""
+    description: str = ""
+    parent_concepts: List[str] = field(default_factory=list)
+
+
+@dataclass(slots=True)
 class RelationshipHypothesisDTO:
-    relationship_id: str
+    relationship_uuid: str
+    relationship_key: str
     upstream_ref: Dict[str, str]
-    face_person_id: str
-    person_uuid: str
+    anchor_person_uuid: Optional[str]
+    target_person_uuid: str
+    target_face_person_id: str
     relationship_type: str
     label: str
     confidence: float
+    revision: int = 1
+    status: str = "draft"
+    window_start: str = ""
+    window_end: str = ""
+    model_version: str = ""
+    reason_summary: str = ""
+    feature_snapshot: Dict[str, Any] = field(default_factory=dict)
+    score_snapshot: Dict[str, float] = field(default_factory=dict)
+    inherited_metrics: Dict[str, Any] = field(default_factory=dict)
     evidence: Dict[str, Any] = field(default_factory=dict)
     evidence_refs: List[Dict[str, str]] = field(default_factory=list)
-    reason: str = ""
+    prior_revision_uuid: Optional[str] = None
+
+
+@dataclass(slots=True)
+class MoodStateHypothesisDTO:
+    mood_uuid: str
+    upstream_ref: Dict[str, str]
+    mood_label: str
+    mood_score: float
+    confidence: float
+    session_uuid: Optional[str] = None
+    event_uuid: Optional[str] = None
+    window_start: str = ""
+    window_end: str = ""
+    model_version: str = ""
+    reason_summary: str = ""
+    artifact_ref_ids: List[str] = field(default_factory=list)
+    evidence_refs: List[Dict[str, str]] = field(default_factory=list)
+
+
+@dataclass(slots=True)
+class PrimaryPersonHypothesisDTO:
+    primary_person_hypothesis_uuid: str
+    upstream_ref: Dict[str, str]
+    user_id: str
+    person_uuid: str
+    confidence: float
+    window_start: str
+    window_end: str
+    model_version: str = ""
+    evidence_refs: List[Dict[str, str]] = field(default_factory=list)
+
+
+@dataclass(slots=True)
+class PeriodHypothesisDTO:
+    period_uuid: str
+    upstream_ref: Dict[str, str]
+    user_id: str
+    period_type: str
+    label: str
+    window_start: str
+    window_end: str
+    confidence: float
+    reason_summary: str = ""
+    artifact_ref_ids: List[str] = field(default_factory=list)
+    evidence_refs: List[Dict[str, str]] = field(default_factory=list)
 
 
 @dataclass(slots=True)
@@ -215,6 +301,84 @@ class ChangeLogEntryDTO:
     upstream_ref: Dict[str, str] = field(default_factory=dict)
     evidence_refs: List[Dict[str, str]] = field(default_factory=list)
     metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(slots=True)
+class TimeScopeDTO:
+    raw_text: str
+    start_at: str = ""
+    end_at: str = ""
+    resolution: str = "unresolved"
+    confidence: float = 0.0
+
+
+@dataclass(slots=True)
+class AgentMemoryQueryRequestDTO:
+    user_id: str
+    question: str
+    query_id: str
+    context_hints: Dict[str, Any] = field(default_factory=dict)
+    time_hint: Optional[str] = None
+    answer_shape_hint: Optional[str] = None
+
+
+@dataclass(slots=True)
+class OperatorPlanDTO:
+    intent: str
+    time_scope: TimeScopeDTO
+    ordinal: Optional[int] = None
+    threshold: Optional[float] = None
+    group_by: Optional[str] = None
+    metric: Optional[str] = None
+    target_concepts: List[str] = field(default_factory=list)
+    target_entities: List[str] = field(default_factory=list)
+    output_shape: str = "summary"
+    fallback_policy: str = "semantic_then_graph"
+
+
+@dataclass(slots=True)
+class QueryDSLDTO:
+    intent: str
+    graph_filters: Dict[str, Any] = field(default_factory=dict)
+    time_scope: Dict[str, Any] = field(default_factory=dict)
+    ranking_rule: Dict[str, Any] = field(default_factory=dict)
+    evidence_fill: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(slots=True)
+class EntityRecallCandidateDTO:
+    entity_type: str
+    entity_id: str
+    score: float
+    matched_concept: Optional[str] = None
+    source: str = "index"
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(slots=True)
+class AnswerDTO:
+    answer_type: str
+    summary: str
+    confidence: float
+    resolved_entities: List[Dict[str, Any]] = field(default_factory=list)
+    resolved_concepts: List[str] = field(default_factory=list)
+    time_window: Dict[str, Any] = field(default_factory=dict)
+    supporting_sessions: List[Dict[str, Any]] = field(default_factory=list)
+    supporting_events: List[Dict[str, Any]] = field(default_factory=list)
+    supporting_relationships: List[Dict[str, Any]] = field(default_factory=list)
+    representative_photo_ids: List[str] = field(default_factory=list)
+    evidence_segment_ids: List[str] = field(default_factory=list)
+    explanation: str = ""
+    uncertainty_flags: List[str] = field(default_factory=list)
+
+
+@dataclass(slots=True)
+class GraphDebugTraceDTO:
+    operator_plan: Dict[str, Any]
+    recall_candidates: List[Dict[str, Any]]
+    dsl: Dict[str, Any]
+    executed_cypher: str
+    evidence_fill: Dict[str, Any]
 
 
 @dataclass(slots=True)

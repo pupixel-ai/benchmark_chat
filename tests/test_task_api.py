@@ -213,6 +213,24 @@ class TaskApiTests(unittest.TestCase):
         self.assertIn("face_001", feedback["reviews"])
         self.assertIn("hash-001", feedback["policies"])
 
+    def test_memory_query_endpoint_returns_agent_answer(self) -> None:
+        create_response = self.client.post("/api/tasks")
+        self.assertEqual(create_response.status_code, 200)
+        task_id = create_response.json()["task_id"]
+        self.task_ids.append(task_id)
+
+        task_store.update_task(task_id, result=self._synthetic_result(task_id), status="completed", stage="completed")
+
+        response = self.client.post(
+            f"/api/tasks/{task_id}/memory/query",
+            json={"question": "我过去3个月去过的演唱会"},
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["answer"]["answer_type"], "event_search")
+        self.assertIn("concert", payload["answer"]["resolved_concepts"])
+        self.assertGreaterEqual(len(payload["answer"]["supporting_events"]), 1)
+
     def _image_bytes(self, color: str) -> bytes:
         image = Image.new("RGB", (48, 48), color=color)
         buffer = io.BytesIO()
@@ -363,6 +381,95 @@ class TaskApiTests(unittest.TestCase):
             "failed_images": [],
             "warnings": [],
             "events": [],
+            "memory": {
+                "envelope": {"scope": {"user_id": self.user_id}},
+                "storage": {
+                    "neo4j": {
+                        "nodes": {
+                            "user": [{"user_id": self.user_id, "labels": ["User"], "properties": {"profile_version": 1}}],
+                            "persons": [],
+                            "places": [],
+                            "sessions": [
+                                {
+                                    "session_uuid": "session_001",
+                                    "labels": ["Session"],
+                                    "properties": {
+                                        "user_id": self.user_id,
+                                        "started_at": "2026-02-15T20:00:00",
+                                        "ended_at": "2026-02-15T22:00:00",
+                                        "participant_count": 2,
+                                        "representative_photo_ids": ["photo_001"],
+                                    },
+                                }
+                            ],
+                            "timelines": [],
+                            "events": [
+                                {
+                                    "event_uuid": "event_001",
+                                    "labels": ["Event"],
+                                    "properties": {
+                                        "user_id": self.user_id,
+                                        "title": "Live Concert Night",
+                                        "normalized_event_type": "concert",
+                                        "event_subtype": "concert",
+                                        "started_at": "2026-02-15T20:00:00",
+                                        "ended_at": "2026-02-15T22:00:00",
+                                        "confidence": 0.91,
+                                        "representative_photo_ids": ["photo_001"],
+                                    },
+                                }
+                            ],
+                            "relationship_hypotheses": [],
+                            "mood_states": [],
+                            "primary_person_hypotheses": [],
+                            "period_hypotheses": [
+                                {
+                                    "period_uuid": "period_recent",
+                                    "labels": ["PeriodHypothesis"],
+                                    "properties": {
+                                        "user_id": self.user_id,
+                                        "period_type": "recent_period",
+                                        "label": "最近",
+                                        "window_start": "2026-01-01T00:00:00",
+                                        "window_end": "2026-03-10T00:00:00",
+                                        "confidence": 0.9,
+                                    },
+                                }
+                            ],
+                            "concepts": [
+                                {
+                                    "concept_uuid": "concept_concert",
+                                    "labels": ["Concept"],
+                                    "properties": {
+                                        "canonical_name": "concert",
+                                        "aliases": ["演唱会", "concert"],
+                                        "concept_type": "event",
+                                        "search_text": "concert 演唱会",
+                                    },
+                                }
+                            ],
+                        },
+                        "edges": [
+                            {
+                                "edge_id": "edge_event_concept",
+                                "from_id": "event_001",
+                                "to_id": "concept_concert",
+                                "edge_type": "HAS_CONCEPT",
+                                "properties": {},
+                            },
+                            {
+                                "edge_id": "edge_event_session",
+                                "from_id": "event_001",
+                                "to_id": "session_001",
+                                "edge_type": "DERIVED_FROM_SESSION",
+                                "properties": {},
+                            },
+                        ],
+                    },
+                    "milvus": {"segments": []},
+                    "redis": {},
+                },
+            },
         }
 
 

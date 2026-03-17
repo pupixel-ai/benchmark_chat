@@ -68,7 +68,7 @@ class MemoryModuleTests(unittest.TestCase):
 
             relationship_edges = [
                 edge for edge in result["storage"]["neo4j"]["edges"]
-                if edge["edge_type"] == "RELATIONSHIP_HYPOTHESIS"
+                if edge["edge_type"] == "HAS_RELATIONSHIP"
             ]
             self.assertEqual(len(relationship_edges), 2)
             self.assertTrue(all(edge["from_id"] == primary_node["node_id"] for edge in relationship_edges))
@@ -77,7 +77,15 @@ class MemoryModuleTests(unittest.TestCase):
             primary_person_record = next(
                 node for node in person_nodes if node["properties"]["face_person_id"] == "Person_001"
             )
-            self.assertIn("PrimaryUser", primary_person_record["labels"])
+            self.assertEqual(primary_person_record["properties"]["is_primary_candidate"], True)
+            self.assertNotIn("photos", result["storage"]["neo4j"]["nodes"])
+            relationship_nodes = result["storage"]["neo4j"]["nodes"]["relationship_hypotheses"]
+            self.assertEqual(len(relationship_nodes), 2)
+            self.assertTrue(all(node["properties"]["status"] in {"active", "rejected"} for node in relationship_nodes))
+            self.assertIn("concepts", result["storage"]["neo4j"]["nodes"])
+            self.assertGreater(len(result["storage"]["neo4j"]["nodes"]["concepts"]), 0)
+            self.assertIn("mood_states", result["storage"]["neo4j"]["nodes"])
+            self.assertIn("period_hypotheses", result["storage"]["neo4j"]["nodes"])
 
             self.assertTrue(Path(result["artifacts"]["envelope_path"]).exists())
             self.assertTrue(Path(result["artifacts"]["storage_path"]).exists())
@@ -186,6 +194,7 @@ class MemoryModuleTests(unittest.TestCase):
             ]
             self.assertGreaterEqual(len(observed_event_edges), 1)
             self.assertTrue(all(edge["from_id"] == "user_beta" for edge in observed_event_edges))
+            self.assertEqual(len(result["storage"]["neo4j"]["nodes"]["primary_person_hypotheses"]), 0)
 
     def _sample_photos(self, task_dir: Path) -> list[Photo]:
         uploads_dir = task_dir / "uploads"

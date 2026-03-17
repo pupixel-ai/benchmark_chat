@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import math
 import re
 import socket
 from datetime import datetime, timezone
@@ -27,17 +26,31 @@ from config import (
     MEMORY_REDIS_PREFIX,
     MEMORY_REDIS_URL,
 )
+from memory_module.embeddings import deterministic_vector
 from utils import save_json
 
 
 NODE_GROUP_ID_FIELDS = {
     "user": "user_id",
     "persons": "person_uuid",
-    "photos": "photo_uuid",
+    "places": "place_uuid",
     "sessions": "session_uuid",
-    "movements": "movement_uuid",
     "timelines": "timeline_uuid",
     "events": "event_uuid",
+    "relationship_hypotheses": "relationship_uuid",
+    "mood_states": "mood_uuid",
+    "primary_person_hypotheses": "primary_person_hypothesis_uuid",
+    "period_hypotheses": "period_uuid",
+    "concepts": "concept_uuid",
+}
+
+VECTOR_INDEX_SPECS = {
+    "Concept": "concept_embedding_idx",
+    "PlaceAnchor": "place_embedding_idx",
+    "Event": "event_embedding_idx",
+    "Session": "session_embedding_idx",
+    "RelationshipHypothesis": "relationship_embedding_idx",
+    "Person": "person_embedding_idx",
 }
 
 
@@ -120,6 +133,7 @@ class Neo4jStorageAdapter:
                 auth = (MEMORY_NEO4J_USERNAME, MEMORY_NEO4J_PASSWORD)
             driver = GraphDatabase.driver(MEMORY_NEO4J_URI, auth=auth)
             node_index: Dict[str, tuple[str, str]] = {}
+            labels_seen: set[str] = set()
 
             with driver.session(database=MEMORY_NEO4J_DATABASE or None) as session:
                 nodes = payload.get("nodes", {})
@@ -136,6 +150,7 @@ class Neo4jStorageAdapter:
                         if id_field not in record:
                             continue
                         labels = ":".join(self._sanitize_label(label) for label in record.get("labels", [])) or "MemoryNode"
+                        labels_seen.update(record.get("labels", []))
                         props = self._sanitize_properties(
                             {
                                 **dict(record.get("properties", {})),
@@ -179,6 +194,19 @@ class Neo4jStorageAdapter:
                         props=props,
                     )
                     edge_count += 1
+
+                for label in labels_seen:
+                    index_name = VECTOR_INDEX_SPECS.get(label)
+                    if not index_name:
+                        continue
+                    session.run(
+                        (
+                            f"CREATE VECTOR INDEX {index_name} IF NOT EXISTS "
+                            f"FOR (n:{self._sanitize_label(label)}) ON (n.embedding) "
+                            "OPTIONS {indexConfig: {`vector.dimensions`: $dim, `vector.similarity_function`: 'cosine'}}"
+                        ),
+                        dim=MEMORY_MILVUS_VECTOR_DIM,
+                    )
 
             driver.close()
             return {
@@ -263,13 +291,10 @@ class Neo4jStorageAdapter:
         session.run(
             (
                 "MATCH (u:User {user_id: $user_id}) "
-                "OPTIONAL MATCH (u)-[r:PRIMARY_USER]->(p:Person) "
+                "OPTIONAL MATCH (u)-[r:PRIMARY_USER|PRIMARY_PERSON_HYPOTHESIS]->(p) "
                 "DELETE r "
-                "WITH DISTINCT u, p "
-                "REMOVE u.primary_face_person_id, u.primary_person_uuid "
-                "WITH p "
-                "WHERE p IS NOT NULL "
-                "REMOVE p:PrimaryUser"
+                "WITH DISTINCT u "
+                "REMOVE u.primary_face_person_id, u.primary_person_uuid"
             ),
             user_id=user_id,
         )
@@ -305,6 +330,8 @@ class MilvusStorageAdapter:
                 schema.add_field("event_uuid", DataType.VARCHAR, max_length=64)
                 schema.add_field("person_uuid", DataType.VARCHAR, max_length=64)
                 schema.add_field("session_uuid", DataType.VARCHAR, max_length=64)
+                schema.add_field("relationship_uuid", DataType.VARCHAR, max_length=64)
+                schema.add_field("concept_uuid", DataType.VARCHAR, max_length=64)
                 schema.add_field("segment_type", DataType.VARCHAR, max_length=64)
                 schema.add_field("text", DataType.VARCHAR, max_length=8192)
                 schema.add_field("sparse_terms", DataType.VARCHAR, max_length=2048)
@@ -386,6 +413,8 @@ class MilvusStorageAdapter:
             "event_uuid": str(segment.get("event_uuid") or ""),
             "person_uuid": str(segment.get("person_uuid") or ""),
             "session_uuid": str(segment.get("session_uuid") or ""),
+            "relationship_uuid": str(segment.get("relationship_uuid") or ""),
+            "concept_uuid": str(segment.get("concept_uuid") or ""),
             "segment_type": str(segment.get("segment_type") or ""),
             "text": text[:8192],
             "sparse_terms": sparse_terms[:2048],
@@ -396,18 +425,4 @@ class MilvusStorageAdapter:
         }
 
     def _deterministic_vector(self, text: str, dim: int) -> List[float]:
-        if not text:
-            return [0.0] * dim
-
-        digest = hashlib.sha256(text.encode("utf-8")).digest()
-        values: List[float] = []
-        state = digest
-        while len(values) < dim:
-            for byte in state:
-                values.append((byte / 127.5) - 1.0)
-                if len(values) >= dim:
-                    break
-            state = hashlib.sha256(state).digest()
-
-        norm = math.sqrt(sum(value * value for value in values)) or 1.0
-        return [round(value / norm, 6) for value in values[:dim]]
+        return deterministic_vector(text, dim)

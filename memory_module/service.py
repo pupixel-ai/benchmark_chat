@@ -13,26 +13,38 @@ from memory_module.adapters import MemoryStoragePublisher
 from memory_module.domain import MaterializationInputBundle, ProfileEvidenceItem
 from memory_module.dto import (
     ArtifactRefDTO,
+    ConceptDTO,
     ChangeLogEntryDTO,
     EventCandidateDTO,
+    EventCandidateDTO,
     FaceObservationDTO,
+    MoodStateHypothesisDTO,
     MemoryIngestionEnvelopeDTO,
+    PeriodHypothesisDTO,
     PersonObservationDTO,
     PhotoFactDTO,
+    PlaceAnchorDTO,
+    PrimaryPersonHypothesisDTO,
     ProfileEvidenceDTO,
     RelationshipHypothesisDTO,
     ScopeDTO,
     VLMPhotoObservationDTO,
 )
+from memory_module.embeddings import DEFAULT_EMBEDDING_MODEL, DEFAULT_EMBEDDING_VERSION, build_embedding_payload
 from memory_module.evaluation import ErrorBucketDTO, EvaluationRunDTO, MetricSnapshotDTO
+from memory_module.ontology import concept_metadata, normalize_concept, suggest_candidate_concept
 from memory_module.records import (
     MilvusSegmentRecord,
+    Neo4jConceptNodeRecord,
     Neo4jEventNodeRecord,
-    Neo4jMovementNodeRecord,
+    Neo4jMoodStateNodeRecord,
     Neo4jPersonNodeRecord,
-    Neo4jPhotoNodeRecord,
+    Neo4jPlaceNodeRecord,
+    Neo4jPrimaryPersonHypothesisNodeRecord,
     Neo4jRelationshipEdgeRecord,
+    Neo4jRelationshipHypothesisNodeRecord,
     Neo4jSessionNodeRecord,
+    Neo4jPeriodHypothesisNodeRecord,
     Neo4jTimelineNodeRecord,
     Neo4jUserNodeRecord,
     PersonIdentityMapRecord,
@@ -63,6 +75,17 @@ from memory_module.views import (
 )
 from models import Event, Relationship
 from utils import save_json
+
+
+RELATIONSHIP_LABEL_THRESHOLDS = {
+    "friend": {"upgrade": 0.60, "keep": 0.50},
+    "close_friend": {"upgrade": 0.72, "keep": 0.62},
+    "colleague": {"upgrade": 0.68, "keep": 0.58},
+    "partner": {"upgrade": 0.78, "keep": 0.68},
+    "family_generic": {"upgrade": 0.82, "keep": 0.72},
+    "father": {"upgrade": 0.86, "keep": 0.76},
+    "mother": {"upgrade": 0.86, "keep": 0.76},
+}
 
 
 class MemoryModuleService:
@@ -130,9 +153,30 @@ class MemoryModuleService:
             photo_uuid_map=photo_uuid_map,
             person_uuid_map=person_uuid_map,
         )
+        prior_storage = self._load_prior_storage()
+        place_anchors = self._build_place_anchors(sequences.sessions)
+        concept_catalog = self._build_concepts(
+            sessions=sequences.sessions,
+            event_candidates=event_candidates,
+            relationships=relationships,
+        )
+        primary_person_hypothesis = self._build_primary_person_hypothesis(
+            sequences=sequences,
+            primary_person_uuid=primary_person_uuid,
+        )
         relationship_hypotheses = self._build_relationships(
             relationships=relationships,
             person_uuid_map=person_uuid_map,
+            sequences=sequences,
+            event_candidates=event_candidates,
+            primary_person_uuid=primary_person_uuid,
+            primary_face_person_id=primary_face_person_id,
+            prior_storage=prior_storage,
+        )
+        mood_hypotheses = self._build_mood_hypotheses(sequences)
+        period_hypotheses = self._build_period_hypotheses(
+            sequences=sequences,
+            concept_catalog=concept_catalog,
         )
         profile_evidence = self._build_profile_evidence(
             events=events,
@@ -178,7 +222,12 @@ class MemoryModuleService:
             photos=photos_dto,
             sequences=sequences,
             event_candidates=event_candidates,
+            place_anchors=place_anchors,
+            concept_catalog=concept_catalog,
             relationship_hypotheses=relationship_hypotheses,
+            mood_hypotheses=mood_hypotheses,
+            primary_person_hypothesis=primary_person_hypothesis,
+            period_hypotheses=period_hypotheses,
             profile_evidence=profile_evidence,
             bundle=bundle,
             profile_markdown=profile_markdown,
@@ -228,6 +277,9 @@ class MemoryModuleService:
                 "timeline_count": len(sequences.day_timelines),
                 "event_candidate_count": len(event_candidates),
                 "relationship_count": len(relationship_hypotheses),
+                "mood_hypothesis_count": len(mood_hypotheses),
+                "period_hypothesis_count": len(period_hypotheses),
+                "concept_count": len(concept_catalog),
                 "profile_field_count": len(storage["redis"]["profile_core"]["fields"]),
                 "segment_count": len(storage["milvus"]["segments"]),
                 "generated_at": generated_at,
@@ -236,6 +288,11 @@ class MemoryModuleService:
             "storage": storage,
             "transparency": transparency,
             "evaluation": evaluation,
+            "query_capabilities": {
+                "intents": ["event_search", "relationship_explore", "relationship_rank_query", "mood_lookup"],
+                "entrypoint": "memory_module.query.MemoryQueryService",
+                "answer_type": "AnswerDTO",
+            },
         }
         external_publish = MemoryStoragePublisher(task_dir=self.task_dir).publish(storage, user_id=self.user_id)
         memory_payload["external_publish"] = external_publish
@@ -422,28 +479,77 @@ class MemoryModuleService:
         self,
         relationships: Sequence[Relationship],
         person_uuid_map: Dict[str, str],
+        sequences: SequenceBundle,
+        event_candidates: Sequence[EventCandidateDTO],
+        primary_person_uuid: Optional[str],
+        primary_face_person_id: Optional[str],
+        prior_storage: Optional[Dict[str, Any]],
     ) -> List[RelationshipHypothesisDTO]:
+        prior_revisions = self._prior_relationship_revisions(prior_storage)
         hypotheses: List[RelationshipHypothesisDTO] = []
         for index, relationship in enumerate(relationships, start=1):
-            person_uuid = person_uuid_map.get(relationship.person_id, self._canonical_person_uuid(relationship.person_id))
+            target_person_uuid = person_uuid_map.get(relationship.person_id, self._canonical_person_uuid(relationship.person_id))
             evidence = dict(relationship.evidence or {})
             evidence_refs = []
             for sample in evidence.get("sample_scenes", []):
                 timestamp = sample.get("timestamp")
                 if timestamp:
                     evidence_refs.append({"ref_type": "relationship_scene", "ref_id": str(timestamp)})
+            feature_snapshot = self._relationship_feature_snapshot(
+                target_person_uuid=target_person_uuid,
+                sequences=sequences,
+                event_candidates=event_candidates,
+                evidence=evidence,
+            )
+            score_snapshot = self._relationship_score_snapshot(
+                relationship=relationship,
+                feature_snapshot=feature_snapshot,
+            )
+            relationship_key = self._stable_uuid(
+                "relationship-key",
+                primary_person_uuid or self.user_id,
+                target_person_uuid,
+            )
+            prior_revision = prior_revisions.get(relationship_key)
+            inherited_metrics = self._relationship_inherited_metrics(prior_revision, feature_snapshot)
+            revision = int(prior_revision.get("revision") or 0) + 1 if prior_revision else 1
+            status = self._relationship_status(
+                relationship_type=relationship.relationship_type,
+                score_snapshot=score_snapshot,
+                prior_revision=prior_revision,
+                feature_snapshot=feature_snapshot,
+            )
+            window_start = feature_snapshot.get("window_start") or ""
+            window_end = feature_snapshot.get("window_end") or ""
+            relationship_uuid = self._stable_uuid(
+                "relationship-revision",
+                relationship_key,
+                str(revision),
+                relationship.relationship_type,
+            )
             hypotheses.append(
                 RelationshipHypothesisDTO(
-                    relationship_id=f"relationship_{index:03d}",
+                    relationship_uuid=relationship_uuid,
+                    relationship_key=relationship_key,
                     upstream_ref={"object_type": "relationship_hypothesis", "object_id": relationship.person_id},
-                    face_person_id=relationship.person_id,
-                    person_uuid=person_uuid,
+                    anchor_person_uuid=primary_person_uuid,
+                    target_person_uuid=target_person_uuid,
+                    target_face_person_id=relationship.person_id,
                     relationship_type=relationship.relationship_type,
                     label=relationship.label,
                     confidence=float(relationship.confidence or 0.0),
+                    revision=revision,
+                    status=status,
+                    window_start=window_start,
+                    window_end=window_end,
+                    model_version=self.pipeline_version or "vnext",
+                    reason_summary=relationship.reason,
+                    feature_snapshot=feature_snapshot,
+                    score_snapshot=score_snapshot,
+                    inherited_metrics=inherited_metrics,
                     evidence=evidence,
                     evidence_refs=evidence_refs,
-                    reason=relationship.reason,
+                    prior_revision_uuid=prior_revision.get("relationship_uuid") if prior_revision else None,
                 )
             )
         return hypotheses
@@ -510,10 +616,10 @@ class MemoryModuleService:
             evidence_items.append(
                 self._profile_evidence_item(
                     field_key="social_graph",
-                    field_value=f"{relationship.face_person_id}:{relationship.label}",
+                    field_value=f"{relationship.target_face_person_id}:{relationship.label}",
                     category="relationship",
                     confidence=relationship.confidence,
-                    supporting_person_uuids=[relationship.person_uuid],
+                    supporting_person_uuids=[relationship.target_person_uuid],
                     evidence_refs=relationship.evidence_refs,
                 )
             )
@@ -583,11 +689,565 @@ class MemoryModuleService:
         for event in event_candidates:
             append_change("event_candidate", event.event_id, f"generated event {event.title}", {"confidence": event.confidence})
         for relationship in relationship_hypotheses:
-            append_change("relationship_hypothesis", relationship.relationship_id, f"inferred {relationship.label}", {"confidence": relationship.confidence})
+            append_change(
+                "relationship_hypothesis",
+                relationship.relationship_uuid,
+                f"inferred {relationship.label} rev {relationship.revision}",
+                {"confidence": relationship.confidence, "status": relationship.status},
+            )
         grouped_profile_fields = Counter(item.field_key for item in profile_evidence)
         for field_key, count in grouped_profile_fields.items():
             append_change("profile_field", field_key, f"published {count} evidence items for {field_key}")
         return changes
+
+    def _load_prior_storage(self) -> Optional[Dict[str, Any]]:
+        path = self.output_dir / "memory_storage.json"
+        if not path.exists():
+            return None
+        try:
+            import json
+
+            with path.open("r", encoding="utf-8") as handle:
+                payload = json.load(handle)
+            return payload if isinstance(payload, dict) else None
+        except Exception:
+            return None
+
+    def _prior_relationship_revisions(self, prior_storage: Optional[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+        if not prior_storage:
+            return {}
+        active_revisions: Dict[str, Dict[str, Any]] = {}
+        nodes = prior_storage.get("neo4j", {}).get("nodes", {}).get("relationship_hypotheses", [])
+        for record in nodes:
+            props = record.get("properties", {})
+            relationship_key = props.get("relationship_key")
+            if not relationship_key:
+                continue
+            if props.get("status") != "active":
+                continue
+            active_revisions[str(relationship_key)] = {
+                "relationship_uuid": record.get("relationship_uuid"),
+                "revision": int(props.get("revision") or 0),
+                "status": props.get("status"),
+                "relationship_type": props.get("relationship_type"),
+                "label": props.get("label"),
+                "confidence": float(props.get("confidence") or 0.0),
+                "feature_snapshot": props.get("feature_snapshot", {}),
+                "score_snapshot": props.get("score_snapshot", {}),
+                "window_start": props.get("window_start"),
+                "window_end": props.get("window_end"),
+            }
+        return active_revisions
+
+    def _build_place_anchors(self, sessions: Sequence) -> List[PlaceAnchorDTO]:
+        anchors: List[PlaceAnchorDTO] = []
+        seen = set()
+        for session in sessions:
+            location_hint = dict(session.location_hint or {})
+            canonical_name = str(location_hint.get("name") or "unknown").strip() or "unknown"
+            lat = location_hint.get("lat")
+            lng = location_hint.get("lng")
+            geo_hash = f"{round(float(lat), 3) if lat is not None else 'na'}:{round(float(lng), 3) if lng is not None else 'na'}"
+            key = (canonical_name, geo_hash)
+            if key in seen:
+                continue
+            seen.add(key)
+            place_type = "poi" if canonical_name not in {"unknown", ""} else "unknown"
+            anchors.append(
+                PlaceAnchorDTO(
+                    place_uuid=self._stable_uuid("place", canonical_name, geo_hash),
+                    user_id=self.user_id,
+                    canonical_name=canonical_name,
+                    aliases=[canonical_name] if canonical_name != "unknown" else [],
+                    place_type=place_type,
+                    geo_hash=geo_hash,
+                    lat=float(lat) if lat is not None else None,
+                    lng=float(lng) if lng is not None else None,
+                    source="session_location_hint",
+                    confidence=0.9 if canonical_name != "unknown" else 0.4,
+                )
+            )
+        return anchors
+
+    def _build_concepts(
+        self,
+        sessions: Sequence,
+        event_candidates: Sequence[EventCandidateDTO],
+        relationships: Sequence[Relationship],
+    ) -> List[ConceptDTO]:
+        concept_names: Dict[str, ConceptDTO] = {}
+
+        def add_concept(canonical_name: str, *, concept_type: Optional[str] = None, scope: str = "canonical") -> None:
+            if canonical_name in concept_names:
+                return
+            meta = concept_metadata(canonical_name)
+            final_type = concept_type or str(meta.get("concept_type") or "unknown")
+            concept_names[canonical_name] = ConceptDTO(
+                concept_uuid=self._stable_uuid("concept", canonical_name, scope),
+                canonical_name=canonical_name,
+                aliases=list(meta.get("aliases", [])),
+                concept_type=final_type,
+                scope=scope,
+                status="active" if scope == "canonical" else "proposed",
+                version="v1",
+                user_id=None if scope == "canonical" else self.user_id,
+                description=str(meta.get("description") or ""),
+                parent_concepts=list(meta.get("parents", [])),
+            )
+
+        def add_candidate(raw_text: str, concept_type: str) -> None:
+            candidate = suggest_candidate_concept(raw_text, concept_type=concept_type, user_id=self.user_id)
+            canonical_name = str(candidate["canonical_name"])
+            if canonical_name in concept_names:
+                return
+            concept_names[canonical_name] = ConceptDTO(
+                concept_uuid=self._stable_uuid("candidate-concept", canonical_name),
+                canonical_name=canonical_name,
+                aliases=list(candidate["aliases"]),
+                concept_type=concept_type,
+                scope="candidate",
+                status="proposed",
+                version="v1",
+                user_id=self.user_id,
+            )
+
+        for session in sessions:
+            for raw_value in [*session.activity_hints, str((session.location_hint or {}).get("name") or ""), session.summary_hint]:
+                if not raw_value:
+                    continue
+                canonical = normalize_concept(raw_value)
+                if canonical:
+                    add_concept(canonical)
+                elif len(str(raw_value).strip()) > 2:
+                    add_candidate(str(raw_value), "context")
+
+        for event in event_candidates:
+            for raw_value in [event.event_type, event.title, event.location, *event.tags]:
+                if not raw_value:
+                    continue
+                canonical = normalize_concept(str(raw_value))
+                if canonical:
+                    add_concept(canonical)
+                elif len(str(raw_value).strip()) > 2:
+                    add_candidate(str(raw_value), "event")
+
+        for relationship in relationships:
+            for raw_value in [relationship.relationship_type, relationship.label]:
+                canonical = normalize_concept(str(raw_value), preferred_type="relationship") or normalize_concept(str(raw_value))
+                if canonical:
+                    add_concept(canonical)
+
+        add_concept("recent_period")
+        add_concept("happy_mood")
+        add_concept("sad_mood")
+        add_concept("neutral_mood")
+        return list(concept_names.values())
+
+    def _build_primary_person_hypothesis(
+        self,
+        sequences: SequenceBundle,
+        primary_person_uuid: Optional[str],
+    ) -> Optional[PrimaryPersonHypothesisDTO]:
+        if not primary_person_uuid or not sequences.sessions:
+            return None
+        return PrimaryPersonHypothesisDTO(
+            primary_person_hypothesis_uuid=self._stable_uuid("primary-person-hypothesis", primary_person_uuid),
+            upstream_ref={"object_type": "primary_person_hypothesis", "object_id": primary_person_uuid},
+            user_id=self.user_id,
+            person_uuid=primary_person_uuid,
+            confidence=0.95,
+            window_start=sequences.sessions[0].started_at,
+            window_end=sequences.sessions[-1].ended_at,
+            model_version=self.pipeline_version or "vnext",
+        )
+
+    def _build_mood_hypotheses(self, sequences: SequenceBundle) -> List[MoodStateHypothesisDTO]:
+        moods: List[MoodStateHypothesisDTO] = []
+        for session in sequences.sessions:
+            summary = (session.summary_hint or "").lower()
+            label = "neutral_mood"
+            score = 0.5
+            confidence = 0.55
+            if any(token in summary for token in ("happy", "warm", "joy", "开心", "愉快")):
+                label = "happy_mood"
+                score = 0.82
+                confidence = 0.72
+            elif any(token in summary for token in ("sad", "down", "tense", "难过", "冲突")):
+                label = "sad_mood"
+                score = 0.28
+                confidence = 0.7
+            moods.append(
+                MoodStateHypothesisDTO(
+                    mood_uuid=self._stable_uuid("mood", session.session_uuid, label),
+                    upstream_ref={"object_type": "mood_state_hypothesis", "object_id": session.session_uuid},
+                    session_uuid=session.session_uuid,
+                    mood_label=label,
+                    mood_score=score,
+                    confidence=confidence,
+                    window_start=session.started_at,
+                    window_end=session.ended_at,
+                    model_version=self.pipeline_version or "vnext",
+                    reason_summary=session.summary_hint or label,
+                    artifact_ref_ids=[self._stable_uuid("session-artifact", session.session_uuid)],
+                    evidence_refs=[{"ref_type": "session", "ref_id": session.session_id}],
+                )
+            )
+        return moods
+
+    def _build_period_hypotheses(
+        self,
+        sequences: SequenceBundle,
+        concept_catalog: Sequence[ConceptDTO],
+    ) -> List[PeriodHypothesisDTO]:
+        periods: List[PeriodHypothesisDTO] = []
+        if sequences.sessions:
+            recent_sessions = sorted(sequences.sessions, key=lambda item: item.started_at)[-5:]
+            periods.append(
+                PeriodHypothesisDTO(
+                    period_uuid=self._stable_uuid("period", "recent"),
+                    upstream_ref={"object_type": "period_hypothesis", "object_id": "recent_period"},
+                    user_id=self.user_id,
+                    period_type="recent_period",
+                    label="最近",
+                    window_start=recent_sessions[0].started_at,
+                    window_end=recent_sessions[-1].ended_at,
+                    confidence=0.9,
+                    reason_summary="latest five sessions window",
+                    artifact_ref_ids=[self._stable_uuid("period-artifact", "recent")],
+                    evidence_refs=[{"ref_type": "session", "ref_id": session.session_id} for session in recent_sessions],
+                )
+            )
+
+        campus_sessions = [session for session in sequences.sessions if "campus" in self._session_concepts(session)]
+        if campus_sessions:
+            periods.append(
+                PeriodHypothesisDTO(
+                    period_uuid=self._stable_uuid("period", "college"),
+                    upstream_ref={"object_type": "period_hypothesis", "object_id": "college_period"},
+                    user_id=self.user_id,
+                    period_type="college_period",
+                    label="大学时期",
+                    window_start=campus_sessions[0].started_at,
+                    window_end=campus_sessions[-1].ended_at,
+                    confidence=0.8,
+                    reason_summary="campus concept sessions",
+                    artifact_ref_ids=[self._stable_uuid("period-artifact", "college")],
+                    evidence_refs=[{"ref_type": "session", "ref_id": session.session_id} for session in campus_sessions],
+                )
+            )
+
+        job_sessions = [session for session in sequences.sessions if "work" in self._session_concepts(session)]
+        if job_sessions:
+            periods.append(
+                PeriodHypothesisDTO(
+                    period_uuid=self._stable_uuid("period", "job"),
+                    upstream_ref={"object_type": "period_hypothesis", "object_id": "job_period"},
+                    user_id=self.user_id,
+                    period_type="job_period",
+                    label="工作时期",
+                    window_start=job_sessions[0].started_at,
+                    window_end=job_sessions[-1].ended_at,
+                    confidence=0.75,
+                    reason_summary="work concept sessions",
+                    artifact_ref_ids=[self._stable_uuid("period-artifact", "job")],
+                    evidence_refs=[{"ref_type": "session", "ref_id": session.session_id} for session in job_sessions],
+                )
+            )
+
+        return periods
+
+    def _relationship_feature_snapshot(
+        self,
+        target_person_uuid: str,
+        sequences: SequenceBundle,
+        event_candidates: Sequence[EventCandidateDTO],
+        evidence: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        supporting_sessions = []
+        for session in sequences.sessions:
+            participant_uuids = set(session.dominant_person_uuids)
+            if target_person_uuid in participant_uuids:
+                supporting_sessions.append(session)
+
+        supporting_session_uuids = [session.session_uuid for session in supporting_sessions]
+        supporting_event_uuids = [
+            event.event_uuid
+            for event in event_candidates
+            if target_person_uuid in event.participant_person_uuids
+        ]
+        distinct_days = {session.day_key for session in supporting_sessions}
+        scene_diversity = len(
+            {
+                normalize_concept(hint) or hint
+                for session in supporting_sessions
+                for hint in session.activity_hints
+                if hint
+            }
+        )
+        exclusive_sessions = [
+            session
+            for session in supporting_sessions
+            if len(session.dominant_person_uuids) <= 2
+        ]
+        work_sessions = [session for session in supporting_sessions if "work" in self._session_concepts(session)]
+        leisure_sessions = [session for session in supporting_sessions if "leisure" in self._session_concepts(session)]
+        home_sessions = [session for session in supporting_sessions if "home" in self._session_concepts(session)]
+        campus_sessions = [session for session in supporting_sessions if "campus" in self._session_concepts(session)]
+        weekend_sessions = [
+            session
+            for session in supporting_sessions
+            if datetime.fromisoformat(session.started_at).weekday() >= 5
+        ]
+        time_span_days = 0
+        if supporting_sessions:
+            first_dt = datetime.fromisoformat(supporting_sessions[0].started_at)
+            last_dt = datetime.fromisoformat(supporting_sessions[-1].ended_at)
+            time_span_days = max(0, (last_dt - first_dt).days)
+
+        conflict_count = sum(1 for item in evidence.get("interaction_behavior", []) if "conflict" in str(item).lower() or "争" in str(item))
+        affection_count = sum(1 for item in evidence.get("interaction_behavior", []) if "hug" in str(item).lower() or "亲" in str(item))
+        photo_count = int(evidence.get("photo_count") or 0)
+        return {
+            "co_present_session_count": len(supporting_sessions),
+            "co_present_event_count": len(supporting_event_uuids),
+            "distinct_days": len(distinct_days),
+            "scene_diversity": float(scene_diversity),
+            "exclusive_ratio": round(len(exclusive_sessions) / len(supporting_sessions), 4) if supporting_sessions else 0.0,
+            "weekend_ratio": round(len(weekend_sessions) / len(supporting_sessions), 4) if supporting_sessions else 0.0,
+            "work_scene_ratio": round(len(work_sessions) / len(supporting_sessions), 4) if supporting_sessions else 0.0,
+            "leisure_scene_ratio": round(len(leisure_sessions) / len(supporting_sessions), 4) if supporting_sessions else 0.0,
+            "home_scene_ratio": round(len(home_sessions) / len(supporting_sessions), 4) if supporting_sessions else 0.0,
+            "campus_scene_ratio": round(len(campus_sessions) / len(supporting_sessions), 4) if supporting_sessions else 0.0,
+            "avg_user_mood_score": 0.5 + (0.15 if leisure_sessions else 0.0) - (0.10 if conflict_count else 0.0),
+            "conflict_signal_count": conflict_count,
+            "affection_signal_count": affection_count,
+            "place_diversity": len({str((session.location_hint or {}).get("name") or "") for session in supporting_sessions}),
+            "time_span_days": time_span_days,
+            "total_photo_evidence_count": photo_count,
+            "supporting_session_uuids": supporting_session_uuids,
+            "supporting_event_uuids": supporting_event_uuids,
+            "window_start": supporting_sessions[0].started_at if supporting_sessions else "",
+            "window_end": supporting_sessions[-1].ended_at if supporting_sessions else "",
+        }
+
+    def _relationship_score_snapshot(
+        self,
+        relationship: Relationship,
+        feature_snapshot: Dict[str, Any],
+    ) -> Dict[str, float]:
+        session_count = float(feature_snapshot.get("co_present_session_count") or 0.0)
+        distinct_days = float(feature_snapshot.get("distinct_days") or 0.0)
+        exclusive_ratio = float(feature_snapshot.get("exclusive_ratio") or 0.0)
+        leisure_ratio = float(feature_snapshot.get("leisure_scene_ratio") or 0.0)
+        work_ratio = float(feature_snapshot.get("work_scene_ratio") or 0.0)
+        home_ratio = float(feature_snapshot.get("home_scene_ratio") or 0.0)
+        affection_count = float(feature_snapshot.get("affection_signal_count") or 0.0)
+        conflict_count = float(feature_snapshot.get("conflict_signal_count") or 0.0)
+        base = float(relationship.confidence or 0.0)
+        friend_score = min(0.99, 0.25 + 0.08 * session_count + 0.05 * distinct_days + 0.20 * leisure_ratio + 0.15 * base)
+        close_friend_score = min(0.99, friend_score + 0.10 * exclusive_ratio + 0.12 * leisure_ratio + 0.03 * feature_snapshot.get("scene_diversity", 0.0))
+        colleague_score = min(0.99, 0.18 + 0.12 * session_count + 0.35 * work_ratio + 0.12 * base)
+        partner_score = min(0.99, 0.10 + 0.20 * session_count + 0.28 * exclusive_ratio + 0.25 * leisure_ratio + 0.10 * affection_count - 0.12 * work_ratio)
+        family_score = min(0.99, 0.12 + 0.22 * home_ratio + 0.18 * base)
+        if relationship.relationship_type in {"friend", "close_friend"}:
+            friend_score = min(0.99, friend_score + 0.10)
+            close_friend_score = min(0.99, close_friend_score + 0.08)
+        if relationship.relationship_type == "colleague":
+            colleague_score = min(0.99, colleague_score + 0.12)
+        if relationship.relationship_type == "partner":
+            partner_score = min(0.99, partner_score + 0.18)
+        normalized_label = normalize_concept(relationship.label)
+        if relationship.relationship_type in {"family_generic", "father", "mother"} or normalized_label in {"family_generic", "father", "mother"}:
+            family_score = min(0.99, family_score + 0.35)
+        if normalized_label == "father":
+            family_score = min(0.99, family_score + 0.12)
+        if normalized_label == "mother":
+            family_score = min(0.99, family_score + 0.12)
+        friend_score = max(0.0, friend_score - 0.05 * conflict_count)
+        close_friend_score = max(0.0, close_friend_score - 0.05 * conflict_count)
+        partner_score = max(0.0, partner_score - 0.08 * conflict_count)
+        return {
+            "friend": round(friend_score, 4),
+            "close_friend": round(close_friend_score, 4),
+            "colleague": round(colleague_score, 4),
+            "partner": round(partner_score, 4),
+            "family_generic": round(family_score, 4),
+            "father": round(min(0.99, family_score + (0.25 if normalized_label == "father" or relationship.relationship_type == "father" else 0.0)), 4),
+            "mother": round(min(0.99, family_score + (0.25 if normalized_label == "mother" or relationship.relationship_type == "mother" else 0.0)), 4),
+        }
+
+    def _relationship_inherited_metrics(
+        self,
+        prior_revision: Optional[Dict[str, Any]],
+        feature_snapshot: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        inherited = {
+            "first_seen_at": feature_snapshot.get("window_start"),
+            "last_seen_at": feature_snapshot.get("window_end"),
+            "total_co_present_sessions": feature_snapshot.get("co_present_session_count", 0),
+            "total_co_present_events": feature_snapshot.get("co_present_event_count", 0),
+            "total_distinct_days": feature_snapshot.get("distinct_days", 0),
+            "total_shared_place_count": feature_snapshot.get("place_diversity", 0),
+            "recent_90d_sessions": feature_snapshot.get("co_present_session_count", 0),
+            "recent_weekend_ratio": feature_snapshot.get("weekend_ratio", 0.0),
+            "recent_work_scene_ratio": feature_snapshot.get("work_scene_ratio", 0.0),
+            "recent_leisure_scene_ratio": feature_snapshot.get("leisure_scene_ratio", 0.0),
+            "recent_home_scene_ratio": feature_snapshot.get("home_scene_ratio", 0.0),
+            "recent_campus_scene_ratio": feature_snapshot.get("campus_scene_ratio", 0.0),
+            "recent_exclusive_ratio": feature_snapshot.get("exclusive_ratio", 0.0),
+            "recent_avg_mood_score": feature_snapshot.get("avg_user_mood_score", 0.0),
+            "recent_conflict_signal_count": feature_snapshot.get("conflict_signal_count", 0),
+            "recent_affection_signal_count": feature_snapshot.get("affection_signal_count", 0),
+            "prior_active_label": prior_revision.get("label") if prior_revision else None,
+            "prior_active_confidence": prior_revision.get("confidence") if prior_revision else None,
+            "prior_label_streak": 1 if prior_revision else 0,
+            "revision_count": int(prior_revision.get("revision") or 0) + 1 if prior_revision else 1,
+            "historical_best_friend_score": max(
+                float(prior_revision.get("score_snapshot", {}).get("friend", 0.0)) if prior_revision else 0.0,
+                float(feature_snapshot.get("co_present_session_count", 0)) * 0.1,
+            ),
+            "historical_best_partner_score": float(prior_revision.get("score_snapshot", {}).get("partner", 0.0)) if prior_revision else 0.0,
+            "historical_best_colleague_score": float(prior_revision.get("score_snapshot", {}).get("colleague", 0.0)) if prior_revision else 0.0,
+            "contradiction_count": 0,
+        }
+        return inherited
+
+    def _relationship_status(
+        self,
+        relationship_type: str,
+        score_snapshot: Dict[str, float],
+        prior_revision: Optional[Dict[str, Any]],
+        feature_snapshot: Dict[str, Any],
+    ) -> str:
+        thresholds = RELATIONSHIP_LABEL_THRESHOLDS.get(relationship_type, RELATIONSHIP_LABEL_THRESHOLDS["friend"])
+        score = float(score_snapshot.get(relationship_type, 0.0))
+        if not prior_revision:
+            return "active" if score >= thresholds["upgrade"] else "rejected"
+
+        prior_confidence = float(prior_revision.get("confidence") or 0.0)
+        margin = 0.18 if relationship_type in {"partner", "family_generic", "father", "mother"} else 0.12
+        if score >= thresholds["upgrade"] and score >= prior_confidence + margin:
+            return "active"
+        if score < thresholds["keep"]:
+            previous_status = str(prior_revision.get("status") or "")
+            return "superseded" if previous_status == "cooling" else "cooling"
+        return "active"
+
+    def _session_participants(
+        self,
+        sessions: Sequence,
+        photos: Sequence[PhotoFactDTO],
+    ) -> Dict[str, List[str]]:
+        participants: Dict[str, List[str]] = {}
+        photo_lookup = {photo.photo_id: photo for photo in photos}
+        for session in sessions:
+            person_uuids: List[str] = []
+            for photo_id in session.photo_ids:
+                photo = photo_lookup.get(photo_id)
+                if not photo:
+                    continue
+                for face in photo.faces:
+                    if face.person_uuid not in person_uuids:
+                        person_uuids.append(face.person_uuid)
+            participants[session.session_uuid] = person_uuids
+        return participants
+
+    def _session_artifact_ref_ids(self, session, photos: Sequence[PhotoFactDTO]) -> List[str]:
+        photo_lookup = {photo.photo_id: photo for photo in photos}
+        refs = []
+        for photo_id in session.photo_ids[:3]:
+            photo = photo_lookup.get(photo_id)
+            if not photo:
+                continue
+            for artifact in photo.artifact_refs[:2]:
+                refs.append(self._stable_uuid("artifact-ref", artifact.path))
+        return refs
+
+    def _event_artifact_ref_ids(self, event: EventCandidateDTO, photos: Sequence[PhotoFactDTO]) -> List[str]:
+        photo_lookup = {photo.photo_id: photo for photo in photos}
+        refs = []
+        for photo_id in event.photo_ids[:3]:
+            photo = photo_lookup.get(photo_id)
+            if not photo:
+                continue
+            for artifact in photo.artifact_refs[:2]:
+                refs.append(self._stable_uuid("artifact-ref", artifact.path))
+        return refs
+
+    def _relationship_artifact_ref_ids(
+        self,
+        relationship: RelationshipHypothesisDTO,
+        sequences: SequenceBundle,
+        photos: Sequence[PhotoFactDTO],
+    ) -> List[str]:
+        supporting_session_uuids = set(relationship.feature_snapshot.get("supporting_session_uuids", []))
+        refs = []
+        for session in sequences.sessions:
+            if session.session_uuid not in supporting_session_uuids:
+                continue
+            refs.extend(self._session_artifact_ref_ids(session, photos))
+        return self._unique(refs)
+
+    def _session_concepts(self, session) -> List[str]:
+        concepts = []
+        raw_values = [*session.activity_hints, str((session.location_hint or {}).get("name") or "")]
+        for raw_value in raw_values:
+            concept = normalize_concept(raw_value)
+            if concept and concept not in concepts:
+                concepts.append(concept)
+        if not concepts and session.summary_hint:
+            fallback = normalize_concept(session.summary_hint)
+            if fallback:
+                concepts.append(fallback)
+        return concepts
+
+    def _event_concepts(self, event: EventCandidateDTO) -> List[str]:
+        concepts = []
+        raw_values = [event.event_type, event.title, event.location, *event.tags]
+        for raw_value in raw_values:
+            concept = normalize_concept(str(raw_value))
+            if concept and concept not in concepts:
+                concepts.append(concept)
+        return concepts
+
+    def _relationship_concepts(self, relationship: RelationshipHypothesisDTO) -> List[str]:
+        concepts = []
+        for raw_value in [relationship.relationship_type, relationship.label]:
+            concept = normalize_concept(str(raw_value), preferred_type="relationship") or normalize_concept(str(raw_value))
+            if concept and concept not in concepts:
+                concepts.append(concept)
+        return concepts
+
+    def _mood_concepts(self, mood: MoodStateHypothesisDTO) -> List[str]:
+        return [mood.mood_label] if mood.mood_label else []
+
+    def _period_concepts(self, period: PeriodHypothesisDTO) -> List[str]:
+        concepts = [period.period_type]
+        if period.period_type == "college_period":
+            concepts.append("campus")
+        if period.period_type == "job_period":
+            concepts.append("work")
+        return self._unique(concepts)
+
+    def _period_session_uuids(self, period: PeriodHypothesisDTO, sessions: Sequence) -> List[str]:
+        start_dt = datetime.fromisoformat(period.window_start)
+        end_dt = datetime.fromisoformat(period.window_end)
+        session_uuids = []
+        for session in sessions:
+            session_start = datetime.fromisoformat(session.started_at)
+            session_end = datetime.fromisoformat(session.ended_at)
+            if session_end < start_dt or end_dt < session_start:
+                continue
+            session_uuids.append(session.session_uuid)
+        return session_uuids
+
+    def _embedding_props(self, search_text: str) -> Dict[str, Any]:
+        return build_embedding_payload(
+            search_text,
+            dim=32,
+            model=DEFAULT_EMBEDDING_MODEL,
+            version=DEFAULT_EMBEDDING_VERSION,
+        )
 
     def _build_materialization_bundle(
         self,
@@ -598,6 +1258,13 @@ class MemoryModuleService:
     ) -> MaterializationInputBundle:
         return MaterializationInputBundle(
             user_id=self.user_id,
+            facts={
+                "photo_facts": [self._serialize(item) for item in photos_dto],
+            },
+            hypotheses={
+                "event_hypotheses": [self._serialize(item) for item in event_candidates],
+                "relationship_hypotheses": [self._serialize(item) for item in relationship_hypotheses],
+            },
             profile_evidence_items=[
                 ProfileEvidenceItem(
                     evidence_id=item.evidence_id,
@@ -616,7 +1283,12 @@ class MemoryModuleService:
         photos: Sequence[PhotoFactDTO],
         sequences: SequenceBundle,
         event_candidates: Sequence[EventCandidateDTO],
+        place_anchors: Sequence[PlaceAnchorDTO],
+        concept_catalog: Sequence[ConceptDTO],
         relationship_hypotheses: Sequence[RelationshipHypothesisDTO],
+        mood_hypotheses: Sequence[MoodStateHypothesisDTO],
+        primary_person_hypothesis: Optional[PrimaryPersonHypothesisDTO],
+        period_hypotheses: Sequence[PeriodHypothesisDTO],
         profile_evidence: Sequence[ProfileEvidenceDTO],
         bundle: MaterializationInputBundle,
         profile_markdown: str,
@@ -646,6 +1318,9 @@ class MemoryModuleService:
             )
             for photo in photos
         ]
+        place_uuid_by_name = {place.canonical_name: place.place_uuid for place in place_anchors}
+        session_participants = self._session_participants(sequences.sessions, photos)
+        concept_lookup = {concept.canonical_name: concept for concept in concept_catalog}
 
         neo4j_nodes = {
             "user": [
@@ -653,153 +1328,308 @@ class MemoryModuleService:
                     user_id=self.user_id,
                     tenant_id=scope.tenant_id,
                     properties={
+                        "source_system": self.source_system,
+                        "profile_version": profile_version,
                         "task_id": self.task_id,
                         "primary_face_person_id": primary_face_person_id,
                         "primary_person_uuid": primary_person_uuid,
                     },
                 )
             ],
-            "persons": [
+            "persons": [],
+            "places": [],
+            "sessions": [],
+            "timelines": [],
+            "events": [],
+            "relationship_hypotheses": [],
+            "mood_states": [],
+            "primary_person_hypotheses": [],
+            "period_hypotheses": [],
+            "concepts": [],
+        }
+
+        for record in people_records:
+            related_sessions = [
+                session for session in sequences.sessions
+                if record.person_uuid in session_participants.get(session.session_uuid, [])
+            ]
+            first_seen = min((session.started_at for session in related_sessions), default="")
+            last_seen = max((session.ended_at for session in related_sessions), default="")
+            search_text = " ".join(
+                part
+                for part in [
+                    record.face_person_id,
+                    "primary person" if record.person_uuid == primary_person_uuid else "known person",
+                ]
+                if part
+            )
+            neo4j_nodes["persons"].append(
                 Neo4jPersonNodeRecord(
                     person_uuid=record.person_uuid,
-                    labels=["Person", "PrimaryUser"] if record.person_uuid == primary_person_uuid else ["Person"],
+                    labels=["Person"],
                     properties={
+                        "user_id": self.user_id,
                         "face_person_id": record.face_person_id,
-                        "is_primary_user": record.person_uuid == primary_person_uuid,
+                        "display_name_hint": record.face_person_id,
+                        "first_seen_at": first_seen,
+                        "last_seen_at": last_seen,
+                        "is_primary_candidate": record.person_uuid == primary_person_uuid,
+                        **self._embedding_props(search_text),
                     },
                 )
-                for record in people_records
-            ],
-            "photos": [
-                Neo4jPhotoNodeRecord(
-                    photo_uuid=photo.photo_uuid,
+            )
+
+        for place in place_anchors:
+            search_text = " ".join(
+                item for item in [place.canonical_name, " ".join(place.aliases), place.place_type] if item
+            )
+            neo4j_nodes["places"].append(
+                Neo4jPlaceNodeRecord(
+                    place_uuid=place.place_uuid,
                     properties={
-                        "photo_id": photo.photo_id,
-                        "filename": photo.filename,
-                        "captured_at": photo.captured_at_utc,
-                        "location": photo.location,
-                        "contains_primary_user": bool(
-                            primary_person_uuid and any(face.person_uuid == primary_person_uuid for face in photo.faces)
-                        ),
+                        "user_id": self.user_id,
+                        "canonical_name": place.canonical_name,
+                        "aliases": place.aliases,
+                        "place_type": place.place_type,
+                        "geo_hash": place.geo_hash,
+                        "lat": place.lat,
+                        "lng": place.lng,
+                        "source": place.source,
+                        "confidence": place.confidence,
+                        **self._embedding_props(search_text),
                     },
                 )
-                for photo in photos
-            ],
-            "sessions": [
+            )
+
+        for session in sequences.sessions:
+            place_name = str((session.location_hint or {}).get("name") or "unknown")
+            place_uuid = place_uuid_by_name.get(place_name)
+            concept_names = self._session_concepts(session)
+            search_text = " ".join(
+                part
+                for part in [
+                    place_name,
+                    session.summary_hint,
+                    " ".join(session.activity_hints),
+                    " ".join(concept_names),
+                ]
+                if part
+            )
+            artifact_ref_ids = self._session_artifact_ref_ids(session, photos)
+            neo4j_nodes["sessions"].append(
                 Neo4jSessionNodeRecord(
                     session_uuid=session.session_uuid,
                     properties={
+                        "user_id": self.user_id,
                         "session_id": session.session_id,
                         "day_key": session.day_key,
-                        "location_hint": session.location_hint,
+                        "started_at": session.started_at,
+                        "ended_at": session.ended_at,
+                        "duration_seconds": session.duration_seconds,
+                        "place_uuid": place_uuid,
+                        "participant_count": len(session_participants.get(session.session_uuid, [])),
+                        "dominant_person_uuids": session.dominant_person_uuids,
+                        "photo_count": len(session.photo_ids),
+                        "representative_photo_ids": session.photo_ids[:3],
+                        "artifact_ref_ids": artifact_ref_ids,
+                        "summary_hint": session.summary_hint,
+                        **self._embedding_props(search_text),
                     },
                 )
-                for session in sequences.sessions
-            ],
-            "movements": [
-                Neo4jMovementNodeRecord(
-                    movement_uuid=movement.movement_uuid,
-                    properties={
-                        "movement_id": movement.movement_id,
-                        "distance_km": movement.distance_km,
-                    },
-                )
-                for movement in sequences.movements
-            ],
-            "timelines": [
+            )
+
+        for timeline in sequences.day_timelines:
+            neo4j_nodes["timelines"].append(
                 Neo4jTimelineNodeRecord(
                     timeline_uuid=timeline.timeline_uuid,
                     properties={
+                        "user_id": self.user_id,
                         "timeline_id": timeline.timeline_id,
                         "day_key": timeline.day_key,
+                        "started_at": timeline.started_at,
+                        "ended_at": timeline.ended_at,
                     },
                 )
-                for timeline in sequences.day_timelines
-            ],
-            "events": [
+            )
+
+        for event in event_candidates:
+            concept_names = self._event_concepts(event)
+            place_uuid = place_uuid_by_name.get(event.location or "unknown")
+            short_narrative = event.narrative_synthesis or event.description or event.title
+            search_text = " ".join(
+                part
+                for part in [
+                    event.title,
+                    event.event_type,
+                    event.location,
+                    " ".join(event.tags),
+                    " ".join(concept_names),
+                    short_narrative,
+                ]
+                if part
+            )
+            neo4j_nodes["events"].append(
                 Neo4jEventNodeRecord(
                     event_uuid=event.event_uuid,
                     properties={
+                        "user_id": self.user_id,
                         "event_id": event.event_id,
                         "title": event.title,
-                        "event_type": event.event_type,
-                        "location": event.location,
+                        "normalized_event_type": normalize_concept(event.event_type, preferred_type="event") or event.event_type,
+                        "event_subtype": event.event_type,
+                        "started_at": event.started_at,
+                        "ended_at": event.ended_at,
+                        "place_uuid": place_uuid,
                         "confidence": event.confidence,
-                        "has_primary_user": bool(primary_person_uuid and primary_person_uuid in event.participant_person_uuids),
+                        "participant_count": len(event.participant_person_uuids),
+                        "photo_count": len(event.photo_ids),
+                        "representative_photo_ids": event.photo_ids[:3],
+                        "artifact_ref_ids": self._event_artifact_ref_ids(event, photos),
+                        "model_version": self.pipeline_version or "vnext",
+                        **self._embedding_props(search_text),
                     },
                 )
-                for event in event_candidates
-            ],
-        }
+            )
 
-        neo4j_edges = []
-        if primary_person_uuid:
-            neo4j_edges.append(
-                Neo4jRelationshipEdgeRecord(
-                    edge_id=self._stable_uuid("edge", "primary-user", self.user_id, primary_person_uuid),
-                    from_id=self.user_id,
-                    to_id=primary_person_uuid,
-                    edge_type="PRIMARY_USER",
-                    properties={"face_person_id": primary_face_person_id},
+        for relationship in relationship_hypotheses:
+            concept_names = self._relationship_concepts(relationship)
+            search_text = " ".join(
+                part
+                for part in [
+                    relationship.relationship_type,
+                    relationship.label,
+                    relationship.reason_summary,
+                    relationship.target_face_person_id,
+                    " ".join(concept_names),
+                ]
+                if part
+            )
+            neo4j_nodes["relationship_hypotheses"].append(
+                Neo4jRelationshipHypothesisNodeRecord(
+                    relationship_uuid=relationship.relationship_uuid,
+                    properties={
+                        "user_id": self.user_id,
+                        "relationship_key": relationship.relationship_key,
+                        "revision": relationship.revision,
+                        "status": relationship.status,
+                        "anchor_person_uuid": relationship.anchor_person_uuid,
+                        "target_person_uuid": relationship.target_person_uuid,
+                        "target_face_person_id": relationship.target_face_person_id,
+                        "relationship_type": relationship.relationship_type,
+                        "label": relationship.label,
+                        "confidence": relationship.confidence,
+                        "window_start": relationship.window_start,
+                        "window_end": relationship.window_end,
+                        "model_version": relationship.model_version,
+                        "reason_summary": relationship.reason_summary,
+                        "feature_snapshot": relationship.feature_snapshot,
+                        "score_snapshot": relationship.score_snapshot,
+                        "inherited_metrics": relationship.inherited_metrics,
+                        "prior_revision_uuid": relationship.prior_revision_uuid,
+                        "artifact_ref_ids": self._relationship_artifact_ref_ids(relationship, sequences, photos),
+                        **self._embedding_props(search_text),
+                    },
                 )
             )
-        for photo in photos:
-            neo4j_edges.append(
-                Neo4jRelationshipEdgeRecord(
-                    edge_id=self._stable_uuid("edge", "user-photo", photo.photo_uuid),
-                    from_id=self.user_id,
-                    to_id=photo.photo_uuid,
-                    edge_type="HAS_PHOTO",
+
+        for mood in mood_hypotheses:
+            neo4j_nodes["mood_states"].append(
+                Neo4jMoodStateNodeRecord(
+                    mood_uuid=mood.mood_uuid,
+                    properties={
+                        "user_id": self.user_id,
+                        "session_uuid": mood.session_uuid,
+                        "event_uuid": mood.event_uuid,
+                        "mood_label": mood.mood_label,
+                        "mood_score": mood.mood_score,
+                        "confidence": mood.confidence,
+                        "window_start": mood.window_start,
+                        "window_end": mood.window_end,
+                        "model_version": mood.model_version,
+                        "reason_summary": mood.reason_summary,
+                        "artifact_ref_ids": mood.artifact_ref_ids,
+                    },
                 )
             )
-            for face in photo.faces:
-                neo4j_edges.append(
-                    Neo4jRelationshipEdgeRecord(
-                        edge_id=self._stable_uuid("edge", "photo-person", photo.photo_uuid, face.person_uuid),
-                        from_id=photo.photo_uuid,
-                        to_id=face.person_uuid,
-                        edge_type="VISIBLE_IN",
-                        properties={"face_id": face.face_id, "quality_score": face.quality_score},
-                    )
-                )
-                neo4j_edges.append(
-                    Neo4jRelationshipEdgeRecord(
-                        edge_id=self._stable_uuid("edge", "person-photo", face.person_uuid, photo.photo_uuid, face.face_id),
-                        from_id=face.person_uuid,
-                        to_id=photo.photo_uuid,
-                        edge_type="APPEARS_IN",
-                        properties={"face_id": face.face_id, "quality_score": face.quality_score},
-                    )
-                )
 
-        for session in sequences.sessions:
-            for photo_uuid in session.photo_uuids:
-                neo4j_edges.append(
-                    Neo4jRelationshipEdgeRecord(
-                        edge_id=self._stable_uuid("edge", "photo-session", photo_uuid, session.session_uuid),
-                        from_id=photo_uuid,
-                        to_id=session.session_uuid,
-                        edge_type="IN_SESSION",
-                    )
+        if primary_person_hypothesis:
+            neo4j_nodes["primary_person_hypotheses"].append(
+                Neo4jPrimaryPersonHypothesisNodeRecord(
+                    primary_person_hypothesis_uuid=primary_person_hypothesis.primary_person_hypothesis_uuid,
+                    properties={
+                        "user_id": self.user_id,
+                        "person_uuid": primary_person_hypothesis.person_uuid,
+                        "confidence": primary_person_hypothesis.confidence,
+                        "window_start": primary_person_hypothesis.window_start,
+                        "window_end": primary_person_hypothesis.window_end,
+                        "model_version": primary_person_hypothesis.model_version,
+                    },
                 )
-            for person_uuid in session.dominant_person_uuids:
-                neo4j_edges.append(
-                    Neo4jRelationshipEdgeRecord(
-                        edge_id=self._stable_uuid("edge", "session-person", session.session_uuid, person_uuid),
-                        from_id=session.session_uuid,
-                        to_id=person_uuid,
-                        edge_type="HAS_DOMINANT_PERSON",
-                    )
-                )
+            )
 
-        for movement in sequences.movements:
+        for period in period_hypotheses:
+            neo4j_nodes["period_hypotheses"].append(
+                Neo4jPeriodHypothesisNodeRecord(
+                    period_uuid=period.period_uuid,
+                    properties={
+                        "user_id": self.user_id,
+                        "period_type": period.period_type,
+                        "label": period.label,
+                        "window_start": period.window_start,
+                        "window_end": period.window_end,
+                        "confidence": period.confidence,
+                        "reason_summary": period.reason_summary,
+                        "artifact_ref_ids": period.artifact_ref_ids,
+                    },
+                )
+            )
+
+        for concept in concept_catalog:
+            meta = concept_metadata(concept.canonical_name)
+            search_text = " ".join(
+                part
+                for part in [
+                    concept.canonical_name,
+                    " ".join(concept.aliases),
+                    str(meta.get("description") or concept.description or ""),
+                    " ".join(meta.get("parents", []) or concept.parent_concepts),
+                ]
+                if part
+            )
+            neo4j_nodes["concepts"].append(
+                Neo4jConceptNodeRecord(
+                    concept_uuid=concept.concept_uuid,
+                    properties={
+                        "user_id": concept.user_id,
+                        "canonical_name": concept.canonical_name,
+                        "aliases": concept.aliases,
+                        "concept_type": concept.concept_type,
+                        "scope": concept.scope,
+                        "status": concept.status,
+                        "version": concept.version,
+                        "description": concept.description or meta.get("description") or "",
+                        "parents": concept.parent_concepts or meta.get("parents", []),
+                        **self._embedding_props(search_text),
+                    },
+                )
+            )
+
+        neo4j_edges: List[Neo4jRelationshipEdgeRecord] = []
+        if primary_person_hypothesis:
             neo4j_edges.append(
                 Neo4jRelationshipEdgeRecord(
-                    edge_id=self._stable_uuid("edge", "movement", movement.from_session_uuid, movement.to_session_uuid),
-                    from_id=movement.from_session_uuid,
-                    to_id=movement.to_session_uuid,
-                    edge_type="NEXT_SESSION",
-                    properties={"distance_km": movement.distance_km},
+                    edge_id=self._stable_uuid("edge", "user-primary-hypothesis", self.user_id, primary_person_hypothesis.primary_person_hypothesis_uuid),
+                    from_id=self.user_id,
+                    to_id=primary_person_hypothesis.primary_person_hypothesis_uuid,
+                    edge_type="PRIMARY_PERSON_HYPOTHESIS",
+                )
+            )
+            neo4j_edges.append(
+                Neo4jRelationshipEdgeRecord(
+                    edge_id=self._stable_uuid("edge", "primary-hypothesis-person", primary_person_hypothesis.primary_person_hypothesis_uuid, primary_person_hypothesis.person_uuid),
+                    from_id=primary_person_hypothesis.primary_person_hypothesis_uuid,
+                    to_id=primary_person_hypothesis.person_uuid,
+                    edge_type="TARGET_PERSON",
                 )
             )
 
@@ -810,7 +1640,41 @@ class MemoryModuleService:
                         edge_id=self._stable_uuid("edge", "timeline-session", timeline.timeline_uuid, session_uuid),
                         from_id=timeline.timeline_uuid,
                         to_id=session_uuid,
-                        edge_type="PART_OF_DAY_TIMELINE",
+                        edge_type="HAS_SESSION",
+                    )
+                )
+
+        for session in sequences.sessions:
+            place_name = str((session.location_hint or {}).get("name") or "unknown")
+            place_uuid = place_uuid_by_name.get(place_name)
+            if place_uuid:
+                neo4j_edges.append(
+                    Neo4jRelationshipEdgeRecord(
+                        edge_id=self._stable_uuid("edge", "session-place", session.session_uuid, place_uuid),
+                        from_id=session.session_uuid,
+                        to_id=place_uuid,
+                        edge_type="IN_PLACE",
+                    )
+                )
+            for person_uuid in session_participants.get(session.session_uuid, []):
+                neo4j_edges.append(
+                    Neo4jRelationshipEdgeRecord(
+                        edge_id=self._stable_uuid("edge", "person-session", person_uuid, session.session_uuid),
+                        from_id=person_uuid,
+                        to_id=session.session_uuid,
+                        edge_type="CO_PRESENT_IN",
+                    )
+                )
+            for concept_name in self._session_concepts(session):
+                concept = concept_lookup.get(concept_name)
+                if not concept:
+                    continue
+                neo4j_edges.append(
+                    Neo4jRelationshipEdgeRecord(
+                        edge_id=self._stable_uuid("edge", "session-concept", session.session_uuid, concept.concept_uuid),
+                        from_id=session.session_uuid,
+                        to_id=concept.concept_uuid,
+                        edge_type="HAS_CONCEPT",
                     )
                 )
 
@@ -818,21 +1682,21 @@ class MemoryModuleService:
             if not primary_person_uuid:
                 neo4j_edges.append(
                     Neo4jRelationshipEdgeRecord(
-                        edge_id=self._stable_uuid("edge", "user-event", self.user_id, event.event_uuid),
+                        edge_id=self._stable_uuid("edge", "user-event-observed", self.user_id, event.event_uuid),
                         from_id=self.user_id,
                         to_id=event.event_uuid,
                         edge_type="OBSERVED_EVENT",
-                        properties={"event_type": event.event_type, "confidence": event.confidence},
+                        properties={"confidence": event.confidence},
                     )
                 )
-            for person_uuid in event.participant_person_uuids:
+            place_uuid = place_uuid_by_name.get(event.location or "unknown")
+            if place_uuid:
                 neo4j_edges.append(
                     Neo4jRelationshipEdgeRecord(
-                        edge_id=self._stable_uuid("edge", "person-event", person_uuid, event.event_uuid),
-                        from_id=person_uuid,
-                        to_id=event.event_uuid,
-                        edge_type="PARTICIPATED_IN",
-                        properties={"event_type": event.event_type, "confidence": event.confidence},
+                        edge_id=self._stable_uuid("edge", "event-place", event.event_uuid, place_uuid),
+                        from_id=event.event_uuid,
+                        to_id=place_uuid,
+                        edge_type="IN_PLACE",
                     )
                 )
             for session_uuid in event.session_uuids:
@@ -844,38 +1708,137 @@ class MemoryModuleService:
                         edge_type="DERIVED_FROM_SESSION",
                     )
                 )
-            for photo_uuid in event.photo_uuids:
+            for concept_name in self._event_concepts(event):
+                concept = concept_lookup.get(concept_name)
+                if not concept:
+                    continue
                 neo4j_edges.append(
                     Neo4jRelationshipEdgeRecord(
-                        edge_id=self._stable_uuid("edge", "event-photo", event.event_uuid, photo_uuid),
+                        edge_id=self._stable_uuid("edge", "event-concept", event.event_uuid, concept.concept_uuid),
                         from_id=event.event_uuid,
-                        to_id=photo_uuid,
-                        edge_type="EVIDENCED_BY_PHOTO",
+                        to_id=concept.concept_uuid,
+                        edge_type="HAS_CONCEPT",
                     )
                 )
 
         for relationship in relationship_hypotheses:
-            from_id = primary_person_uuid or self.user_id
+            if relationship.anchor_person_uuid:
+                neo4j_edges.append(
+                    Neo4jRelationshipEdgeRecord(
+                        edge_id=self._stable_uuid("edge", "person-relationship", relationship.anchor_person_uuid, relationship.relationship_uuid),
+                        from_id=relationship.anchor_person_uuid,
+                        to_id=relationship.relationship_uuid,
+                        edge_type="HAS_RELATIONSHIP",
+                    )
+                )
             neo4j_edges.append(
                 Neo4jRelationshipEdgeRecord(
-                    edge_id=self._stable_uuid("edge", "relationship", from_id, relationship.person_uuid),
-                    from_id=from_id,
-                    to_id=relationship.person_uuid,
-                    edge_type="RELATIONSHIP_HYPOTHESIS",
-                    properties={
-                        "relationship_type": relationship.relationship_type,
-                        "label": relationship.label,
-                        "confidence": relationship.confidence,
-                        "evidence_refs": relationship.evidence_refs,
-                    },
+                    edge_id=self._stable_uuid("edge", "relationship-target", relationship.relationship_uuid, relationship.target_person_uuid),
+                    from_id=relationship.relationship_uuid,
+                    to_id=relationship.target_person_uuid,
+                    edge_type="TARGET_PERSON",
                 )
             )
+            for session_uuid in relationship.feature_snapshot.get("supporting_session_uuids", []):
+                neo4j_edges.append(
+                    Neo4jRelationshipEdgeRecord(
+                        edge_id=self._stable_uuid("edge", "relationship-session", relationship.relationship_uuid, session_uuid),
+                        from_id=relationship.relationship_uuid,
+                        to_id=session_uuid,
+                        edge_type="SUPPORTED_BY_SESSION",
+                    )
+                )
+            for event_uuid in relationship.feature_snapshot.get("supporting_event_uuids", []):
+                neo4j_edges.append(
+                    Neo4jRelationshipEdgeRecord(
+                        edge_id=self._stable_uuid("edge", "relationship-event", relationship.relationship_uuid, event_uuid),
+                        from_id=relationship.relationship_uuid,
+                        to_id=event_uuid,
+                        edge_type="SUPPORTED_BY_EVENT",
+                    )
+                )
+            for concept_name in self._relationship_concepts(relationship):
+                concept = concept_lookup.get(concept_name)
+                if not concept:
+                    continue
+                neo4j_edges.append(
+                    Neo4jRelationshipEdgeRecord(
+                        edge_id=self._stable_uuid("edge", "relationship-concept", relationship.relationship_uuid, concept.concept_uuid),
+                        from_id=relationship.relationship_uuid,
+                        to_id=concept.concept_uuid,
+                        edge_type="HAS_CONCEPT",
+                    )
+                )
+
+        for mood in mood_hypotheses:
+            if mood.session_uuid:
+                neo4j_edges.append(
+                    Neo4jRelationshipEdgeRecord(
+                        edge_id=self._stable_uuid("edge", "mood-session", mood.mood_uuid, mood.session_uuid),
+                        from_id=mood.mood_uuid,
+                        to_id=mood.session_uuid,
+                        edge_type="DESCRIBES_SESSION",
+                    )
+                )
+            for concept_name in self._mood_concepts(mood):
+                concept = concept_lookup.get(concept_name)
+                if not concept:
+                    continue
+                neo4j_edges.append(
+                    Neo4jRelationshipEdgeRecord(
+                        edge_id=self._stable_uuid("edge", "mood-concept", mood.mood_uuid, concept.concept_uuid),
+                        from_id=mood.mood_uuid,
+                        to_id=concept.concept_uuid,
+                        edge_type="HAS_CONCEPT",
+                    )
+                )
+
+        for period in period_hypotheses:
+            for session_uuid in self._period_session_uuids(period, sequences.sessions):
+                neo4j_edges.append(
+                    Neo4jRelationshipEdgeRecord(
+                        edge_id=self._stable_uuid("edge", "period-session", period.period_uuid, session_uuid),
+                        from_id=period.period_uuid,
+                        to_id=session_uuid,
+                        edge_type="COVERS_SESSION",
+                    )
+                )
+            for concept_name in self._period_concepts(period):
+                concept = concept_lookup.get(concept_name)
+                if not concept:
+                    continue
+                neo4j_edges.append(
+                    Neo4jRelationshipEdgeRecord(
+                        edge_id=self._stable_uuid("edge", "period-concept", period.period_uuid, concept.concept_uuid),
+                        from_id=period.period_uuid,
+                        to_id=concept.concept_uuid,
+                        edge_type="HAS_CONCEPT",
+                    )
+                )
+
+        for concept in concept_catalog:
+            parent_names = concept.parent_concepts or concept_metadata(concept.canonical_name).get("parents", [])
+            for parent_name in parent_names:
+                parent = concept_lookup.get(parent_name)
+                if not parent:
+                    continue
+                neo4j_edges.append(
+                    Neo4jRelationshipEdgeRecord(
+                        edge_id=self._stable_uuid("edge", "concept-parent", concept.concept_uuid, parent.concept_uuid),
+                        from_id=concept.concept_uuid,
+                        to_id=parent.concept_uuid,
+                        edge_type="IS_A",
+                    )
+                )
 
         milvus_segments = self._build_milvus_segments(
             photos=photos,
             sequences=sequences,
             event_candidates=event_candidates,
+            relationship_hypotheses=relationship_hypotheses,
             profile_evidence=profile_evidence,
+            mood_hypotheses=mood_hypotheses,
+            concept_catalog=concept_catalog,
         )
         redis = self._build_redis_records(
             profile_evidence=profile_evidence,
@@ -1010,25 +1973,27 @@ class MemoryModuleService:
 
         for relationship in sorted(
             relationship_hypotheses,
-            key=lambda item: (-item.confidence, item.face_person_id),
+            key=lambda item: (-item.confidence, item.target_face_person_id),
         ):
             add_node(
-                relationship.person_uuid,
-                f"{relationship.face_person_id} · {relationship.label}",
+                relationship.target_person_uuid,
+                f"{relationship.target_face_person_id} · {relationship.label}",
                 "related_person",
                 1,
                 metadata={
-                    "face_person_id": relationship.face_person_id,
+                    "face_person_id": relationship.target_face_person_id,
                     "relationship_type": relationship.relationship_type,
+                    "status": relationship.status,
+                    "revision": relationship.revision,
                 },
             )
             add_edge(
                 center_node_id,
-                relationship.person_uuid,
+                relationship.target_person_uuid,
                 "RELATIONSHIP_HYPOTHESIS",
                 label=relationship.label,
                 confidence=relationship.confidence,
-                metadata={"relationship_type": relationship.relationship_type},
+                metadata={"relationship_type": relationship.relationship_type, "status": relationship.status},
             )
 
         relevant_event_uuids = set()
@@ -1203,7 +2168,10 @@ class MemoryModuleService:
         photos: Sequence[PhotoFactDTO],
         sequences: SequenceBundle,
         event_candidates: Sequence[EventCandidateDTO],
+        relationship_hypotheses: Sequence[RelationshipHypothesisDTO],
         profile_evidence: Sequence[ProfileEvidenceDTO],
+        mood_hypotheses: Sequence[MoodStateHypothesisDTO],
+        concept_catalog: Sequence[ConceptDTO],
     ) -> List[MilvusSegmentRecord]:
         segments: List[MilvusSegmentRecord] = []
 
@@ -1212,7 +2180,7 @@ class MemoryModuleService:
                 segments.append(
                     self._segment_record(
                         photo_uuid=photo.photo_uuid,
-                        segment_type="scene",
+                        segment_type="scene_summary",
                         text=photo.vlm_observation.summary,
                         session_uuid=self._photo_session_uuid(photo.photo_id, sequences.sessions),
                         evidence_refs=[{"ref_type": "photo", "ref_id": photo.photo_id}],
@@ -1247,6 +2215,23 @@ class MemoryModuleService:
                     )
                 )
 
+            if photo.vlm_observation and photo.vlm_observation.raw:
+                raw_text_candidates = []
+                for detail in photo.vlm_observation.details:
+                    raw_text_candidates.append(detail)
+                for obj in photo.vlm_observation.key_objects:
+                    raw_text_candidates.append(obj)
+                for raw_text in raw_text_candidates[:5]:
+                    segments.append(
+                        self._segment_record(
+                            photo_uuid=photo.photo_uuid,
+                            segment_type="ocr_snippet",
+                            text=str(raw_text),
+                            session_uuid=self._photo_session_uuid(photo.photo_id, sequences.sessions),
+                            evidence_refs=[{"ref_type": "photo", "ref_id": photo.photo_id}],
+                        )
+                    )
+
         for session in sequences.sessions:
             if session.summary_hint:
                 segments.append(
@@ -1273,6 +2258,34 @@ class MemoryModuleService:
                     )
                 )
 
+        for relationship in relationship_hypotheses:
+            if relationship.reason_summary:
+                segments.append(
+                    self._segment_record(
+                        photo_uuid=None,
+                        segment_type="relationship_reason",
+                        text=relationship.reason_summary,
+                        relationship_uuid=relationship.relationship_uuid,
+                        person_uuid=relationship.target_person_uuid,
+                        session_uuid=relationship.feature_snapshot.get("supporting_session_uuids", [None])[0],
+                        event_uuid=relationship.feature_snapshot.get("supporting_event_uuids", [None])[0],
+                        evidence_refs=relationship.evidence_refs,
+                    )
+                )
+
+        for mood in mood_hypotheses:
+            if mood.reason_summary:
+                segments.append(
+                    self._segment_record(
+                        photo_uuid=None,
+                        segment_type="profile_evidence_snippet",
+                        text=f"mood: {mood.reason_summary}",
+                        session_uuid=mood.session_uuid,
+                        event_uuid=mood.event_uuid,
+                        evidence_refs=mood.evidence_refs,
+                    )
+                )
+
         for item in profile_evidence:
             if item.supporting_event_uuids:
                 anchor_event_uuid = item.supporting_event_uuids[0]
@@ -1289,26 +2302,52 @@ class MemoryModuleService:
                 )
             )
 
+        for concept in concept_catalog:
+            if concept.scope != "candidate":
+                continue
+            segments.append(
+                self._segment_record(
+                    photo_uuid=None,
+                    segment_type="profile_evidence_snippet",
+                    text=f"candidate concept: {concept.canonical_name}",
+                    concept_uuid=concept.concept_uuid,
+                    evidence_refs=[{"ref_type": "concept", "ref_id": concept.canonical_name}],
+                )
+            )
+
         return segments
 
     def _segment_record(
         self,
-        photo_uuid: str,
+        photo_uuid: Optional[str],
         segment_type: str,
         text: str,
         event_uuid: Optional[str] = None,
         person_uuid: Optional[str] = None,
         session_uuid: Optional[str] = None,
+        relationship_uuid: Optional[str] = None,
+        concept_uuid: Optional[str] = None,
         evidence_refs: Optional[List[Dict[str, str]]] = None,
     ) -> MilvusSegmentRecord:
         return MilvusSegmentRecord(
-            segment_uuid=self._stable_uuid("segment", segment_type, photo_uuid, event_uuid or "", person_uuid or "", text[:80]),
+            segment_uuid=self._stable_uuid(
+                "segment",
+                segment_type,
+                photo_uuid or "",
+                event_uuid or "",
+                person_uuid or "",
+                relationship_uuid or "",
+                concept_uuid or "",
+                text[:80],
+            ),
             tenant_id=None,
             user_id=self.user_id,
             photo_uuid=photo_uuid,
             event_uuid=event_uuid,
             person_uuid=person_uuid,
             session_uuid=session_uuid,
+            relationship_uuid=relationship_uuid,
+            concept_uuid=concept_uuid,
             segment_type=segment_type,
             text=text,
             sparse_terms=self._tokenize(text),
@@ -1392,16 +2431,24 @@ class MemoryModuleService:
         ]
         relationship_items = [
             {
-                "relationship_id": relationship.relationship_id,
-                "face_person_id": relationship.face_person_id,
-                "person_uuid": relationship.person_uuid,
+                "relationship_uuid": relationship.relationship_uuid,
+                "relationship_key": relationship.relationship_key,
+                "revision": relationship.revision,
+                "status": relationship.status,
+                "target_face_person_id": relationship.target_face_person_id,
+                "target_person_uuid": relationship.target_person_uuid,
                 "relationship_type": relationship.relationship_type,
                 "label": relationship.label,
                 "confidence": relationship.confidence,
-                "reason": relationship.reason,
+                "reason_summary": relationship.reason_summary,
+                "window_start": relationship.window_start,
+                "window_end": relationship.window_end,
+                "feature_snapshot": relationship.feature_snapshot,
+                "score_snapshot": relationship.score_snapshot,
                 "evidence_refs": relationship.evidence_refs,
             }
             for relationship in relationships
+            if relationship.status in {"active", "cooling"}
         ]
 
         profile_core = RedisProfileCoreRecord(

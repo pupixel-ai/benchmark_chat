@@ -41,9 +41,9 @@ class Neo4jPersonNodeRecord:
 
 
 @dataclass(slots=True)
-class Neo4jPhotoNodeRecord:
-    photo_uuid: str
-    labels: List[str] = field(default_factory=lambda: ["Photo"])
+class Neo4jPlaceNodeRecord:
+    place_uuid: str
+    labels: List[str] = field(default_factory=lambda: ["PlaceAnchor"])
     properties: Dict[str, Any] = field(default_factory=dict)
 
 
@@ -51,13 +51,6 @@ class Neo4jPhotoNodeRecord:
 class Neo4jSessionNodeRecord:
     session_uuid: str
     labels: List[str] = field(default_factory=lambda: ["Session"])
-    properties: Dict[str, Any] = field(default_factory=dict)
-
-
-@dataclass(slots=True)
-class Neo4jMovementNodeRecord:
-    movement_uuid: str
-    labels: List[str] = field(default_factory=lambda: ["Movement"])
     properties: Dict[str, Any] = field(default_factory=dict)
 
 
@@ -76,6 +69,41 @@ class Neo4jEventNodeRecord:
 
 
 @dataclass(slots=True)
+class Neo4jRelationshipHypothesisNodeRecord:
+    relationship_uuid: str
+    labels: List[str] = field(default_factory=lambda: ["RelationshipHypothesis"])
+    properties: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(slots=True)
+class Neo4jMoodStateNodeRecord:
+    mood_uuid: str
+    labels: List[str] = field(default_factory=lambda: ["MoodStateHypothesis"])
+    properties: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(slots=True)
+class Neo4jPrimaryPersonHypothesisNodeRecord:
+    primary_person_hypothesis_uuid: str
+    labels: List[str] = field(default_factory=lambda: ["PrimaryPersonHypothesis"])
+    properties: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(slots=True)
+class Neo4jPeriodHypothesisNodeRecord:
+    period_uuid: str
+    labels: List[str] = field(default_factory=lambda: ["PeriodHypothesis"])
+    properties: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(slots=True)
+class Neo4jConceptNodeRecord:
+    concept_uuid: str
+    labels: List[str] = field(default_factory=lambda: ["Concept"])
+    properties: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(slots=True)
 class Neo4jRelationshipEdgeRecord:
     edge_id: str
     from_id: str
@@ -89,10 +117,12 @@ class MilvusSegmentRecord:
     segment_uuid: str
     tenant_id: Optional[str]
     user_id: str
-    photo_uuid: str
+    photo_uuid: Optional[str]
     event_uuid: Optional[str]
     person_uuid: Optional[str]
     session_uuid: Optional[str]
+    relationship_uuid: Optional[str]
+    concept_uuid: Optional[str]
     segment_type: str
     text: str
     sparse_terms: List[str] = field(default_factory=list)
