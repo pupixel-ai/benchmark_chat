@@ -560,8 +560,11 @@ class MemoryModuleService:
         current_title = (event.title or "").strip()
         generic_title = self._is_generic_event_title(current_title)
         refined_title = current_title
-        if normalized_event_type == "music_festival_performance" and (generic_title or not current_title):
-            refined_title = f"有{artist_hint}的音乐节" if artist_hint else "音乐节活动记录"
+        if normalized_event_type == "music_festival_performance":
+            if artist_hint:
+                refined_title = f"有{artist_hint}的音乐节"
+            elif generic_title or not current_title:
+                refined_title = "音乐节活动记录"
         elif normalized_event_type == "concert" and (generic_title or not current_title):
             refined_title = f"{artist_hint}相关演出活动" if artist_hint else "现场演出活动记录"
         elif normalized_event_type == "music_live_event" and (generic_title or not current_title):
