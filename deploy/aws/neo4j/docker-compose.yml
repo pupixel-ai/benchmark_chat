@@ -1,0 +1,21 @@
+services:
+  neo4j:
+    image: neo4j:5.26
+    container_name: memory-neo4j
+    restart: unless-stopped
+    env_file:
+      - neo4j.env
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+      - neo4j_plugins:/plugins
+      - neo4j_import:/import
+
+volumes:
+  neo4j_data:
+  neo4j_logs:
+  neo4j_plugins:
+  neo4j_import:

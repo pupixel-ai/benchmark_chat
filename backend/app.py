@@ -15,6 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
+from backend.artifact_store import ArtifactCatalogStore, build_task_asset_manifest
 from backend.auth import (
     AUTH_SESSION_COOKIE_NAME,
     authenticate_response,
@@ -60,6 +61,7 @@ from utils import load_json
 app = FastAPI(title="Memory Engineering API", version="1.0.0")
 task_store = TaskStore()
 asset_store = TaskAssetStore()
+artifact_catalog = ArtifactCatalogStore()
 worker_manager = WorkerManager()
 worker_client = WorkerClient()
 face_review_store = FaceReviewStore()
@@ -350,6 +352,12 @@ def _sync_task_from_worker(task: dict, user_id: str) -> dict:
             remote_payload.get("result_summary"),
             remote_payload.get("asset_manifest"),
         )
+        if remote_payload.get("asset_manifest"):
+            artifact_catalog.replace_task_artifacts(
+                task["task_id"],
+                user_id,
+                remote_payload["asset_manifest"],
+            )
     refreshed = task_store.get_task(task["task_id"], user_id=user_id)
     return refreshed or task
 
@@ -425,7 +433,10 @@ def _run_pipeline_task(task_id: str, user_id: Optional[str], max_photos: int, us
             result=result,
             error=None,
         )
-        task_store.set_result_summary(task_id, result.get("summary"), None)
+        manifest = build_task_asset_manifest(task_id, task_dir, asset_store)
+        task_store.set_result_summary(task_id, result.get("summary"), manifest)
+        if user_id:
+            artifact_catalog.replace_task_artifacts(task_id, user_id, manifest)
     except Exception as exc:
         task_store.update_task(
             task_id,
@@ -560,6 +571,9 @@ async def upload_task_batch(
 
     _write_merged_upload_failures(task_dir, upload_failures)
     updated_task = task_store.append_uploads(task_id, saved_files, status="uploading", stage="uploading")
+    manifest = build_task_asset_manifest(task_id, task_dir, asset_store)
+    task_store.update_task(task_id, asset_manifest=manifest)
+    artifact_catalog.replace_task_artifacts(task_id, current_user["user_id"], manifest)
     return {
         "task_id": task_id,
         "version": updated_task["version"],
@@ -838,6 +852,7 @@ def delete_task(task_id: str, response: Response, current_user: dict = Depends(g
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"删除本地任务文件失败: {exc}") from exc
 
+    artifact_catalog.delete_task_artifacts(task_id, user_id=current_user["user_id"])
     deleted = task_store.delete_task(task_id, user_id=current_user["user_id"])
     if not deleted:
         raise HTTPException(status_code=500, detail="删除任务记录失败")
@@ -876,6 +891,22 @@ def get_asset(task_id: str, asset_path: str, current_user: dict = Depends(get_cu
         return _apply_no_store_headers(response)
 
     raise HTTPException(status_code=404, detail="资产不存在")
+
+
+@app.get("/api/tasks/{task_id}/artifacts")
+def list_task_artifacts(task_id: str, response: Response, current_user: dict = Depends(get_current_user)):
+    _apply_no_store_headers(response)
+    task = task_store.get_task(task_id, user_id=current_user["user_id"])
+    if not task:
+        raise HTTPException(status_code=404, detail="任务不存在")
+    task = _sync_task_from_worker(task, current_user["user_id"])
+    artifacts = artifact_catalog.list_task_artifacts(task_id, current_user["user_id"])
+    return {
+        "task_id": task_id,
+        "version": task.get("version"),
+        "artifact_count": len(artifacts),
+        "artifacts": artifacts,
+    }
 
 
 if __name__ == "__main__":

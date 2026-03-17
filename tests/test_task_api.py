@@ -15,6 +15,7 @@ from sqlalchemy import delete
 from backend.app import app, task_store
 from backend.db import SessionLocal
 from backend.models import (
+    ArtifactRecord,
     FaceRecognitionImagePolicyRecord,
     FaceReviewRecord,
     SessionRecord,
@@ -42,6 +43,7 @@ class TaskApiTests(unittest.TestCase):
             shutil.rmtree(task_store.task_dir(task_id), ignore_errors=True)
 
         with SessionLocal() as session:
+            session.execute(delete(ArtifactRecord).where(ArtifactRecord.user_id == self.user_id))
             session.execute(delete(FaceReviewRecord).where(FaceReviewRecord.user_id == self.user_id))
             session.execute(
                 delete(FaceRecognitionImagePolicyRecord).where(
@@ -230,6 +232,28 @@ class TaskApiTests(unittest.TestCase):
         self.assertEqual(payload["answer"]["answer_type"], "event_search")
         self.assertIn("concert", payload["answer"]["resolved_concepts"])
         self.assertGreaterEqual(len(payload["answer"]["supporting_events"]), 1)
+
+    def test_artifact_catalog_endpoint_returns_uploaded_files(self) -> None:
+        create_response = self.client.post("/api/tasks")
+        self.assertEqual(create_response.status_code, 200)
+        task_id = create_response.json()["task_id"]
+        self.task_ids.append(task_id)
+
+        batch_response = self.client.post(
+            f"/api/tasks/{task_id}/upload-batches",
+            files=[("files", ("one.png", self._image_bytes("green"), "image/png"))],
+        )
+        self.assertEqual(batch_response.status_code, 200)
+
+        response = self.client.get(f"/api/tasks/{task_id}/artifacts")
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertGreaterEqual(payload["artifact_count"], 1)
+        artifact = next(item for item in payload["artifacts"] if item["relative_path"] == "uploads/001_one.png")
+        self.assertEqual(artifact["relative_path"], "uploads/001_one.png")
+        self.assertEqual(artifact["stage"], "uploads")
+        self.assertEqual(artifact["storage_backend"], "local")
+        self.assertTrue(artifact["asset_url"].endswith("/uploads/001_one.png"))
 
     def _image_bytes(self, color: str) -> bytes:
         image = Image.new("RGB", (48, 48), color=color)

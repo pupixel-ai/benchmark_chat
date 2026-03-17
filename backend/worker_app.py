@@ -12,6 +12,7 @@ from fastapi import BackgroundTasks, Depends, FastAPI, File, Form, Header, HTTPE
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
+from backend.artifact_store import build_task_asset_manifest
 from backend.upload_utils import (
     UPLOAD_FAILURES_FILENAME,
     save_upload_original_streamed,
@@ -86,18 +87,6 @@ def _update_status(task_id: str, **updates) -> dict:
     current.update(updates)
     return _write_status(task_id, current)
 
-
-def _build_asset_manifest(task_dir: Path) -> dict:
-    files = []
-    for file_path in sorted(task_dir.rglob("*")):
-        if file_path.is_file():
-            files.append({"path": file_path.relative_to(task_dir).as_posix(), "size": file_path.stat().st_size})
-    return {
-        "generated_at": datetime.utcnow().isoformat(),
-        "files": files,
-    }
-
-
 def _run_pipeline_task(task_id: str, max_photos: int, use_cache: bool, task_version: str) -> None:
     task_dir = _task_dir(task_id)
 
@@ -131,7 +120,7 @@ def _run_pipeline_task(task_id: str, max_photos: int, use_cache: bool, task_vers
             progress=None,
             result=result,
             result_summary=result.get("summary", {}),
-            asset_manifest=_build_asset_manifest(task_dir),
+            asset_manifest=build_task_asset_manifest(task_id, task_dir, asset_store),
             error=None,
             worker_status="running",
             version=task_version,
@@ -257,7 +246,7 @@ async def upload_task_batch(
         }
     )
     _write_status(task_id, initial_status)
-    _update_status(task_id, asset_manifest=_build_asset_manifest(task_dir))
+    _update_status(task_id, asset_manifest=build_task_asset_manifest(task_id, task_dir, asset_store))
     return {
         "task_id": task_id,
         "status": "uploading",

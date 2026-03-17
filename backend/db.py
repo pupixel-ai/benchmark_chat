@@ -22,7 +22,8 @@ Base = declarative_base()
 def ensure_schema() -> None:
     """Apply lightweight schema changes needed for deploy-time compatibility."""
     inspector = inspect(engine)
-    if "tasks" not in inspector.get_table_names():
+    table_names = set(inspector.get_table_names())
+    if "tasks" not in table_names:
         return
 
     task_columns = {column["name"] for column in inspector.get_columns("tasks")}
@@ -52,3 +53,22 @@ def ensure_schema() -> None:
             text("UPDATE tasks SET version = :default_version WHERE version IS NULL"),
             {"default_version": DEFAULT_TASK_VERSION},
         )
+
+    if "artifacts" in table_names:
+        artifact_columns = {column["name"] for column in inspector.get_columns("artifacts")}
+
+        def add_artifact_column(name: str, ddl: str) -> None:
+            if name in artifact_columns:
+                return
+            with engine.begin() as connection:
+                connection.execute(text(f"ALTER TABLE artifacts ADD COLUMN {name} {ddl}"))
+            artifact_columns.add(name)
+
+        add_artifact_column("stage", f"VARCHAR(64){nullable_suffix}")
+        add_artifact_column("content_type", f"VARCHAR(255){nullable_suffix}")
+        add_artifact_column("size_bytes", f"INTEGER{nullable_suffix}")
+        add_artifact_column("sha256", f"VARCHAR(64){nullable_suffix}")
+        add_artifact_column("storage_backend", f"VARCHAR(32){nullable_suffix}")
+        add_artifact_column("object_key", f"VARCHAR(1024){nullable_suffix}")
+        add_artifact_column("asset_url", f"VARCHAR(1024){nullable_suffix}")
+        add_artifact_column("metadata", f"JSON{nullable_suffix}")

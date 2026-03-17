@@ -31,7 +31,7 @@ class TaskAssetStore:
         self.asset_url_prefix = asset_url_prefix.rstrip("/")
         self.bucket = OBJECT_STORAGE_BUCKET.strip()
         self.endpoint = OBJECT_STORAGE_ENDPOINT.strip()
-        self.region = OBJECT_STORAGE_REGION.strip() or "auto"
+        self.region = OBJECT_STORAGE_REGION.strip()
         self.access_key_id = OBJECT_STORAGE_ACCESS_KEY_ID.strip()
         self.secret_access_key = OBJECT_STORAGE_SECRET_ACCESS_KEY.strip()
         self.prefix = OBJECT_STORAGE_PREFIX.strip().strip("/")
@@ -45,20 +45,28 @@ class TaskAssetStore:
             if self.addressing_style in {"auto", "path", "virtual"}:
                 config_kwargs["s3"] = {"addressing_style": self.addressing_style}
 
-            self._client = boto3.client(
-                "s3",
-                endpoint_url=self.endpoint,
-                region_name=self.region,
-                aws_access_key_id=self.access_key_id,
-                aws_secret_access_key=self.secret_access_key,
-                config=BotoConfig(**config_kwargs) if config_kwargs else None,
-            )
+            client_kwargs = {
+                "service_name": "s3",
+                "region_name": self.region or None,
+                "config": BotoConfig(**config_kwargs) if config_kwargs else None,
+            }
+            if self.endpoint:
+                client_kwargs["endpoint_url"] = self.endpoint
+            if self.access_key_id and self.secret_access_key:
+                client_kwargs["aws_access_key_id"] = self.access_key_id
+                client_kwargs["aws_secret_access_key"] = self.secret_access_key
+
+            self._client = boto3.client(**client_kwargs)
 
     @property
     def enabled(self) -> bool:
         if HIGH_SECURITY_MODE:
             return False
-        return all([self.bucket, self.endpoint, self.access_key_id, self.secret_access_key])
+        if not self.bucket:
+            return False
+        if self.endpoint:
+            return bool(self.access_key_id and self.secret_access_key)
+        return True
 
     def sanitize_relative_path(self, relative_path: str) -> str:
         normalized = PurePosixPath(relative_path.replace("\\", "/"))

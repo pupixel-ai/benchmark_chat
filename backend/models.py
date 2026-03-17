@@ -58,6 +58,26 @@ class TaskRecord(Base):
     last_worker_sync_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
+class ArtifactRecord(Base):
+    __tablename__ = "artifacts"
+    __table_args__ = (UniqueConstraint("task_id", "relative_path", name="uq_artifact_task_path"),)
+
+    artifact_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    task_id: Mapped[str] = mapped_column(ForeignKey("tasks.task_id"), nullable=False, index=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.user_id"), nullable=False, index=True)
+    relative_path: Mapped[str] = mapped_column(String(1024), nullable=False)
+    stage: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    content_type: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    size_bytes: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    sha256: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    storage_backend: Mapped[str] = mapped_column(String(32), nullable=False, default="local", index=True)
+    object_key: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    asset_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    metadata_json: Mapped[dict | None] = mapped_column("metadata", JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+
+
 class FaceReviewRecord(Base):
     __tablename__ = "face_reviews"
     __table_args__ = (UniqueConstraint("user_id", "task_id", "face_id", name="uq_face_review_user_task_face"),)

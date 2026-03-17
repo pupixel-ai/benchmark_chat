@@ -9,6 +9,14 @@
 
 这样改动最少，也最适合先把服务跑通。后续如果你要升级成 `EC2 + RDS + S3`，本仓库也已经支持通过环境变量切换。
 
+如果你要直接走新版本的 AWS 生产拓扑，请看：
+
+- `deploy/aws/README.md`
+- `deploy/aws/backend.Dockerfile`
+- `deploy/aws/frontend.Dockerfile`
+- `deploy/aws/control-plane.env.example`
+- `deploy/aws/worker.env.example`
+
 如果你要继续做高安全的 Phase 2 worker 架构，请看：
 
 - `deploy/ec2/PHASE2_WORKER_TEMPLATE.md`

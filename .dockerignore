@@ -1,0 +1,13 @@
+.git
+.gitignore
+.venv
+__pycache__
+*.pyc
+.next
+frontend/.next-dev
+frontend/.next-build
+runtime
+output
+cache
+node_modules
+frontend/node_modules
