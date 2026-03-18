@@ -117,7 +117,7 @@ class OpenRouterProviderTests(unittest.TestCase):
             OPENROUTER_BASE_URL="https://openrouter.ai/api/v1",
             OPENROUTER_SITE_URL="http://localhost:8000",
             OPENROUTER_APP_NAME="Memory Engineering Test",
-            OPENROUTER_VLM_MODEL="google/gemini-2.0-flash-001",
+            OPENROUTER_VLM_MODEL="google/gemini-3.1-flash-lite-preview",
             GEMINI_API_KEY="",
         ):
             analyzer = VLMAnalyzer(cache_path="cache/test_openrouter_vlm.json")

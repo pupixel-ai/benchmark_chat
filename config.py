@@ -185,8 +185,8 @@ OPENROUTER_APP_NAME = (
     or "Memory Engineering"
 )
 OPENROUTER_VLM_MODEL = (
-    os.getenv("OPENROUTER_VLM_MODEL", "z-ai/glm-4.6v").strip()
-    or "z-ai/glm-4.6v"
+    os.getenv("OPENROUTER_VLM_MODEL", "google/gemini-3.1-flash-lite-preview").strip()
+    or "google/gemini-3.1-flash-lite-preview"
 )
 OPENROUTER_LLM_MODEL = (
     os.getenv("OPENROUTER_LLM_MODEL", "minimax/minimax-m2.7").strip()
