@@ -1498,6 +1498,7 @@ Slice contracts:
                     inferenceConfig=build_inference_config(
                         temperature=0.1,
                         max_tokens=BEDROCK_LLM_MAX_OUTPUT_TOKENS,
+                        top_p=None,
                     ),
                 )
                 self.model = model_id
@@ -1602,6 +1603,7 @@ Slice contracts:
                     inferenceConfig=build_inference_config(
                         temperature=0.3,
                         max_tokens=BEDROCK_LLM_MAX_OUTPUT_TOKENS,
+                        top_p=None,
                     ),
                 )
                 self.model = model_id

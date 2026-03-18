@@ -212,9 +212,11 @@ def build_image_message(prompt: str, image_data: bytes, mime_type: str) -> List[
     ]
 
 
-def build_inference_config(*, temperature: float, max_tokens: int, top_p: float = 0.9) -> Dict[str, Any]:
-    return {
+def build_inference_config(*, temperature: float, max_tokens: int, top_p: float | None = 0.9) -> Dict[str, Any]:
+    config: Dict[str, Any] = {
         "temperature": temperature,
         "maxTokens": max_tokens,
-        "topP": top_p,
     }
+    if top_p is not None:
+        config["topP"] = top_p
+    return config
