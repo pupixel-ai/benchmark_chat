@@ -549,6 +549,67 @@ function formatJson(value: unknown) {
   }
 }
 
+function hasDisplayValue(value: unknown) {
+  if (value == null) {
+    return false;
+  }
+  if (Array.isArray(value)) {
+    return value.length > 0;
+  }
+  if (typeof value === "object") {
+    return Object.keys(value as Record<string, unknown>).length > 0;
+  }
+  return true;
+}
+
+function readStageProgress(progress: TaskState["progress"], stage: string) {
+  if (!progress || typeof progress !== "object") {
+    return {};
+  }
+  const rawStages = (progress as Record<string, unknown>).stages;
+  if (!rawStages || typeof rawStages !== "object") {
+    return {};
+  }
+  const stagePayload = (rawStages as Record<string, unknown>)[stage];
+  if (!stagePayload || typeof stagePayload !== "object") {
+    return {};
+  }
+  return stagePayload as Record<string, unknown>;
+}
+
+function ScrollableJsonPanel({
+  title,
+  value,
+  emptyText,
+  loading = false
+}: {
+  title: string;
+  value: unknown;
+  emptyText: string;
+  loading?: boolean;
+}) {
+  const hasValue = hasDisplayValue(value);
+  return (
+    <div className="rounded-[12px] border border-[#ddcebb] bg-white/70 p-4">
+      <div className="flex items-center justify-between gap-3">
+        <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-black/42">{title}</p>
+        {loading ? <WaitingDots label="处理中" compact muted /> : null}
+      </div>
+      {hasValue ? (
+        <pre className="mt-3 max-h-[320px] overflow-auto whitespace-pre-wrap break-all rounded-[10px] bg-[#f6eee3] p-3 text-xs leading-6 text-[#5f4e42]">
+          {formatJson(value)}
+        </pre>
+      ) : loading ? (
+        <div className="mt-3">
+          <WaitingDots label="等待结果生成" />
+        </div>
+      ) : (
+        <p className="mt-3 text-sm text-black/56">{emptyText}</p>
+      )}
+    </div>
+  );
+}
+
 function JsonDetails({
   title,
   value,
@@ -566,10 +627,97 @@ function JsonDetails({
       <summary className="cursor-pointer font-mono text-[11px] uppercase tracking-[0.16em] text-black/42">
         {title}
       </summary>
-      <pre className="mt-3 overflow-x-auto whitespace-pre-wrap break-all rounded-[10px] bg-[#f6eee3] p-3 text-xs leading-6 text-[#5f4e42]">
+      <pre className="mt-3 max-h-[320px] overflow-auto whitespace-pre-wrap break-all rounded-[10px] bg-[#f6eee3] p-3 text-xs leading-6 text-[#5f4e42]">
         {formatJson(value)}
       </pre>
     </details>
+  );
+}
+
+function InferencePipelinePanel({ task }: { task: TaskState }) {
+  const currentStage = (() => {
+    if (task.stage === "completed" || task.stage === "failed") {
+      return task.stage;
+    }
+    const value = task.progress && typeof task.progress === "object" ? (task.progress as Record<string, unknown>).current_stage : null;
+    return typeof value === "string" && value ? value : task.stage;
+  })();
+  const faceStage = readStageProgress(task.progress, "face_recognition");
+  const vlmStage = readStageProgress(task.progress, "vlm");
+  const llmStage = readStageProgress(task.progress, "llm");
+  const memoryStage = readStageProgress(task.progress, "memory");
+
+  const faceValue = task.result?.face_recognition ?? faceStage.face_result_preview ?? null;
+  const vlmValue =
+    (vlmStage.vlm_results_preview as unknown) ??
+    task.result?.memory?.transparency?.vlm_stage?.summaries ??
+    null;
+  const llmValue =
+    task.result?.memory_contract ??
+    (llmStage.memory_contract_preview as unknown) ??
+    null;
+  const redisValue =
+    task.result?.memory?.storage?.redis ??
+    (memoryStage.redis_preview as unknown) ??
+    null;
+  const neo4jValue =
+    task.result?.memory?.storage?.neo4j ??
+    (memoryStage.neo4j_preview as unknown) ??
+    null;
+
+  const vlmLoading = task.status === "running" && currentStage === "vlm";
+  const llmLoading = task.status === "running" && currentStage === "llm";
+  const memoryLoading = task.status === "running" && currentStage === "memory";
+
+  return (
+    <section className="w-full rounded-[12px] border border-[#d8c9b7] bg-[rgba(249,244,237,0.94)] p-6 shadow-card">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <p className="font-mono text-xs uppercase tracking-[0.24em] text-black/40">Inference Timeline</p>
+          <h2 className="mt-3 text-2xl font-semibold text-ink">推理生成逐阶段展开</h2>
+          <p className="mt-3 max-w-3xl text-sm leading-6 text-black/60">
+            前端会按 `Face → VLM → LLM → Redis → Neo4j` 顺序展示当前任务的阶段结果，并在运行阶段保留 3 dots 提示。
+          </p>
+        </div>
+        <div className="rounded-[12px] border border-[#ddcebb] bg-white/70 px-5 py-4">
+          <p className="font-mono text-xs uppercase tracking-[0.2em] text-black/42">Current Stage</p>
+          <p className="mt-2 text-xl font-semibold">{formatStage(currentStage)}</p>
+        </div>
+      </div>
+
+      <div className="mt-5 grid gap-4 xl:grid-cols-2">
+        <ScrollableJsonPanel
+          title="Face Results"
+          value={faceValue}
+          emptyText="当前还没有可展示的人脸识别结果。"
+          loading={task.status === "running" && FACE_RECOGNITION_STAGES.has(currentStage) && !hasDisplayValue(faceValue)}
+        />
+        <ScrollableJsonPanel
+          title="VLM Results"
+          value={vlmValue}
+          emptyText="VLM 结果尚未产出。"
+          loading={vlmLoading}
+        />
+        <ScrollableJsonPanel
+          title="LLM Results"
+          value={llmValue}
+          emptyText="LLM 结果尚未产出。"
+          loading={llmLoading}
+        />
+        <ScrollableJsonPanel
+          title="Redis Profile Materialization"
+          value={redisValue}
+          emptyText="Redis 画像数据尚未产出。"
+          loading={memoryLoading && !hasDisplayValue(redisValue)}
+        />
+        <ScrollableJsonPanel
+          title="Neo4j Graph Materialization"
+          value={neo4jValue}
+          emptyText="Neo4j graph 数据尚未产出。"
+          loading={memoryLoading && !hasDisplayValue(neo4jValue)}
+        />
+      </div>
+    </section>
   );
 }
 
@@ -2413,6 +2561,10 @@ export default function HomePage() {
                 </div>
               ) : null}
             </section>
+          ) : null}
+
+          {!isDraftView && currentTask ? (
+            <InferencePipelinePanel task={currentTask} />
           ) : null}
 
           {!isDraftView && currentTask && memoryResult ? (

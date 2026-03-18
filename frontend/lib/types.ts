@@ -193,6 +193,7 @@ export type TaskEvent = {
   objective_fact?: Record<string, unknown>;
   social_interaction?: Record<string, unknown>;
   social_dynamics?: Array<Record<string, unknown>>;
+  original_image_ids?: string[];
   evidence_photos?: string[];
   lifestyle_tags?: string[];
   tags?: string[];
@@ -205,6 +206,8 @@ export type TaskRelationship = {
   relationship_type: string;
   label: string;
   confidence: number;
+  supporting_event_ids?: string[];
+  supporting_original_image_ids?: string[];
   evidence?: Record<string, unknown>;
   reason?: string;
 };
@@ -462,6 +465,9 @@ export type TaskResult = {
   events?: TaskEvent[];
   relationships?: TaskRelationship[];
   profile_markdown?: string | null;
+  memory_contract?: Record<string, unknown>;
+  llm_chunk_artifacts?: Record<string, unknown>;
+  dedupe_report?: Record<string, unknown>;
   memory?: MemoryPayload | null;
   artifacts?: Record<string, string | null>;
 };

@@ -1344,6 +1344,23 @@ class MemoryModuleService:
             for event in event_candidates
             if target_person_uuid in event.participant_person_uuids
         ]
+        supporting_event_ids = [
+            event.event_id
+            for event in event_candidates
+            if target_person_uuid in event.participant_person_uuids
+        ]
+        supporting_photo_ids = self._unique(
+            photo_id
+            for event in event_candidates
+            if target_person_uuid in event.participant_person_uuids
+            for photo_id in event.photo_ids
+        )
+        supporting_photo_uuids = self._unique(
+            photo_uuid
+            for event in event_candidates
+            if target_person_uuid in event.participant_person_uuids
+            for photo_uuid in event.photo_uuids
+        )
         distinct_days = {session.day_key for session in supporting_sessions}
         scene_diversity = len(
             {
@@ -1393,8 +1410,11 @@ class MemoryModuleService:
             "place_diversity": len({str((session.location_hint or {}).get("name") or "") for session in supporting_sessions}),
             "time_span_days": time_span_days,
             "total_photo_evidence_count": photo_count,
+            "supporting_event_ids": supporting_event_ids,
             "supporting_session_uuids": supporting_session_uuids,
             "supporting_event_uuids": supporting_event_uuids,
+            "supporting_photo_ids": supporting_photo_ids,
+            "supporting_photo_uuids": supporting_photo_uuids,
             "window_start": supporting_sessions[0].started_at if supporting_sessions else "",
             "window_end": supporting_sessions[-1].ended_at if supporting_sessions else "",
         }
@@ -1722,8 +1742,25 @@ class MemoryModuleService:
                 session for session in sequences.sessions
                 if record.person_uuid in session_participants.get(session.session_uuid, [])
             ]
+            related_events = [
+                event
+                for event in event_candidates
+                if record.person_uuid in event.participant_person_uuids
+            ]
             first_seen = min((session.started_at for session in related_sessions), default="")
             last_seen = max((session.ended_at for session in related_sessions), default="")
+            related_event_ids = [event.event_id for event in related_events]
+            related_event_uuids = [event.event_uuid for event in related_events]
+            supporting_photo_ids = self._unique(
+                photo_id
+                for event in related_events
+                for photo_id in event.photo_ids
+            )
+            supporting_photo_uuids = self._unique(
+                photo_uuid
+                for event in related_events
+                for photo_uuid in event.photo_uuids
+            )
             search_text = " ".join(
                 part
                 for part in [
@@ -1743,6 +1780,10 @@ class MemoryModuleService:
                         "first_seen_at": first_seen,
                         "last_seen_at": last_seen,
                         "is_primary_candidate": record.person_uuid == primary_person_uuid,
+                        "supporting_event_ids": related_event_ids,
+                        "supporting_event_uuids": related_event_uuids,
+                        "original_image_ids": supporting_photo_ids,
+                        "photo_uuids": supporting_photo_uuids,
                         **self._embedding_props(search_text),
                     },
                 )
@@ -1854,6 +1895,8 @@ class MemoryModuleService:
                         "confidence": event.confidence,
                         "participant_count": len(event.participant_person_uuids),
                         "photo_count": len(event.photo_ids),
+                        "original_image_ids": event.photo_ids,
+                        "original_image_uuids": event.photo_uuids,
                         "representative_photo_ids": event.photo_ids[:3],
                         "artifact_ref_ids": self._event_artifact_ref_ids(event, photos),
                         "model_version": self.pipeline_version or "vnext",
@@ -2988,10 +3031,13 @@ class MemoryModuleService:
                 "ended_at": event.ended_at,
                 "confidence": event.confidence,
                 "participants": event.participant_face_person_ids,
+                "original_image_ids": event.photo_ids,
                 "evidence_refs": event.evidence_refs,
             }
             for event in sorted(events, key=lambda item: (item.started_at, item.title), reverse=True)[:10]
         ]
+        event_id_by_uuid = {event.event_uuid: event.event_id for event in events}
+        event_photo_ids_by_uuid = {event.event_uuid: list(event.photo_ids) for event in events}
         recent_timelines = [
             {
                 "timeline_id": timeline.timeline_id,
@@ -3018,6 +3064,16 @@ class MemoryModuleService:
                 "reason_summary": relationship.reason_summary,
                 "window_start": relationship.window_start,
                 "window_end": relationship.window_end,
+                "supporting_event_ids": [
+                    event_id_by_uuid[event_uuid]
+                    for event_uuid in relationship.feature_snapshot.get("supporting_event_uuids", [])
+                    if event_uuid in event_id_by_uuid
+                ],
+                "supporting_original_image_ids": self._unique(
+                    photo_id
+                    for event_uuid in relationship.feature_snapshot.get("supporting_event_uuids", [])
+                    for photo_id in event_photo_ids_by_uuid.get(event_uuid, [])
+                ),
                 "feature_snapshot": relationship.feature_snapshot,
                 "score_snapshot": relationship.score_snapshot,
                 "evidence_refs": relationship.evidence_refs,
@@ -3155,6 +3211,7 @@ class MemoryModuleService:
                     "event_id": event.event_id,
                     "title": event.title,
                     "confidence": event.confidence,
+                    "original_image_ids": event.photo_ids[:8],
                 }
                 for event in event_candidates[:10]
             ],

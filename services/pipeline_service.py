@@ -154,6 +154,16 @@ class MemoryPipelineService:
         face_output = self.face_recognition.get_face_output()
         face_payload = self._build_face_recognition_payload(photos, face_output)
         face_db = self.face_recognition.get_all_persons()
+        self._notify(
+            progress_callback,
+            "face_recognition",
+            {
+                "message": "人脸识别完成",
+                "completed": True,
+                "face_result_preview": self._build_face_stage_preview(face_payload),
+                "face_output_url": self._public_url(self.cache_dir / "face_recognition_output.json"),
+            },
+        )
 
         if not self._supports_memory_graph():
             self.warnings.append({
@@ -234,6 +244,12 @@ class MemoryPipelineService:
                 },
             )
 
+        self._notify(
+            progress_callback,
+            "vlm",
+            self._build_vlm_stage_progress(vlm.results, cached_photo_ids),
+        )
+
         events = []
         relationships = []
         profile_markdown = ""
@@ -261,11 +277,21 @@ class MemoryPipelineService:
             relationships = llm.relationships_from_memory_contract(memory_contract)
             profile_markdown = llm.profile_markdown_from_memory_contract(memory_contract, primary_person_id)
             self._write_profile_report(profile_markdown)
+            self._notify(
+                progress_callback,
+                "llm",
+                self._build_llm_stage_progress(memory_contract, llm_chunk_artifacts),
+            )
         else:
             self.warnings.append({
                 "stage": "llm",
                 "message": "VLM 结果为空，LLM 只保留空结果",
             })
+            self._notify(
+                progress_callback,
+                "llm",
+                self._build_llm_stage_progress(memory_contract, llm_chunk_artifacts),
+            )
 
         self._notify(progress_callback, "memory", {"message": "构建记忆框架输出"})
         memory = MemoryModuleService(
@@ -285,6 +311,11 @@ class MemoryPipelineService:
             memory_contract=memory_contract,
             dedupe_report=dedupe_report,
             chunk_artifacts=llm_chunk_artifacts,
+        )
+        self._notify(
+            progress_callback,
+            "memory",
+            self._build_memory_stage_progress(memory),
         )
 
         detailed_output = {
@@ -691,6 +722,7 @@ class MemoryPipelineService:
             "objective_fact": dict(event.objective_fact or {}),
             "social_interaction": dict(event.social_interaction or {}),
             "social_dynamics": list(event.social_dynamics or []),
+            "original_image_ids": list(event.evidence_photos or []),
             "evidence_photos": list(event.evidence_photos or []),
             "lifestyle_tags": list(event.lifestyle_tags or []),
             "tags": list(event.tags or []),
@@ -699,13 +731,93 @@ class MemoryPipelineService:
         }
 
     def _serialize_relationship(self, relationship) -> Dict:
+        evidence = dict(relationship.evidence or {})
         return {
             "person_id": relationship.person_id,
             "relationship_type": relationship.relationship_type,
             "label": relationship.label,
             "confidence": relationship.confidence,
-            "evidence": dict(relationship.evidence or {}),
+            "supporting_event_ids": list(evidence.get("supporting_event_ids", []) or []),
+            "supporting_original_image_ids": list(evidence.get("supporting_photo_ids", []) or []),
+            "evidence": evidence,
             "reason": relationship.reason,
+        }
+
+    def _build_face_stage_preview(self, face_payload: Dict) -> Dict:
+        preview = {
+            "primary_person_id": face_payload.get("primary_person_id"),
+            "metrics": dict(face_payload.get("metrics", {}) or {}),
+            "person_groups": list(face_payload.get("person_groups", [])[:8]),
+            "images": list(face_payload.get("images", [])[:12]),
+            "failed_images": list(face_payload.get("failed_images", [])[:12]),
+        }
+        return preview
+
+    def _build_vlm_stage_progress(self, results: List[Dict], cached_photo_ids: set[str]) -> Dict:
+        previews = []
+        for item in results[:12]:
+            analysis = dict(item.get("vlm_analysis", {}) or {})
+            previews.append(
+                {
+                    "photo_id": item.get("photo_id"),
+                    "filename": item.get("filename"),
+                    "original_image_ids": [item.get("photo_id")] if item.get("photo_id") else [],
+                    "summary": analysis.get("summary"),
+                    "ocr_hits": list(analysis.get("ocr_hits", [])[:10]),
+                    "brands": list(analysis.get("brands", [])[:10]),
+                    "place_candidates": list(analysis.get("place_candidates", [])[:5]),
+                    "route_plan_clues": list(analysis.get("route_plan_clues", [])[:5]),
+                    "health_treatment_clues": list(analysis.get("health_treatment_clues", [])[:5]),
+                    "object_last_seen_clues": list(analysis.get("object_last_seen_clues", [])[:5]),
+                    "uncertainty": list(analysis.get("uncertainty", [])[:5]),
+                }
+            )
+        return {
+            "message": "VLM 识别完成",
+            "completed": True,
+            "processed": len(results),
+            "cached_hits": len(cached_photo_ids),
+            "vlm_results_preview": previews,
+            "vlm_cache_url": self._public_url(self.vlm_cache_path),
+        }
+
+    def _build_llm_stage_progress(self, memory_contract: Dict[str, object], llm_chunk_artifacts: Dict[str, object]) -> Dict:
+        contract_preview = {
+            "events": list(memory_contract.get("events", [])[:12]),
+            "observations": list(memory_contract.get("observations", [])[:12]),
+            "claims": list(memory_contract.get("claims", [])[:12]),
+            "relationship_hypotheses": list(memory_contract.get("relationship_hypotheses", [])[:12]),
+            "profile_deltas": list(memory_contract.get("profile_deltas", [])[:12]),
+            "uncertainty": list(memory_contract.get("uncertainty", [])[:12]),
+        }
+        return {
+            "message": "LLM 改写完成",
+            "completed": True,
+            "memory_contract_preview": contract_preview,
+            "memory_contract_url": self._public_url(self.llm_contract_path) if self.llm_contract_path.exists() else None,
+            "llm_chunks_url": self._public_url(self.llm_chunks_path) if self.llm_chunks_path.exists() else None,
+            "llm_chunk_artifacts_preview": dict(llm_chunk_artifacts or {}),
+        }
+
+    def _build_memory_stage_progress(self, memory: Dict[str, object]) -> Dict:
+        storage = dict(memory.get("storage", {}) or {})
+        neo4j_storage = dict(storage.get("neo4j", {}) or {})
+        neo4j_nodes = dict(neo4j_storage.get("nodes", {}) or {})
+        neo4j_preview = {
+            "nodes": {
+                key: list(value[:8]) if isinstance(value, list) else value
+                for key, value in neo4j_nodes.items()
+            },
+            "edges": list((neo4j_storage.get("edges", []) or [])[:20]),
+            "focus_graph": neo4j_storage.get("focus_graph"),
+        }
+        return {
+            "message": "记忆框架落位完成",
+            "completed": True,
+            "redis_preview": dict(storage.get("redis", {}) or {}),
+            "neo4j_preview": neo4j_preview,
+            "memory_transparency_preview": dict(memory.get("transparency", {}) or {}),
+            "artifacts": dict(memory.get("artifacts", {}) or {}),
         }
 
     def _public_url(self, file_path: Optional[Path | str]) -> Optional[str]:

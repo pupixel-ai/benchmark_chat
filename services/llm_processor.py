@@ -332,6 +332,7 @@ class LLMProcessor:
                 "timestamp": f"{started_at} - {ended_at}" if started_at else "",
                 "location_context": item.get("location", ""),
                 "photo_count": len(item.get("photo_ids", [])),
+                "original_image_ids": list(item.get("original_image_ids", []) or item.get("photo_ids", [])),
                 "coarse_event_type": item.get("coarse_event_type", "unknown"),
                 "alternative_type_candidates": alternative,
             }
@@ -376,7 +377,11 @@ class LLMProcessor:
                     relationship_type=str(item.get("relationship_type") or "acquaintance"),
                     label=str(item.get("label") or "熟人"),
                     confidence=float(item.get("confidence") or 0.0),
-                    evidence=item.get("evidence", {}) or {},
+                    evidence={
+                        **(item.get("evidence", {}) or {}),
+                        "supporting_event_ids": [str(value) for value in item.get("supporting_event_ids", []) or []],
+                        "supporting_photo_ids": [str(value) for value in item.get("supporting_photo_ids", []) or []],
+                    },
                     reason=str(item.get("reason") or item.get("reason_summary") or ""),
                 )
             )
@@ -1154,6 +1159,7 @@ class LLMProcessor:
       "location": "字符串",
       "participant_person_ids": ["Person_001"],
       "photo_ids": ["photo_001"],
+      "original_image_ids": ["photo_001"],
       "description": "客观描述",
       "narrative_synthesis": "一句话客观归纳",
       "confidence": 0.0,
@@ -1168,6 +1174,7 @@ class LLMProcessor:
       "field_value": "字符串",
       "confidence": 0.0,
       "photo_ids": ["photo_001"],
+      "original_image_ids": ["photo_001"],
       "event_id": "可为空",
       "session_id": "{evidence_packet['session_id']}",
       "person_ids": ["Person_001"],
@@ -1183,6 +1190,7 @@ class LLMProcessor:
       "object": "字符串",
       "confidence": 0.0,
       "photo_ids": ["photo_001"],
+      "original_image_ids": ["photo_001"],
       "event_id": "可为空",
       "session_id": "{evidence_packet['session_id']}",
       "evidence_refs": [{{"ref_type": "photo", "ref_id": "photo_001"}}]
@@ -1194,6 +1202,8 @@ class LLMProcessor:
       "relationship_type": "acquaintance|friend|close_friend|colleague|family|partner|co_presence_only",
       "label": "标签",
       "confidence": 0.0,
+      "supporting_event_ids": ["event_001"],
+      "supporting_photo_ids": ["photo_001"],
       "reason_summary": "原因",
       "reason": "原因",
       "evidence": {{}}
@@ -1225,6 +1235,7 @@ class LLMProcessor:
 - 如果只有单次暴露，不要直接推断长期兴趣。
 - 如果没有稳定跨时段证据，不要输出强关系。
 - rare clues 和 OCR / 品牌 / 路线 / 价格 / 地点名 / 物体最后出现线索必须尽量保留。
+- `original_image_ids` 必须精确绑定原始图片 ID；没有额外来源时可与 `photo_ids` 相同。
 
 Session-scoped evidence packet:
 {json.dumps(evidence_packet, ensure_ascii=False, indent=2)}
@@ -1351,6 +1362,7 @@ Slice contracts:
             event.setdefault("alternative_type_candidates", [])
             event.setdefault("participant_person_ids", [])
             event.setdefault("photo_ids", [])
+            event.setdefault("original_image_ids", list(event.get("photo_ids", []) or []))
             event.setdefault("description", "")
             event.setdefault("narrative_synthesis", "")
             event.setdefault("confidence", 0.0)
@@ -1368,6 +1380,7 @@ Slice contracts:
             item.setdefault("field_value", "")
             item.setdefault("confidence", 0.0)
             item.setdefault("photo_ids", [])
+            item.setdefault("original_image_ids", list(item.get("photo_ids", []) or []))
             item.setdefault("event_id", "")
             item.setdefault("session_id", "")
             item.setdefault("person_ids", [])
@@ -1382,6 +1395,7 @@ Slice contracts:
             item.setdefault("object", "")
             item.setdefault("confidence", 0.0)
             item.setdefault("photo_ids", [])
+            item.setdefault("original_image_ids", list(item.get("photo_ids", []) or []))
             item.setdefault("event_id", "")
             item.setdefault("session_id", "")
             item.setdefault("evidence_refs", [])
@@ -1393,6 +1407,8 @@ Slice contracts:
             item.setdefault("relationship_type", "co_presence_only")
             item.setdefault("label", "")
             item.setdefault("confidence", 0.0)
+            item.setdefault("supporting_event_ids", [])
+            item.setdefault("supporting_photo_ids", [])
             item.setdefault("reason_summary", "")
             item.setdefault("reason", "")
             item.setdefault("evidence", {})

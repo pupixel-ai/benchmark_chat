@@ -7,6 +7,7 @@ import copy
 import os
 import shutil
 import uuid
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -407,12 +408,38 @@ def _chunk_remote_upload_entries(entries: List[dict]) -> List[List[dict]]:
 
 def _run_pipeline_task(task_id: str, user_id: Optional[str], max_photos: int, use_cache: bool, task_version: str):
     task_dir = task_store.task_dir(task_id)
+    progress_state: Dict[str, object] = {
+        "current_stage": "starting",
+        "updated_at": datetime.now().isoformat(),
+        "stages": {
+            "starting": {
+                "message": "准备启动推理任务",
+                "updated_at": datetime.now().isoformat(),
+            }
+        },
+    }
 
     def progress_callback(stage: str, payload: dict):
-        task_store.update_task(task_id, status="running", stage=stage, progress=payload)
+        stages = progress_state.setdefault("stages", {})
+        if not isinstance(stages, dict):
+            stages = {}
+            progress_state["stages"] = stages
+        stage_payload = copy.deepcopy(stages.get(stage) or {})
+        stage_payload.update(copy.deepcopy(payload or {}))
+        stage_payload["updated_at"] = datetime.now().isoformat()
+        stages[stage] = stage_payload
+        progress_state["current_stage"] = stage
+        progress_state["updated_at"] = stage_payload["updated_at"]
+        task_store.update_task(task_id, status="running", stage=stage, progress=copy.deepcopy(progress_state))
 
     try:
-        task_store.update_task(task_id, status="running", stage="starting", error=None)
+        task_store.update_task(
+            task_id,
+            status="running",
+            stage="starting",
+            progress=copy.deepcopy(progress_state),
+            error=None,
+        )
         service = MemoryPipelineService(
             task_id=task_id,
             task_dir=str(task_dir),
