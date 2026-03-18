@@ -14,6 +14,7 @@ from sqlalchemy import delete
 
 from backend.app import app, task_store
 from backend.db import SessionLocal
+from config import APP_VERSION, AVAILABLE_TASK_VERSIONS, DEFAULT_TASK_VERSION
 from backend.models import (
     ArtifactRecord,
     FaceRecognitionImagePolicyRecord,
@@ -60,7 +61,7 @@ class TaskApiTests(unittest.TestCase):
         self.assertEqual(create_response.status_code, 200)
         task_id = create_response.json()["task_id"]
         self.task_ids.append(task_id)
-        self.assertEqual(create_response.json()["version"], "v0315")
+        self.assertEqual(create_response.json()["version"], DEFAULT_TASK_VERSION)
 
         batch_response = self.client.post(
             f"/api/tasks/{task_id}/upload-batches",
@@ -72,12 +73,12 @@ class TaskApiTests(unittest.TestCase):
         self.assertEqual(batch_response.status_code, 200)
         self.assertEqual(batch_response.json()["status"], "uploading")
         self.assertEqual(batch_response.json()["upload_count"], 2)
-        self.assertEqual(batch_response.json()["version"], "v0315")
+        self.assertEqual(batch_response.json()["version"], DEFAULT_TASK_VERSION)
 
         task = task_store.get_task(task_id, user_id=self.user_id)
         self.assertIsNotNone(task)
         assert task is not None
-        self.assertEqual(task["version"], "v0315")
+        self.assertEqual(task["version"], DEFAULT_TASK_VERSION)
         self.assertEqual(len(task.get("uploads") or []), 2)
         self.assertTrue((task_store.task_dir(task_id) / "uploads").exists())
         self.assertTrue(all(upload.get("source_hash") for upload in task["uploads"]))
@@ -90,8 +91,14 @@ class TaskApiTests(unittest.TestCase):
 
         self.assertEqual(start_response.status_code, 200)
         self.assertEqual(start_response.json()["status"], "queued")
-        self.assertEqual(start_response.json()["version"], "v0315")
-        run_pipeline.assert_called_once_with(task_id, self.user_id, 2, False, "v0315")
+        self.assertEqual(start_response.json()["version"], DEFAULT_TASK_VERSION)
+        run_pipeline.assert_called_once_with(
+            task_id,
+            self.user_id,
+            2,
+            False,
+            DEFAULT_TASK_VERSION,
+        )
 
     def test_create_task_accepts_explicit_version_and_rejects_invalid_values(self) -> None:
         create_response = self.client.post("/api/tasks", json={"version": "v0312"})
@@ -113,9 +120,9 @@ class TaskApiTests(unittest.TestCase):
         response = self.client.get("/api/health")
         self.assertEqual(response.status_code, 200)
         payload = response.json()
-        self.assertEqual(payload["app_version"], "v0315")
-        self.assertEqual(payload["default_task_version"], "v0315")
-        self.assertEqual(payload["available_task_versions"], ["v0312", "v0315", "v0317"])
+        self.assertEqual(payload["app_version"], APP_VERSION)
+        self.assertEqual(payload["default_task_version"], DEFAULT_TASK_VERSION)
+        self.assertEqual(payload["available_task_versions"], list(AVAILABLE_TASK_VERSIONS))
 
     def test_legacy_task_without_version_is_serialized_as_default_version(self) -> None:
         task_id = uuid.uuid4().hex
@@ -154,7 +161,7 @@ class TaskApiTests(unittest.TestCase):
         task = task_store.get_task(task_id, user_id=self.user_id)
         self.assertIsNotNone(task)
         assert task is not None
-        self.assertEqual(task["version"], "v0315")
+        self.assertEqual(task["version"], DEFAULT_TASK_VERSION)
 
     def test_review_and_policy_are_merged_into_task_detail(self) -> None:
         create_response = self.client.post("/api/tasks")
@@ -404,7 +411,7 @@ class TaskApiTests(unittest.TestCase):
             },
             "failed_images": [],
             "warnings": [],
-            "events": [],
+            "facts": [],
             "memory": {
                 "envelope": {"scope": {"user_id": self.user_id}},
                 "storage": {
@@ -413,12 +420,13 @@ class TaskApiTests(unittest.TestCase):
                             "user": [{"user_id": self.user_id, "labels": ["User"], "properties": {"profile_version": 1}}],
                             "persons": [],
                             "places": [],
-                            "sessions": [
+                            "events": [
                                 {
                                     "session_uuid": "session_001",
-                                    "labels": ["Session"],
+                                    "labels": ["Event"],
                                     "properties": {
                                         "user_id": self.user_id,
+                                        "event_id": "event_001",
                                         "started_at": "2026-02-15T20:00:00",
                                         "ended_at": "2026-02-15T22:00:00",
                                         "participant_count": 2,
@@ -426,16 +434,15 @@ class TaskApiTests(unittest.TestCase):
                                     },
                                 }
                             ],
-                            "timelines": [],
-                            "events": [
+                            "facts": [
                                 {
                                     "event_uuid": "event_001",
-                                    "labels": ["Event"],
+                                    "labels": ["Fact"],
                                     "properties": {
                                         "user_id": self.user_id,
+                                        "fact_id": "EVT_001",
                                         "title": "Live Concert Night",
-                                        "normalized_event_type": "concert",
-                                        "event_subtype": "concert",
+                                        "coarse_event_type": "concert",
                                         "started_at": "2026-02-15T20:00:00",
                                         "ended_at": "2026-02-15T22:00:00",
                                         "confidence": 0.91,
@@ -485,7 +492,7 @@ class TaskApiTests(unittest.TestCase):
                                 "edge_id": "edge_event_session",
                                 "from_id": "event_001",
                                 "to_id": "session_001",
-                                "edge_type": "DERIVED_FROM_SESSION",
+                                "edge_type": "DERIVED_FROM_EVENT",
                                 "properties": {},
                             },
                         ],

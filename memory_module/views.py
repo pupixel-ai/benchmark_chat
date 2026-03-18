@@ -18,23 +18,23 @@ class FaceStageView:
 class VLMStageView:
     processed_photos: int
     cached_hits: int
+    runtime_seconds: float = 0.0
     representative_photo_count: int = 0
     total_input_photos: int = 0
     summaries: List[Dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass(slots=True)
-class SequenceStageView:
+class SegmentationStageView:
     burst_count: int
-    session_count: int
+    event_count: int
     movement_count: int
-    timeline_count: int
     summaries: List[Dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass(slots=True)
 class LLMStageView:
-    event_candidate_count: int
+    fact_count: int
     relationship_hypothesis_count: int
     profile_evidence_count: int
     observation_count: int = 0
@@ -42,6 +42,7 @@ class LLMStageView:
     profile_delta_count: int = 0
     uncertainty_count: int = 0
     slice_count: int = 0
+    runtime_seconds: float = 0.0
     summaries: List[Dict[str, Any]] = field(default_factory=list)
 
 
@@ -94,9 +95,10 @@ class MilvusStateView:
 class RedisStateView:
     profile_version: int
     published_field_count: int
+    materialized_profile_count: int
     relationship_count: int
     recent_event_count: int
-    recent_timeline_count: int
+    recent_fact_count: int
 
 
 @dataclass(slots=True)

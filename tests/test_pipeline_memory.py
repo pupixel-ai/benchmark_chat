@@ -248,20 +248,22 @@ class FakeVLMAnalyzer:
 
 
 class FakeLLMProcessor:
-    def extract_memory_contract(self, vlm_results, face_db, primary_person_id):
+    def extract_memory_contract(self, vlm_results, face_db, primary_person_id, progress_callback=None):
         self.last_chunk_artifacts = {
             "photo_fact_count": len(vlm_results),
-            "raw_session_count": 2,
+            "raw_event_count": 2,
             "slice_count": 2,
             "slices": [
                 {"slice_id": "slice_0001", "photo_count": 2, "rare_clue_count": 1},
                 {"slice_id": "slice_0002", "photo_count": 1, "rare_clue_count": 0},
             ],
         }
+        if progress_callback:
+            progress_callback({"processed_slices": 2, "slice_count": 2, "processed_events": 2, "event_count": 2, "percent": 100})
         return {
-            "events": [
+            "facts": [
                 {
-                    "event_id": "EVT_001",
+                    "fact_id": "EVT_001",
                     "title": "Breakfast Session",
                     "coarse_event_type": "用餐",
                     "event_facets": ["breakfast", "home"],
@@ -271,6 +273,7 @@ class FakeLLMProcessor:
                     "location": "Home",
                     "participant_person_ids": ["Person_001", "Person_002"],
                     "photo_ids": ["photo_001", "photo_002"],
+                    "event_id": "session_001",
                     "description": "Breakfast at home",
                     "narrative_synthesis": "Breakfast at home with a friend.",
                     "confidence": 0.8,
@@ -286,8 +289,8 @@ class FakeLLMProcessor:
                     "field_value": "home breakfast",
                     "confidence": 0.8,
                     "photo_ids": ["photo_001", "photo_002"],
-                    "event_id": "EVT_001",
-                    "session_id": "session_001",
+                    "fact_id": "EVT_001",
+                    "event_id": "session_001",
                     "person_ids": ["Person_001", "Person_002"],
                     "evidence_refs": [{"ref_type": "photo", "ref_id": "photo_001"}],
                 }
@@ -301,8 +304,8 @@ class FakeLLMProcessor:
                     "object": "Home",
                     "confidence": 0.8,
                     "photo_ids": ["photo_001", "photo_002"],
-                    "event_id": "EVT_001",
-                    "session_id": "session_001",
+                    "fact_id": "EVT_001",
+                    "event_id": "session_001",
                     "evidence_refs": [{"ref_type": "photo", "ref_id": "photo_001"}],
                 }
             ],
@@ -338,7 +341,7 @@ class FakeLLMProcessor:
             "uncertainty": [],
         }
 
-    def events_from_memory_contract(self, memory_contract):
+    def facts_from_memory_contract(self, memory_contract):
         return [
             Event(
                 event_id="EVT_001",
@@ -409,13 +412,14 @@ class PipelineMemoryTests(unittest.TestCase):
                 result = service.run(max_photos=3, use_cache=False)
 
             self.assertEqual(result["summary"]["vlm_processed_images"], 3)
-            self.assertEqual(result["summary"]["event_count"], 1)
+            self.assertEqual(result["summary"]["event_count"], 2)
             self.assertEqual(result["summary"]["relationship_count"], 1)
             self.assertEqual(result["summary"]["observation_count"], 1)
             self.assertEqual(result["summary"]["claim_count"], 1)
             self.assertEqual(result["summary"]["profile_delta_count"], 1)
             self.assertIn("memory", result)
-            self.assertEqual(result["memory"]["summary"]["session_count"], 2)
+            self.assertEqual(result["memory"]["summary"]["event_count"], 2)
+            self.assertEqual(result["memory"]["summary"]["fact_count"], 1)
             self.assertGreater(result["memory"]["summary"]["profile_field_count"], 0)
             self.assertTrue(result["profile_markdown"].startswith("# Profile"))
             self.assertEqual(result["dedupe_report"]["retained_images"], 3)
@@ -455,7 +459,7 @@ class PipelineMemoryTests(unittest.TestCase):
             self.assertEqual(result["summary"]["event_count"], 0)
             self.assertEqual(result["summary"]["relationship_count"], 0)
             self.assertIsNone(result["memory"])
-            self.assertEqual(result["events"], [])
+            self.assertEqual(result["facts"], [])
             self.assertEqual(result["relationships"], [])
             self.assertEqual(result["profile_markdown"], "")
             self.assertTrue(any(item["stage"] == "version_gate" for item in result["warnings"]))

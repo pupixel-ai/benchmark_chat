@@ -206,7 +206,7 @@ export type TaskRelationship = {
   relationship_type: string;
   label: string;
   confidence: number;
-  supporting_event_ids?: string[];
+  supporting_fact_ids?: string[];
   supporting_original_image_ids?: string[];
   evidence?: Record<string, unknown>;
   reason?: string;
@@ -218,9 +218,21 @@ export type MemoryProfileField = {
   confidence: number;
   evidence_refs: Array<Record<string, string>>;
   supporting_event_ids: string[];
+  supporting_fact_ids?: string[];
   generated_at: string;
   profile_version: number;
   evaluation_status: string;
+};
+
+export type MaterializedProfileEntry = {
+  value?: string | string[] | null;
+  summary?: string | null;
+  confidence: number;
+  supporting_event_ids?: string[];
+  supporting_fact_ids?: string[];
+  supporting_photo_ids?: string[];
+  evidence_refs: Array<Record<string, string>>;
+  updated_at?: string | null;
 };
 
 export type MemorySummary = {
@@ -229,10 +241,11 @@ export type MemorySummary = {
   photo_count: number;
   person_count: number;
   burst_count: number;
-  session_count: number;
+  event_count: number;
   movement_count: number;
-  timeline_count: number;
-  event_candidate_count: number;
+  fact_count: number;
+  observation_count?: number;
+  claim_count?: number;
   relationship_count: number;
   profile_field_count: number;
   segment_count: number;
@@ -295,19 +308,27 @@ export type MemoryTransparency = {
   vlm_stage?: {
     processed_photos: number;
     cached_hits: number;
+    runtime_seconds?: number;
+    representative_photo_count?: number;
+    total_input_photos?: number;
     summaries: MemoryStageSummary[];
   };
-  sequence_stage?: {
+  segmentation_stage?: {
     burst_count: number;
-    session_count: number;
+    event_count: number;
     movement_count: number;
-    timeline_count: number;
     summaries: MemoryStageSummary[];
   };
   llm_stage?: {
-    event_candidate_count: number;
+    fact_count: number;
     relationship_hypothesis_count: number;
     profile_evidence_count: number;
+    observation_count?: number;
+    claim_count?: number;
+    profile_delta_count?: number;
+    uncertainty_count?: number;
+    slice_count?: number;
+    runtime_seconds?: number;
     summaries: MemoryStageSummary[];
   };
   neo4j_state?: {
@@ -322,9 +343,10 @@ export type MemoryTransparency = {
   redis_state?: {
     profile_version: number;
     published_field_count: number;
+    materialized_profile_count?: number;
     relationship_count: number;
     recent_event_count: number;
-    recent_timeline_count: number;
+    recent_fact_count: number;
   };
   object_diff?: {
     change_count: number;
@@ -374,6 +396,8 @@ export type MemoryPayload = {
       profile_core?: {
         fields?: Record<string, MemoryProfileField>;
         profile_markdown?: string;
+        profiles?: Record<string, Record<string, MaterializedProfileEntry>>;
+        uncertainty?: Array<Record<string, unknown>>;
       };
       profile_relationships?: {
         items?: Array<Record<string, unknown>>;
@@ -381,7 +405,7 @@ export type MemoryPayload = {
       profile_recent_events?: {
         items?: Array<Record<string, unknown>>;
       };
-      profile_recent_timelines?: {
+      profile_recent_facts?: {
         items?: Array<Record<string, unknown>>;
       };
       profile_meta?: Record<string, unknown>;
@@ -410,8 +434,8 @@ export type MemoryQueryAnswer = {
   resolved_entities: Array<Record<string, unknown>>;
   resolved_concepts: string[];
   time_window: Record<string, unknown>;
-  supporting_sessions: Array<Record<string, unknown>>;
   supporting_events: Array<Record<string, unknown>>;
+  supporting_facts: Array<Record<string, unknown>>;
   supporting_relationships: Array<Record<string, unknown>>;
   representative_photo_ids: string[];
   evidence_segment_ids: string[];
@@ -454,15 +478,15 @@ export type TaskResult = {
     total_persons: number;
     primary_person_id?: string | null;
     event_count?: number;
+    fact_count?: number;
     relationship_count?: number;
-    session_count?: number;
     profile_version?: number;
   };
   face_recognition: FaceRecognitionPayload;
   face_report?: FaceReport | null;
   failed_images: FailureItem[];
   warnings: Array<{ stage: string; message: string }>;
-  events?: TaskEvent[];
+  facts?: TaskEvent[];
   relationships?: TaskRelationship[];
   profile_markdown?: string | null;
   memory_contract?: Record<string, unknown>;

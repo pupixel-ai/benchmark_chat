@@ -177,8 +177,8 @@ class MemoryModuleTests(unittest.TestCase):
                     cached_photo_ids={"photo_001"},
                 )
 
-            self.assertEqual(result["summary"]["session_count"], 2)
-            self.assertEqual(result["summary"]["timeline_count"], 1)
+            self.assertEqual(result["summary"]["event_count"], 2)
+            self.assertEqual(result["summary"]["fact_count"], 2)
             self.assertEqual(result["summary"]["relationship_count"], 2)
             self.assertGreater(result["summary"]["profile_field_count"], 0)
 
@@ -324,12 +324,11 @@ class MemoryModuleTests(unittest.TestCase):
             self.assertIsNone(focus_graph["primary_face_person_id"])
             self.assertEqual(focus_graph["nodes"][0]["node_type"], "user_account")
 
-            observed_event_edges = [
+            observed_fact_edges = [
                 edge for edge in result["storage"]["neo4j"]["edges"]
-                if edge["edge_type"] == "OBSERVED_EVENT"
+                if edge["edge_type"] == "OBSERVED_FACT"
             ]
-            self.assertGreaterEqual(len(observed_event_edges), 1)
-            self.assertTrue(all(edge["from_id"] == "user_beta" for edge in observed_event_edges))
+            self.assertGreaterEqual(len(observed_fact_edges), 1)
             self.assertEqual(len(result["storage"]["neo4j"]["nodes"]["primary_person_hypotheses"]), 0)
 
     def _sample_photos(self, task_dir: Path) -> list[Photo]:

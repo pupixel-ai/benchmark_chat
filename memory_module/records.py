@@ -50,21 +50,14 @@ class Neo4jPlaceNodeRecord:
 @dataclass(slots=True)
 class Neo4jSessionNodeRecord:
     session_uuid: str
-    labels: List[str] = field(default_factory=lambda: ["Session"])
-    properties: Dict[str, Any] = field(default_factory=dict)
-
-
-@dataclass(slots=True)
-class Neo4jTimelineNodeRecord:
-    timeline_uuid: str
-    labels: List[str] = field(default_factory=lambda: ["DayTimeline"])
+    labels: List[str] = field(default_factory=lambda: ["Event"])
     properties: Dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(slots=True)
 class Neo4jEventNodeRecord:
     event_uuid: str
-    labels: List[str] = field(default_factory=lambda: ["Event"])
+    labels: List[str] = field(default_factory=lambda: ["Fact"])
     properties: Dict[str, Any] = field(default_factory=dict)
 
 
@@ -154,7 +147,7 @@ class RedisProfileRecentEventsRecord:
 
 
 @dataclass(slots=True)
-class RedisProfileRecentTimelinesRecord:
+class RedisProfileRecentFactsRecord:
     key: str
     payload: Dict[str, Any]
 

@@ -51,7 +51,6 @@ from memory_module.records import (
     Neo4jRelationshipHypothesisNodeRecord,
     Neo4jSessionNodeRecord,
     Neo4jPeriodHypothesisNodeRecord,
-    Neo4jTimelineNodeRecord,
     Neo4jUserNodeRecord,
     PersonIdentityMapRecord,
     PhotoIdentityMapRecord,
@@ -59,7 +58,7 @@ from memory_module.records import (
     RedisProfileDebugRefsRecord,
     RedisProfileMetaRecord,
     RedisProfileRecentEventsRecord,
-    RedisProfileRecentTimelinesRecord,
+    RedisProfileRecentFactsRecord,
     RedisProfileRelationshipsRecord,
 )
 from memory_module.sequencing import SequenceBundle, build_sequences
@@ -75,7 +74,7 @@ from memory_module.views import (
     ObjectDiffView,
     PublishDecisionView,
     RedisStateView,
-    SequenceStageView,
+    SegmentationStageView,
     TraceView,
     VLMStageView,
 )
@@ -192,15 +191,28 @@ class MemoryModuleService:
             primary_face_person_id=primary_face_person_id,
             prior_storage=prior_storage,
         )
+        relationship_hypotheses = self._augment_primary_relationship_hypotheses(
+            relationship_hypotheses=relationship_hypotheses,
+            person_uuid_map=person_uuid_map,
+            sequences=sequences,
+            event_candidates=event_candidates,
+            primary_person_uuid=primary_person_uuid,
+            primary_face_person_id=primary_face_person_id,
+            prior_storage=prior_storage,
+        )
         mood_hypotheses = self._build_mood_hypotheses(sequences)
         period_hypotheses = self._build_period_hypotheses(
             sequences=sequences,
             concept_catalog=concept_catalog,
         )
         profile_evidence = self._build_profile_evidence(
+            photos=photos_dto,
             events=events,
             event_candidates=event_candidates,
+            sequences=sequences,
             relationship_hypotheses=relationship_hypotheses,
+            primary_face_person_id=primary_face_person_id,
+            primary_person_uuid=primary_person_uuid,
             memory_contract=memory_contract,
         )
 
@@ -227,13 +239,16 @@ class MemoryModuleService:
             bursts=sequences.bursts,
             sessions=sequences.sessions,
             movements=sequences.movements,
-            day_timelines=sequences.day_timelines,
             event_candidates=event_candidates,
             relationship_hypotheses=relationship_hypotheses,
             profile_evidence=profile_evidence,
             artifacts=artifacts,
             change_log=change_log,
         )
+        envelope_payload = self._serialize(envelope)
+        envelope_payload["events"] = envelope_payload.pop("sessions", [])
+        envelope_payload["facts"] = envelope_payload.pop("event_candidates", [])
+        envelope_payload.pop("day_timelines", None)
 
         profile_version = 1
         bundle = self._build_materialization_bundle(photos_dto, event_candidates, relationship_hypotheses, profile_evidence)
@@ -296,10 +311,9 @@ class MemoryModuleService:
                 "photo_count": len(photos_dto),
                 "person_count": len(person_uuid_map),
                 "burst_count": len(sequences.bursts),
-                "session_count": len(sequences.sessions),
+                "event_count": len(sequences.sessions),
                 "movement_count": len(sequences.movements),
-                "timeline_count": len(sequences.day_timelines),
-                "event_candidate_count": len(event_candidates),
+                "fact_count": len(event_candidates),
                 "observation_count": len(memory_contract.get("observations", [])),
                 "claim_count": len(memory_contract.get("claims", [])),
                 "relationship_count": len(relationship_hypotheses),
@@ -312,7 +326,7 @@ class MemoryModuleService:
                 "segment_count": len(storage["milvus"]["segments"]),
                 "generated_at": generated_at,
             },
-            "envelope": self._serialize(envelope),
+            "envelope": envelope_payload,
             "storage": storage,
             "transparency": transparency,
             "evaluation": evaluation,
@@ -336,7 +350,7 @@ class MemoryModuleService:
 
     def _normalize_memory_contract(self, memory_contract: Optional[Dict[str, Any]]) -> Dict[str, Any]:
         normalized = {
-            "events": [],
+            "facts": [],
             "observations": [],
             "claims": [],
             "relationship_hypotheses": [],
@@ -346,7 +360,10 @@ class MemoryModuleService:
         if not isinstance(memory_contract, dict):
             return normalized
         for key in normalized:
-            value = memory_contract.get(key, [])
+            if key == "facts":
+                value = memory_contract.get("facts", memory_contract.get("events", []))
+            else:
+                value = memory_contract.get(key, [])
             normalized[key] = value if isinstance(value, list) else []
         return normalized
 
@@ -529,7 +546,7 @@ class MemoryModuleService:
         photo_by_id = {photo.photo_id: photo for photo in photos}
         session_by_id = {session.session_id: session for session in sessions}
         for event in event_candidates:
-            normalized_event_type, event_subtype, refined_title, refined_tags = self._infer_event_normalization(
+            normalized_event_type, refined_title, refined_tags = self._infer_event_normalization(
                 event,
                 photo_by_id=photo_by_id,
                 session_by_id=session_by_id,
@@ -609,7 +626,7 @@ class MemoryModuleService:
         *,
         photo_by_id: Dict[str, PhotoFactDTO],
         session_by_id: Dict[str, SessionDTO],
-    ) -> tuple[str, str, str, List[str]]:
+    ) -> tuple[str, str, List[str]]:
         signal_texts = self._event_signal_texts(event, photo_by_id=photo_by_id, session_by_id=session_by_id)
         signal_blob = " ".join(signal_texts)
         normalized_blob = signal_blob.lower()
@@ -628,25 +645,19 @@ class MemoryModuleService:
         artist_hint = self._extract_artist_hint(signal_texts)
 
         normalized_event_type = normalize_concept(event.event_type, preferred_type="event") or ""
-        event_subtype = event.event_type or ""
         refined_tags: List[str] = []
 
         if "音乐节" in signal_blob or (has_stage and has_poster and (artist_hint or has_artist_signal)):
             normalized_event_type = "music_festival_performance"
-            event_subtype = "festival_poster"
         elif "music_festival_performance" in matched_concepts:
             normalized_event_type = "music_festival_performance"
-            event_subtype = "music_festival_performance"
         elif "concert" in matched_concepts:
             normalized_event_type = "concert"
-            event_subtype = "concert"
         elif "music_live_event" in matched_concepts:
             normalized_event_type = "music_live_event"
-            event_subtype = "music_live_event"
 
         if not normalized_event_type and (has_music_keywords or has_stage):
             normalized_event_type = "music_festival_performance" if (has_poster and (artist_hint or has_artist_signal)) else "concert"
-            event_subtype = "festival_poster" if normalized_event_type == "music_festival_performance" else "concert_scene"
 
         if normalized_event_type == "music_festival_performance":
             refined_tags.extend(["music_festival_performance", "concert"])
@@ -668,9 +679,7 @@ class MemoryModuleService:
 
         if not normalized_event_type:
             normalized_event_type = event.event_type or "其他"
-        if not event_subtype:
-            event_subtype = normalized_event_type
-        return normalized_event_type, event_subtype, refined_title, refined_tags
+        return normalized_event_type, refined_title, refined_tags
 
     def _event_signal_texts(
         self,
@@ -887,20 +896,171 @@ class MemoryModuleService:
             )
         return hypotheses
 
+    def _augment_primary_relationship_hypotheses(
+        self,
+        relationship_hypotheses: Sequence[RelationshipHypothesisDTO],
+        *,
+        person_uuid_map: Dict[str, str],
+        sequences: SequenceBundle,
+        event_candidates: Sequence[EventCandidateDTO],
+        primary_person_uuid: Optional[str],
+        primary_face_person_id: Optional[str],
+        prior_storage: Optional[Dict[str, Any]],
+    ) -> List[RelationshipHypothesisDTO]:
+        if not primary_person_uuid:
+            return list(relationship_hypotheses)
+
+        existing_targets = {item.target_person_uuid for item in relationship_hypotheses}
+        prior_revisions = self._prior_relationship_revisions(prior_storage)
+        synthesized: List[RelationshipHypothesisDTO] = []
+
+        for face_person_id, target_person_uuid in sorted(person_uuid_map.items()):
+            if target_person_uuid == primary_person_uuid or target_person_uuid in existing_targets:
+                continue
+
+            supporting_events = [
+                event
+                for event in sequences.sessions
+                if primary_person_uuid in event.dominant_person_uuids and target_person_uuid in event.dominant_person_uuids
+            ]
+            if not supporting_events:
+                continue
+
+            supporting_facts = [
+                fact
+                for fact in event_candidates
+                if primary_person_uuid in fact.participant_person_uuids and target_person_uuid in fact.participant_person_uuids
+            ]
+            supporting_photo_ids = self._unique(
+                photo_id
+                for event in supporting_events
+                for photo_id in event.photo_ids
+            )
+            distinct_days = len({event.day_key for event in supporting_events})
+
+            if len(supporting_events) >= 2 or len(supporting_photo_ids) >= 3:
+                relationship_type = "friend"
+                label = "朋友"
+                base_confidence = min(0.92, 0.48 + 0.12 * len(supporting_events) + 0.04 * distinct_days)
+            else:
+                relationship_type = "co_presence_only"
+                label = "共同出现"
+                base_confidence = min(0.72, 0.35 + 0.10 * len(supporting_events))
+
+            synthetic_relationship = Relationship(
+                person_id=face_person_id,
+                relationship_type=relationship_type,
+                label=label,
+                confidence=base_confidence,
+                evidence={
+                    "photo_count": len(supporting_photo_ids),
+                    "supporting_event_ids": [event.session_id for event in supporting_events],
+                    "supporting_photo_ids": supporting_photo_ids,
+                    "source": "co_presence_fallback",
+                },
+                reason=f"主用户与 {face_person_id} 在 {len(supporting_events)} 个事件窗口中共同出现",
+            )
+            feature_snapshot = self._relationship_feature_snapshot(
+                target_person_uuid=target_person_uuid,
+                sequences=sequences,
+                event_candidates=supporting_facts or event_candidates,
+                evidence=synthetic_relationship.evidence,
+            )
+            score_snapshot = self._relationship_score_snapshot(
+                relationship=synthetic_relationship,
+                feature_snapshot=feature_snapshot,
+            )
+            relationship_key = self._stable_uuid(
+                "relationship-key",
+                primary_person_uuid or self.user_id,
+                target_person_uuid,
+            )
+            prior_revision = prior_revisions.get(relationship_key)
+            revision = int(prior_revision.get("revision") or 0) + 1 if prior_revision else 1
+            synthesized.append(
+                RelationshipHypothesisDTO(
+                    relationship_uuid=self._stable_uuid("relationship-revision", relationship_key, str(revision), relationship_type),
+                    relationship_key=relationship_key,
+                    upstream_ref={"object_type": "relationship_hypothesis", "object_id": face_person_id},
+                    anchor_person_uuid=primary_person_uuid,
+                    target_person_uuid=target_person_uuid,
+                    target_face_person_id=face_person_id,
+                    relationship_type=relationship_type,
+                    label=label,
+                    confidence=base_confidence,
+                    revision=revision,
+                    status=self._relationship_status(
+                        relationship_type=relationship_type,
+                        score_snapshot=score_snapshot,
+                        prior_revision=prior_revision,
+                        feature_snapshot=feature_snapshot,
+                    ),
+                    window_start=feature_snapshot.get("window_start") or "",
+                    window_end=feature_snapshot.get("window_end") or "",
+                    model_version=self.pipeline_version or "vnext",
+                    reason_summary=synthetic_relationship.reason,
+                    feature_snapshot=feature_snapshot,
+                    score_snapshot=score_snapshot,
+                    inherited_metrics=self._relationship_inherited_metrics(prior_revision, feature_snapshot),
+                    evidence=synthetic_relationship.evidence,
+                    evidence_refs=[{"ref_type": "event", "ref_id": event.session_id} for event in supporting_events[:8]],
+                    prior_revision_uuid=prior_revision.get("relationship_uuid") if prior_revision else None,
+                )
+            )
+
+        combined = list(relationship_hypotheses) + synthesized
+        combined.sort(
+            key=lambda item: (
+                0 if item.anchor_person_uuid == primary_person_uuid else 1,
+                -float(item.confidence or 0.0),
+                item.target_face_person_id,
+            )
+        )
+        return combined
+
     def _build_profile_evidence(
         self,
+        photos: Sequence[PhotoFactDTO],
         events: Sequence[Event],
         event_candidates: Sequence[EventCandidateDTO],
+        sequences: SequenceBundle,
         relationship_hypotheses: Sequence[RelationshipHypothesisDTO],
+        primary_face_person_id: Optional[str],
+        primary_person_uuid: Optional[str],
         memory_contract: Optional[Dict[str, Any]] = None,
     ) -> List[ProfileEvidenceDTO]:
         event_by_id = {candidate.event_id: candidate for candidate in event_candidates}
+        event_window_by_id = {session.session_id: session for session in sequences.sessions}
+        event_window_by_uuid = {session.session_uuid: session for session in sequences.sessions}
+        photo_by_id = {photo.photo_id: photo for photo in photos}
+        primary_photo_ids = {
+            photo.photo_id
+            for photo in photos
+            if (
+                primary_face_person_id
+                and photo.primary_face_person_id == primary_face_person_id
+            )
+            or (
+                primary_person_uuid
+                and any(face.person_uuid == primary_person_uuid for face in photo.faces)
+            )
+        }
+        primary_event_ids = {
+            session.session_id
+            for session in sequences.sessions
+            if primary_photo_ids.intersection(session.photo_ids)
+        }
+        primary_event_uuids = {
+            session.session_uuid
+            for session in sequences.sessions
+            if session.session_id in primary_event_ids
+        }
         evidence_items: List[ProfileEvidenceDTO] = []
 
         for event in events:
             candidate = event_by_id.get(event.event_id)
-            supporting_event_ids = [event.event_id] if candidate else []
-            supporting_event_uuids = [candidate.event_uuid] if candidate else []
+            supporting_event_ids = list(candidate.session_ids[:3]) if candidate else []
+            supporting_event_uuids = list(candidate.session_uuids[:3]) if candidate else []
             for tag in event.tags or []:
                 evidence_items.append(
                     self._profile_evidence_item(
@@ -951,24 +1111,118 @@ class MemoryModuleService:
                 self._profile_evidence_item(
                     field_key="social_graph",
                     field_value=f"{relationship.target_face_person_id}:{relationship.label}",
-                    category="relationship",
-                    confidence=relationship.confidence,
-                    supporting_person_uuids=[relationship.target_person_uuid],
-                    evidence_refs=relationship.evidence_refs,
+                        category="relationship",
+                        confidence=relationship.confidence,
+                        supporting_event_ids=[
+                            str(item)
+                            for item in relationship.feature_snapshot.get("supporting_event_ids", []) or []
+                        ],
+                        supporting_event_uuids=[
+                            str(item)
+                            for item in relationship.feature_snapshot.get("supporting_session_uuids", []) or []
+                        ],
+                        supporting_person_uuids=[relationship.target_person_uuid],
+                        evidence_refs=relationship.evidence_refs,
+                    )
+                )
+
+        memory_contract = self._normalize_memory_contract(memory_contract)
+        for observation in memory_contract.get("observations", []):
+            photo_ids = {str(item) for item in observation.get("photo_ids", []) or [] if item}
+            event_id = str(observation.get("event_id") or observation.get("session_id") or "")
+            if primary_photo_ids and photo_ids and not photo_ids.intersection(primary_photo_ids):
+                if not event_id or event_id not in primary_event_ids:
+                    continue
+            field_key = str(observation.get("field_key") or observation.get("category") or "observation")
+            field_value = str(observation.get("field_value") or "")
+            if not field_value:
+                continue
+            supporting_event_ids = [event_id] if event_id else []
+            supporting_event_uuids = [event_window_by_id[event_id].session_uuid] if event_id in event_window_by_id else []
+            evidence_items.append(
+                self._profile_evidence_item(
+                    field_key=field_key,
+                    field_value=field_value,
+                    category=str(observation.get("category") or "observation"),
+                    confidence=float(observation.get("confidence") or 0.0),
+                    supporting_event_ids=supporting_event_ids,
+                    supporting_event_uuids=supporting_event_uuids,
+                    supporting_person_uuids=[primary_person_uuid] if primary_person_uuid else [],
+                    evidence_refs=observation.get("evidence_refs", []) or [],
                 )
             )
 
-        memory_contract = self._normalize_memory_contract(memory_contract)
+        for claim in memory_contract.get("claims", []):
+            photo_ids = {str(item) for item in claim.get("photo_ids", []) or [] if item}
+            event_id = str(claim.get("event_id") or claim.get("session_id") or "")
+            if primary_photo_ids and photo_ids and not photo_ids.intersection(primary_photo_ids):
+                if not event_id or event_id not in primary_event_ids:
+                    continue
+            claim_bits = [
+                str(claim.get("subject") or "").strip(),
+                str(claim.get("predicate") or "").strip(),
+                str(claim.get("object") or "").strip(),
+            ]
+            field_value = " ".join(bit for bit in claim_bits if bit)
+            if not field_value:
+                continue
+            supporting_event_ids = [event_id] if event_id else []
+            supporting_event_uuids = [event_window_by_id[event_id].session_uuid] if event_id in event_window_by_id else []
+            evidence_items.append(
+                self._profile_evidence_item(
+                    field_key=str(claim.get("claim_type") or "claim"),
+                    field_value=field_value,
+                    category="claim",
+                    confidence=float(claim.get("confidence") or 0.0),
+                    supporting_event_ids=supporting_event_ids,
+                    supporting_event_uuids=supporting_event_uuids,
+                    supporting_person_uuids=[primary_person_uuid] if primary_person_uuid else [],
+                    evidence_refs=claim.get("evidence_refs", []) or [],
+                )
+            )
+
+        for photo_id in sorted(primary_photo_ids):
+            photo = photo_by_id.get(photo_id)
+            if not photo or not photo.vlm_observation:
+                continue
+            session = next((item for item in sequences.sessions if photo_id in item.photo_ids), None)
+            supporting_event_ids = [session.session_id] if session else []
+            supporting_event_uuids = [session.session_uuid] if session else []
+            if photo.vlm_observation.summary:
+                evidence_items.append(
+                    self._profile_evidence_item(
+                        field_key="primary_user_scene_summary",
+                        field_value=photo.vlm_observation.summary,
+                        category="scene_summary",
+                        confidence=0.55,
+                        supporting_event_ids=supporting_event_ids,
+                        supporting_event_uuids=supporting_event_uuids,
+                        supporting_person_uuids=[primary_person_uuid] if primary_person_uuid else [],
+                        evidence_refs=[{"ref_type": "photo", "ref_id": photo.photo_id}],
+                    )
+                )
+            for key_object in photo.vlm_observation.key_objects[:8]:
+                evidence_items.append(
+                    self._profile_evidence_item(
+                        field_key="primary_user_object_signal",
+                        field_value=str(key_object),
+                        category="object_signal",
+                        confidence=0.42,
+                        supporting_event_ids=supporting_event_ids,
+                        supporting_event_uuids=supporting_event_uuids,
+                        supporting_person_uuids=[primary_person_uuid] if primary_person_uuid else [],
+                        evidence_refs=[{"ref_type": "photo", "ref_id": photo.photo_id}],
+                    )
+                )
+
         for delta in memory_contract.get("profile_deltas", []):
-            supporting_event_ids = [
+            supporting_fact_ids = [
                 str(event_id)
-                for event_id in delta.get("supporting_event_ids", []) or []
+                for event_id in delta.get("supporting_fact_ids", delta.get("supporting_event_ids", [])) or []
             ]
-            supporting_event_uuids = [
-                event_by_id[event_id].event_uuid
-                for event_id in supporting_event_ids
-                if event_id in event_by_id
-            ]
+            related_fact = next((item for item in event_candidates if item.event_id in supporting_fact_ids), None)
+            supporting_event_ids = list(related_fact.session_ids[:3]) if related_fact else []
+            supporting_event_uuids = list(related_fact.session_uuids[:3]) if related_fact else []
             field_key = str(delta.get("field_key") or delta.get("profile_key") or "profile_delta")
             field_value = str(delta.get("summary") or delta.get("field_value") or "")
             category = str(delta.get("profile_key") or "profile_delta")
@@ -980,11 +1234,18 @@ class MemoryModuleService:
                     confidence=float(delta.get("confidence") or 0.0),
                     supporting_event_ids=supporting_event_ids,
                     supporting_event_uuids=supporting_event_uuids,
+                    supporting_person_uuids=[primary_person_uuid] if primary_person_uuid else [],
                     evidence_refs=delta.get("evidence_refs", []) or [],
                 )
             )
 
-        return evidence_items
+        deduped: Dict[tuple[str, str], ProfileEvidenceDTO] = {}
+        for item in evidence_items:
+            key = (item.field_key, item.field_value)
+            existing = deduped.get(key)
+            if existing is None or item.confidence > existing.confidence:
+                deduped[key] = item
+        return list(deduped.values())
 
     def _profile_evidence_item(
         self,
@@ -1041,13 +1302,11 @@ class MemoryModuleService:
         for burst in sequences.bursts:
             append_change("burst", burst.burst_id, f"grouped {len(burst.photo_ids)} photos into burst")
         for session in sequences.sessions:
-            append_change("session", session.session_id, f"materialized session with {len(session.photo_ids)} photos")
+            append_change("event", session.session_id, f"materialized event with {len(session.photo_ids)} photos")
         for movement in sequences.movements:
-            append_change("movement", movement.movement_id, f"linked {movement.from_session_id} -> {movement.to_session_id}")
-        for timeline in sequences.day_timelines:
-            append_change("day_timeline", timeline.timeline_id, f"built timeline for {timeline.day_key}")
+            append_change("movement", movement.movement_id, f"linked event {movement.from_session_id} -> {movement.to_session_id}")
         for event in event_candidates:
-            append_change("event_candidate", event.event_id, f"generated event {event.title}", {"confidence": event.confidence})
+            append_change("fact", event.event_id, f"generated fact {event.title}", {"confidence": event.confidence})
         for relationship in relationship_hypotheses:
             append_change(
                 "relationship_hypothesis",
@@ -1727,9 +1986,8 @@ class MemoryModuleService:
             ],
             "persons": [],
             "places": [],
-            "sessions": [],
-            "timelines": [],
             "events": [],
+            "facts": [],
             "relationship_hypotheses": [],
             "mood_states": [],
             "primary_person_hypotheses": [],
@@ -1780,8 +2038,10 @@ class MemoryModuleService:
                         "first_seen_at": first_seen,
                         "last_seen_at": last_seen,
                         "is_primary_candidate": record.person_uuid == primary_person_uuid,
-                        "supporting_event_ids": related_event_ids,
-                        "supporting_event_uuids": related_event_uuids,
+                        "supporting_fact_ids": related_event_ids,
+                        "supporting_fact_uuids": related_event_uuids,
+                        "supporting_event_ids": [session.session_id for session in related_sessions],
+                        "supporting_event_uuids": [session.session_uuid for session in related_sessions],
                         "original_image_ids": supporting_photo_ids,
                         "photo_uuids": supporting_photo_uuids,
                         **self._embedding_props(search_text),
@@ -1826,12 +2086,12 @@ class MemoryModuleService:
                 if part
             )
             artifact_ref_ids = self._session_artifact_ref_ids(session, photos)
-            neo4j_nodes["sessions"].append(
+            neo4j_nodes["events"].append(
                 Neo4jSessionNodeRecord(
                     session_uuid=session.session_uuid,
                     properties={
                         "user_id": self.user_id,
-                        "session_id": session.session_id,
+                        "event_id": session.session_id,
                         "day_key": session.day_key,
                         "started_at": session.started_at,
                         "ended_at": session.ended_at,
@@ -1841,23 +2101,11 @@ class MemoryModuleService:
                         "dominant_person_uuids": session.dominant_person_uuids,
                         "photo_count": len(session.photo_ids),
                         "representative_photo_ids": session.photo_ids[:3],
+                        "original_image_ids": list(session.photo_ids),
+                        "original_image_uuids": list(session.photo_uuids),
                         "artifact_ref_ids": artifact_ref_ids,
                         "summary_hint": session.summary_hint,
                         **self._embedding_props(search_text),
-                    },
-                )
-            )
-
-        for timeline in sequences.day_timelines:
-            neo4j_nodes["timelines"].append(
-                Neo4jTimelineNodeRecord(
-                    timeline_uuid=timeline.timeline_uuid,
-                    properties={
-                        "user_id": self.user_id,
-                        "timeline_id": timeline.timeline_id,
-                        "day_key": timeline.day_key,
-                        "started_at": timeline.started_at,
-                        "ended_at": timeline.ended_at,
                     },
                 )
             )
@@ -1878,12 +2126,12 @@ class MemoryModuleService:
                 ]
                 if part
             )
-            neo4j_nodes["events"].append(
+            neo4j_nodes["facts"].append(
                 Neo4jEventNodeRecord(
                     event_uuid=event.event_uuid,
                     properties={
                         "user_id": self.user_id,
-                        "event_id": event.event_id,
+                        "fact_id": event.event_id,
                         "title": event.title,
                         "normalized_event_type": normalize_concept(event.event_type, preferred_type="event") or event.event_type,
                         "coarse_event_type": normalize_concept(event.event_type, preferred_type="event") or event.event_type,
@@ -2047,24 +2295,13 @@ class MemoryModuleService:
                 )
             )
 
-        for timeline in sequences.day_timelines:
-            for session_uuid in timeline.session_uuids:
-                neo4j_edges.append(
-                    Neo4jRelationshipEdgeRecord(
-                        edge_id=self._stable_uuid("edge", "timeline-session", timeline.timeline_uuid, session_uuid),
-                        from_id=timeline.timeline_uuid,
-                        to_id=session_uuid,
-                        edge_type="HAS_SESSION",
-                    )
-                )
-
         for session in sequences.sessions:
             place_name = str((session.location_hint or {}).get("name") or "unknown")
             place_uuid = place_uuid_by_name.get(place_name)
             if place_uuid:
                 neo4j_edges.append(
                     Neo4jRelationshipEdgeRecord(
-                        edge_id=self._stable_uuid("edge", "session-place", session.session_uuid, place_uuid),
+                        edge_id=self._stable_uuid("edge", "event-place", session.session_uuid, place_uuid),
                         from_id=session.session_uuid,
                         to_id=place_uuid,
                         edge_type="IN_PLACE",
@@ -2073,10 +2310,10 @@ class MemoryModuleService:
             for person_uuid in session_participants.get(session.session_uuid, []):
                 neo4j_edges.append(
                     Neo4jRelationshipEdgeRecord(
-                        edge_id=self._stable_uuid("edge", "person-session", person_uuid, session.session_uuid),
+                        edge_id=self._stable_uuid("edge", "person-event", person_uuid, session.session_uuid),
                         from_id=person_uuid,
                         to_id=session.session_uuid,
-                        edge_type="CO_PRESENT_IN",
+                        edge_type="CO_PRESENT_IN_EVENT",
                     )
                 )
             for concept_name in self._session_concepts(session):
@@ -2085,7 +2322,7 @@ class MemoryModuleService:
                     continue
                 neo4j_edges.append(
                     Neo4jRelationshipEdgeRecord(
-                        edge_id=self._stable_uuid("edge", "session-concept", session.session_uuid, concept.concept_uuid),
+                        edge_id=self._stable_uuid("edge", "event-concept", session.session_uuid, concept.concept_uuid),
                         from_id=session.session_uuid,
                         to_id=concept.concept_uuid,
                         edge_type="HAS_CONCEPT",
@@ -2096,10 +2333,10 @@ class MemoryModuleService:
             if not primary_person_uuid:
                 neo4j_edges.append(
                     Neo4jRelationshipEdgeRecord(
-                        edge_id=self._stable_uuid("edge", "user-event-observed", self.user_id, event.event_uuid),
+                        edge_id=self._stable_uuid("edge", "user-fact-observed", self.user_id, event.event_uuid),
                         from_id=self.user_id,
                         to_id=event.event_uuid,
-                        edge_type="OBSERVED_EVENT",
+                        edge_type="OBSERVED_FACT",
                         properties={"confidence": event.confidence},
                     )
                 )
@@ -2107,7 +2344,7 @@ class MemoryModuleService:
             if place_uuid:
                 neo4j_edges.append(
                     Neo4jRelationshipEdgeRecord(
-                        edge_id=self._stable_uuid("edge", "event-place", event.event_uuid, place_uuid),
+                        edge_id=self._stable_uuid("edge", "fact-place", event.event_uuid, place_uuid),
                         from_id=event.event_uuid,
                         to_id=place_uuid,
                         edge_type="IN_PLACE",
@@ -2116,10 +2353,10 @@ class MemoryModuleService:
             for session_uuid in event.session_uuids:
                 neo4j_edges.append(
                     Neo4jRelationshipEdgeRecord(
-                        edge_id=self._stable_uuid("edge", "event-session", event.event_uuid, session_uuid),
+                        edge_id=self._stable_uuid("edge", "fact-event", event.event_uuid, session_uuid),
                         from_id=event.event_uuid,
                         to_id=session_uuid,
-                        edge_type="DERIVED_FROM_SESSION",
+                        edge_type="DERIVED_FROM_EVENT",
                     )
                 )
             for concept_name in self._event_concepts(event):
@@ -2128,7 +2365,7 @@ class MemoryModuleService:
                     continue
                 neo4j_edges.append(
                     Neo4jRelationshipEdgeRecord(
-                        edge_id=self._stable_uuid("edge", "event-concept", event.event_uuid, concept.concept_uuid),
+                        edge_id=self._stable_uuid("edge", "fact-concept", event.event_uuid, concept.concept_uuid),
                         from_id=event.event_uuid,
                         to_id=concept.concept_uuid,
                         edge_type="HAS_CONCEPT",
@@ -2258,8 +2495,8 @@ class MemoryModuleService:
         redis = self._build_redis_records(
             profile_evidence=profile_evidence,
             relationships=relationship_hypotheses,
-            events=event_candidates,
-            day_timelines=sequences.day_timelines,
+            event_windows=sequences.sessions,
+            facts=event_candidates,
             profile_markdown=profile_markdown,
             generated_at=scope.generated_at,
             profile_version=profile_version,
@@ -2412,39 +2649,47 @@ class MemoryModuleService:
                 metadata={"relationship_type": relationship.relationship_type, "status": relationship.status},
             )
 
+        relevant_fact_uuids = set()
         relevant_event_uuids = set()
-        relevant_session_uuids = set()
-        relevant_photo_uuids = set()
-        relevant_timeline_uuids = set()
+        event_by_uuid = {event.session_uuid: event for event in sequences.sessions}
 
-        for event in sorted(
-            event_candidates,
-            key=lambda item: (item.started_at, item.title),
-        ):
-            involves_primary = bool(
-                primary_person_uuid and primary_person_uuid in event.participant_person_uuids
-            )
+        for fact in sorted(event_candidates, key=lambda item: (item.started_at, item.title)):
+            involves_primary = bool(primary_person_uuid and primary_person_uuid in fact.participant_person_uuids)
             if primary_person_uuid and not involves_primary:
                 continue
 
-            relevant_event_uuids.add(event.event_uuid)
+            relevant_fact_uuids.add(fact.event_uuid)
             add_node(
-                event.event_uuid,
-                event.title or event.event_id,
-                "event",
-                1,
-                metadata={"event_type": event.event_type, "location": event.location},
+                fact.event_uuid,
+                fact.title or fact.event_id,
+                "fact",
+                2,
+                metadata={
+                    "fact_id": fact.event_id,
+                    "coarse_event_type": fact.event_type,
+                    "location": fact.location,
+                    "original_image_ids": list(fact.photo_ids),
+                },
             )
             add_edge(
                 center_node_id,
-                event.event_uuid,
-                "PARTICIPATED_IN" if primary_person_uuid else "OBSERVED_EVENT",
-                label=event.event_type,
-                confidence=event.confidence,
-                metadata={"location": event.location},
+                fact.event_uuid,
+                "OBSERVED_FACT",
+                label=fact.event_type,
+                confidence=fact.confidence,
+                metadata={"location": fact.location, "original_image_ids": list(fact.photo_ids)},
             )
 
-            for person_uuid in event.participant_person_uuids:
+            for event_uuid in fact.session_uuids:
+                relevant_event_uuids.add(event_uuid)
+                add_edge(
+                    fact.event_uuid,
+                    event_uuid,
+                    "DERIVED_FROM_EVENT",
+                    label="来源事件",
+                )
+
+            for person_uuid in fact.participant_person_uuids:
                 if person_uuid == primary_person_uuid:
                     continue
                 add_node(
@@ -2455,97 +2700,39 @@ class MemoryModuleService:
                     metadata={"face_person_id": face_person_by_uuid.get(person_uuid)},
                 )
                 add_edge(
-                    event.event_uuid,
+                    fact.event_uuid,
                     person_uuid,
                     "INVOLVES_PERSON",
-                    label="参与人物",
+                    label="人物",
                 )
 
-            for session_uuid in event.session_uuids:
-                relevant_session_uuids.add(session_uuid)
+        for relationship in relationship_hypotheses:
+            for event_uuid in relationship.feature_snapshot.get("supporting_session_uuids", []):
+                relevant_event_uuids.add(str(event_uuid))
 
-            for photo_uuid in event.photo_uuids:
-                relevant_photo_uuids.add(photo_uuid)
-
-        for photo in photos:
-            contains_primary = bool(
-                primary_person_uuid and any(face.person_uuid == primary_person_uuid for face in photo.faces)
-            )
-            if contains_primary:
-                relevant_photo_uuids.add(photo.photo_uuid)
-
-        session_by_uuid = {session.session_uuid: session for session in sequences.sessions}
-        for photo in photos:
-            if photo.photo_uuid not in relevant_photo_uuids:
+        for event_uuid in sorted(relevant_event_uuids):
+            event = event_by_uuid.get(event_uuid)
+            if not event:
                 continue
             add_node(
-                photo.photo_uuid,
-                photo.filename,
-                "photo",
-                2,
-                metadata={"photo_id": photo.photo_id, "captured_at": photo.captured_at_utc},
+                event.session_uuid,
+                event.summary_hint or event.session_id,
+                "event",
+                1,
+                metadata={
+                    "event_id": event.session_id,
+                    "day_key": event.day_key,
+                    "location_hint": event.location_hint,
+                    "original_image_ids": list(event.photo_ids),
+                },
             )
-            if primary_person_uuid and any(face.person_uuid == primary_person_uuid for face in photo.faces):
-                add_edge(
-                    center_node_id,
-                    photo.photo_uuid,
-                    "APPEARS_IN",
-                    label="出现于照片",
-                )
-            for session in sequences.sessions:
-                if photo.photo_id not in session.photo_ids:
-                    continue
-                relevant_session_uuids.add(session.session_uuid)
-                add_edge(
-                    photo.photo_uuid,
-                    session.session_uuid,
-                    "IN_SESSION",
-                    label=session.day_key,
-                )
-                break
-
-        for session_uuid in sorted(relevant_session_uuids):
-            session = session_by_uuid.get(session_uuid)
-            if not session:
-                continue
-            add_node(
-                session.session_uuid,
-                session.summary_hint or session.session_id,
-                "session",
-                2,
-                metadata={"day_key": session.day_key, "location_hint": session.location_hint},
+            add_edge(
+                center_node_id,
+                event.session_uuid,
+                "PARTICIPATED_IN_EVENT" if primary_person_uuid and primary_person_uuid in event.dominant_person_uuids else "OBSERVED_EVENT",
+                label=event.day_key,
+                metadata={"original_image_ids": list(event.photo_ids)},
             )
-            if primary_person_uuid and primary_person_uuid in session.dominant_person_uuids:
-                add_edge(
-                    center_node_id,
-                    session.session_uuid,
-                    "ACTIVE_IN_SESSION",
-                    label=session.day_key,
-                )
-            for timeline in sequences.day_timelines:
-                if session.session_uuid not in timeline.session_uuids:
-                    continue
-                relevant_timeline_uuids.add(timeline.timeline_uuid)
-
-        for timeline in sequences.day_timelines:
-            if timeline.timeline_uuid not in relevant_timeline_uuids:
-                continue
-            add_node(
-                timeline.timeline_uuid,
-                timeline.day_key,
-                "timeline",
-                3,
-                metadata={"day_key": timeline.day_key},
-            )
-            for session_uuid in timeline.session_uuids:
-                if session_uuid not in relevant_session_uuids:
-                    continue
-                add_edge(
-                    timeline.timeline_uuid,
-                    session_uuid,
-                    "PART_OF_DAY_TIMELINE",
-                    label="时间线",
-                )
 
         mermaid = self._build_focus_graph_mermaid(nodes, edges)
         return FocusGraphView(
@@ -2825,9 +3012,11 @@ class MemoryModuleService:
         for observation in memory_contract.get("observations", []):
             photo_ids = [str(item) for item in observation.get("photo_ids", []) or []]
             anchor_photo_id = photo_ids[0] if photo_ids else None
-            session_uuid = session_uuid_by_id.get(str(observation.get("session_id") or "")) or self._photo_session_uuid(anchor_photo_id, sequences.sessions) if anchor_photo_id else None
+            event_id = str(observation.get("event_id") or observation.get("session_id") or "")
+            fact_id = str(observation.get("fact_id") or "")
+            session_uuid = session_uuid_by_id.get(event_id) or self._photo_session_uuid(anchor_photo_id, sequences.sessions) if anchor_photo_id else None
             anchor_session = session_by_uuid.get(session_uuid) if session_uuid else None
-            event_uuid = event_uuid_by_id.get(str(observation.get("event_id") or ""))
+            event_uuid = event_uuid_by_id.get(fact_id)
             anchor_event = event_by_uuid.get(event_uuid) if event_uuid else None
             text = f"{observation.get('field_key')}: {observation.get('field_value')}"
             segments.append(
@@ -2848,9 +3037,11 @@ class MemoryModuleService:
         for claim in memory_contract.get("claims", []):
             photo_ids = [str(item) for item in claim.get("photo_ids", []) or []]
             anchor_photo_id = photo_ids[0] if photo_ids else None
-            session_uuid = session_uuid_by_id.get(str(claim.get("session_id") or "")) or self._photo_session_uuid(anchor_photo_id, sequences.sessions) if anchor_photo_id else None
+            event_id = str(claim.get("event_id") or claim.get("session_id") or "")
+            fact_id = str(claim.get("fact_id") or claim.get("event_id") or "")
+            session_uuid = session_uuid_by_id.get(event_id) or self._photo_session_uuid(anchor_photo_id, sequences.sessions) if anchor_photo_id else None
             anchor_session = session_by_uuid.get(session_uuid) if session_uuid else None
-            event_uuid = event_uuid_by_id.get(str(claim.get("event_id") or ""))
+            event_uuid = event_uuid_by_id.get(fact_id)
             anchor_event = event_by_uuid.get(event_uuid) if event_uuid else None
             text = f"{claim.get('predicate')}: {claim.get('object')}"
             segments.append(
@@ -2869,9 +3060,12 @@ class MemoryModuleService:
             )
 
         for delta in memory_contract.get("profile_deltas", []):
-            supporting_event_ids = [str(item) for item in delta.get("supporting_event_ids", []) or []]
-            anchor_event_id = supporting_event_ids[0] if supporting_event_ids else None
-            event_uuid = event_uuid_by_id.get(anchor_event_id or "")
+            supporting_fact_ids = [
+                str(item)
+                for item in delta.get("supporting_fact_ids", delta.get("supporting_event_ids", [])) or []
+            ]
+            anchor_fact_id = supporting_fact_ids[0] if supporting_fact_ids else None
+            event_uuid = event_uuid_by_id.get(anchor_fact_id or "")
             anchor_event = event_by_uuid.get(event_uuid) if event_uuid else None
             text = f"{delta.get('profile_key')}.{delta.get('field_key')}: {delta.get('summary') or delta.get('field_value')}"
             segments.append(
@@ -2975,8 +3169,8 @@ class MemoryModuleService:
         self,
         profile_evidence: Sequence[ProfileEvidenceDTO],
         relationships: Sequence[RelationshipHypothesisDTO],
-        events: Sequence[EventCandidateDTO],
-        day_timelines: Sequence,
+        event_windows: Sequence[SessionDTO],
+        facts: Sequence[EventCandidateDTO],
         profile_markdown: str,
         generated_at: str,
         profile_version: int,
@@ -2998,6 +3192,12 @@ class MemoryModuleService:
                 for item in items
                 for event_id in item.supporting_event_ids
             )
+            supporting_event_set = set(supporting_event_ids)
+            supporting_fact_ids = self._unique(
+                fact.event_id
+                for fact in facts
+                if set(fact.session_ids).intersection(supporting_event_set)
+            )
             evidence_refs = self._unique_refs(ref for item in items for ref in item.evidence_refs)
             field_payload = {
                 "field_key": field_key,
@@ -3005,6 +3205,7 @@ class MemoryModuleService:
                 "confidence": round(avg_confidence, 4),
                 "evidence_refs": evidence_refs,
                 "supporting_event_ids": supporting_event_ids,
+                "supporting_fact_ids": supporting_fact_ids,
                 "generated_at": generated_at,
                 "profile_version": profile_version,
                 "evaluation_status": "pending_gold_review",
@@ -3023,32 +3224,35 @@ class MemoryModuleService:
 
         recent_events = [
             {
-                "event_id": event.event_id,
-                "event_uuid": event.event_uuid,
-                "title": event.title,
-                "location": event.location,
+                "event_id": event.session_id,
+                "event_uuid": event.session_uuid,
+                "title": event.summary_hint or event.session_id,
+                "location": str((event.location_hint or {}).get("name") or ""),
                 "started_at": event.started_at,
                 "ended_at": event.ended_at,
-                "confidence": event.confidence,
-                "participants": event.participant_face_person_ids,
-                "original_image_ids": event.photo_ids,
-                "evidence_refs": event.evidence_refs,
+                "confidence": 1.0,
+                "participants": list(event.dominant_face_person_ids),
+                "original_image_ids": list(event.photo_ids),
+                "evidence_refs": [],
             }
-            for event in sorted(events, key=lambda item: (item.started_at, item.title), reverse=True)[:10]
+            for event in sorted(event_windows, key=lambda item: (item.started_at, item.session_id), reverse=True)[:10]
         ]
-        event_id_by_uuid = {event.event_uuid: event.event_id for event in events}
-        event_photo_ids_by_uuid = {event.event_uuid: list(event.photo_ids) for event in events}
-        recent_timelines = [
+        fact_id_by_uuid = {fact.event_uuid: fact.event_id for fact in facts}
+        fact_photo_ids_by_uuid = {fact.event_uuid: list(fact.photo_ids) for fact in facts}
+        recent_facts = [
             {
-                "timeline_id": timeline.timeline_id,
-                "timeline_uuid": timeline.timeline_uuid,
-                "day_key": timeline.day_key,
-                "session_ids": timeline.session_ids,
-                "movement_ids": timeline.movement_ids,
-                "started_at": timeline.started_at,
-                "ended_at": timeline.ended_at,
+                "fact_id": fact.event_id,
+                "fact_uuid": fact.event_uuid,
+                "title": fact.title,
+                "location": fact.location,
+                "started_at": fact.started_at,
+                "ended_at": fact.ended_at,
+                "confidence": fact.confidence,
+                "participants": list(fact.participant_face_person_ids),
+                "original_image_ids": list(fact.photo_ids),
+                "evidence_refs": list(fact.evidence_refs),
             }
-            for timeline in day_timelines
+            for fact in sorted(facts, key=lambda item: (item.started_at, item.title), reverse=True)[:10]
         ]
         relationship_items = [
             {
@@ -3056,6 +3260,7 @@ class MemoryModuleService:
                 "relationship_key": relationship.relationship_key,
                 "revision": relationship.revision,
                 "status": relationship.status,
+                "is_primary_focus": bool(relationship.anchor_person_uuid),
                 "target_face_person_id": relationship.target_face_person_id,
                 "target_person_uuid": relationship.target_person_uuid,
                 "relationship_type": relationship.relationship_type,
@@ -3065,14 +3270,19 @@ class MemoryModuleService:
                 "window_start": relationship.window_start,
                 "window_end": relationship.window_end,
                 "supporting_event_ids": [
-                    event_id_by_uuid[event_uuid]
-                    for event_uuid in relationship.feature_snapshot.get("supporting_event_uuids", [])
-                    if event_uuid in event_id_by_uuid
+                    str(item)
+                    for item in relationship.feature_snapshot.get("supporting_event_ids", [])
+                    if item
+                ],
+                "supporting_fact_ids": [
+                    str(item)
+                    for item in relationship.feature_snapshot.get("supporting_fact_ids", [])
+                    if item
                 ],
                 "supporting_original_image_ids": self._unique(
                     photo_id
-                    for event_uuid in relationship.feature_snapshot.get("supporting_event_uuids", [])
-                    for photo_id in event_photo_ids_by_uuid.get(event_uuid, [])
+                    for event_uuid in relationship.feature_snapshot.get("supporting_fact_uuids", [])
+                    for photo_id in fact_photo_ids_by_uuid.get(event_uuid, [])
                 ),
                 "feature_snapshot": relationship.feature_snapshot,
                 "score_snapshot": relationship.score_snapshot,
@@ -3090,11 +3300,17 @@ class MemoryModuleService:
                 "value": delta.get("field_value"),
                 "summary": delta.get("summary"),
                 "confidence": float(delta.get("confidence") or 0.0),
-                "supporting_event_ids": [str(item) for item in delta.get("supporting_event_ids", []) or []],
+                "supporting_fact_ids": [str(item) for item in delta.get("supporting_fact_ids", delta.get("supporting_event_ids", [])) or []],
                 "supporting_photo_ids": [str(item) for item in delta.get("supporting_photo_ids", []) or []],
                 "evidence_refs": delta.get("evidence_refs", []) or [],
                 "updated_at": generated_at,
             }
+        if not structured_profiles:
+            structured_profiles = self._fallback_structured_profiles(
+                profile_evidence=profile_evidence,
+                facts=facts,
+                generated_at=generated_at,
+            )
 
         profile_core = RedisProfileCoreRecord(
             key=f"profile:{self.user_id}:core",
@@ -3113,9 +3329,9 @@ class MemoryModuleService:
             key=f"profile:{self.user_id}:recent_events",
             payload={"items": recent_events},
         )
-        profile_recent_timelines = RedisProfileRecentTimelinesRecord(
-            key=f"profile:{self.user_id}:recent_timelines",
-            payload={"items": recent_timelines},
+        profile_recent_facts = RedisProfileRecentFactsRecord(
+            key=f"profile:{self.user_id}:recent_facts",
+            payload={"items": recent_facts},
         )
         profile_meta = RedisProfileMetaRecord(
             key=f"profile:{self.user_id}:meta",
@@ -3137,10 +3353,77 @@ class MemoryModuleService:
             "profile_core": {"key": profile_core.key, **self._serialize(profile_core.payload)},
             "profile_relationships": {"key": profile_relationships.key, **self._serialize(profile_relationships.payload)},
             "profile_recent_events": {"key": profile_recent_events.key, **self._serialize(profile_recent_events.payload)},
-            "profile_recent_timelines": {"key": profile_recent_timelines.key, **self._serialize(profile_recent_timelines.payload)},
+            "profile_recent_facts": {"key": profile_recent_facts.key, **self._serialize(profile_recent_facts.payload)},
             "profile_meta": {"key": profile_meta.key, **self._serialize(profile_meta.payload)},
             "profile_debug_refs": {"key": profile_debug_refs.key, **self._serialize(profile_debug_refs.payload)},
         }
+
+    def _fallback_structured_profiles(
+        self,
+        *,
+        profile_evidence: Sequence[ProfileEvidenceDTO],
+        facts: Sequence[EventCandidateDTO],
+        generated_at: str,
+    ) -> Dict[str, Dict[str, Any]]:
+        grouped: Dict[str, List[ProfileEvidenceDTO]] = defaultdict(list)
+        for item in profile_evidence:
+            profile_key = self._profile_bucket_for_evidence(item.field_key, item.category)
+            grouped[profile_key].append(item)
+
+        structured_profiles: Dict[str, Dict[str, Any]] = defaultdict(dict)
+        facts_by_event_id = {fact.event_id: fact for fact in facts}
+        for profile_key, items in grouped.items():
+            field_groups: Dict[str, List[ProfileEvidenceDTO]] = defaultdict(list)
+            for item in items:
+                field_groups[item.field_key].append(item)
+            for field_key, field_items in field_groups.items():
+                top_values = Counter(item.field_value for item in field_items).most_common(3)
+                supporting_event_ids = self._unique(
+                    event_id
+                    for item in field_items
+                    for event_id in item.supporting_event_ids
+                )
+                supporting_event_set = set(supporting_event_ids)
+                supporting_fact_ids = self._unique(
+                    fact.event_id
+                    for fact in facts
+                    if set(fact.session_ids).intersection(supporting_event_set)
+                )
+                supporting_photo_ids = self._unique(
+                    photo_id
+                    for fact_id in supporting_fact_ids
+                    for photo_id in (facts_by_event_id.get(fact_id).photo_ids if facts_by_event_id.get(fact_id) else [])
+                )
+                avg_confidence = sum(item.confidence for item in field_items) / max(len(field_items), 1)
+                structured_profiles[profile_key][field_key] = {
+                    "value": [value for value, _count in top_values],
+                    "summary": " / ".join(value for value, _count in top_values),
+                    "confidence": round(avg_confidence, 4),
+                    "supporting_event_ids": supporting_event_ids,
+                    "supporting_fact_ids": supporting_fact_ids,
+                    "supporting_photo_ids": supporting_photo_ids,
+                    "evidence_refs": self._unique_refs(ref for item in field_items for ref in item.evidence_refs),
+                    "updated_at": generated_at,
+                }
+        return dict(structured_profiles)
+
+    def _profile_bucket_for_evidence(self, field_key: str, category: str) -> str:
+        normalized = f"{field_key} {category}".lower()
+        if any(token in normalized for token in ("career", "company", "job", "role", "identity_claim")):
+            return "career_profile"
+        if any(token in normalized for token in ("preference", "drink", "beverage", "dish", "food", "brand")):
+            return "preference_profile"
+        if any(token in normalized for token in ("opinion", "rating", "review", "taste")):
+            return "opinion_trajectory_profile"
+        if any(token in normalized for token in ("style", "clothing", "fashion", "material")):
+            return "style_profile"
+        if any(token in normalized for token in ("identity", "transport", "health", "place")):
+            return "identity_trajectory_profile"
+        if any(token in normalized for token in ("consumption", "price", "luxury", "socioeconomic")):
+            return "consumption_profile"
+        if any(token in normalized for token in ("aesthetic", "interest", "scene", "culture", "night_view", "landmark")):
+            return "aesthetic_profile"
+        return "recommendation_prior_profile"
 
     def _build_transparency(
         self,
@@ -3181,14 +3464,13 @@ class MemoryModuleService:
                 for item in vlm_results[:10]
             ],
         )
-        sequence_stage = SequenceStageView(
+        segmentation_stage = SegmentationStageView(
             burst_count=len(sequences.bursts),
-            session_count=len(sequences.sessions),
+            event_count=len(sequences.sessions),
             movement_count=len(sequences.movements),
-            timeline_count=len(sequences.day_timelines),
             summaries=[
                 {
-                    "session_id": session.session_id,
+                    "event_id": session.session_id,
                     "day_key": session.day_key,
                     "photo_count": len(session.photo_ids),
                     "location_hint": session.location_hint,
@@ -3198,7 +3480,7 @@ class MemoryModuleService:
             ],
         )
         llm_stage = LLMStageView(
-            event_candidate_count=len(event_candidates),
+            fact_count=len(event_candidates),
             relationship_hypothesis_count=len(relationship_hypotheses),
             profile_evidence_count=len(profile_evidence),
             observation_count=len(memory_contract.get("observations", [])),
@@ -3208,7 +3490,7 @@ class MemoryModuleService:
             slice_count=int(chunk_artifacts.get("slice_count") or 0),
             summaries=[
                 {
-                    "event_id": event.event_id,
+                    "fact_id": event.event_id,
                     "title": event.title,
                     "confidence": event.confidence,
                     "original_image_ids": event.photo_ids[:8],
@@ -3230,9 +3512,14 @@ class MemoryModuleService:
         redis_state = RedisStateView(
             profile_version=int(storage["redis"]["profile_meta"].get("profile_version", 0)),
             published_field_count=len(profile_core.get("fields", {})),
+            materialized_profile_count=sum(
+                len(fields)
+                for fields in profile_core.get("profiles", {}).values()
+                if isinstance(fields, dict)
+            ),
             relationship_count=len(storage["redis"]["profile_relationships"].get("items", [])),
             recent_event_count=len(storage["redis"]["profile_recent_events"].get("items", [])),
-            recent_timeline_count=len(storage["redis"]["profile_recent_timelines"].get("items", [])),
+            recent_fact_count=len(storage["redis"].get("profile_recent_facts", {}).get("items", [])),
         )
         object_diff = ObjectDiffView(
             change_count=len(change_log),
@@ -3265,7 +3552,7 @@ class MemoryModuleService:
         return {
             "face_stage": self._serialize(face_stage),
             "vlm_stage": self._serialize(vlm_stage),
-            "sequence_stage": self._serialize(sequence_stage),
+            "segmentation_stage": self._serialize(segmentation_stage),
             "llm_stage": self._serialize(llm_stage),
             "neo4j_state": self._serialize(neo4j_state),
             "focus_graph": self._serialize(focus_graph),
@@ -3278,7 +3565,7 @@ class MemoryModuleService:
             "dedupe_report": dedupe_report,
             "chunk_artifacts": chunk_artifacts,
             "memory_contract_counts": {
-                "events": len(memory_contract.get("events", [])),
+                "facts": len(memory_contract.get("facts", [])),
                 "observations": len(memory_contract.get("observations", [])),
                 "claims": len(memory_contract.get("claims", [])),
                 "relationship_hypotheses": len(memory_contract.get("relationship_hypotheses", [])),
@@ -3311,7 +3598,7 @@ class MemoryModuleService:
                 scope="task",
             ),
             MetricSnapshotDTO(
-                metric_name="event_candidate_count",
+                metric_name="fact_count",
                 value=float(len(events)),
                 evaluated_at=evaluated_at,
                 scope="task",

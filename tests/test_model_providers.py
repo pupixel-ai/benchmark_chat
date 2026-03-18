@@ -61,13 +61,13 @@ class OpenRouterProviderTests(unittest.TestCase):
             '<|begin_of_box|>{"ok": true, "items": []}<|end_of_box|>'
         )
         llm_payload = processor._extract_json_payload(
-            '{"events": [], "relationships": []}.'
+            '{"facts": [], "relationship_hypotheses": []}.'
         )
 
         self.assertEqual(vlm_payload["ok"], True)
         self.assertEqual(vlm_payload["items"], [])
-        self.assertEqual(llm_payload["events"], [])
-        self.assertEqual(llm_payload["relationships"], [])
+        self.assertEqual(llm_payload["facts"], [])
+        self.assertEqual(llm_payload["relationship_hypotheses"], [])
 
     def test_bedrock_vlm_request_uses_converse_image_blocks(self) -> None:
         with patch.multiple(
@@ -90,7 +90,7 @@ class OpenRouterProviderTests(unittest.TestCase):
         self.assertEqual(content[1]["image"]["format"], "jpeg")
 
     def test_bedrock_llm_request_returns_structured_contract(self) -> None:
-        payload_text = '{"events":[],"observations":[],"claims":[],"relationship_hypotheses":[],"profile_deltas":[],"uncertainty":[]}'
+        payload_text = '{"facts":[],"observations":[],"claims":[],"relationship_hypotheses":[],"profile_deltas":[],"uncertainty":[]}'
         with patch.multiple(
             "services.llm_processor",
             LLM_PROVIDER="bedrock",
@@ -103,7 +103,7 @@ class OpenRouterProviderTests(unittest.TestCase):
             processor = LLMProcessor()
             result = processor._call_llm_via_bedrock("只返回 JSON")
 
-        self.assertEqual(result["events"], [])
+        self.assertEqual(result["facts"], [])
         self.assertEqual(result["observations"], [])
         call = processor.bedrock_client.calls[0]
         self.assertEqual(call["modelId"], "anthropic.claude-sonnet-4-6")
@@ -165,7 +165,7 @@ class OpenRouterProviderTests(unittest.TestCase):
                     "choices": [
                         {
                             "message": {
-                                "content": "{\"events\": [], \"relationships\": []}"
+                                "content": "{\"facts\": [], \"relationship_hypotheses\": []}"
                             }
                         }
                     ]
@@ -188,7 +188,7 @@ class OpenRouterProviderTests(unittest.TestCase):
             processor.requests = markdown_requests
             profile_result = processor._call_profile_via_openrouter("输出 Markdown")
 
-        self.assertEqual(llm_result["events"], [])
+        self.assertEqual(llm_result["facts"], [])
         self.assertEqual(profile_result, "# Markdown Profile\n\nOK")
         self.assertEqual(json_requests.calls[0]["json"]["messages"][0]["content"], "只返回 JSON")
         self.assertEqual(markdown_requests.calls[0]["json"]["messages"][0]["content"], "输出 Markdown")

@@ -87,11 +87,31 @@ def _update_status(task_id: str, **updates) -> dict:
     current.update(updates)
     return _write_status(task_id, current)
 
+
+def _merge_stage_progress(existing: dict | None, stage: str, payload: dict) -> dict:
+    base = dict(existing or {})
+    merged_stages = dict(base.get("stages") or {})
+    current_stage_payload = merged_stages.get(stage)
+    if isinstance(current_stage_payload, dict):
+        next_stage_payload = {**current_stage_payload, **payload}
+    else:
+        next_stage_payload = dict(payload)
+    merged_stages[stage] = next_stage_payload
+    base["stages"] = merged_stages
+    base["current_stage"] = stage
+    return base
+
 def _run_pipeline_task(task_id: str, max_photos: int, use_cache: bool, task_version: str) -> None:
     task_dir = _task_dir(task_id)
 
     def progress_callback(stage: str, payload: dict) -> None:
-        _update_status(task_id, status="running", stage=stage, progress=payload, worker_status="running")
+        current = _read_status(task_id)
+        merged_progress = _merge_stage_progress(
+            current.get("progress") if isinstance(current, dict) else None,
+            stage,
+            payload,
+        )
+        _update_status(task_id, status="running", stage=stage, progress=merged_progress, worker_status="running")
 
     try:
         _update_status(

@@ -116,7 +116,7 @@ class MemoryQueryTests(unittest.TestCase):
 
             concert_answer = query_service.answer(memory_payload, "我过去3个月去过的演唱会")["answer"]
             self.assertEqual(len(concert_answer["supporting_events"]), 1)
-            self.assertEqual(concert_answer["supporting_events"][0]["title"], "吴嘉轩相关演出活动")
+            self.assertEqual(concert_answer["supporting_facts"][0]["title"], "吴嘉轩相关演出活动")
 
             conflict_answer = query_service.answer(memory_payload, "请帮我寻找一下用户最近的几次冲突")["answer"]
             self.assertEqual(conflict_answer["answer_type"], "event_search")
@@ -129,26 +129,27 @@ class MemoryQueryTests(unittest.TestCase):
             task_dir = Path(tmpdir)
             memory_payload = self._materialized_memory(task_dir)
             profile_core = memory_payload["storage"]["redis"]["profile_core"]
+            first_event = memory_payload["storage"]["neo4j"]["nodes"]["events"][0]
+            first_fact = memory_payload["storage"]["neo4j"]["nodes"]["facts"][0]
             profile_core["profiles"]["preference_profile"] = {
                 "favorite_drink": {
                     "value": "iced latte",
                     "summary": "prefers iced latte in cafe and work breaks",
                     "confidence": 0.87,
-                    "supporting_event_ids": ["EVT_CONCERT"],
+                    "supporting_event_ids": [first_event["properties"]["event_id"]],
+                    "supporting_fact_ids": [first_fact["properties"]["fact_id"]],
                     "supporting_photo_ids": ["photo_001"],
                     "evidence_refs": [{"ref_type": "photo", "ref_id": "photo_001"}],
                     "updated_at": "2026-03-17T00:00:00",
                 }
             }
-            first_event_uuid = memory_payload["storage"]["neo4j"]["nodes"]["events"][0]["event_uuid"]
-            first_session_uuid = memory_payload["storage"]["neo4j"]["nodes"]["sessions"][0]["session_uuid"]
             memory_payload["storage"]["milvus"]["segments"].append(
                 {
                     "segment_uuid": "seg_drink_001",
                     "segment_type": "brand_observation",
                     "text": "favorite_drink iced latte from cafe receipt",
-                    "event_uuid": first_event_uuid,
-                    "session_uuid": first_session_uuid,
+                    "event_uuid": first_fact["event_uuid"],
+                    "session_uuid": first_event["session_uuid"],
                     "relationship_uuid": None,
                     "started_at": "2026-02-15T20:00:00",
                     "ended_at": "2026-02-15T22:00:00",

@@ -241,9 +241,9 @@ function taskDisplayLabel(task: TaskState) {
   if (summaryTitle) {
     return summaryTitle;
   }
-  const eventTitle = task.result?.events?.find((event) => event.title)?.title;
-  if (eventTitle) {
-    return eventTitle;
+  const factTitle = task.result?.facts?.find((fact) => fact.title)?.title;
+  if (factTitle) {
+    return factTitle;
   }
   return task.task_id.slice(0, 8);
 }
@@ -343,15 +343,18 @@ function normalizeFaceReport(faceReport?: FaceReport | null): FaceReport | null 
 function WaitingDots({
   label = "处理中",
   compact = false,
-  muted = false
+  muted = false,
+  percent = null
 }: {
   label?: string;
   compact?: boolean;
   muted?: boolean;
+  percent?: number | null;
 }) {
   const tone = muted
     ? "border-black/10 bg-black/5 text-black/40"
     : "border-[#d5c4af] bg-[#f6eee3] text-[#6f5847]";
+  const roundedPercent = percent == null ? null : Math.max(0, Math.min(100, Math.round(percent)));
 
   return (
     <div
@@ -370,7 +373,10 @@ function WaitingDots({
           <animate attributeName="opacity" values="0.2;1;0.2" dur="1s" begin="0.36s" repeatCount="indefinite" />
         </circle>
       </svg>
-      <span>{label}</span>
+      <span>
+        {label}
+        {roundedPercent != null ? ` · ${roundedPercent}%` : ""}
+      </span>
     </div>
   );
 }
@@ -549,6 +555,27 @@ function formatJson(value: unknown) {
   }
 }
 
+function readNumericValue(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  return null;
+}
+
+function formatRuntimeLabel(value: unknown) {
+  const runtime = readNumericValue(value);
+  if (runtime == null || runtime <= 0) {
+    return "";
+  }
+  return `${runtime.toFixed(runtime >= 10 ? 1 : 2)}s`;
+}
+
 function hasDisplayValue(value: unknown) {
   if (value == null) {
     return false;
@@ -581,19 +608,28 @@ function ScrollableJsonPanel({
   title,
   value,
   emptyText,
-  loading = false
+  loading = false,
+  meta,
+  loadingLabel = "处理中",
+  loadingPercent = null
 }: {
   title: string;
   value: unknown;
   emptyText: string;
   loading?: boolean;
+  meta?: string;
+  loadingLabel?: string;
+  loadingPercent?: number | null;
 }) {
   const hasValue = hasDisplayValue(value);
   return (
     <div className="rounded-[12px] border border-[#ddcebb] bg-white/70 p-4">
       <div className="flex items-center justify-between gap-3">
-        <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-black/42">{title}</p>
-        {loading ? <WaitingDots label="处理中" compact muted /> : null}
+        <div className="space-y-1">
+          <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-black/42">{title}</p>
+          {meta ? <p className="text-xs text-black/45">{meta}</p> : null}
+        </div>
+        {loading ? <WaitingDots label={loadingLabel} compact muted percent={loadingPercent} /> : null}
       </div>
       {hasValue ? (
         <pre className="mt-3 max-h-[320px] overflow-auto whitespace-pre-wrap break-all rounded-[10px] bg-[#f6eee3] p-3 text-xs leading-6 text-[#5f4e42]">
@@ -601,7 +637,7 @@ function ScrollableJsonPanel({
         </pre>
       ) : loading ? (
         <div className="mt-3">
-          <WaitingDots label="等待结果生成" />
+          <WaitingDots label="等待结果生成" percent={loadingPercent} />
         </div>
       ) : (
         <p className="mt-3 text-sm text-black/56">{emptyText}</p>
@@ -647,6 +683,15 @@ function InferencePipelinePanel({ task }: { task: TaskState }) {
   const llmStage = readStageProgress(task.progress, "llm");
   const memoryStage = readStageProgress(task.progress, "memory");
 
+  const facePercent = readNumericValue(faceStage.percent);
+  const vlmPercent = readNumericValue(vlmStage.percent);
+  const llmPercent = readNumericValue(llmStage.percent);
+  const memoryPercent = readNumericValue(memoryStage.percent);
+  const faceRuntime = formatRuntimeLabel(faceStage.runtime_seconds);
+  const vlmRuntime = formatRuntimeLabel(vlmStage.runtime_seconds ?? task.result?.memory?.transparency?.vlm_stage?.runtime_seconds);
+  const llmRuntime = formatRuntimeLabel(llmStage.runtime_seconds ?? task.result?.memory?.transparency?.llm_stage?.runtime_seconds);
+  const memoryRuntime = formatRuntimeLabel(memoryStage.runtime_seconds);
+
   const faceValue = task.result?.face_recognition ?? faceStage.face_result_preview ?? null;
   const vlmValue =
     (vlmStage.vlm_results_preview as unknown) ??
@@ -690,31 +735,46 @@ function InferencePipelinePanel({ task }: { task: TaskState }) {
           title="Face Results"
           value={faceValue}
           emptyText="当前还没有可展示的人脸识别结果。"
+          meta={faceRuntime ? `运行时间 ${faceRuntime}` : undefined}
           loading={task.status === "running" && FACE_RECOGNITION_STAGES.has(currentStage) && !hasDisplayValue(faceValue)}
+          loadingLabel="人脸识别进行中"
+          loadingPercent={facePercent}
         />
         <ScrollableJsonPanel
           title="VLM Results"
           value={vlmValue}
           emptyText="VLM 结果尚未产出。"
           loading={vlmLoading}
+          meta={vlmRuntime ? `运行时间 ${vlmRuntime}` : undefined}
+          loadingLabel="VLM 识别进行中"
+          loadingPercent={vlmPercent}
         />
         <ScrollableJsonPanel
           title="LLM Results"
           value={llmValue}
           emptyText="LLM 结果尚未产出。"
           loading={llmLoading}
+          meta={llmRuntime ? `运行时间 ${llmRuntime}` : undefined}
+          loadingLabel="LLM 改写进行中"
+          loadingPercent={llmPercent}
         />
         <ScrollableJsonPanel
           title="Redis Profile Materialization"
           value={redisValue}
           emptyText="Redis 画像数据尚未产出。"
           loading={memoryLoading && !hasDisplayValue(redisValue)}
+          meta={memoryRuntime ? `运行时间 ${memoryRuntime}` : undefined}
+          loadingLabel="Redis 画像物化中"
+          loadingPercent={memoryPercent}
         />
         <ScrollableJsonPanel
           title="Neo4j Graph Materialization"
           value={neo4jValue}
           emptyText="Neo4j graph 数据尚未产出。"
           loading={memoryLoading && !hasDisplayValue(neo4jValue)}
+          meta={memoryRuntime ? `运行时间 ${memoryRuntime}` : undefined}
+          loadingLabel="Neo4j 图谱物化中"
+          loadingPercent={memoryPercent}
         />
       </div>
     </section>
@@ -780,6 +840,9 @@ function GraphLandingPanel({
   const eventNodes = sortByRecent((nodes.events ?? []) as Array<Record<string, unknown>>, (item) =>
     String(item.started_at ?? item.ended_at ?? "")
   );
+  const factNodes = sortByRecent((nodes.facts ?? []) as Array<Record<string, unknown>>, (item) =>
+    String(item.started_at ?? item.ended_at ?? "")
+  );
   const relationshipNodes = sortByRecent(
     (nodes.relationship_hypotheses ?? []) as Array<Record<string, unknown>>,
     (item) => String(item.window_end ?? item.window_start ?? "")
@@ -809,7 +872,12 @@ function GraphLandingPanel({
         <StageSummaryPanel
           title="Event Nodes"
           items={eventNodes}
-          emptyText="当前还没有 Event hypothesis 落位。"
+          emptyText="当前还没有 Event 节点落位。"
+        />
+        <StageSummaryPanel
+          title="Fact Nodes"
+          items={factNodes}
+          emptyText="当前还没有 Fact 节点落位。"
         />
         <StageSummaryPanel
           title="Relationship Nodes"
@@ -841,7 +909,7 @@ function MilvusLandingPanel({ segments }: { segments: MilvusSegment[] }) {
               </div>
               <p className="mt-2 text-sm leading-6 text-[#5f4e42]">{segment.text}</p>
               <p className="mt-2 text-xs leading-6 text-[#7a6858]">
-                session {segment.session_uuid ?? "n/a"} · event {segment.event_uuid ?? "n/a"} · relationship{" "}
+                event {segment.session_uuid ?? "n/a"} · fact {segment.event_uuid ?? "n/a"} · relationship{" "}
                 {segment.relationship_uuid ?? "n/a"}
               </p>
             </div>
@@ -870,12 +938,10 @@ function graphNodeColor(nodeType: string) {
       return { fill: "#f3b470", stroke: "#9d6425" };
     case "event":
       return { fill: "#7bb88f", stroke: "#356f49" };
-    case "session":
+    case "fact":
       return { fill: "#8eb7c8", stroke: "#426e80" };
-    case "timeline":
-      return { fill: "#c8a6d6", stroke: "#6f4c7d" };
-    case "photo":
-      return { fill: "#e7d7bc", stroke: "#8c7357" };
+    case "user_account":
+      return { fill: "#d7d0c6", stroke: "#807567" };
     default:
       return { fill: "#d8c9b7", stroke: "#786657" };
   }
@@ -955,7 +1021,7 @@ function FocusGraphPanel({ graph }: { graph?: MemoryFocusGraph | null }) {
         <div>
           <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-black/42">Primary-Centered Graph</p>
           <p className="mt-2 text-sm leading-6 text-black/60">
-            这张图以 `primary user` 为中心发散，优先展示主角、关系对象、事件、会话和时间线。
+            这张图以 `primary user` 为中心发散，优先展示主角、关系对象、Events 和 Facts。
           </p>
         </div>
         <div className="rounded-[10px] bg-[#f6eee3] px-3 py-2 text-xs leading-6 text-[#5f4e42]">
@@ -1017,7 +1083,7 @@ function FocusGraphPanel({ graph }: { graph?: MemoryFocusGraph | null }) {
               return null;
             }
             const palette = graphNodeColor(node.node_type);
-            const radius = node.is_primary ? 34 : node.node_type === "event" ? 26 : 22;
+            const radius = node.is_primary ? 34 : node.node_type === "event" || node.node_type === "fact" ? 26 : 22;
             return (
               <g key={node.node_id}>
                 <circle
@@ -1055,9 +1121,8 @@ function FocusGraphPanel({ graph }: { graph?: MemoryFocusGraph | null }) {
           ["primary_person", "Primary"],
           ["related_person", "Related"],
           ["event", "Event"],
-          ["session", "Session"],
-          ["timeline", "Timeline"],
-          ["photo", "Photo"]
+          ["fact", "Fact"],
+          ["user_account", "User"]
         ].map(([nodeType, label]) => {
           const palette = graphNodeColor(nodeType);
           return (
@@ -1087,19 +1152,28 @@ function MemoryPanel({
   queryHistory: MemoryQueryHistoryItem[];
 }) {
   const profileFields = memory.storage?.redis?.profile_core?.fields ?? {};
+  const structuredProfiles = memory.storage?.redis?.profile_core?.profiles ?? {};
   const relationships = memory.storage?.redis?.profile_relationships?.items ?? [];
-  const recentEvents = sortByRecent(
-    (memory.storage?.redis?.profile_recent_events?.items ?? []) as Array<Record<string, unknown>>,
+  const recentFacts = sortByRecent(
+    (memory.storage?.redis?.profile_recent_facts?.items ?? []) as Array<Record<string, unknown>>,
     (item) => String(item.started_at ?? item.generated_at ?? "")
   );
   const externalPublish = memory.external_publish ?? null;
   const focusGraph = memory.transparency.focus_graph ?? memory.storage?.neo4j?.focus_graph ?? null;
   const milvusSegments = memory.storage?.milvus?.segments ?? [];
   const stageVlmSummaries = (memory.transparency.vlm_stage?.summaries ?? []) as Array<Record<string, unknown>>;
-  const stageSequenceSummaries = (memory.transparency.sequence_stage?.summaries ?? []) as Array<Record<string, unknown>>;
+  const stageSegmentationSummaries = (memory.transparency.segmentation_stage?.summaries ?? []) as Array<Record<string, unknown>>;
   const stageLlmSummaries = (memory.transparency.llm_stage?.summaries ?? []) as Array<Record<string, unknown>>;
   const recentQueries = sortByRecent(queryHistory, (item) => item.requested_at);
   const segmentById = new Map(milvusSegments.map((segment) => [segment.segment_uuid, segment]));
+  const primaryRelationships = sortByRecent(
+    relationships.filter((item) => Boolean((item as Record<string, unknown>).is_primary_focus)),
+    (item) => String((item as Record<string, unknown>).window_end ?? (item as Record<string, unknown>).updated_at ?? "")
+  );
+  const displayRelationships = primaryRelationships.length > 0 ? primaryRelationships : relationships;
+  const materializedProfileCount =
+    memory.transparency.redis_state?.materialized_profile_count ??
+    Object.values(structuredProfiles).reduce((sum, fields) => sum + Object.keys(fields ?? {}).length, 0);
   const stageCards = [
     {
       key: "face",
@@ -1114,15 +1188,15 @@ function MemoryPanel({
       detail: `${memory.transparency.vlm_stage?.cached_hits ?? 0} cached`,
     },
     {
-      key: "sequence",
-      label: "Sequence",
-      value: memory.transparency.sequence_stage?.session_count ?? 0,
-      detail: `${memory.transparency.sequence_stage?.timeline_count ?? 0} timelines`,
+      key: "segmentation",
+      label: "Segmentation",
+      value: memory.transparency.segmentation_stage?.event_count ?? 0,
+      detail: `${memory.transparency.segmentation_stage?.burst_count ?? 0} bursts`,
     },
     {
       key: "llm",
       label: "LLM",
-      value: memory.transparency.llm_stage?.event_candidate_count ?? 0,
+      value: memory.transparency.llm_stage?.fact_count ?? 0,
       detail: `${memory.transparency.llm_stage?.relationship_hypothesis_count ?? 0} relationships`,
     },
     {
@@ -1141,7 +1215,7 @@ function MemoryPanel({
       key: "redis",
       label: "Redis",
       value: memory.transparency.redis_state?.published_field_count ?? 0,
-      detail: `profile v${memory.transparency.redis_state?.profile_version ?? 0}`,
+      detail: `profile v${memory.transparency.redis_state?.profile_version ?? 0} · materialized ${materializedProfileCount} · facts ${memory.transparency.redis_state?.recent_fact_count ?? 0}`,
     },
     {
       key: "changes",
@@ -1158,7 +1232,7 @@ function MemoryPanel({
           <p className="font-mono text-xs uppercase tracking-[0.24em] text-black/40">Memory Transparency</p>
           <h2 className="mt-3 text-2xl font-semibold text-ink">记忆框架已物化到任务结果</h2>
           <p className="mt-3 max-w-3xl text-sm leading-6 text-black/60">
-            这里直接展开 `Face / VLM / Sequence / LLM / Neo4j / Milvus / Redis / changes` 八层结果，方便做画像、关系和事件精度回看。
+            这里直接展开 `Face / VLM / Segmentation / LLM / Neo4j / Milvus / Redis / changes` 八层结果，方便回看主用户画像、关系、Events 和 Facts。
           </p>
         </div>
         <div className="rounded-[12px] border border-[#ddcebb] bg-white/70 px-5 py-4">
@@ -1169,8 +1243,8 @@ function MemoryPanel({
 
       <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="Photos" value={memory.summary.photo_count} detail={`${memory.summary.person_count} persons`} />
-        <MetricCard label="Sessions" value={memory.summary.session_count} detail={`${memory.summary.timeline_count} timelines`} />
-        <MetricCard label="Events" value={memory.summary.event_candidate_count} detail={`${memory.summary.relationship_count} relationships`} />
+        <MetricCard label="Events" value={memory.summary.event_count} detail={`${memory.summary.relationship_count} relationships`} />
+        <MetricCard label="Facts" value={memory.summary.fact_count} detail={`${memory.summary.claim_count ?? 0} claims`} />
         <MetricCard label="Profile Fields" value={memory.summary.profile_field_count} detail={`${memory.summary.segment_count} segments`} />
       </div>
 
@@ -1181,9 +1255,9 @@ function MemoryPanel({
           emptyText="当前还没有可展示的 VLM stage summaries。"
         />
         <StageSummaryPanel
-          title="Sequence Outputs"
-          items={stageSequenceSummaries}
-          emptyText="当前还没有 sequence stage summaries。"
+          title="Segmentation Outputs"
+          items={stageSegmentationSummaries}
+          emptyText="当前还没有 segmentation stage summaries。"
         />
         <StageSummaryPanel
           title="LLM Outputs"
@@ -1222,6 +1296,32 @@ function MemoryPanel({
         <div className="rounded-[12px] border border-[#ddcebb] bg-white/70 p-4">
           <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-black/42">Redis Profile</p>
           <div className="mt-3 space-y-3">
+            {Object.entries(structuredProfiles).length > 0 ? (
+              Object.entries(structuredProfiles).map(([profileKey, fields]) => (
+                <div key={profileKey} className="rounded-[10px] bg-[#efe5d8] px-3 py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-[#6f5847]">{profileKey}</p>
+                    <p className="text-xs text-[#6f5847]">{Object.keys(fields ?? {}).length} fields</p>
+                  </div>
+                  <div className="mt-3 space-y-2">
+                    {Object.entries(fields ?? {}).map(([fieldKey, entry]) => (
+                      <div key={`${profileKey}-${fieldKey}`} className="rounded-[10px] bg-white/80 px-3 py-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-[#6f5847]">{fieldKey}</p>
+                          <p className="text-xs text-[#6f5847]">confidence {Number(entry.confidence ?? 0).toFixed(2)}</p>
+                        </div>
+                        <p className="mt-2 text-sm leading-6 text-[#5f4e42]">
+                          {entry.summary ?? (Array.isArray(entry.value) ? entry.value.join(" / ") : String(entry.value ?? "No values"))}
+                        </p>
+                        <p className="mt-2 text-xs text-[#7a6858]">
+                          facts: {entry.supporting_fact_ids?.length ?? 0} · events: {entry.supporting_event_ids?.length ?? 0} · photos: {entry.supporting_photo_ids?.length ?? 0}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))
+            ) : null}
             {Object.entries(profileFields).length > 0 ? (
               Object.entries(profileFields).map(([fieldKey, field]) => (
                 <div key={fieldKey} className="rounded-[10px] bg-[#f6eee3] px-3 py-3">
@@ -1231,43 +1331,59 @@ function MemoryPanel({
                   </div>
                   <p className="mt-2 text-sm leading-6 text-[#5f4e42]">{field.values.join(" / ") || "No values"}</p>
                   <p className="mt-2 text-xs text-[#7a6858]">
-                    events: {field.supporting_event_ids.length} · refs: {field.evidence_refs.length}
+                    facts: {field.supporting_fact_ids?.length ?? 0} · events: {field.supporting_event_ids.length} · refs: {field.evidence_refs.length}
                   </p>
                 </div>
               ))
-            ) : (
+            ) : Object.entries(structuredProfiles).length === 0 ? (
               <p className="text-sm text-black/56">当前还没有可发布到 Redis 的画像字段。</p>
-            )}
+            ) : null}
           </div>
         </div>
 
         <div className="space-y-4">
           <div className="rounded-[12px] border border-[#ddcebb] bg-white/70 p-4">
-            <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-black/42">Relationships</p>
+            <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-black/42">Primary User Relationships</p>
             <div className="mt-3 space-y-2">
-              {relationships.length > 0 ? (
-                relationships.slice(0, 6).map((item, index) => (
+              {displayRelationships.length > 0 ? (
+                displayRelationships.slice(0, 8).map((item, index) => {
+                  const supportingEventCount = Array.isArray((item as Record<string, unknown>).supporting_event_ids)
+                    ? ((item as Record<string, unknown>).supporting_event_ids as unknown[]).length
+                    : 0;
+                  const supportingFactCount = Array.isArray((item as Record<string, unknown>).supporting_fact_ids)
+                    ? ((item as Record<string, unknown>).supporting_fact_ids as unknown[]).length
+                    : 0;
+                  const originalImageCount = Array.isArray((item as Record<string, unknown>).original_image_ids)
+                    ? ((item as Record<string, unknown>).original_image_ids as unknown[]).length
+                    : 0;
+                  return (
                   <div key={`${String(item.person_uuid ?? item.face_person_id)}-${index}`} className="rounded-[10px] bg-[#f6eee3] px-3 py-3 text-sm leading-6 text-[#5f4e42]">
-                    {String(item.face_person_id ?? "unknown")} · {String(item.label ?? "unknown")} · {Number(item.confidence ?? 0).toFixed(2)}
+                    <div className="flex items-center justify-between gap-3">
+                      <span>{String(item.face_person_id ?? "unknown")} · {String(item.label ?? "unknown")}</span>
+                      <span className="text-xs text-[#7a6858]">{Number(item.confidence ?? 0).toFixed(2)}</span>
+                    </div>
+                    <p className="mt-1 text-xs text-[#7a6858]">
+                      events {supportingEventCount} · facts {supportingFactCount} · photos {originalImageCount}
+                    </p>
                   </div>
-                ))
+                )})
               ) : (
-                <p className="text-sm text-black/56">当前还没有人物关系候选。</p>
+                <p className="text-sm text-black/56">当前还没有围绕主用户的关系候选。</p>
               )}
             </div>
           </div>
 
           <div className="rounded-[12px] border border-[#ddcebb] bg-white/70 p-4">
-            <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-black/42">Recent Events</p>
+            <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-black/42">Recent Facts</p>
             <div className="mt-3 space-y-2">
-              {recentEvents.length > 0 ? (
-                recentEvents.slice(0, 6).map((item, index) => (
+              {recentFacts.length > 0 ? (
+                recentFacts.slice(0, 6).map((item, index) => (
                   <div key={`${String(item.event_uuid ?? item.event_id)}-${index}`} className="rounded-[10px] bg-[#f6eee3] px-3 py-3 text-sm leading-6 text-[#5f4e42]">
-                    {String(item.title ?? "Untitled")} · {String(item.location ?? "unknown")}
+                    {String(item.title ?? "Untitled")} · {String(item.location ?? item.place_label ?? "unknown")}
                   </div>
                 ))
               ) : (
-                <p className="text-sm text-black/56">当前还没有事件候选。</p>
+                <p className="text-sm text-black/56">当前还没有 Fact 候选。</p>
               )}
             </div>
           </div>
@@ -1331,14 +1447,14 @@ function MemoryPanel({
                     <div className="rounded-[10px] bg-white px-4 py-3">
                       <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-black/42">Graph Hits</p>
                       <p className="mt-2 text-xs leading-6 text-[#7a6858]">
-                        events {answer.supporting_events.length} · sessions {answer.supporting_sessions.length} · relationships {answer.supporting_relationships.length}
+                        events {answer.supporting_events.length} · facts {answer.supporting_facts.length} · relationships {answer.supporting_relationships.length}
                       </p>
                       <pre className="mt-2 overflow-x-auto whitespace-pre-wrap break-all text-xs leading-6 text-[#5f4e42]">
                         {formatJson({
                           resolved_concepts: answer.resolved_concepts,
                           resolved_entities: answer.resolved_entities,
                           supporting_events: answer.supporting_events,
-                          supporting_sessions: answer.supporting_sessions,
+                          supporting_facts: answer.supporting_facts,
                           supporting_relationships: answer.supporting_relationships
                         })}
                       </pre>
@@ -2422,7 +2538,7 @@ export default function HomePage() {
                   <p className="font-mono text-xs uppercase tracking-[0.24em] text-black/40">Current Task</p>
                   <h1 className="mt-4 font-display text-5xl leading-[1.06] tracking-tight text-ink md:text-6xl">{taskDisplayLabel(currentTask)}</h1>
                   <p className="mt-4 max-w-3xl text-base leading-7 text-black/62">
-                    这条链路现在会把 Face to VLM to Sequence to LLM to Memory 全部跑完。任务完成后既能看人物聚合，也能直接回看画像、关系、事件和底层 trace。
+                    这条链路现在会把 Face to VLM to Segmentation to LLM to Memory 全部跑完。任务完成后既能看人物聚合，也能直接回看画像、关系、Event / Fact 和底层 trace。
                   </p>
                 </div>
 

@@ -26,9 +26,8 @@ NODE_GROUP_ID_FIELDS = {
     "user": "user_id",
     "persons": "person_uuid",
     "places": "place_uuid",
-    "sessions": "session_uuid",
-    "timelines": "timeline_uuid",
-    "events": "event_uuid",
+    "events": "session_uuid",
+    "facts": "event_uuid",
     "relationship_hypotheses": "relationship_uuid",
     "mood_states": "mood_uuid",
     "primary_person_hypotheses": "primary_person_hypothesis_uuid",
@@ -417,7 +416,7 @@ class MemoryQueryService:
                 )
             )
 
-        for group_name in ("events", "sessions", "relationship_hypotheses", "places", "persons"):
+        for group_name in ("events", "facts", "relationship_hypotheses", "places", "persons"):
             for node in indexes["nodes_by_group"].get(group_name, []):
                 props = node.get("properties", {})
                 score = self._match_score(question, props, query_vector)
@@ -667,11 +666,11 @@ class MemoryQueryService:
         if not top_segments:
             return None
 
-        event_uuids = [str(item.get("event_uuid") or "") for item in top_segments if item.get("event_uuid")]
-        session_uuids = [str(item.get("session_uuid") or "") for item in top_segments if item.get("session_uuid")]
+        fact_uuids = [str(item.get("event_uuid") or "") for item in top_segments if item.get("event_uuid")]
+        event_uuids = [str(item.get("session_uuid") or "") for item in top_segments if item.get("session_uuid")]
         relationship_uuids = [str(item.get("relationship_uuid") or "") for item in top_segments if item.get("relationship_uuid")]
-        supporting_events = self._events_by_uuids(indexes, event_uuids)
-        supporting_sessions = self._sessions_by_uuids(indexes, session_uuids)
+        supporting_facts = self._events_by_uuids(indexes, fact_uuids)
+        supporting_events = self._sessions_by_uuids(indexes, event_uuids)
         supporting_relationships = self._relationships_by_uuids(indexes, relationship_uuids)
         evidence_segment_ids = [str(item.get("segment_uuid")) for item in top_segments if item.get("segment_uuid")]
         summary = "；".join(
@@ -695,11 +694,11 @@ class MemoryQueryService:
             ],
             resolved_concepts=[],
             time_window=asdict(operator_plan.time_scope),
-            supporting_sessions=supporting_sessions,
             supporting_events=supporting_events,
+            supporting_facts=supporting_facts,
             supporting_relationships=supporting_relationships,
             evidence_segment_ids=evidence_segment_ids,
-            explanation="优先在 Milvus 证据段中做开放语义召回，再回填图谱中的事件、会话与关系骨架。",
+            explanation="优先在 Milvus 证据段中做开放语义召回，再回填图谱中的 Event、Fact 与关系骨架。",
             uncertainty_flags=[] if confidence >= 0.32 else ["evidence_low_confidence"],
         )
 
@@ -731,6 +730,7 @@ class MemoryQueryService:
         return bool(
             not answer.resolved_entities
             and not answer.supporting_events
+            and not answer.supporting_facts
             and not answer.supporting_relationships
             and not answer.evidence_segment_ids
         )
@@ -765,9 +765,9 @@ class MemoryQueryService:
     ) -> AnswerDTO:
         time_scope = operator_plan.time_scope
         concept_filters = set(operator_plan.target_concepts)
-        events = []
-        for event in indexes["nodes_by_group"].get("events", []):
-            props = event.get("properties", {})
+        facts = []
+        for fact in indexes["nodes_by_group"].get("facts", []):
+            props = fact.get("properties", {})
             if props.get("user_id") != indexes["user_id"]:
                 continue
             if time_scope.start_at and not self._overlaps_time_scope(
@@ -776,51 +776,61 @@ class MemoryQueryService:
                 time_scope,
             ):
                 continue
-            event_concepts = set(self._outgoing_concepts(indexes, event.get("event_uuid")))
-            normalized_event_type = str(props.get("normalized_event_type") or props.get("event_type") or "")
-            if concept_filters and normalized_event_type not in concept_filters and not event_concepts.intersection(concept_filters):
+            fact_concepts = set(self._outgoing_concepts(indexes, fact.get("event_uuid")))
+            event_text = " ".join(
+                str(part or "")
+                for part in (
+                    props.get("title"),
+                    props.get("coarse_event_type"),
+                    props.get("day_key"),
+                    props.get("location"),
+                )
+            ).lower()
+            if concept_filters and not fact_concepts.intersection(concept_filters) and not any(
+                concept in event_text for concept in concept_filters
+            ):
                 continue
-            events.append(event)
+            facts.append(fact)
 
-        events.sort(key=lambda item: str(item.get("properties", {}).get("started_at") or ""), reverse=True)
+        facts.sort(key=lambda item: str(item.get("properties", {}).get("started_at") or ""), reverse=True)
         if "最近一次" in question or "latest" in question.lower() or "most recent" in question.lower():
-            events = events[:1]
+            facts = facts[:1]
 
-        supporting_events = [self._event_payload(indexes, event) for event in events]
-        supporting_sessions = self._supporting_sessions_for_events(indexes, events)
+        supporting_facts = [self._event_payload(indexes, fact) for fact in facts]
+        supporting_events = self._supporting_sessions_for_events(indexes, facts)
         representative_photo_ids = self._unique(
             photo_id
-            for event in events
-            for photo_id in event.get("properties", {}).get("representative_photo_ids", [])
+            for fact in facts
+            for photo_id in fact.get("properties", {}).get("representative_photo_ids", [])
         )
         evidence_segment_ids = self._segment_ids_for_objects(
             segments,
-            event_uuids=[event.get("event_uuid") for event in events],
-            session_uuids=[session["session_uuid"] for session in supporting_sessions],
+            session_uuids=[event["event_uuid"] for event in supporting_events],
+            event_uuids=[fact.get("event_uuid") for fact in facts],
         )
         resolved_concepts = list(concept_filters)
-        if events:
-            summary = f"共找到 {len(events)} 个事件: " + "；".join(event["title"] for event in supporting_events[:5])
-            confidence = round(sum(event["confidence"] for event in supporting_events) / len(supporting_events), 4)
-            explanation = "先按时间窗过滤事件，再按 canonical concepts 过滤，最后补充会话和语义证据。"
+        if facts:
+            summary = f"共找到 {len(facts)} 个事实: " + "；".join(fact["title"] for fact in supporting_facts[:5])
+            confidence = round(sum(fact["confidence"] for fact in supporting_facts) / len(supporting_facts), 4)
+            explanation = "先按时间窗过滤 Facts，再按 canonical concepts 过滤，最后补充 Events 和语义证据。"
             uncertainty_flags = []
         else:
             fallback = self._fallback_conflict_answer(indexes, segments, operator_plan)
             if fallback is not None:
                 return fallback
-            summary = "没有找到符合条件的事件。"
+            summary = "没有找到符合条件的事实。"
             confidence = 0.0
-            explanation = "先按时间窗过滤事件，再按 canonical concepts 过滤；当前未命中。"
+            explanation = "先按时间窗过滤 Facts，再按 canonical concepts 过滤；当前未命中。"
             uncertainty_flags = ["no_matching_events"]
         return AnswerDTO(
             answer_type="event_search",
             summary=summary,
             confidence=confidence,
-            resolved_entities=supporting_events,
+            resolved_entities=supporting_facts,
             resolved_concepts=resolved_concepts,
             time_window=asdict(time_scope),
-            supporting_sessions=supporting_sessions,
             supporting_events=supporting_events,
+            supporting_facts=supporting_facts,
             representative_photo_ids=representative_photo_ids,
             evidence_segment_ids=evidence_segment_ids,
             explanation=explanation,
@@ -873,8 +883,8 @@ class MemoryQueryService:
             return None
 
         supporting_relationships = [self._relationship_payload(indexes, item) for item in relationships[:3]]
-        supporting_sessions = self._supporting_sessions_for_relationships(indexes, relationships[:3])
-        supporting_events = self._supporting_events_for_relationships(indexes, relationships[:3])
+        supporting_events = self._supporting_sessions_for_relationships(indexes, relationships[:3])
+        supporting_facts = self._supporting_events_for_relationships(indexes, relationships[:3])
         representative_photo_ids = self._unique(
             photo_id
             for relationship in supporting_relationships
@@ -883,8 +893,8 @@ class MemoryQueryService:
         evidence_segment_ids = self._segment_ids_for_conflict_fallback(
             segments,
             relationship_uuids=[item.get("relationship_uuid") for item in relationships[:3]],
-            session_uuids=[item.get("session_uuid") for item in supporting_sessions],
-            event_uuids=[item.get("event_uuid") for item in supporting_events],
+            session_uuids=[item.get("event_uuid") for item in supporting_events],
+            event_uuids=[item.get("event_uuid") for item in supporting_facts],
         )
         target_names = [item.get("target_face_person_id") for item in supporting_relationships if item.get("target_face_person_id")]
         if target_names:
@@ -902,8 +912,8 @@ class MemoryQueryService:
             resolved_entities=supporting_relationships,
             resolved_concepts=list(concept_filters),
             time_window=asdict(time_scope),
-            supporting_sessions=supporting_sessions,
             supporting_events=supporting_events,
+            supporting_facts=supporting_facts,
             supporting_relationships=supporting_relationships,
             representative_photo_ids=representative_photo_ids,
             evidence_segment_ids=evidence_segment_ids,
@@ -938,13 +948,13 @@ class MemoryQueryService:
         )
         primary = relationships[:1]
         supporting_relationships = [self._relationship_payload(indexes, item) for item in primary]
-        supporting_sessions = self._supporting_sessions_for_relationships(indexes, primary)
-        supporting_events = self._supporting_events_for_relationships(indexes, primary)
+        supporting_events = self._supporting_sessions_for_relationships(indexes, primary)
+        supporting_facts = self._supporting_events_for_relationships(indexes, primary)
         evidence_segment_ids = self._segment_ids_for_objects(
             segments,
             relationship_uuids=[item.get("relationship_uuid") for item in primary],
-            session_uuids=[item["session_uuid"] for item in supporting_sessions],
-            event_uuids=[item["event_uuid"] for item in supporting_events],
+            session_uuids=[item["event_uuid"] for item in supporting_events],
+            event_uuids=[item["event_uuid"] for item in supporting_facts],
         )
         representative_photo_ids = self._unique(
             photo_id
@@ -967,8 +977,8 @@ class MemoryQueryService:
             resolved_entities=supporting_relationships,
             resolved_concepts=list(concept_filters),
             time_window=asdict(operator_plan.time_scope),
-            supporting_sessions=supporting_sessions,
             supporting_events=supporting_events,
+            supporting_facts=supporting_facts,
             supporting_relationships=supporting_relationships,
             representative_photo_ids=representative_photo_ids,
             evidence_segment_ids=evidence_segment_ids,
@@ -1015,13 +1025,13 @@ class MemoryQueryService:
             ranked = relationships[:limit]
 
         supporting_relationships = [self._relationship_payload(indexes, item) for item in ranked]
-        supporting_sessions = self._supporting_sessions_for_relationships(indexes, ranked)
-        supporting_events = self._supporting_events_for_relationships(indexes, ranked)
+        supporting_events = self._supporting_sessions_for_relationships(indexes, ranked)
+        supporting_facts = self._supporting_events_for_relationships(indexes, ranked)
         evidence_segment_ids = self._segment_ids_for_objects(
             segments,
             relationship_uuids=[item.get("relationship_uuid") for item in ranked],
-            session_uuids=[item["session_uuid"] for item in supporting_sessions],
-            event_uuids=[item["event_uuid"] for item in supporting_events],
+            session_uuids=[item["event_uuid"] for item in supporting_events],
+            event_uuids=[item["event_uuid"] for item in supporting_facts],
         )
         representative_photo_ids = self._unique(
             photo_id
@@ -1046,8 +1056,8 @@ class MemoryQueryService:
             resolved_entities=supporting_relationships,
             resolved_concepts=["friend", "close_friend"],
             time_window=asdict(time_scope),
-            supporting_sessions=supporting_sessions,
             supporting_events=supporting_events,
+            supporting_facts=supporting_facts,
             supporting_relationships=supporting_relationships,
             representative_photo_ids=representative_photo_ids,
             evidence_segment_ids=evidence_segment_ids,
@@ -1071,14 +1081,14 @@ class MemoryQueryService:
 
         moods.sort(key=lambda item: str(item.get("properties", {}).get("window_end") or ""), reverse=True)
         top = moods[:1]
-        supporting_sessions = []
+        supporting_events = []
         for mood in top:
             session_uuid = mood.get("properties", {}).get("session_uuid")
             if session_uuid and session_uuid in indexes["nodes"]:
-                supporting_sessions.append(self._session_payload(indexes["nodes"][session_uuid]))
+                supporting_events.append(self._session_payload(indexes["nodes"][session_uuid]))
         evidence_segment_ids = self._segment_ids_for_objects(
             segments,
-            session_uuids=[item["session_uuid"] for item in supporting_sessions],
+            session_uuids=[item["event_uuid"] for item in supporting_events],
         )
         if top:
             props = top[0]["properties"]
@@ -1098,7 +1108,7 @@ class MemoryQueryService:
             resolved_entities=[self._serialize(self._node_payload(item)) for item in top],
             resolved_concepts=resolved_concepts,
             time_window=asdict(time_scope),
-            supporting_sessions=supporting_sessions,
+            supporting_events=supporting_events,
             evidence_segment_ids=evidence_segment_ids,
             explanation="优先读取 mood hypotheses，并用会话级证据片段回填解释。",
             uncertainty_flags=uncertainty_flags,
@@ -1217,9 +1227,9 @@ class MemoryQueryService:
     def _pseudo_cypher(self, operator_plan: OperatorPlanDTO, dsl: QueryDSLDTO) -> str:
         if operator_plan.intent == "event_search":
             return (
-                "MATCH (e:Event)-[:HAS_CONCEPT]->(c:Concept) "
-                "WHERE e.user_id = $user_id AND e.started_at >= $start_at AND c.canonical_name IN $concepts "
-                "RETURN e ORDER BY e.started_at DESC"
+                "MATCH (f:Fact)-[:HAS_CONCEPT]->(c:Concept) "
+                "WHERE f.user_id = $user_id AND f.started_at >= $start_at AND c.canonical_name IN $concepts "
+                "RETURN f ORDER BY f.started_at DESC"
             )
         if operator_plan.intent == "relationship_rank_query":
             return (
@@ -1228,7 +1238,7 @@ class MemoryQueryService:
                 "RETURN r ORDER BY r.co_present_session_count DESC"
             )
         if operator_plan.intent == "mood_lookup":
-            return "MATCH (m:MoodStateHypothesis)-[:DESCRIBES_SESSION]->(s:Session) RETURN m, s ORDER BY m.window_end DESC"
+            return "MATCH (m:MoodStateHypothesis)-[:DESCRIBES_EVENT]->(e:Event) RETURN m, e ORDER BY m.window_end DESC"
         return (
             "MATCH (p:Person)-[:HAS_RELATIONSHIP]->(r:RelationshipHypothesis) "
             "WHERE r.status IN ['active','cooling'] RETURN r"
@@ -1239,12 +1249,15 @@ class MemoryQueryService:
         participants = self._participants_for_event(indexes, node.get("event_uuid"))
         return {
             "event_uuid": node.get("event_uuid"),
+            "fact_id": props.get("fact_id"),
             "title": props.get("title"),
             "normalized_event_type": props.get("normalized_event_type"),
+            "coarse_event_type": props.get("coarse_event_type"),
             "started_at": props.get("started_at"),
             "ended_at": props.get("ended_at"),
             "confidence": float(props.get("confidence") or 0.0),
             "participants": participants,
+            "original_image_ids": props.get("original_image_ids", []),
             "representative_photo_ids": props.get("representative_photo_ids", []),
         }
 
@@ -1275,11 +1288,15 @@ class MemoryQueryService:
     def _session_payload(self, node: Dict[str, Any]) -> Dict[str, Any]:
         props = node.get("properties", {})
         return {
-            "session_uuid": node.get("session_uuid"),
+            "event_uuid": node.get("session_uuid"),
+            "event_id": props.get("event_id"),
+            "title": props.get("summary_hint") or props.get("event_id"),
             "started_at": props.get("started_at"),
             "ended_at": props.get("ended_at"),
             "place_uuid": props.get("place_uuid"),
             "participant_count": props.get("participant_count"),
+            "confidence": float(props.get("confidence") or 0.6),
+            "original_image_ids": props.get("original_image_ids", []),
             "representative_photo_ids": props.get("representative_photo_ids", []),
         }
 
@@ -1293,12 +1310,12 @@ class MemoryQueryService:
         session_uuids = [
             edge.get("to_id")
             for edge in indexes["outgoing"].get(str(event_uuid), [])
-            if edge.get("edge_type") == "DERIVED_FROM_SESSION"
+            if edge.get("edge_type") == "DERIVED_FROM_EVENT"
         ]
         participants = []
         for session_uuid in session_uuids:
             for edge in indexes["incoming"].get(str(session_uuid), []):
-                if edge.get("edge_type") != "CO_PRESENT_IN":
+                if edge.get("edge_type") != "CO_PRESENT_IN_EVENT":
                     continue
                 node = indexes["nodes"].get(str(edge.get("from_id")))
                 if not node:
@@ -1313,7 +1330,7 @@ class MemoryQueryService:
         seen = set()
         for event in events:
             for edge in indexes["outgoing"].get(str(event.get("event_uuid")), []):
-                if edge.get("edge_type") != "DERIVED_FROM_SESSION":
+                if edge.get("edge_type") != "DERIVED_FROM_EVENT":
                     continue
                 session_node = indexes["nodes"].get(str(edge.get("to_id")))
                 if session_node and session_node.get("session_uuid") not in seen:
@@ -1403,6 +1420,19 @@ class MemoryQueryService:
                 fallback.append(segment_id)
         return self._unique(selected or fallback)
 
+    def _facts_for_events(self, indexes: Dict[str, Any], events: Iterable[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        facts = []
+        seen = set()
+        for event in events:
+            for edge in indexes["incoming"].get(str(event.get("session_uuid")), []):
+                if edge.get("edge_type") != "DERIVED_FROM_EVENT":
+                    continue
+                fact_node = indexes["nodes"].get(str(edge.get("from_id")))
+                if fact_node and fact_node.get("event_uuid") not in seen:
+                    seen.add(fact_node.get("event_uuid"))
+                    facts.append(self._event_payload(indexes, fact_node))
+        return facts
+
     def _segment_ids_for_profile_candidates(
         self,
         segments: List[Dict[str, Any]],
@@ -1441,8 +1471,8 @@ class MemoryQueryService:
 
     def _events_from_ids(self, indexes: Dict[str, Any], event_ids: List[str]) -> List[Dict[str, Any]]:
         event_uuid_by_id = {
-            str(node.get("properties", {}).get("event_id") or ""): node.get("event_uuid")
-            for node in indexes["nodes_by_group"].get("events", [])
+            str(node.get("properties", {}).get("fact_id") or ""): node.get("event_uuid")
+            for node in indexes["nodes_by_group"].get("facts", [])
         }
         event_uuids = [event_uuid_by_id.get(str(event_id) or "") for event_id in event_ids if event_uuid_by_id.get(str(event_id) or "")]
         return self._events_by_uuids(indexes, event_uuids)

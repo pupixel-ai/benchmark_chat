@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
+from time import perf_counter
 from typing import TYPE_CHECKING, Callable, Dict, List, Optional
 
 from config import DEFAULT_TASK_VERSION, FACE_MIN_SIZE, MAX_UPLOAD_PHOTOS, TASK_VERSION_V0315, TASK_VERSION_V0317
@@ -135,9 +136,17 @@ class MemoryPipelineService:
                 "message": "进行人脸识别",
                 "input_photo_count": len(photos_to_process),
                 "original_photo_count": len(photos),
+                "processed": 0,
+                "percent": 0,
+                "runtime_seconds": 0.0,
             },
         )
-        face_ready_photos = self._run_face_recognition(photos_to_process)
+        face_started_at = perf_counter()
+        face_ready_photos = self._run_face_recognition(
+            photos_to_process,
+            progress_callback=progress_callback,
+            started_at=face_started_at,
+        )
 
         primary_person_id = None
         if face_ready_photos:
@@ -160,6 +169,9 @@ class MemoryPipelineService:
             {
                 "message": "人脸识别完成",
                 "completed": True,
+                "processed": len(photos_to_process),
+                "percent": 100,
+                "runtime_seconds": round(perf_counter() - face_started_at, 4),
                 "face_result_preview": self._build_face_stage_preview(face_payload),
                 "face_output_url": self._public_url(self.cache_dir / "face_recognition_output.json"),
             },
@@ -185,15 +197,15 @@ class MemoryPipelineService:
                     "total_persons": face_output.get("metrics", {}).get("total_persons", 0),
                     "primary_person_id": primary_person_id,
                     "event_count": 0,
+                    "fact_count": 0,
                     "relationship_count": 0,
-                    "session_count": 0,
                     "profile_version": 0,
                 },
                 "face_recognition": face_payload,
                 "face_report": self._build_face_report(face_payload),
                 "failed_images": self.failed_images,
                 "warnings": self.warnings,
-                "events": [],
+                "facts": [],
                 "relationships": [],
                 "profile_markdown": "",
                 "memory": None,
@@ -209,7 +221,18 @@ class MemoryPipelineService:
         self._notify(progress_callback, "preprocess", {"message": "压缩图片"})
         photos_for_vlm = self.image_processor.preprocess(face_ready_photos)
 
-        self._notify(progress_callback, "vlm", {"message": "进行视觉分析", "photo_count": len(photos_for_vlm)})
+        vlm_started_at = perf_counter()
+        self._notify(
+            progress_callback,
+            "vlm",
+            {
+                "message": "进行视觉分析",
+                "photo_count": len(photos_for_vlm),
+                "processed": 0,
+                "percent": 0,
+                "runtime_seconds": 0.0,
+            },
+        )
         vlm_analyzer_cls = VLMAnalyzer
         if vlm_analyzer_cls is None:
             from services.vlm_analyzer import VLMAnalyzer as vlm_analyzer_cls
@@ -241,20 +264,27 @@ class MemoryPipelineService:
                     "photo_count": len(photos_for_vlm),
                     "processed": index,
                     "cached_hits": len(cached_photo_ids),
+                    "percent": self._stage_percent(index, len(photos_for_vlm)),
+                    "runtime_seconds": round(perf_counter() - vlm_started_at, 4),
                 },
             )
 
         self._notify(
             progress_callback,
             "vlm",
-            self._build_vlm_stage_progress(vlm.results, cached_photo_ids),
+            self._build_vlm_stage_progress(
+                vlm.results,
+                cached_photo_ids,
+                total_input_photos=len(photos_for_vlm),
+                runtime_seconds=perf_counter() - vlm_started_at,
+            ),
         )
 
-        events = []
+        facts = []
         relationships = []
         profile_markdown = ""
         memory_contract: Dict[str, object] = {
-            "events": [],
+            "facts": [],
             "observations": [],
             "claims": [],
             "relationship_hypotheses": [],
@@ -264,23 +294,45 @@ class MemoryPipelineService:
         llm_chunk_artifacts: Dict[str, object] = {}
 
         if vlm.results:
-            self._notify(progress_callback, "llm", {"message": "提取事件、关系与画像"})
+            llm_started_at = perf_counter()
+            self._notify(
+                progress_callback,
+                "llm",
+                {
+                    "message": "提取事实、关系与画像",
+                    "processed_slices": 0,
+                    "slice_count": 0,
+                    "processed_events": 0,
+                    "event_count": 0,
+                    "percent": 0,
+                    "runtime_seconds": 0.0,
+                },
+            )
             llm_processor_cls = LLMProcessor
             if llm_processor_cls is None:
                 from services.llm_processor import LLMProcessor as llm_processor_cls
             llm = llm_processor_cls()
-            memory_contract = llm.extract_memory_contract(vlm.results, face_db, primary_person_id)
+            memory_contract = llm.extract_memory_contract(
+                vlm.results,
+                face_db,
+                primary_person_id,
+                progress_callback=lambda payload: self._notify(progress_callback, "llm", payload),
+            )
             llm_chunk_artifacts = dict(getattr(llm, "last_chunk_artifacts", {}) or {})
             save_json(memory_contract, str(self.llm_contract_path))
             save_json(llm_chunk_artifacts, str(self.llm_chunks_path))
-            events = llm.events_from_memory_contract(memory_contract)
+            facts = llm.facts_from_memory_contract(memory_contract)
             relationships = llm.relationships_from_memory_contract(memory_contract)
             profile_markdown = llm.profile_markdown_from_memory_contract(memory_contract, primary_person_id)
             self._write_profile_report(profile_markdown)
             self._notify(
                 progress_callback,
                 "llm",
-                self._build_llm_stage_progress(memory_contract, llm_chunk_artifacts),
+                self._build_llm_stage_progress(
+                    memory_contract,
+                    llm_chunk_artifacts,
+                    runtime_seconds=perf_counter() - llm_started_at,
+                ),
             )
         else:
             self.warnings.append({
@@ -290,10 +342,19 @@ class MemoryPipelineService:
             self._notify(
                 progress_callback,
                 "llm",
-                self._build_llm_stage_progress(memory_contract, llm_chunk_artifacts),
+                self._build_llm_stage_progress(memory_contract, llm_chunk_artifacts, runtime_seconds=0.0),
             )
 
-        self._notify(progress_callback, "memory", {"message": "构建记忆框架输出"})
+        memory_started_at = perf_counter()
+        self._notify(
+            progress_callback,
+            "memory",
+            {
+                "message": "构建记忆框架输出",
+                "percent": 5,
+                "runtime_seconds": 0.0,
+            },
+        )
         memory = MemoryModuleService(
             task_id=self.task_id,
             task_dir=str(self.task_dir),
@@ -304,7 +365,7 @@ class MemoryPipelineService:
             photos=photos_for_vlm,
             face_output=face_output,
             vlm_results=vlm.results,
-            events=events,
+            events=facts,
             relationships=relationships,
             profile_markdown=profile_markdown,
             cached_photo_ids=cached_photo_ids,
@@ -315,7 +376,7 @@ class MemoryPipelineService:
         self._notify(
             progress_callback,
             "memory",
-            self._build_memory_stage_progress(memory),
+            self._build_memory_stage_progress(memory, runtime_seconds=perf_counter() - memory_started_at),
         )
 
         detailed_output = {
@@ -332,19 +393,19 @@ class MemoryPipelineService:
                 "total_faces": face_output.get("metrics", {}).get("total_faces", 0),
                 "total_persons": face_output.get("metrics", {}).get("total_persons", 0),
                 "primary_person_id": primary_person_id,
-                "event_count": len(events),
+                "event_count": memory.get("summary", {}).get("event_count", 0),
+                "fact_count": len(facts),
                 "relationship_count": len(relationships),
                 "observation_count": len(memory_contract.get("observations", [])),
                 "claim_count": len(memory_contract.get("claims", [])),
                 "profile_delta_count": len(memory_contract.get("profile_deltas", [])),
-                "session_count": memory.get("summary", {}).get("session_count", 0),
                 "profile_version": memory.get("summary", {}).get("profile_version", 0),
             },
             "face_recognition": face_payload,
             "face_report": self._build_face_report(face_payload),
             "failed_images": self.failed_images,
             "warnings": self.warnings,
-            "events": [self._serialize_event(event) for event in events],
+            "facts": [self._serialize_event(event) for event in facts],
             "relationships": [self._serialize_relationship(item) for item in relationships],
             "profile_markdown": profile_markdown,
             "memory_contract": memory_contract,
@@ -373,14 +434,33 @@ class MemoryPipelineService:
     def _supports_memory_graph(self) -> bool:
         return self.task_version == TASK_VERSION_V0317
 
-    def _run_face_recognition(self, photos: List) -> List:
+    def _run_face_recognition(
+        self,
+        photos: List,
+        progress_callback: Optional[Callable[[str, Dict], None]] = None,
+        started_at: Optional[float] = None,
+    ) -> List:
         successful = []
-        for photo in photos:
+        total = len(photos)
+        stage_started_at = started_at if started_at is not None else perf_counter()
+        for index, photo in enumerate(photos, start=1):
             try:
                 self.face_recognition.process_photo(photo)
                 successful.append(photo)
             except Exception as exc:
                 self._record_failure(photo.photo_id, photo.filename, photo.path, "face_recognition", str(exc))
+            finally:
+                self._notify(
+                    progress_callback,
+                    "face_recognition",
+                    {
+                        "message": "进行人脸识别",
+                        "processed": index,
+                        "input_photo_count": total,
+                        "percent": self._stage_percent(index, total),
+                        "runtime_seconds": round(perf_counter() - stage_started_at, 4),
+                    },
+                )
         return successful
 
     def _build_face_recognition_payload(self, photos: List, face_output: Dict) -> Dict:
@@ -737,7 +817,7 @@ class MemoryPipelineService:
             "relationship_type": relationship.relationship_type,
             "label": relationship.label,
             "confidence": relationship.confidence,
-            "supporting_event_ids": list(evidence.get("supporting_event_ids", []) or []),
+            "supporting_fact_ids": list(evidence.get("supporting_fact_ids", evidence.get("supporting_event_ids", [])) or []),
             "supporting_original_image_ids": list(evidence.get("supporting_photo_ids", []) or []),
             "evidence": evidence,
             "reason": relationship.reason,
@@ -753,7 +833,14 @@ class MemoryPipelineService:
         }
         return preview
 
-    def _build_vlm_stage_progress(self, results: List[Dict], cached_photo_ids: set[str]) -> Dict:
+    def _build_vlm_stage_progress(
+        self,
+        results: List[Dict],
+        cached_photo_ids: set[str],
+        *,
+        total_input_photos: int,
+        runtime_seconds: float,
+    ) -> Dict:
         previews = []
         for item in results[:12]:
             analysis = dict(item.get("vlm_analysis", {}) or {})
@@ -777,13 +864,22 @@ class MemoryPipelineService:
             "completed": True,
             "processed": len(results),
             "cached_hits": len(cached_photo_ids),
+            "percent": 100,
+            "runtime_seconds": round(runtime_seconds, 4),
+            "total_input_photos": total_input_photos,
             "vlm_results_preview": previews,
             "vlm_cache_url": self._public_url(self.vlm_cache_path),
         }
 
-    def _build_llm_stage_progress(self, memory_contract: Dict[str, object], llm_chunk_artifacts: Dict[str, object]) -> Dict:
+    def _build_llm_stage_progress(
+        self,
+        memory_contract: Dict[str, object],
+        llm_chunk_artifacts: Dict[str, object],
+        *,
+        runtime_seconds: float,
+    ) -> Dict:
         contract_preview = {
-            "events": list(memory_contract.get("events", [])[:12]),
+            "facts": list(memory_contract.get("facts", [])[:12]),
             "observations": list(memory_contract.get("observations", [])[:12]),
             "claims": list(memory_contract.get("claims", [])[:12]),
             "relationship_hypotheses": list(memory_contract.get("relationship_hypotheses", [])[:12]),
@@ -793,13 +889,15 @@ class MemoryPipelineService:
         return {
             "message": "LLM 改写完成",
             "completed": True,
+            "percent": 100,
+            "runtime_seconds": round(runtime_seconds, 4),
             "memory_contract_preview": contract_preview,
             "memory_contract_url": self._public_url(self.llm_contract_path) if self.llm_contract_path.exists() else None,
             "llm_chunks_url": self._public_url(self.llm_chunks_path) if self.llm_chunks_path.exists() else None,
             "llm_chunk_artifacts_preview": dict(llm_chunk_artifacts or {}),
         }
 
-    def _build_memory_stage_progress(self, memory: Dict[str, object]) -> Dict:
+    def _build_memory_stage_progress(self, memory: Dict[str, object], *, runtime_seconds: float) -> Dict:
         storage = dict(memory.get("storage", {}) or {})
         neo4j_storage = dict(storage.get("neo4j", {}) or {})
         neo4j_nodes = dict(neo4j_storage.get("nodes", {}) or {})
@@ -814,11 +912,18 @@ class MemoryPipelineService:
         return {
             "message": "记忆框架落位完成",
             "completed": True,
+            "percent": 100,
+            "runtime_seconds": round(runtime_seconds, 4),
             "redis_preview": dict(storage.get("redis", {}) or {}),
             "neo4j_preview": neo4j_preview,
             "memory_transparency_preview": dict(memory.get("transparency", {}) or {}),
             "artifacts": dict(memory.get("artifacts", {}) or {}),
         }
+
+    def _stage_percent(self, processed: int, total: int) -> int:
+        if total <= 0:
+            return 0
+        return int(round(min(100.0, (max(processed, 0) / total) * 100.0)))
 
     def _public_url(self, file_path: Optional[Path | str]) -> Optional[str]:
         if not file_path:

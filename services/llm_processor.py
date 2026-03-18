@@ -9,7 +9,7 @@ import time
 from collections import Counter, defaultdict
 from datetime import datetime
 from math import asin, cos, radians, sin, sqrt
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Callable, Dict, Iterable, List, Optional
 
 from config import (
     API_PROXY_KEY,
@@ -193,16 +193,19 @@ class LLMProcessor:
         vlm_results: List[Dict[str, Any]],
         face_db: Optional[Dict[str, Any]] = None,
         primary_person_id: Optional[str] = None,
+        progress_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
     ) -> Dict[str, Any]:
+        started_at = time.perf_counter()
         if not vlm_results:
             contract = self._empty_contract()
             self.last_memory_contract = contract
             self.last_chunk_artifacts = {
                 "photo_fact_count": 0,
-                "raw_session_count": 0,
+                "raw_event_count": 0,
                 "slice_count": 0,
                 "slices": [],
-                "session_summaries": [],
+                "event_summaries": [],
+                "llm_runtime_seconds": 0.0,
             }
             return contract
 
@@ -210,6 +213,18 @@ class LLMProcessor:
         bursts = self._build_bursts(photo_facts)
         raw_sessions = self._build_raw_sessions(bursts)
         session_slices = self._build_session_slices(raw_sessions)
+        self._emit_progress(
+            progress_callback,
+            {
+                "message": "LLM 改写中",
+                "processed_slices": 0,
+                "slice_count": len(session_slices),
+                "processed_events": 0,
+                "event_count": len(raw_sessions),
+                "percent": 5,
+                "runtime_seconds": round(time.perf_counter() - started_at, 4),
+            },
+        )
 
         slice_contracts = []
         slice_artifacts = []
@@ -217,13 +232,13 @@ class LLMProcessor:
         for session_slice in session_slices:
             prompt = self._create_slice_memory_prompt(session_slice["evidence_packet"], primary_person_id)
             response = self._call_with_retries(lambda prompt=prompt: self._call_json_prompt(prompt))
-            normalized = self._normalize_memory_contract(response)
+            normalized = self._finalize_memory_contract(response)
             slice_contracts.append(normalized)
             slice_contracts_by_session[session_slice["raw_session_id"]].append(normalized)
             slice_artifacts.append(
                 {
                     "slice_id": session_slice["slice_id"],
-                    "raw_session_id": session_slice["raw_session_id"],
+                    "raw_event_id": session_slice["raw_session_id"],
                     "photo_ids": list(session_slice["photo_ids"]),
                     "burst_ids": list(session_slice["burst_ids"]),
                     "overlap_burst_ids": list(session_slice["overlap_burst_ids"]),
@@ -239,6 +254,18 @@ class LLMProcessor:
                     "density_score": float(session_slice.get("density_score") or 0.0),
                     "contract_counts": self._contract_counts(normalized),
                 }
+            )
+            self._emit_progress(
+                progress_callback,
+                {
+                    "message": "LLM 改写中",
+                    "processed_slices": len(slice_artifacts),
+                    "slice_count": len(session_slices),
+                    "processed_events": 0,
+                    "event_count": len(raw_sessions),
+                    "percent": self._progress_percent(len(slice_artifacts), max(len(session_slices), 1), start=5, end=65),
+                    "runtime_seconds": round(time.perf_counter() - started_at, 4),
+                },
             )
 
         session_contracts = []
@@ -256,11 +283,11 @@ class LLMProcessor:
                 primary_person_id=primary_person_id,
             )
             session_contract = self._call_with_retries(lambda prompt=session_prompt: self._call_json_prompt(prompt))
-            normalized_session_contract = self._normalize_memory_contract(session_contract)
+            normalized_session_contract = self._finalize_memory_contract(session_contract)
             session_contracts.append(normalized_session_contract)
             session_artifacts.append(
                 {
-                    "raw_session_id": raw_session["raw_session_id"],
+                    "raw_event_id": raw_session["raw_session_id"],
                     "started_at": raw_session["started_at"],
                     "ended_at": raw_session["ended_at"],
                     "location_chain": list(raw_session["location_chain"]),
@@ -279,6 +306,18 @@ class LLMProcessor:
                     "contract_counts": self._contract_counts(normalized_session_contract),
                 }
             )
+            self._emit_progress(
+                progress_callback,
+                {
+                    "message": "LLM 汇总事件窗口",
+                    "processed_slices": len(slice_artifacts),
+                    "slice_count": len(session_slices),
+                    "processed_events": len(session_artifacts),
+                    "event_count": len(raw_sessions),
+                    "percent": self._progress_percent(len(session_artifacts), max(len(raw_sessions), 1), start=65, end=92),
+                    "runtime_seconds": round(time.perf_counter() - started_at, 4),
+                },
+            )
 
         merge_prompt = self._create_merge_prompt(
             photo_fact_count=len(photo_facts),
@@ -288,15 +327,27 @@ class LLMProcessor:
             session_artifacts=session_artifacts,
             primary_person_id=primary_person_id,
         )
+        self._emit_progress(
+            progress_callback,
+            {
+                "message": "LLM 生成最终 memory contract",
+                "processed_slices": len(slice_artifacts),
+                "slice_count": len(session_slices),
+                "processed_events": len(session_artifacts),
+                "event_count": len(raw_sessions),
+                "percent": 96,
+                "runtime_seconds": round(time.perf_counter() - started_at, 4),
+            },
+        )
         merged_contract = self._call_with_retries(lambda: self._call_json_prompt(merge_prompt))
-        contract = self._normalize_memory_contract(merged_contract)
+        contract = self._finalize_memory_contract(merged_contract)
 
         self.last_memory_contract = contract
         self.last_chunk_artifacts = {
             "photo_fact_count": len(photo_facts),
             "burst_count": len(bursts),
-            "raw_session_count": len(raw_sessions),
-            "session_contract_count": len(session_contracts),
+            "raw_event_count": len(raw_sessions),
+            "event_contract_count": len(session_contracts),
             "slice_count": len(session_slices),
             "bursts": [
                 {
@@ -312,15 +363,16 @@ class LLMProcessor:
                 }
                 for burst in bursts
             ],
-            "session_summaries": session_artifacts,
+            "event_summaries": session_artifacts,
             "slices": slice_artifacts,
             "final_contract_counts": self._contract_counts(contract),
+            "llm_runtime_seconds": round(time.perf_counter() - started_at, 4),
         }
         return contract
 
-    def events_from_memory_contract(self, memory_contract: Dict[str, Any]) -> List[Event]:
+    def facts_from_memory_contract(self, memory_contract: Dict[str, Any]) -> List[Event]:
         events: List[Event] = []
-        for index, item in enumerate(memory_contract.get("events", []), start=1):
+        for index, item in enumerate(memory_contract.get("facts", []), start=1):
             started_at = str(item.get("started_at") or "")
             ended_at = str(item.get("ended_at") or started_at)
             date, time_range = self._legacy_time_fields(started_at, ended_at)
@@ -342,7 +394,7 @@ class LLMProcessor:
             }
             events.append(
                 Event(
-                    event_id=str(item.get("event_id") or f"EVT_{index:03d}"),
+                    event_id=str(item.get("fact_id") or f"FACT_{index:03d}"),
                     date=date,
                     time_range=time_range,
                     duration="",
@@ -379,7 +431,8 @@ class LLMProcessor:
                     confidence=float(item.get("confidence") or 0.0),
                     evidence={
                         **(item.get("evidence", {}) or {}),
-                        "supporting_event_ids": [str(value) for value in item.get("supporting_event_ids", []) or []],
+                        "supporting_event_ids": [str(value) for value in item.get("supporting_fact_ids", []) or []],
+                        "supporting_fact_ids": [str(value) for value in item.get("supporting_fact_ids", []) or []],
                         "supporting_photo_ids": [str(value) for value in item.get("supporting_photo_ids", []) or []],
                     },
                     reason=str(item.get("reason") or item.get("reason_summary") or ""),
@@ -421,11 +474,160 @@ class LLMProcessor:
                 lines.append(f"- {item.get('field')}: {item.get('status')} ({item.get('reason')})")
         return "\n".join(lines).strip()
 
+    def _finalize_memory_contract(self, payload: Any) -> Dict[str, Any]:
+        contract = self._normalize_memory_contract(payload)
+        self._ensure_profile_deltas(contract)
+        return contract
+
+    def _ensure_profile_deltas(self, contract: Dict[str, Any]) -> None:
+        profile_deltas = contract.setdefault("profile_deltas", [])
+        existing_keys = {
+            (
+                str(item.get("profile_key") or ""),
+                str(item.get("field_key") or ""),
+                str(item.get("field_value") or ""),
+            )
+            for item in profile_deltas
+            if isinstance(item, dict)
+        }
+        synthesized: List[Dict[str, Any]] = []
+
+        def append_delta(
+            *,
+            profile_key: str,
+            field_key: str,
+            field_value: str,
+            summary: str,
+            confidence: float,
+            supporting_fact_ids: Optional[List[str]] = None,
+            supporting_photo_ids: Optional[List[str]] = None,
+            evidence_refs: Optional[List[Dict[str, str]]] = None,
+        ) -> None:
+            normalized_key = (profile_key, field_key, field_value)
+            if not field_value or normalized_key in existing_keys:
+                return
+            existing_keys.add(normalized_key)
+            synthesized.append(
+                {
+                    "profile_key": profile_key,
+                    "field_key": field_key,
+                    "field_value": field_value,
+                    "summary": summary or field_value,
+                    "confidence": round(max(0.0, min(1.0, confidence)), 4),
+                    "supporting_fact_ids": list(supporting_fact_ids or []),
+                    "supporting_photo_ids": list(supporting_photo_ids or []),
+                    "evidence_refs": list(evidence_refs or []),
+                }
+            )
+
+        for fact in contract.get("facts", [])[:16]:
+            fact_id = str(fact.get("fact_id") or "")
+            photo_ids = [str(item) for item in fact.get("original_image_ids", fact.get("photo_ids", [])) or [] if item]
+            summary = str(fact.get("narrative_synthesis") or fact.get("description") or fact.get("title") or "").strip()
+            title = str(fact.get("title") or "").strip()
+            if title:
+                append_delta(
+                    profile_key="recommendation_prior_profile",
+                    field_key="recent_activity_signal",
+                    field_value=title,
+                    summary=summary or title,
+                    confidence=float(fact.get("confidence") or 0.0) * 0.75,
+                    supporting_fact_ids=[fact_id] if fact_id else [],
+                    supporting_photo_ids=photo_ids,
+                    evidence_refs=[{"ref_type": "fact", "ref_id": fact_id}] if fact_id else [],
+                )
+            location = str(fact.get("location") or "").strip()
+            if location:
+                append_delta(
+                    profile_key="identity_trajectory_profile",
+                    field_key="place_signal",
+                    field_value=location,
+                    summary=f"近期活动地点线索: {location}",
+                    confidence=max(0.35, float(fact.get("confidence") or 0.0) * 0.68),
+                    supporting_fact_ids=[fact_id] if fact_id else [],
+                    supporting_photo_ids=photo_ids,
+                    evidence_refs=[{"ref_type": "fact", "ref_id": fact_id}] if fact_id else [],
+                )
+
+        observation_profile_map = {
+            "scene": ("aesthetic_profile", "scene_signal"),
+            "activity": ("recommendation_prior_profile", "activity_signal"),
+            "place_hint": ("identity_trajectory_profile", "place_signal"),
+            "brand": ("preference_profile", "observed_brand_signal"),
+            "dish": ("preference_profile", "observed_dish_signal"),
+            "price": ("consumption_profile", "price_signal"),
+            "clothing": ("style_profile", "style_signal"),
+            "style": ("style_profile", "style_signal"),
+            "health": ("identity_trajectory_profile", "health_signal"),
+            "transport": ("identity_trajectory_profile", "transport_signal"),
+            "route_plan": ("recommendation_prior_profile", "route_signal"),
+            "object": ("recommendation_prior_profile", "object_signal"),
+        }
+        for observation in contract.get("observations", [])[:24]:
+            category = str(observation.get("category") or "scene").strip()
+            profile_key, field_key = observation_profile_map.get(category, ("recommendation_prior_profile", "observation_signal"))
+            field_value = str(observation.get("field_value") or "").strip()
+            if not field_value:
+                continue
+            append_delta(
+                profile_key=profile_key,
+                field_key=field_key,
+                field_value=field_value,
+                summary=f"{observation.get('field_key') or category}: {field_value}",
+                confidence=max(0.28, float(observation.get("confidence") or 0.0) * 0.72),
+                supporting_fact_ids=[str(observation.get("fact_id") or "")] if observation.get("fact_id") else [],
+                supporting_photo_ids=[str(item) for item in observation.get("original_image_ids", observation.get("photo_ids", [])) or [] if item],
+                evidence_refs=observation.get("evidence_refs", []) or [],
+            )
+
+        claim_profile_map = {
+            "location": ("identity_trajectory_profile", "location_claim"),
+            "identity": ("career_profile", "identity_claim"),
+            "brand": ("preference_profile", "brand_claim"),
+            "dish": ("preference_profile", "dish_claim"),
+            "price": ("consumption_profile", "price_claim"),
+            "health": ("identity_trajectory_profile", "health_claim"),
+            "transport": ("identity_trajectory_profile", "transport_claim"),
+            "route_plan": ("recommendation_prior_profile", "route_plan_claim"),
+            "preference_signal": ("preference_profile", "preference_signal"),
+            "culture_signal": ("aesthetic_profile", "culture_signal"),
+            "object_last_seen": ("recommendation_prior_profile", "object_last_seen"),
+        }
+        for claim in contract.get("claims", [])[:24]:
+            claim_type = str(claim.get("claim_type") or "other").strip()
+            profile_key, field_key = claim_profile_map.get(claim_type, ("recommendation_prior_profile", "claim_signal"))
+            claim_object = str(claim.get("object") or "").strip()
+            if not claim_object:
+                continue
+            predicate = str(claim.get("predicate") or "").strip()
+            summary = f"{predicate}: {claim_object}" if predicate else claim_object
+            append_delta(
+                profile_key=profile_key,
+                field_key=field_key,
+                field_value=claim_object,
+                summary=summary,
+                confidence=max(0.32, float(claim.get("confidence") or 0.0) * 0.8),
+                supporting_fact_ids=[str(claim.get("fact_id") or "")] if claim.get("fact_id") else [],
+                supporting_photo_ids=[str(item) for item in claim.get("original_image_ids", claim.get("photo_ids", [])) or [] if item],
+                evidence_refs=claim.get("evidence_refs", []) or [],
+            )
+
+        if not synthesized:
+            return
+
+        remaining_capacity = max(0, 12 - len(profile_deltas))
+        if remaining_capacity <= 0:
+            return
+
+        for index, item in enumerate(synthesized[:remaining_capacity], start=1):
+            item.setdefault("delta_id", f"SYNTH_DELTA_{index:03d}")
+            profile_deltas.append(item)
+
     def extract_events(self, vlm_results: List[Dict], primary_person_id: Optional[str] = None) -> List[Event]:
         contract = self.last_memory_contract
         if contract is None:
             contract = self.extract_memory_contract(vlm_results, primary_person_id=primary_person_id)
-        return self.events_from_memory_contract(contract)
+        return self.facts_from_memory_contract(contract)
 
     def infer_relationships(
         self,
@@ -738,7 +940,7 @@ class LLMProcessor:
             for clue in fact.get("rare_clues", [])
         )
         return {
-            "session_id": raw_session["raw_session_id"],
+            "event_id": raw_session["raw_session_id"],
             "slice_id": "",
             "time_range": {
                 "start": facts[0]["timestamp"],
@@ -1134,22 +1336,23 @@ class LLMProcessor:
 
     def _create_slice_memory_prompt(self, evidence_packet: Dict[str, Any], primary_person_id: Optional[str]) -> str:
         primary_label = primary_person_id or "authenticated_user"
-        return f"""你是 memory materialization LLM。你现在只处理一个 session slice，不要总结整个相册。
+        return f"""你是 memory materialization LLM。你现在只处理一个 event slice，不要总结整个相册。
 
 规则：
-1. 你的目标是把 session-scoped evidence packet 转成可落库的 memory contract。
+1. 你的目标是把 event-scoped evidence packet 转成可落库的 memory contract。
 2. 不能编造城市、人物关系、偏好或长期画像。
 3. 你必须优先使用 fact_inventory、rare_clues、change_points、conflicts，而不是只看 summary。
 4. 允许输出 uncertainty。
 5. “我” 在内部永远对应 authenticated user={primary_label}，但只有在证据足够时才说用户出镜。
-6. events 只是 memory 的一部分；细粒度事实必须进入 observations 或 claims。
+6. facts 只是 memory 的一部分；细粒度事实必须进入 observations 或 claims。
 7. 这个 slice 只是分析窗口，不等于完整现实活动链；不要跨越 packet 边界做过强推断。
+8. 只要 evidence packet 与主用户有关，就尽量输出 profile_deltas；不要把画像层完全留空。
 
 请输出严格 JSON，包含以下 6 个顶层字段：
 {{
-  "events": [
+  "facts": [
     {{
-      "event_id": "字符串",
+      "fact_id": "字符串",
       "title": "字符串",
       "coarse_event_type": "unknown/social_outing/sightseeing/dining/training/daily_life/travel/work/study/health/shopping/other",
       "event_facets": ["字符串"],
@@ -1175,8 +1378,8 @@ class LLMProcessor:
       "confidence": 0.0,
       "photo_ids": ["photo_001"],
       "original_image_ids": ["photo_001"],
-      "event_id": "可为空",
-      "session_id": "{evidence_packet['session_id']}",
+      "fact_id": "可为空",
+      "event_id": "{evidence_packet['event_id']}",
       "person_ids": ["Person_001"],
       "evidence_refs": [{{"ref_type": "photo", "ref_id": "photo_001"}}]
     }}
@@ -1191,8 +1394,8 @@ class LLMProcessor:
       "confidence": 0.0,
       "photo_ids": ["photo_001"],
       "original_image_ids": ["photo_001"],
-      "event_id": "可为空",
-      "session_id": "{evidence_packet['session_id']}",
+      "fact_id": "可为空",
+      "event_id": "{evidence_packet['event_id']}",
       "evidence_refs": [{{"ref_type": "photo", "ref_id": "photo_001"}}]
     }}
   ],
@@ -1202,7 +1405,7 @@ class LLMProcessor:
       "relationship_type": "acquaintance|friend|close_friend|colleague|family|partner|co_presence_only",
       "label": "标签",
       "confidence": 0.0,
-      "supporting_event_ids": ["event_001"],
+      "supporting_fact_ids": ["fact_001"],
       "supporting_photo_ids": ["photo_001"],
       "reason_summary": "原因",
       "reason": "原因",
@@ -1216,7 +1419,7 @@ class LLMProcessor:
       "field_value": "字符串",
       "summary": "增量总结",
       "confidence": 0.0,
-      "supporting_event_ids": ["event_001"],
+      "supporting_fact_ids": ["fact_001"],
       "supporting_photo_ids": ["photo_001"],
       "evidence_refs": [{{"ref_type": "photo", "ref_id": "photo_001"}}]
     }}
@@ -1237,7 +1440,7 @@ class LLMProcessor:
 - rare clues 和 OCR / 品牌 / 路线 / 价格 / 地点名 / 物体最后出现线索必须尽量保留。
 - `original_image_ids` 必须精确绑定原始图片 ID；没有额外来源时可与 `photo_ids` 相同。
 
-Session-scoped evidence packet:
+Event-scoped evidence packet:
 {json.dumps(evidence_packet, ensure_ascii=False, indent=2)}
 """
 
@@ -1260,7 +1463,7 @@ Session-scoped evidence packet:
             "dominant_person_ids": raw_session["dominant_person_ids"],
             "continuity_decisions": raw_session["continuity_decisions"],
         }
-        return f"""你是 memory session aggregator。你会收到同一个 raw session 下多个带 overlap 的 slice memory contracts，请先在 session 内部做去重、拼接和保守确认。
+        return f"""你是 memory event aggregator。你会收到同一个 raw event 下多个带 overlap 的 slice memory contracts，请先在 event 内部做去重、拼接和保守确认。
 
 规则：
 1. 优先比较相邻 slice 的事件与 claims，依据 overlap_burst_ids / photo_ids / 时间连续性 / 人物连续性 / location_chain 做拼接。
@@ -1269,7 +1472,7 @@ Session-scoped evidence packet:
 4. “我” 对应 authenticated_user={primary_label}，不要把任何 Person_x 直接绑成用户。
 5. 输出仍然是完整 6 段 memory contract。
 
-Session summary:
+Event summary:
 {json.dumps(session_summary, ensure_ascii=False, indent=2)}
 
 Slice packets:
@@ -1311,7 +1514,7 @@ Slice contracts:
             for session_slice in session_slices
         ]
         primary_label = primary_person_id or "authenticated_user"
-        return f"""你是 memory global aggregator。你会收到多个 raw session 的 session-level memory contracts，请做全局去重、合并、谨慎关系修订，并输出最终 memory contract。
+        return f"""你是 memory global aggregator。你会收到多个 raw event 的 event-level memory contracts，请做全局去重、合并、谨慎关系修订，并输出最终 memory contract。
 
 规则：
 1. 不要丢失高价值 observations / claims。
@@ -1324,16 +1527,16 @@ Slice contracts:
 
 输入概览：
 - total_photo_facts: {photo_fact_count}
-- raw_sessions: {json.dumps(compact_sessions, ensure_ascii=False)}
+- raw_events: {json.dumps(compact_sessions, ensure_ascii=False)}
 - session_slices: {json.dumps(compact_slices, ensure_ascii=False)}
-- session_artifacts: {json.dumps(session_artifacts, ensure_ascii=False)}
-- session_contracts:
+- event_artifacts: {json.dumps(session_artifacts, ensure_ascii=False)}
+- event_contracts:
 {json.dumps(session_contracts, ensure_ascii=False, indent=2)}
 """
 
     def _empty_contract(self) -> Dict[str, Any]:
         return {
-            "events": [],
+            "facts": [],
             "observations": [],
             "claims": [],
             "relationship_hypotheses": [],
@@ -1348,25 +1551,28 @@ Slice contracts:
         if not isinstance(payload, dict):
             return contract
         for key in contract:
-            value = payload.get(key, [])
+            if key == "facts":
+                value = payload.get("facts", payload.get("events", []))
+            else:
+                value = payload.get(key, [])
             contract[key] = value if isinstance(value, list) else []
 
-        for index, event in enumerate(contract["events"], start=1):
-            if not isinstance(event, dict):
-                contract["events"][index - 1] = {}
-                event = contract["events"][index - 1]
-            event.setdefault("event_id", f"EVT_{index:03d}")
-            event.setdefault("title", "")
-            event.setdefault("coarse_event_type", "other")
-            event.setdefault("event_facets", [])
-            event.setdefault("alternative_type_candidates", [])
-            event.setdefault("participant_person_ids", [])
-            event.setdefault("photo_ids", [])
-            event.setdefault("original_image_ids", list(event.get("photo_ids", []) or []))
-            event.setdefault("description", "")
-            event.setdefault("narrative_synthesis", "")
-            event.setdefault("confidence", 0.0)
-            event.setdefault("reason", "")
+        for index, fact in enumerate(contract["facts"], start=1):
+            if not isinstance(fact, dict):
+                contract["facts"][index - 1] = {}
+                fact = contract["facts"][index - 1]
+            fact.setdefault("fact_id", fact.get("event_id") or f"FACT_{index:03d}")
+            fact.setdefault("title", "")
+            fact.setdefault("coarse_event_type", "other")
+            fact.setdefault("event_facets", [])
+            fact.setdefault("alternative_type_candidates", [])
+            fact.setdefault("participant_person_ids", [])
+            fact.setdefault("photo_ids", [])
+            fact.setdefault("original_image_ids", list(fact.get("photo_ids", []) or []))
+            fact.setdefault("description", "")
+            fact.setdefault("narrative_synthesis", "")
+            fact.setdefault("confidence", 0.0)
+            fact.setdefault("reason", "")
         for key in ("observations", "claims", "relationship_hypotheses", "profile_deltas", "uncertainty"):
             for index, item in enumerate(contract[key], start=1):
                 if not isinstance(item, dict):
@@ -1381,8 +1587,8 @@ Slice contracts:
             item.setdefault("confidence", 0.0)
             item.setdefault("photo_ids", [])
             item.setdefault("original_image_ids", list(item.get("photo_ids", []) or []))
-            item.setdefault("event_id", "")
-            item.setdefault("session_id", "")
+            item.setdefault("fact_id", item.get("event_id", ""))
+            item.setdefault("event_id", item.get("session_id", ""))
             item.setdefault("person_ids", [])
             item.setdefault("evidence_refs", [])
         for index, item in enumerate(contract["claims"], start=1):
@@ -1396,8 +1602,8 @@ Slice contracts:
             item.setdefault("confidence", 0.0)
             item.setdefault("photo_ids", [])
             item.setdefault("original_image_ids", list(item.get("photo_ids", []) or []))
-            item.setdefault("event_id", "")
-            item.setdefault("session_id", "")
+            item.setdefault("fact_id", item.get("event_id", ""))
+            item.setdefault("event_id", item.get("session_id", ""))
             item.setdefault("evidence_refs", [])
         for index, item in enumerate(contract["relationship_hypotheses"], start=1):
             if not isinstance(item, dict):
@@ -1407,7 +1613,7 @@ Slice contracts:
             item.setdefault("relationship_type", "co_presence_only")
             item.setdefault("label", "")
             item.setdefault("confidence", 0.0)
-            item.setdefault("supporting_event_ids", [])
+            item.setdefault("supporting_fact_ids", item.get("supporting_event_ids", []))
             item.setdefault("supporting_photo_ids", [])
             item.setdefault("reason_summary", "")
             item.setdefault("reason", "")
@@ -1421,7 +1627,7 @@ Slice contracts:
             item.setdefault("field_value", "")
             item.setdefault("summary", "")
             item.setdefault("confidence", 0.0)
-            item.setdefault("supporting_event_ids", [])
+            item.setdefault("supporting_fact_ids", item.get("supporting_event_ids", []))
             item.setdefault("supporting_photo_ids", [])
             item.setdefault("evidence_refs", [])
         for index, item in enumerate(contract["uncertainty"], start=1):
@@ -1435,6 +1641,20 @@ Slice contracts:
 
     def _contract_counts(self, contract: Dict[str, Any]) -> Dict[str, int]:
         return {key: len(contract.get(key, [])) for key in self._empty_contract()}
+
+    def _emit_progress(
+        self,
+        progress_callback: Optional[Callable[[Dict[str, Any]], None]],
+        payload: Dict[str, Any],
+    ) -> None:
+        if progress_callback:
+            progress_callback(payload)
+
+    def _progress_percent(self, processed: int, total: int, *, start: int, end: int) -> int:
+        if total <= 0:
+            return start
+        ratio = min(1.0, max(0.0, processed / total))
+        return int(round(start + ((end - start) * ratio)))
 
     def _legacy_time_fields(self, started_at: str, ended_at: str) -> tuple[str, str]:
         try:
@@ -1455,7 +1675,7 @@ Slice contracts:
             lines.append(f"- primary_person_id_hint: {primary_person_id}")
             lines.append("")
         if events:
-            lines.append("## recent_events")
+            lines.append("## recent_facts")
             lines.append("")
             for event in events[:10]:
                 lines.append(f"- {event.title}: {event.narrative_synthesis or event.description}")
