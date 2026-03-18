@@ -126,9 +126,15 @@ class MemoryModuleService:
         relationships: Sequence[Relationship],
         profile_markdown: str,
         cached_photo_ids: Optional[set[str]] = None,
+        memory_contract: Optional[Dict[str, Any]] = None,
+        dedupe_report: Optional[Dict[str, Any]] = None,
+        chunk_artifacts: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         generated_at = datetime.now(timezone.utc).isoformat()
         cached_photo_ids = cached_photo_ids or set()
+        memory_contract = self._normalize_memory_contract(memory_contract)
+        dedupe_report = dict(dedupe_report or {})
+        chunk_artifacts = dict(chunk_artifacts or {})
         vlm_by_photo_id = {
             item.get("photo_id"): item
             for item in vlm_results
@@ -195,6 +201,7 @@ class MemoryModuleService:
             events=events,
             event_candidates=event_candidates,
             relationship_hypotheses=relationship_hypotheses,
+            memory_contract=memory_contract,
         )
 
         change_log = self._build_change_log(
@@ -248,6 +255,7 @@ class MemoryModuleService:
             primary_face_person_id=primary_face_person_id,
             primary_person_uuid=primary_person_uuid,
             profile_version=profile_version,
+            memory_contract=memory_contract,
         )
         focus_graph = self._build_focus_graph(
             photos=photos_dto,
@@ -270,6 +278,9 @@ class MemoryModuleService:
             change_log=change_log,
             cached_photo_ids=cached_photo_ids,
             focus_graph=focus_graph,
+            memory_contract=memory_contract,
+            dedupe_report=dedupe_report,
+            chunk_artifacts=chunk_artifacts,
         )
         evaluation = self._build_evaluation(
             scope=scope,
@@ -289,7 +300,11 @@ class MemoryModuleService:
                 "movement_count": len(sequences.movements),
                 "timeline_count": len(sequences.day_timelines),
                 "event_candidate_count": len(event_candidates),
+                "observation_count": len(memory_contract.get("observations", [])),
+                "claim_count": len(memory_contract.get("claims", [])),
                 "relationship_count": len(relationship_hypotheses),
+                "profile_delta_count": len(memory_contract.get("profile_deltas", [])),
+                "uncertainty_count": len(memory_contract.get("uncertainty", [])),
                 "mood_hypothesis_count": len(mood_hypotheses),
                 "period_hypothesis_count": len(period_hypotheses),
                 "concept_count": len(concept_catalog),
@@ -301,8 +316,9 @@ class MemoryModuleService:
             "storage": storage,
             "transparency": transparency,
             "evaluation": evaluation,
+            "memory_contract": self._serialize(memory_contract),
             "query_capabilities": {
-                "intents": ["event_search", "relationship_explore", "relationship_rank_query", "mood_lookup"],
+                "intents": ["event_search", "relationship_explore", "relationship_rank_query", "mood_lookup", "profile_lookup", "evidence_lookup"],
                 "entrypoint": "memory_module.query.MemoryQueryService",
                 "answer_type": "AnswerDTO",
             },
@@ -317,6 +333,22 @@ class MemoryModuleService:
         artifact_paths = self._save_outputs(memory_payload)
         memory_payload["artifacts"] = artifact_paths
         return memory_payload
+
+    def _normalize_memory_contract(self, memory_contract: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+        normalized = {
+            "events": [],
+            "observations": [],
+            "claims": [],
+            "relationship_hypotheses": [],
+            "profile_deltas": [],
+            "uncertainty": [],
+        }
+        if not isinstance(memory_contract, dict):
+            return normalized
+        for key in normalized:
+            value = memory_contract.get(key, [])
+            normalized[key] = value if isinstance(value, list) else []
+        return normalized
 
     def _build_photo_facts(
         self,
@@ -860,6 +892,7 @@ class MemoryModuleService:
         events: Sequence[Event],
         event_candidates: Sequence[EventCandidateDTO],
         relationship_hypotheses: Sequence[RelationshipHypothesisDTO],
+        memory_contract: Optional[Dict[str, Any]] = None,
     ) -> List[ProfileEvidenceDTO]:
         event_by_id = {candidate.event_id: candidate for candidate in event_candidates}
         evidence_items: List[ProfileEvidenceDTO] = []
@@ -922,6 +955,32 @@ class MemoryModuleService:
                     confidence=relationship.confidence,
                     supporting_person_uuids=[relationship.target_person_uuid],
                     evidence_refs=relationship.evidence_refs,
+                )
+            )
+
+        memory_contract = self._normalize_memory_contract(memory_contract)
+        for delta in memory_contract.get("profile_deltas", []):
+            supporting_event_ids = [
+                str(event_id)
+                for event_id in delta.get("supporting_event_ids", []) or []
+            ]
+            supporting_event_uuids = [
+                event_by_id[event_id].event_uuid
+                for event_id in supporting_event_ids
+                if event_id in event_by_id
+            ]
+            field_key = str(delta.get("field_key") or delta.get("profile_key") or "profile_delta")
+            field_value = str(delta.get("summary") or delta.get("field_value") or "")
+            category = str(delta.get("profile_key") or "profile_delta")
+            evidence_items.append(
+                self._profile_evidence_item(
+                    field_key=field_key,
+                    field_value=field_value,
+                    category=category,
+                    confidence=float(delta.get("confidence") or 0.0),
+                    supporting_event_ids=supporting_event_ids,
+                    supporting_event_uuids=supporting_event_uuids,
+                    evidence_refs=delta.get("evidence_refs", []) or [],
                 )
             )
 
@@ -1605,6 +1664,7 @@ class MemoryModuleService:
         primary_face_person_id: Optional[str],
         primary_person_uuid: Optional[str],
         profile_version: int,
+        memory_contract: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         people_records = [
             PersonIdentityMapRecord(
@@ -1785,7 +1845,9 @@ class MemoryModuleService:
                         "event_id": event.event_id,
                         "title": event.title,
                         "normalized_event_type": normalize_concept(event.event_type, preferred_type="event") or event.event_type,
-                        "event_subtype": event.event_type,
+                        "coarse_event_type": normalize_concept(event.event_type, preferred_type="event") or event.event_type,
+                        "event_facets": list(event.tags or []),
+                        "alternative_type_candidates": [],
                         "started_at": event.started_at,
                         "ended_at": event.ended_at,
                         "place_uuid": place_uuid,
@@ -2148,6 +2210,7 @@ class MemoryModuleService:
             profile_evidence=profile_evidence,
             mood_hypotheses=mood_hypotheses,
             concept_catalog=concept_catalog,
+            memory_contract=memory_contract,
         )
         redis = self._build_redis_records(
             profile_evidence=profile_evidence,
@@ -2157,6 +2220,7 @@ class MemoryModuleService:
             profile_markdown=profile_markdown,
             generated_at=scope.generated_at,
             profile_version=profile_version,
+            memory_contract=memory_contract,
         )
 
         return {
@@ -2481,8 +2545,10 @@ class MemoryModuleService:
         profile_evidence: Sequence[ProfileEvidenceDTO],
         mood_hypotheses: Sequence[MoodStateHypothesisDTO],
         concept_catalog: Sequence[ConceptDTO],
+        memory_contract: Optional[Dict[str, Any]] = None,
     ) -> List[MilvusSegmentRecord]:
         segments: List[MilvusSegmentRecord] = []
+        memory_contract = self._normalize_memory_contract(memory_contract)
         session_by_uuid = {session.session_uuid: session for session in sequences.sessions}
         session_by_photo_id = {
             photo_id: session
@@ -2709,6 +2775,86 @@ class MemoryModuleService:
                 )
             )
 
+        session_uuid_by_id = {session.session_id: session.session_uuid for session in sequences.sessions}
+        event_uuid_by_id = {event.event_id: event.event_uuid for event in event_candidates}
+        photo_uuid_by_id = {photo.photo_id: photo.photo_uuid for photo in photos}
+
+        for observation in memory_contract.get("observations", []):
+            photo_ids = [str(item) for item in observation.get("photo_ids", []) or []]
+            anchor_photo_id = photo_ids[0] if photo_ids else None
+            session_uuid = session_uuid_by_id.get(str(observation.get("session_id") or "")) or self._photo_session_uuid(anchor_photo_id, sequences.sessions) if anchor_photo_id else None
+            anchor_session = session_by_uuid.get(session_uuid) if session_uuid else None
+            event_uuid = event_uuid_by_id.get(str(observation.get("event_id") or ""))
+            anchor_event = event_by_uuid.get(event_uuid) if event_uuid else None
+            text = f"{observation.get('field_key')}: {observation.get('field_value')}"
+            segments.append(
+                self._segment_record(
+                    photo_uuid=photo_uuid_by_id.get(anchor_photo_id or ""),
+                    segment_type=f"{observation.get('category') or 'observation'}_observation",
+                    text=text,
+                    event_uuid=event_uuid,
+                    session_uuid=session_uuid,
+                    started_at=anchor_event.started_at if anchor_event else (anchor_session.started_at if anchor_session else None),
+                    ended_at=anchor_event.ended_at if anchor_event else (anchor_session.ended_at if anchor_session else None),
+                    place_uuid=self._event_place_uuid(anchor_event, anchor_session),
+                    location_hint=self._event_location_name(anchor_event, anchor_session),
+                    evidence_refs=observation.get("evidence_refs", []) or [],
+                )
+            )
+
+        for claim in memory_contract.get("claims", []):
+            photo_ids = [str(item) for item in claim.get("photo_ids", []) or []]
+            anchor_photo_id = photo_ids[0] if photo_ids else None
+            session_uuid = session_uuid_by_id.get(str(claim.get("session_id") or "")) or self._photo_session_uuid(anchor_photo_id, sequences.sessions) if anchor_photo_id else None
+            anchor_session = session_by_uuid.get(session_uuid) if session_uuid else None
+            event_uuid = event_uuid_by_id.get(str(claim.get("event_id") or ""))
+            anchor_event = event_by_uuid.get(event_uuid) if event_uuid else None
+            text = f"{claim.get('predicate')}: {claim.get('object')}"
+            segments.append(
+                self._segment_record(
+                    photo_uuid=photo_uuid_by_id.get(anchor_photo_id or ""),
+                    segment_type=f"{claim.get('claim_type') or 'claim'}_claim",
+                    text=text,
+                    event_uuid=event_uuid,
+                    session_uuid=session_uuid,
+                    started_at=anchor_event.started_at if anchor_event else (anchor_session.started_at if anchor_session else None),
+                    ended_at=anchor_event.ended_at if anchor_event else (anchor_session.ended_at if anchor_session else None),
+                    place_uuid=self._event_place_uuid(anchor_event, anchor_session),
+                    location_hint=self._event_location_name(anchor_event, anchor_session),
+                    evidence_refs=claim.get("evidence_refs", []) or [],
+                )
+            )
+
+        for delta in memory_contract.get("profile_deltas", []):
+            supporting_event_ids = [str(item) for item in delta.get("supporting_event_ids", []) or []]
+            anchor_event_id = supporting_event_ids[0] if supporting_event_ids else None
+            event_uuid = event_uuid_by_id.get(anchor_event_id or "")
+            anchor_event = event_by_uuid.get(event_uuid) if event_uuid else None
+            text = f"{delta.get('profile_key')}.{delta.get('field_key')}: {delta.get('summary') or delta.get('field_value')}"
+            segments.append(
+                self._segment_record(
+                    photo_uuid=None,
+                    segment_type="profile_evidence_snippet",
+                    text=text,
+                    event_uuid=event_uuid,
+                    started_at=anchor_event.started_at if anchor_event else None,
+                    ended_at=anchor_event.ended_at if anchor_event else None,
+                    place_uuid=self._event_place_uuid(anchor_event, None),
+                    location_hint=self._event_location_name(anchor_event, None),
+                    evidence_refs=delta.get("evidence_refs", []) or [],
+                )
+            )
+
+        for uncertainty in memory_contract.get("uncertainty", []):
+            segments.append(
+                self._segment_record(
+                    photo_uuid=None,
+                    segment_type="profile_evidence_snippet",
+                    text=f"uncertainty {uncertainty.get('field')}: {uncertainty.get('status')} - {uncertainty.get('reason')}",
+                    evidence_refs=[{"ref_type": "uncertainty", "ref_id": str(uncertainty.get('field') or '')}],
+                )
+            )
+
         return segments
 
     def _segment_record(
@@ -2791,7 +2937,9 @@ class MemoryModuleService:
         profile_markdown: str,
         generated_at: str,
         profile_version: int,
+        memory_contract: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
+        memory_contract = self._normalize_memory_contract(memory_contract)
         grouped: Dict[str, List[ProfileEvidenceDTO]] = defaultdict(list)
         for item in profile_evidence:
             grouped[item.field_key].append(item)
@@ -2878,11 +3026,27 @@ class MemoryModuleService:
             if relationship.status in {"active", "cooling"}
         ]
 
+        structured_profiles: Dict[str, Dict[str, Any]] = defaultdict(dict)
+        for delta in memory_contract.get("profile_deltas", []):
+            profile_key = str(delta.get("profile_key") or "general_profile")
+            field_key = str(delta.get("field_key") or "unknown_field")
+            structured_profiles[profile_key][field_key] = {
+                "value": delta.get("field_value"),
+                "summary": delta.get("summary"),
+                "confidence": float(delta.get("confidence") or 0.0),
+                "supporting_event_ids": [str(item) for item in delta.get("supporting_event_ids", []) or []],
+                "supporting_photo_ids": [str(item) for item in delta.get("supporting_photo_ids", []) or []],
+                "evidence_refs": delta.get("evidence_refs", []) or [],
+                "updated_at": generated_at,
+            }
+
         profile_core = RedisProfileCoreRecord(
             key=f"profile:{self.user_id}:core",
             payload={
                 "fields": profile_fields,
                 "profile_markdown": profile_markdown,
+                "profiles": dict(structured_profiles),
+                "uncertainty": list(memory_contract.get("uncertainty", [])),
             },
         )
         profile_relationships = RedisProfileRelationshipsRecord(
@@ -2934,7 +3098,13 @@ class MemoryModuleService:
         change_log: Sequence[ChangeLogEntryDTO],
         cached_photo_ids: set[str],
         focus_graph: FocusGraphView,
+        memory_contract: Optional[Dict[str, Any]] = None,
+        dedupe_report: Optional[Dict[str, Any]] = None,
+        chunk_artifacts: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
+        memory_contract = self._normalize_memory_contract(memory_contract)
+        dedupe_report = dict(dedupe_report or {})
+        chunk_artifacts = dict(chunk_artifacts or {})
         face_stage = FaceStageView(
             total_faces=int(face_output.get("metrics", {}).get("total_faces", 0)),
             total_persons=int(face_output.get("metrics", {}).get("total_persons", 0)),
@@ -2944,6 +3114,8 @@ class MemoryModuleService:
         vlm_stage = VLMStageView(
             processed_photos=len(vlm_results),
             cached_hits=len(cached_photo_ids),
+            representative_photo_count=int(dedupe_report.get("retained_images") or len(vlm_results)),
+            total_input_photos=int(dedupe_report.get("total_images") or len(vlm_results)),
             summaries=[
                 {
                     "photo_id": item.get("photo_id"),
@@ -2973,6 +3145,11 @@ class MemoryModuleService:
             event_candidate_count=len(event_candidates),
             relationship_hypothesis_count=len(relationship_hypotheses),
             profile_evidence_count=len(profile_evidence),
+            observation_count=len(memory_contract.get("observations", [])),
+            claim_count=len(memory_contract.get("claims", [])),
+            profile_delta_count=len(memory_contract.get("profile_deltas", [])),
+            uncertainty_count=len(memory_contract.get("uncertainty", [])),
+            slice_count=int(chunk_artifacts.get("slice_count") or 0),
             summaries=[
                 {
                     "event_id": event.event_id,
@@ -3041,6 +3218,16 @@ class MemoryModuleService:
             "traces": [self._serialize(item) for item in traces],
             "evidence_chains": [self._serialize(item) for item in evidence_chains],
             "publish_decisions": storage["redis"]["profile_debug_refs"].get("publish_decisions", []),
+            "dedupe_report": dedupe_report,
+            "chunk_artifacts": chunk_artifacts,
+            "memory_contract_counts": {
+                "events": len(memory_contract.get("events", [])),
+                "observations": len(memory_contract.get("observations", [])),
+                "claims": len(memory_contract.get("claims", [])),
+                "relationship_hypotheses": len(memory_contract.get("relationship_hypotheses", [])),
+                "profile_deltas": len(memory_contract.get("profile_deltas", [])),
+                "uncertainty": len(memory_contract.get("uncertainty", [])),
+            },
         }
 
     def _build_evaluation(

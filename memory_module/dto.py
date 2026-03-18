@@ -292,6 +292,59 @@ class ProfileEvidenceDTO:
 
 
 @dataclass(slots=True)
+class ObservationDTO:
+    observation_id: str
+    upstream_ref: Dict[str, str]
+    category: str
+    field_key: str
+    field_value: str
+    confidence: float
+    photo_ids: List[str] = field(default_factory=list)
+    event_id: Optional[str] = None
+    session_id: Optional[str] = None
+    person_ids: List[str] = field(default_factory=list)
+    evidence_refs: List[Dict[str, str]] = field(default_factory=list)
+
+
+@dataclass(slots=True)
+class ClaimDTO:
+    claim_id: str
+    upstream_ref: Dict[str, str]
+    claim_type: str
+    subject: str
+    predicate: str
+    object_value: str
+    confidence: float
+    photo_ids: List[str] = field(default_factory=list)
+    event_id: Optional[str] = None
+    session_id: Optional[str] = None
+    evidence_refs: List[Dict[str, str]] = field(default_factory=list)
+
+
+@dataclass(slots=True)
+class ProfileDeltaDTO:
+    delta_id: str
+    upstream_ref: Dict[str, str]
+    profile_key: str
+    field_key: str
+    field_value: str
+    summary: str
+    confidence: float
+    supporting_event_ids: List[str] = field(default_factory=list)
+    supporting_photo_ids: List[str] = field(default_factory=list)
+    evidence_refs: List[Dict[str, str]] = field(default_factory=list)
+
+
+@dataclass(slots=True)
+class UncertaintyDTO:
+    uncertainty_id: str
+    upstream_ref: Dict[str, str]
+    field_name: str
+    status: str
+    reason: str
+
+
+@dataclass(slots=True)
 class ChangeLogEntryDTO:
     change_id: str
     object_type: str
@@ -334,6 +387,17 @@ class OperatorPlanDTO:
     target_entities: List[str] = field(default_factory=list)
     output_shape: str = "summary"
     fallback_policy: str = "semantic_then_graph"
+
+
+@dataclass(slots=True)
+class QueryPlanDTO:
+    subject_binding: str
+    target_spec: Dict[str, Any] = field(default_factory=dict)
+    operators: List[str] = field(default_factory=list)
+    constraints: Dict[str, Any] = field(default_factory=dict)
+    source_order: List[str] = field(default_factory=list)
+    answer_schema: Dict[str, Any] = field(default_factory=dict)
+    evidence_requirements: List[str] = field(default_factory=list)
 
 
 @dataclass(slots=True)

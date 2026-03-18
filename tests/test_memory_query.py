@@ -124,6 +124,49 @@ class MemoryQueryTests(unittest.TestCase):
             self.assertGreaterEqual(len(conflict_answer["supporting_relationships"]), 1)
             self.assertGreaterEqual(len(conflict_answer["evidence_segment_ids"]), 1)
 
+    def test_query_service_routes_profile_and_evidence_queries_by_source_order(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            task_dir = Path(tmpdir)
+            memory_payload = self._materialized_memory(task_dir)
+            profile_core = memory_payload["storage"]["redis"]["profile_core"]
+            profile_core["profiles"]["preference_profile"] = {
+                "favorite_drink": {
+                    "value": "iced latte",
+                    "summary": "prefers iced latte in cafe and work breaks",
+                    "confidence": 0.87,
+                    "supporting_event_ids": ["EVT_CONCERT"],
+                    "supporting_photo_ids": ["photo_001"],
+                    "evidence_refs": [{"ref_type": "photo", "ref_id": "photo_001"}],
+                    "updated_at": "2026-03-17T00:00:00",
+                }
+            }
+            first_event_uuid = memory_payload["storage"]["neo4j"]["nodes"]["events"][0]["event_uuid"]
+            first_session_uuid = memory_payload["storage"]["neo4j"]["nodes"]["sessions"][0]["session_uuid"]
+            memory_payload["storage"]["milvus"]["segments"].append(
+                {
+                    "segment_uuid": "seg_drink_001",
+                    "segment_type": "brand_observation",
+                    "text": "favorite_drink iced latte from cafe receipt",
+                    "event_uuid": first_event_uuid,
+                    "session_uuid": first_session_uuid,
+                    "relationship_uuid": None,
+                    "started_at": "2026-02-15T20:00:00",
+                    "ended_at": "2026-02-15T22:00:00",
+                    "location_hint": "Cafe",
+                }
+            )
+            query_service = MemoryQueryService(now=datetime(2026, 3, 17, 12, 0))
+
+            profile_response = query_service.answer(memory_payload, "我最喜欢喝什么饮料")
+            self.assertEqual(profile_response["source_order"][0], "redis_first")
+            self.assertEqual(profile_response["answer"]["answer_type"], "profile_lookup")
+            self.assertGreaterEqual(len(profile_response["supporting_redis_profiles"]), 1)
+
+            evidence_response = query_service.answer(memory_payload, "这个饮料是什么产品")
+            self.assertEqual(evidence_response["source_order"][0], "milvus_first")
+            self.assertEqual(evidence_response["answer"]["answer_type"], "evidence_lookup")
+            self.assertGreaterEqual(len(evidence_response["supporting_segments"]), 1)
+
     def _materialized_memory(
         self,
         task_dir: Path,

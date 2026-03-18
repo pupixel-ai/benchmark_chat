@@ -315,25 +315,38 @@ def main():
     relationships = []
     profile_markdown = ""
     profile_path = None
+    memory_contract = {
+        "events": [],
+        "observations": [],
+        "claims": [],
+        "relationship_hypotheses": [],
+        "profile_deltas": [],
+        "uncertainty": [],
+    }
+    llm_chunk_artifacts = {}
 
     if not vlm.results:
         print("  - VLM结果为空，跳过LLM处理，仅保存人脸识别结果")
     else:
         llm = LLMProcessor()
 
+        print("  - 分段提取 memory contract...")
+        memory_contract = llm.extract_memory_contract(vlm.results, face_db, primary_person_id)
+        llm_chunk_artifacts = getattr(llm, "last_chunk_artifacts", {}) or {}
+
         # 提取事件
         print("  - 提取事件...")
-        events = llm.extract_events(vlm.results, primary_person_id)
+        events = llm.events_from_memory_contract(memory_contract)
         print(f"    提取了 {len(events)} 个事件")
 
         # 推断关系
         print("  - 推断人物关系...")
-        relationships = llm.infer_relationships(vlm.results, face_db, primary_person_id)
+        relationships = llm.relationships_from_memory_contract(memory_contract)
         print(f"    推断了 {len(relationships)} 个关系")
 
         # 生成画像
-        print("  - 生成用户画像（使用 Flash 2.5）...")
-        profile_markdown = llm.generate_profile(events, relationships, primary_person_id)
+        print("  - 生成用户画像...")
+        profile_markdown = llm.profile_markdown_from_memory_contract(memory_contract, primary_person_id)
         if profile_markdown:
             profile_path = save_profile_report(profile_markdown)
             print(f"    画像报告已保存: {profile_path}")
@@ -353,6 +366,8 @@ def main():
         events=events,
         relationships=relationships,
         profile_markdown=profile_markdown,
+        memory_contract=memory_contract,
+        chunk_artifacts=llm_chunk_artifacts,
     )
 
     # Step 9: 保存结果

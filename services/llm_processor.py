@@ -1,21 +1,42 @@
 """
-LLM处理模块：事件提取、关系推断、画像生成
+LLM processing module: chunk-aware memory materialization.
 """
+from __future__ import annotations
+
 import json
+import re
+import time
+from collections import Counter, defaultdict
 from datetime import datetime
-from typing import List, Dict, Optional, Any
-from models import Event, Relationship, UserProfile
+from math import asin, cos, radians, sin, sqrt
+from typing import Any, Dict, Iterable, List, Optional
+
 from config import (
     API_PROXY_KEY,
     API_PROXY_MODEL,
     API_PROXY_URL,
+    BEDROCK_LLM_MAX_OUTPUT_TOKENS,
+    BEDROCK_REGION,
     GEMINI_API_KEY,
+    LLM_PROVIDER,
+    LLM_BURST_GAP_SECONDS,
+    LLM_BURST_MAX_DURATION_SECONDS,
+    LLM_BURST_MAX_PHOTOS,
+    LLM_SESSION_HARD_DISTANCE_KM,
+    LLM_SESSION_HARD_GAP_SECONDS,
+    LLM_SESSION_NEAR_DISTANCE_KM,
+    LLM_SESSION_SOFT_GAP_SECONDS,
+    LLM_SESSION_STRONG_GAP_SECONDS,
     LLM_MODEL,
+    LLM_SLICE_MAX_DENSITY_SCORE,
+    LLM_SLICE_HARD_MAX_BURSTS,
+    LLM_SLICE_MAX_BURSTS,
+    LLM_SLICE_MAX_INFO_SCORE,
+    LLM_SLICE_MAX_PHOTOS,
+    LLM_SLICE_MAX_RARE_CLUES,
+    LLM_SLICE_MIN_PHOTOS,
+    LLM_SLICE_OVERLAP_BURSTS,
     MAX_RETRIES,
-    MIN_PHOTO_COUNT,
-    MIN_SCENE_VARIETY,
-    MIN_TIME_SPAN_DAYS,
-    MODEL_PROVIDER,
     OPENROUTER_API_KEY,
     OPENROUTER_APP_NAME,
     OPENROUTER_BASE_URL,
@@ -23,34 +44,50 @@ from config import (
     OPENROUTER_SITE_URL,
     RETRY_DELAY,
 )
-from utils import calculate_distance, time_overlap, is_weekend
+from models import Event, Relationship
+from services.bedrock_runtime import (
+    build_bedrock_client,
+    build_inference_config,
+    build_text_message,
+    extract_text_from_converse_response,
+    resolve_bedrock_model_candidates,
+    should_try_next_bedrock_model,
+)
 
 
 class LLMProcessor:
-    """LLM处理器 - 支持官方 Gemini、Gemini 代理和 OpenRouter"""
+    """Chunk-aware LLM processor with Bedrock support."""
 
     def __init__(self):
-        self.provider = MODEL_PROVIDER
+        self.provider = LLM_PROVIDER
         self.use_proxy = self.provider == "proxy"
         self.use_openrouter = self.provider == "openrouter"
+        self.use_bedrock = self.provider == "bedrock"
         self.model = OPENROUTER_LLM_MODEL if self.use_openrouter else LLM_MODEL
         self.requests = None
         self.genai = None
+        self.bedrock_client = None
+        self.bedrock_model_candidates: List[str] = []
+        self.last_memory_contract: Dict[str, Any] | None = None
+        self.last_chunk_artifacts: Dict[str, Any] = {}
 
         if self.use_proxy:
-            # 使用代理服务
             if not API_PROXY_URL or not API_PROXY_KEY:
                 raise ValueError("使用代理服务需要配置 API_PROXY_URL 和 API_PROXY_KEY")
-            import requests
-
+            try:
+                import requests
+            except ModuleNotFoundError:
+                requests = None
             self.requests = requests
             self.proxy_url = API_PROXY_URL
             self.proxy_key = API_PROXY_KEY
             self.proxy_model = API_PROXY_MODEL
             print(f"[LLM] 使用代理服务: {self.proxy_url}")
         elif self.use_openrouter:
-            import requests
-
+            try:
+                import requests
+            except ModuleNotFoundError:
+                requests = None
             self.requests = requests
             self.openrouter_api_key = OPENROUTER_API_KEY or GEMINI_API_KEY
             if not self.openrouter_api_key:
@@ -59,13 +96,21 @@ class LLMProcessor:
             self.openrouter_site_url = OPENROUTER_SITE_URL
             self.openrouter_app_name = OPENROUTER_APP_NAME
             print(f"[LLM] 使用 OpenRouter: {self.model}")
+        elif self.use_bedrock:
+            self.bedrock_client = build_bedrock_client(BEDROCK_REGION)
+            self.bedrock_model_candidates = resolve_bedrock_model_candidates(
+                [self.model],
+                BEDROCK_REGION,
+            )
+            if self.bedrock_model_candidates:
+                self.model = self.bedrock_model_candidates[0]
+            print(f"[LLM] 使用 Bedrock: {self.model} @ {BEDROCK_REGION}")
         else:
-            # 使用官方 Gemini API
             from google import genai
 
             self.genai = genai
             self.client = genai.Client(api_key=GEMINI_API_KEY)
-            print(f"[LLM] 使用官方 Gemini API")
+            print("[LLM] 使用官方 Gemini API")
 
     def _coerce_text_content(self, content: Any) -> str:
         if isinstance(content, str):
@@ -87,7 +132,7 @@ class LLMProcessor:
         raise ValueError(f"无法从内容中提取文本: {type(content).__name__}")
 
     def _extract_json_payload(self, raw_text: str) -> Dict[str, Any]:
-        text = raw_text.strip()
+        text = str(raw_text or "").strip()
         text = text.replace("<|begin_of_box|>", "").replace("<|end_of_box|>", "").strip()
 
         if text.startswith("```"):
@@ -100,20 +145,33 @@ class LLMProcessor:
             if text.lower().startswith("json"):
                 text = text[4:].strip()
 
-        try:
-            return json.loads(text)
-        except json.JSONDecodeError:
-            start = min((idx for idx in (text.find("{"), text.find("[")) if idx != -1), default=-1)
-            end_object = text.rfind("}")
-            end_array = text.rfind("]")
-            end = max(end_object, end_array)
-            if start != -1 and end != -1 and end > start:
-                return json.loads(text[start : end + 1])
-            raise
+        decoder = json.JSONDecoder()
+        candidates = [text]
+        first_json_start = min((idx for idx in (text.find("{"), text.find("[")) if idx != -1), default=-1)
+        if first_json_start != -1:
+            candidates.append(text[first_json_start:])
+
+        last_error = None
+        for candidate in candidates:
+            try:
+                return json.loads(candidate)
+            except json.JSONDecodeError as exc:
+                last_error = exc
+                try:
+                    payload, _end = decoder.raw_decode(candidate)
+                    if isinstance(payload, dict):
+                        return payload
+                    return {"items": payload}
+                except json.JSONDecodeError:
+                    continue
+
+        if last_error:
+            raise last_error
+        raise ValueError("无法解析 JSON payload")
 
     def _is_retryable_error(self, exc: Exception) -> bool:
         message = str(exc).lower()
-        retry_keywords = ["429", "rate limit", "connection", "timeout", "temporarily unavailable", "reset by peer"]
+        retry_keywords = ["429", "rate limit", "connection", "timeout", "temporarily unavailable", "reset by peer", "throttl", "too many requests"]
         return any(keyword in message for keyword in retry_keywords)
 
     def _call_with_retries(self, callback):
@@ -127,378 +185,242 @@ class LLMProcessor:
                     raise
                 delay_seconds = RETRY_DELAY * (2 ** attempt)
                 print(f"[LLM] 可重试错误，{delay_seconds}s 后重试 ({attempt + 1}/{MAX_RETRIES}): {exc}")
-                import time
                 time.sleep(delay_seconds)
         raise last_error
 
-    def _get_people(self, item: Dict) -> List[Dict]:
-        people = item.get("vlm_analysis", {}).get("people", [])
-        return people if isinstance(people, list) else []
-
-    def _get_photo_person_ids(self, item: Dict) -> List[str]:
-        person_ids = []
-        for person in self._get_people(item):
-            person_id = person.get("person_id")
-            if person_id and person_id not in person_ids:
-                person_ids.append(person_id)
-
-        for person_id in item.get("face_person_ids", []):
-            if person_id and person_id not in person_ids:
-                person_ids.append(person_id)
-
-        return person_ids
-
-    def _get_scene_location(self, item: Dict) -> str:
-        scene = item.get("vlm_analysis", {}).get("scene", {})
-        if isinstance(scene, dict):
-            return scene.get("location_detected", "")
-        return str(scene or "")
-
-    def _get_scene_description(self, item: Dict) -> str:
-        scene = item.get("vlm_analysis", {}).get("scene", {})
-        if isinstance(scene, dict):
-            parts = []
-            location = scene.get("location_detected", "")
-            if location:
-                parts.append(f"地点识别: {location}")
-            environment = scene.get("environment_description", "")
-            if environment:
-                parts.append(f"场景概述: {environment}")
-            details = scene.get("environment_details", [])
-            if details:
-                parts.append(f"环境细节: {', '.join(details)}")
-            visual_clues = scene.get("visual_clues", [])
-            if visual_clues:
-                parts.append(f"视觉线索: {', '.join(visual_clues)}")
-            lighting = scene.get("lighting", "")
-            if lighting:
-                parts.append(f"光线: {lighting}")
-            weather = scene.get("weather", "")
-            if weather:
-                parts.append(f"天气: {weather}")
-            return "；".join(parts)
-        return str(scene or "")
-
-    def _get_event_value(self, item: Dict, key: str) -> str:
-        event = item.get("vlm_analysis", {}).get("event", {})
-        if isinstance(event, dict):
-            return event.get(key, "")
-        if key == "activity":
-            return str(event or "")
-        return ""
-
-    def _get_detail_text(self, item: Dict) -> str:
-        parts = []
-
-        details = item.get("vlm_analysis", {}).get("details", [])
-        if isinstance(details, list):
-            parts.extend([str(detail) for detail in details if detail])
-        elif details:
-            parts.append(str(details))
-
-        key_objects = item.get("vlm_analysis", {}).get("key_objects", [])
-        if isinstance(key_objects, list):
-            parts.extend([str(obj) for obj in key_objects if obj])
-        elif key_objects:
-            parts.append(str(key_objects))
-
-        unique_parts = []
-        for part in parts:
-            if part not in unique_parts:
-                unique_parts.append(part)
-
-        return ", ".join(unique_parts)
-
-    def extract_events(self, vlm_results: List[Dict], primary_person_id: Optional[str] = None) -> List[Event]:
-        """
-        从VLM结果中提取事件（直接让LLM分析全部数据）
-
-        Args:
-            vlm_results: VLM分析结果列表
-
-        Returns:
-            事件列表
-        """
-        if not vlm_results:
-            return []
-
-        # 直接让LLM分析全部VLM数据，不进行预分段
-        all_events = self._extract_events_from_all_photos(vlm_results, primary_person_id)
-
-        # 物理约束检查
-        all_events = self._check_constraints(all_events)
-
-        return all_events
-
-    def _extract_events_from_all_photos(
+    def extract_memory_contract(
         self,
-        vlm_results: List[Dict],
-        primary_person_id: Optional[str],
-    ) -> List[Event]:
-        """
-        用LLM从全部照片中提取事件
+        vlm_results: List[Dict[str, Any]],
+        face_db: Optional[Dict[str, Any]] = None,
+        primary_person_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        if not vlm_results:
+            contract = self._empty_contract()
+            self.last_memory_contract = contract
+            self.last_chunk_artifacts = {
+                "photo_fact_count": 0,
+                "raw_session_count": 0,
+                "slice_count": 0,
+                "slices": [],
+                "session_summaries": [],
+            }
+            return contract
 
-        Args:
-            vlm_results: 全部VLM分析结果
+        photo_facts = self._build_photo_fact_buffer(vlm_results)
+        bursts = self._build_bursts(photo_facts)
+        raw_sessions = self._build_raw_sessions(bursts)
+        session_slices = self._build_session_slices(raw_sessions)
 
-        Returns:
-            事件列表
-        """
-        prompt = self._create_event_extraction_prompt(vlm_results, primary_person_id)
+        slice_contracts = []
+        slice_artifacts = []
+        slice_contracts_by_session: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+        for session_slice in session_slices:
+            prompt = self._create_slice_memory_prompt(session_slice["evidence_packet"], primary_person_id)
+            response = self._call_with_retries(lambda prompt=prompt: self._call_json_prompt(prompt))
+            normalized = self._normalize_memory_contract(response)
+            slice_contracts.append(normalized)
+            slice_contracts_by_session[session_slice["raw_session_id"]].append(normalized)
+            slice_artifacts.append(
+                {
+                    "slice_id": session_slice["slice_id"],
+                    "raw_session_id": session_slice["raw_session_id"],
+                    "photo_ids": list(session_slice["photo_ids"]),
+                    "burst_ids": list(session_slice["burst_ids"]),
+                    "overlap_burst_ids": list(session_slice["overlap_burst_ids"]),
+                    "rare_clue_count": session_slice["rare_clue_count"],
+                    "photo_count": len(session_slice["facts"]),
+                    "burst_count": len(session_slice["bursts"]),
+                    "fact_inventory_count": len(session_slice["evidence_packet"]["fact_inventory"]),
+                    "change_point_count": len(session_slice["evidence_packet"]["change_points"]),
+                    "location_chain": list(session_slice["evidence_packet"]["location_chain"]),
+                    "dominant_person_ids": list(session_slice["evidence_packet"]["dominant_person_ids"]),
+                    "conflict_count": len(session_slice["evidence_packet"]["conflicts"]),
+                    "information_score": float(session_slice.get("information_score") or 0.0),
+                    "density_score": float(session_slice.get("density_score") or 0.0),
+                    "contract_counts": self._contract_counts(normalized),
+                }
+            )
 
-        try:
-            if self.use_proxy:
-                result = self._call_with_retries(lambda: self._call_llm_via_proxy(prompt))
-            elif self.use_openrouter:
-                result = self._call_with_retries(lambda: self._call_llm_via_openrouter(prompt))
-            else:
-                result = self._call_with_retries(lambda: self._call_llm_via_official_api(prompt))
+        session_contracts = []
+        session_artifacts = []
+        for raw_session in raw_sessions:
+            session_slice_records = [
+                artifact
+                for artifact in slice_artifacts
+                if artifact["raw_session_id"] == raw_session["raw_session_id"]
+            ]
+            session_prompt = self._create_session_merge_prompt(
+                raw_session=raw_session,
+                session_slice_records=session_slice_records,
+                slice_contracts=slice_contracts_by_session.get(raw_session["raw_session_id"], []),
+                primary_person_id=primary_person_id,
+            )
+            session_contract = self._call_with_retries(lambda prompt=session_prompt: self._call_json_prompt(prompt))
+            normalized_session_contract = self._normalize_memory_contract(session_contract)
+            session_contracts.append(normalized_session_contract)
+            session_artifacts.append(
+                {
+                    "raw_session_id": raw_session["raw_session_id"],
+                    "started_at": raw_session["started_at"],
+                    "ended_at": raw_session["ended_at"],
+                    "location_chain": list(raw_session["location_chain"]),
+                    "photo_count": len(raw_session["facts"]),
+                    "burst_count": len(raw_session["bursts"]),
+                    "slice_ids": [item["slice_id"] for item in session_slice_records],
+                    "continuity_decisions": list(raw_session["continuity_decisions"]),
+                    "information_score": round(
+                        sum(float(item.get("information_score") or 0.0) for item in session_slice_records),
+                        3,
+                    ),
+                    "density_score": round(
+                        sum(float(item.get("density_score") or 0.0) for item in session_slice_records),
+                        3,
+                    ),
+                    "contract_counts": self._contract_counts(normalized_session_contract),
+                }
+            )
 
-            events = []
+        merge_prompt = self._create_merge_prompt(
+            photo_fact_count=len(photo_facts),
+            raw_sessions=raw_sessions,
+            session_slices=session_slices,
+            session_contracts=session_contracts,
+            session_artifacts=session_artifacts,
+            primary_person_id=primary_person_id,
+        )
+        merged_contract = self._call_with_retries(lambda: self._call_json_prompt(merge_prompt))
+        contract = self._normalize_memory_contract(merged_contract)
 
-            for i, event_data in enumerate(result.get("events", [])):
-                # 兼容新旧格式：从meta_info提取或直接使用
-                meta_info = event_data.get("meta_info", {})
-                objective_fact = event_data.get("objective_fact", {})
+        self.last_memory_contract = contract
+        self.last_chunk_artifacts = {
+            "photo_fact_count": len(photo_facts),
+            "burst_count": len(bursts),
+            "raw_session_count": len(raw_sessions),
+            "session_contract_count": len(session_contracts),
+            "slice_count": len(session_slices),
+            "bursts": [
+                {
+                    "burst_id": burst["burst_id"],
+                    "photo_ids": list(burst["photo_ids"]),
+                    "started_at": burst["started_at"],
+                    "ended_at": burst["ended_at"],
+                    "location_bucket": burst["location_bucket"],
+                    "dominant_person_ids": list(burst["dominant_person_ids"]),
+                    "rare_clue_count": len(burst["rare_clues"]),
+                    "information_score": float(burst.get("information_score") or 0.0),
+                    "photo_density_score": float(burst.get("photo_density_score") or 0.0),
+                }
+                for burst in bursts
+            ],
+            "session_summaries": session_artifacts,
+            "slices": slice_artifacts,
+            "final_contract_counts": self._contract_counts(contract),
+        }
+        return contract
 
-                # 解析timestamp从meta_info或直接字段
-                timestamp = meta_info.get("timestamp") or event_data.get("time_range", "")
-                if timestamp:
-                    # 从timestamp中提取日期和时间范围
-                    parts = timestamp.split(" - ")
-                    if len(parts) == 2:
-                        date_part = parts[0].split()[0]
-                        time_range = f"{parts[0].split()[-1]} - {parts[1].split()[-1]}" if " " in parts[1] else f"{parts[0].split()[-1]} - {parts[1]}"
-                    else:
-                        date_part = timestamp.split()[0] if " " in timestamp else ""
-                        time_range = timestamp
-                else:
-                    date_part = event_data.get("date", "")
-                    time_range = event_data.get("time_range", "")
-
-                event = Event(
-                    event_id=event_data.get("event_id", f"EVT_{i + 1:03d}"),
-                    date=date_part,
+    def events_from_memory_contract(self, memory_contract: Dict[str, Any]) -> List[Event]:
+        events: List[Event] = []
+        for index, item in enumerate(memory_contract.get("events", []), start=1):
+            started_at = str(item.get("started_at") or "")
+            ended_at = str(item.get("ended_at") or started_at)
+            date, time_range = self._legacy_time_fields(started_at, ended_at)
+            participants = [str(value) for value in item.get("participant_person_ids", []) or item.get("participants", [])]
+            tags = [str(value) for value in item.get("event_facets", [])]
+            alternative = item.get("alternative_type_candidates", [])
+            meta_info = {
+                "title": item.get("title", ""),
+                "timestamp": f"{started_at} - {ended_at}" if started_at else "",
+                "location_context": item.get("location", ""),
+                "photo_count": len(item.get("photo_ids", [])),
+                "coarse_event_type": item.get("coarse_event_type", "unknown"),
+                "alternative_type_candidates": alternative,
+            }
+            objective_fact = {
+                "scene_description": item.get("description", ""),
+                "participants": participants,
+            }
+            events.append(
+                Event(
+                    event_id=str(item.get("event_id") or f"EVT_{index:03d}"),
+                    date=date,
                     time_range=time_range,
-                    duration=event_data.get("duration", ""),  # 新格式可能没有
-                    title=meta_info.get("title") or event_data.get("title", ""),
-                    type=event_data.get("type", "其他"),  # 新格式可能没有
-                    participants=objective_fact.get("participants") or event_data.get("participants", []),
-                    location=meta_info.get("location_context") or event_data.get("location", ""),
-                    description=objective_fact.get("scene_description") or event_data.get("description", ""),
-                    photo_count=int(meta_info.get("photo_count") or event_data.get("photo_count", 0)),
-                    confidence=event_data.get("confidence", 0.5),  # 新格式可能没有
-                    reason=event_data.get("reason", ""),  # 新格式可能没有
-                    # 核心叙事
-                    narrative="",  # 新格式没有narrative字段
-                    narrative_synthesis=event_data.get("narrative_synthesis", ""),
-                    # 新增 v2.1 字段
+                    duration="",
+                    title=str(item.get("title") or ""),
+                    type=str(item.get("coarse_event_type") or "其他"),
+                    participants=participants,
+                    location=str(item.get("location") or ""),
+                    description=str(item.get("description") or ""),
+                    photo_count=len(item.get("photo_ids", [])),
+                    confidence=float(item.get("confidence") or 0.0),
+                    reason=str(item.get("reason") or ""),
+                    narrative_synthesis=str(item.get("narrative_synthesis") or item.get("description") or ""),
                     meta_info=meta_info,
                     objective_fact=objective_fact,
-                    # 社交分析
-                    social_interaction={},  # 新格式没有social_interaction
-                    social_dynamics=event_data.get("social_dynamics", []),
-                    # 证据（新格式没有evidence_photos）
-                    evidence_photos=[],
-                    # 标签
-                    lifestyle_tags=[],  # 新格式没有lifestyle_tags
-                    tags=event_data.get("tags", []),
-                    # 画像证据（新格式没有social_slices）
-                    social_slices=[],
-                    persona_evidence=event_data.get("persona_evidence", {})
+                    evidence_photos=list(item.get("photo_ids", [])),
+                    tags=tags,
+                    persona_evidence=item.get("persona_evidence", {}) or {},
+                    social_dynamics=item.get("social_dynamics", []) or [],
                 )
-                events.append(event)
+            )
+        return events
 
-            return events
+    def relationships_from_memory_contract(self, memory_contract: Dict[str, Any]) -> List[Relationship]:
+        relationships: List[Relationship] = []
+        for item in memory_contract.get("relationship_hypotheses", []):
+            person_id = str(item.get("person_id") or item.get("target_person_id") or "")
+            if not person_id:
+                continue
+            relationships.append(
+                Relationship(
+                    person_id=person_id,
+                    relationship_type=str(item.get("relationship_type") or "acquaintance"),
+                    label=str(item.get("label") or "熟人"),
+                    confidence=float(item.get("confidence") or 0.0),
+                    evidence=item.get("evidence", {}) or {},
+                    reason=str(item.get("reason") or item.get("reason_summary") or ""),
+                )
+            )
+        return relationships
 
-        except Exception as e:
-            print(f"警告：事件提取失败: {e}")
-            return []
-
-    def _create_event_extraction_prompt(
+    def profile_markdown_from_memory_contract(
         self,
-        vlm_results: List[Dict],
+        memory_contract: Dict[str, Any],
         primary_person_id: Optional[str],
     ) -> str:
-        """创建事件提取prompt（适配新的简化VLM格式）"""
-        photos_info = []
+        profile_deltas = memory_contract.get("profile_deltas", [])
+        uncertainty = memory_contract.get("uncertainty", [])
+        if not profile_deltas and not uncertainty:
+            return "# Profile\n\n- no durable profile deltas extracted"
 
-        for item in vlm_results:
-            # 获取地点：优先使用 EXIF 地址，缺失时退回 VLM 场景识别
-            exif_location = item['location'].get('name', '未知') if item.get('location') else '未知'
-            location = exif_location if exif_location and exif_location != '未知' else self._get_scene_location(item)
+        grouped: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+        for item in profile_deltas:
+            profile_key = str(item.get("profile_key") or "general_profile")
+            grouped[profile_key].append(item)
 
-            # 获取人物详情
-            people_details = self._get_people(item)
-            people_str = ""
-            for p in people_details:
-                pid = p.get('person_id', '未知')
-                appearance = p.get('appearance', '')
-                clothing = p.get('clothing', '')
-                activity = p.get('activity', '')
-                interaction = p.get('interaction', '')
-                expression = p.get('expression', '')
-                people_str += f"""
-    - {pid}:
-      外貌: {appearance}
-      穿着: {clothing}
-      动作: {activity}
-      互动: {interaction}
-      表情: {expression}"""
+        lines = ["# Profile", ""]
+        if primary_person_id:
+            lines.append(f"- primary_person_id_hint: {primary_person_id}")
+            lines.append("")
+        for profile_key in sorted(grouped):
+            lines.append(f"## {profile_key}")
+            lines.append("")
+            for item in sorted(grouped[profile_key], key=lambda payload: (str(payload.get("field_key") or ""), -float(payload.get("confidence") or 0.0))):
+                summary = str(item.get("summary") or item.get("value_summary") or item.get("field_value") or "")
+                confidence = float(item.get("confidence") or 0.0)
+                lines.append(f"- {item.get('field_key')}: {summary} (confidence={confidence:.2f})")
+            lines.append("")
+        if uncertainty:
+            lines.append("## uncertainty")
+            lines.append("")
+            for item in uncertainty:
+                lines.append(f"- {item.get('field')}: {item.get('status')} ({item.get('reason')})")
+        return "\n".join(lines).strip()
 
-            scene_str = self._get_scene_description(item)
-            event_activity = self._get_event_value(item, 'activity')
-            event_social = self._get_event_value(item, 'social_context')
-            event_mood = self._get_event_value(item, 'mood')
-
-            # 获取时间信息
-            time_info = item['vlm_analysis'].get('Time', {}) or item['vlm_analysis'].get('time', {})
-            if isinstance(time_info, dict):
-                date_note = time_info.get('date', '')
-                time_note = time_info.get('time', '')
-            else:
-                date_note = ''
-                time_note = ''
-
-            # 获取细节
-            details = self._get_detail_text(item)
-
-            person_ids = self._get_photo_person_ids(item)
-            if not people_str and person_ids:
-                people_str = "\n    - 仅识别到人物ID: " + ", ".join(person_ids)
-
-            info = f"""
-【照片 {item['photo_id']}】
-时间: {item['timestamp']}
-{f"时间背景: {date_note}, {time_note}" if date_note or time_note else ""}
-地点: {location}
-人物ID: {', '.join(person_ids) if person_ids else '无'}
-人物详情:{people_str if people_str else " 无"}
-VLM描述: {item['vlm_analysis'].get('summary', '')}
-场景描述: {scene_str}
-活动: {event_activity}
-社交背景: {event_social}
-氛围: {event_mood}
-细节: {details}
----
-"""
-            photos_info.append(info)
-
-        # 提取日期用于背景推理
-        dates = [item['timestamp'][:10] for item in vlm_results]
-        date_info = f"照片拍摄时间范围：{dates[0]} 至 {dates[-1]}，共{len(set(dates))}天"
-
-        primary_label = primary_person_id or "主用户"
-
-        prompt = f"""Role: 你是一位资深的人类学专家与社会学行为分析师，擅长从破碎的相册VLM元数据中，通过"时空-行为-关系"三维建模，将零散照片还原为逻辑连贯的"原子事件"，并为后续的用户人格画像（Who/Whom/What）提供高价值的推导证据。
-
-Task:
-1. 原子事件聚类：分析用户相册的VLM（视觉语言模型）原始数据（包含时间戳、地点、人物ID、场景描述），将零散的照片聚类为逻辑连贯的"客观事件"，并识别核心社交关系。
-2. 微观线索提取：从物象、构图、互动中提取能反映用户身份、社交与性格的"切片"。
-3. 特征向量标记：为每个事件打上维度标签，便于全局画像合成。
-
-Core Principles (核心原则):
-- 视角法则（关键）：
-  - 判定他拍：若用户（{primary_label}）出现在中远景、双手未持拍摄设备且姿态自然，必须判定为"他拍"。这意味着现场存在"隐形成员（Invisible Photographer）"，需将其纳入社交动态分析。
-  - 判定自拍：若画面出现手臂延伸、持手机姿势或镜面反射。
-  - 身份确认：截图或拍摄证件中的人物信息通常是用户本人。
-- 证据溯源：所有推断必须基于事实（如：通过Chanel包装推测经济能力，通过凌晨时段推测生活节奏）。
-
-Analysis Logic (分析逻辑):
-
-1. 时空聚类（Event Grouping）：
-   - 若相邻照片时间差在4小时内，且地点（location）相同或场景（scene）逻辑连贯（如：从商场到商场餐厅），应归为一个"事件"
-   - 若时间跨度大或地点发生显著位移，应开启新事件
-
-2. 地点的逻辑推断：
-   - 即使坐标缺失，也要通过环境要素判定场景属性：
-   - 睡衣/厨具/床品 → 私密居家
-   - 显示器/工牌/会议室 → 职业办公
-   - 摩托车/街道/商场 → 都市户外
-   - 餐具/菜单/餐桌 → 餐饮场所
-
-3. 社交建模（Social Mapping）：
-   - 识别和统计每个事件中出现的person_id
-   - 识别"核心同伴"：行为亲密、有互动，或在多个连续事件中高频出现的person_id（{primary_label} 是用户本人）
-   - 识别"环境人物"：仅在特定公共场所出现一次且无互动的person_id
-
-4. 微观线索（Micro-Clues）：
-   - 身份线索：工牌、专业设备、特定的消费小票、屏幕内容、APP界面
-   - 社交线索：拍摄者与被拍者的距离（亲密度）、身体语言（朝向/互动）、合影频率、出现场所（家/公司）
-   - 性格线索：构图的秩序感、拍摄内容的重复性（如反复拍猫或拍路标）、截图的类型（工作/生活/审美）
-   - 审美线索：服装品牌、配色偏好、构图风格、物品选择（如Chanel vs 快时尚）
-   - 社会经济线索：品牌档次（奢侈品牌/轻奢/大众）、消费场景（高档餐厅/平价小店）、生活设施
-
-Output Format (严格执行以下JSON格式):
-
-{{
-  "events": [
-    {{
-      "event_id": "唯一编号",
-      "narrative_synthesis": "一句话深度还原：[身份/状态]在[环境]中[出于什么动机/情感]进行了[核心行为]，体现了[某种生活特质]。",
-      "meta_info": {{
-        "title": "事件核心动作短语",
-        "timestamp": "YYYY-MM-DD HH:mm - HH:mm",
-        "location_context": "推测的地点性质（如：私密居家/职业办公/公共街区）",
-        "photo_count": "涉及的照片总数"
-      }},
-      "objective_fact": {{
-        "scene_description": "客观事实：环境细节、品牌、构图视角（强调自拍/他拍/监控视角）、人物动作。",
-        "participants": ["{primary_label}", "包含识别出的隐形拍摄者或背景人物"]
-      }},
-      "social_dynamics": [
-        {{
-          "target_id": "人物ID",
-          "interaction_type": "互动类型（如：他拍摄影师/共同进餐/合影）",
-          "social_clue": "判定关系的证据（如：物理距离、眼神指向、视角高低）",
-          "relation_hypothesis": "初步关系推断",
-          "confidence": 0.9
-        }}
-      ],
-      "persona_evidence": {{
-        "behavioral": ["性格/习惯特征"],
-        "aesthetic": ["视觉偏好/秩序感特征"],
-        "socioeconomic": ["阶层/价值取向特征"]
-      }},
-      "tags": ["#标签1", "#标签2"]
-    }}
-  ]
-}}
-
-请开始分析：
-
-{date_info}
-
-{''.join(photos_info)}
-"""
-
-        return prompt
-
-    def _extract_date(self, timestamp_str: str) -> str:
-        """从时间戳中提取日期"""
-        try:
-            dt = datetime.fromisoformat(timestamp_str)
-            return dt.strftime("%Y-%m-%d")
-        except:
-            return ""
-
-    def _check_constraints(self, events: List[Event]) -> List[Event]:
-        """
-        物理约束检查
-
-        Args:
-            events: 事件列表
-
-        Returns:
-            检查后的事件列表
-        """
-        # 检查时间冲突
-        for i, event1 in enumerate(events):
-            for event2 in events[i+1:]:
-                if time_overlap(event1.time_range, event2.time_range):
-                    print(f"警告：事件{event1.event_id}和{event2.event_id}时间重叠")
-
-        return events
+    def extract_events(self, vlm_results: List[Dict], primary_person_id: Optional[str] = None) -> List[Event]:
+        contract = self.last_memory_contract
+        if contract is None:
+            contract = self.extract_memory_contract(vlm_results, primary_person_id=primary_person_id)
+        return self.events_from_memory_contract(contract)
 
     def infer_relationships(
         self,
@@ -506,240 +428,10 @@ Output Format (严格执行以下JSON格式):
         face_db: Dict,
         primary_person_id: Optional[str],
     ) -> List[Relationship]:
-        """
-        推断人物关系
-
-        Args:
-            vlm_results: VLM结果列表
-            face_db: 人脸库
-
-        Returns:
-            关系列表
-        """
-        relationships = []
-
-        # 遍历所有人脸库中的人物（排除主用户）
-        for person_id, person_info in face_db.items():
-            if primary_person_id and person_id == primary_person_id:
-                continue
-
-            # 检查是否满足触发条件
-            should_infer, reason = self._should_infer_relationship(person_id, person_info, vlm_results)
-
-            if not should_infer:
-                print(f"跳过 {person_id}: {reason}")
-                continue
-
-            # 收集证据
-            evidence = self._collect_relationship_evidence(
-                person_id,
-                vlm_results,
-                primary_person_id,
-            )
-
-            # 推断关系
-            relationship = self._infer_relationship(person_id, evidence, primary_person_id)
-            relationships.append(relationship)
-
-        return relationships
-
-    def _should_infer_relationship(self, person_id: str, person_info: Dict, vlm_results: List[Dict]) -> tuple:
-        """
-        判断是否应该推断关系
-
-        Returns:
-            (是否应该推断, 原因)
-        """
-        # 条件1：出现次数
-        if person_info.photo_count < MIN_PHOTO_COUNT:
-            return False, f"出现次数太少（{person_info.photo_count}次，需要≥{MIN_PHOTO_COUNT}次）"
-
-        # 条件2：时间跨度
-        if person_info.first_seen and person_info.last_seen:
-            time_span = (person_info.last_seen - person_info.first_seen).days
-            if time_span < MIN_TIME_SPAN_DAYS:
-                return False, f"认识时间太短（{time_span}天，需要≥{MIN_TIME_SPAN_DAYS}天）"
-
-        # 条件3：场景多样性
-        scenes = self._get_person_scenes(person_id, vlm_results)
-        if len(scenes) < MIN_SCENE_VARIETY:
-            return False, f"场景数据不足（{len(scenes)}种场景，需要≥{MIN_SCENE_VARIETY}种）"
-
-        return True, "可以推断"
-
-    def _get_person_scenes(self, person_id: str, vlm_results: List[Dict]) -> List[str]:
-        """获取人物出现的场景"""
-        scenes = set()
-
-        for result in vlm_results:
-            if person_id in self._get_photo_person_ids(result):
-                scene = self._get_scene_location(result)
-                if scene:
-                    scenes.add(scene)
-
-        return list(scenes)
-
-    def _collect_relationship_evidence(
-        self,
-        person_id: str,
-        vlm_results: List[Dict],
-        primary_person_id: Optional[str],
-    ) -> Dict:
-        """收集关系推断的证据"""
-        evidence = {
-            "photo_count": 0,
-            "time_span": "",
-            "scenes": [],
-            "interaction_behavior": [],  # 互动行为列表
-            "weekend_frequency": "",
-            "with_user_only": True,
-            "sample_scenes": []
-        }
-
-        # 找出包含该人物的所有照片
-        co_photos = []
-        for result in vlm_results:
-            if person_id in self._get_photo_person_ids(result):
-                co_photos.append(result)
-
-        evidence["photo_count"] = len(co_photos)
-
-        if not co_photos:
-            return evidence
-
-        # 计算时间跨度
-        timestamps = [datetime.fromisoformat(r["timestamp"]) for r in co_photos]
-        first = min(timestamps)
-        last = max(timestamps)
-        evidence["time_span"] = f"{(last - first).days + 1}天"
-
-        # 提取场景和互动行为
-        for photo in co_photos:
-            scene = self._get_scene_location(photo)
-            if scene and scene not in evidence["scenes"]:
-                evidence["scenes"].append(scene)
-
-            # 提取互动行为
-            interaction = self._get_event_value(photo, "interaction")
-            if interaction and interaction not in evidence["interaction_behavior"]:
-                evidence["interaction_behavior"].append(interaction)
-
-            # 保留样本
-            if len(evidence["sample_scenes"]) < 5:
-                evidence["sample_scenes"].append({
-                    "timestamp": photo["timestamp"],
-                    "scene": scene,
-                    "summary": photo["vlm_analysis"].get("summary", ""),
-                    "activity": self._get_event_value(photo, "activity"),
-                })
-
-        # 计算周末频率
-        weekend_count = sum([1 for r in co_photos if is_weekend(datetime.fromisoformat(r["timestamp"]))])
-        if weekend_count / len(co_photos) > 0.5:
-            evidence["weekend_frequency"] = "高"
-        else:
-            evidence["weekend_frequency"] = "低"
-
-        # 判断是否只和用户在一起
-        for photo in co_photos:
-            other_people = [
-                other_person_id
-                for other_person_id in self._get_photo_person_ids(photo)
-                if other_person_id != person_id and other_person_id != primary_person_id
-            ]
-            if other_people:
-                evidence["with_user_only"] = False
-                break
-
-        return evidence
-
-    def _infer_relationship(
-        self,
-        person_id: str,
-        evidence: Dict,
-        primary_person_id: Optional[str],
-    ) -> Relationship:
-        """用LLM推断关系"""
-        prompt = self._create_relationship_prompt(person_id, evidence, primary_person_id)
-
-        try:
-            if self.use_proxy:
-                result = self._call_with_retries(lambda: self._call_llm_via_proxy(prompt))
-            elif self.use_openrouter:
-                result = self._call_with_retries(lambda: self._call_llm_via_openrouter(prompt))
-            else:
-                result = self._call_with_retries(lambda: self._call_llm_via_official_api(prompt))
-
-            return Relationship(
-                person_id=person_id,
-                relationship_type=result.get("relationship_type", "acquaintance"),
-                label=result.get("label", "熟人"),
-                confidence=result.get("confidence", 0.5),
-                evidence=evidence,
-                reason=result.get("reason", "")
-            )
-
-        except Exception as e:
-            print(f"警告：关系推断失败 ({person_id}): {e}")
-            return Relationship(
-                person_id=person_id,
-                relationship_type="acquaintance",
-                label="熟人",
-                confidence=0.3,
-                evidence=evidence,
-                reason=f"推断失败: {e}"
-            )
-
-    def _create_relationship_prompt(
-        self,
-        person_id: str,
-        evidence: Dict,
-        primary_person_id: Optional[str],
-    ) -> str:
-        """创建关系推断prompt"""
-        sample_scenes_str = ""
-        for scene in evidence["sample_scenes"][:3]:
-            sample_scenes_str += f"\n- {scene['timestamp']}: {scene['summary']}\n"
-
-        # 互动行为描述
-        interaction_str = ', '.join(evidence.get("interaction_behavior", [])) if evidence.get("interaction_behavior") else "无"
-
-        primary_label = primary_person_id or "主用户"
-
-        prompt = f"""请根据以下证据，判断{person_id}和用户（{primary_label}）的关系类型。
-
-**证据**：
-- 共同出现次数：{evidence['photo_count']}次
-- 时间跨度：{evidence['time_span']}
-- 常见场景：{', '.join(evidence['scenes'])}
-- 互动行为：{interaction_str}
-- 周末出现频率：{evidence['weekend_frequency']}
-- 是否只和用户一起：{'是' if evidence['with_user_only'] else '否'}
-
-**部分场景描述**：{sample_scenes_str}
-
-**关系类型定义**：
-- **family（家人）**：有血缘关系
-- **partner（伴侣）**：亲密关系，经常单独在一起，有亲密互动
-- **close_friend（密友）**：频繁出现，场景多样（休闲+日常），关系亲密
-- **friend（朋友）**：偶尔一起活动，场景较单一
-- **colleague（同事）**：主要在工作场景出现
-- **acquaintance（熟人）**：很少出现，关系不深
-- **date（约会对象）**：不是1V1的浪漫关系，有明确的约会行为
-
-**任务**：
-请判断关系类型，并说明理由。
-要保证亲密关系的判断准确，不要误判。
-
-输出JSON：
-{{
-  "relationship_type": "close_friend",
-  "label": "密友",
-  "confidence": 0.85,
-  "reason": "频繁出现（15次），场景多样（咖啡馆、餐厅、户外），主要在周末，关系亲密"
-}}"""
-
-        return prompt
+        contract = self.last_memory_contract
+        if contract is None:
+            contract = self.extract_memory_contract(vlm_results, face_db=face_db, primary_person_id=primary_person_id)
+        return self.relationships_from_memory_contract(contract)
 
     def generate_profile(
         self,
@@ -747,246 +439,1110 @@ Output Format (严格执行以下JSON格式):
         relationships: List[Relationship],
         primary_person_id: Optional[str],
     ) -> str:
-        """
-        生成用户画像（Markdown格式报告）
+        if self.last_memory_contract is not None:
+            return self.profile_markdown_from_memory_contract(self.last_memory_contract, primary_person_id)
+        return self._create_legacy_profile(events, relationships, primary_person_id)
 
-        Args:
-            events: 事件列表
-            relationships: 关系列表
+    def _build_photo_fact_buffer(self, vlm_results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        facts = []
+        for item in sorted(vlm_results, key=lambda payload: payload.get("timestamp") or ""):
+            analysis = item.get("vlm_analysis", {}) if isinstance(item.get("vlm_analysis"), dict) else {}
+            scene = analysis.get("scene", {}) if isinstance(analysis, dict) else {}
+            event = analysis.get("event", {}) if isinstance(analysis, dict) else {}
+            location = item.get("location") or {}
+            place_candidates = []
+            for candidate in analysis.get("place_candidates", []) or []:
+                if isinstance(candidate, dict):
+                    place_candidates.append(
+                        {
+                            "name": str(candidate.get("name") or "").strip(),
+                            "confidence": float(candidate.get("confidence") or 0.0),
+                            "reason": str(candidate.get("reason") or "").strip(),
+                        }
+                    )
+                elif candidate:
+                    place_candidates.append(
+                        {
+                            "name": str(candidate).strip(),
+                            "confidence": 0.0,
+                            "reason": "",
+                        }
+                    )
+            location_name = str(
+                (location or {}).get("name")
+                or (place_candidates[0]["name"] if place_candidates and place_candidates[0]["name"] else "")
+                or scene.get("location_detected")
+                or ""
+            ).strip()
+            person_ids = [str(value) for value in item.get("face_person_ids", []) if value]
+            rare_clues = self._collect_rare_clues(analysis)
+            facts.append(
+                {
+                    "photo_id": item.get("photo_id"),
+                    "timestamp": item.get("timestamp"),
+                    "location": location,
+                    "location_name": location_name,
+                    "person_ids": person_ids,
+                    "scene_hint": str(scene.get("location_detected") or ""),
+                    "activity_hint": str(event.get("activity") or ""),
+                    "social_hint": str(event.get("social_context") or ""),
+                    "summary": str(analysis.get("summary") or ""),
+                    "details": list(analysis.get("details", []) or []),
+                    "key_objects": list(analysis.get("key_objects", []) or []),
+                    "ocr_hits": [str(value) for value in analysis.get("ocr_hits", []) or [] if value],
+                    "brands": [str(value) for value in analysis.get("brands", []) or [] if value],
+                    "route_plan_clues": [str(value) for value in analysis.get("route_plan_clues", []) or [] if value],
+                    "transport_clues": [str(value) for value in analysis.get("transport_clues", []) or [] if value],
+                    "health_treatment_clues": [str(value) for value in analysis.get("health_treatment_clues", []) or [] if value],
+                    "object_last_seen_clues": [str(value) for value in analysis.get("object_last_seen_clues", []) or [] if value],
+                    "place_candidates": place_candidates,
+                    "raw_structured_observations": list(analysis.get("raw_structured_observations", []) or []),
+                    "uncertainty": list(analysis.get("uncertainty", []) or []),
+                    "rare_clues": rare_clues,
+                    "raw": item,
+                }
+            )
+        return facts
 
-        Returns:
-            Markdown格式的用户画像报告
-        """
-        prompt = self._create_profile_prompt(events, relationships, primary_person_id)
+    def _collect_rare_clues(self, analysis: Dict[str, Any]) -> List[str]:
+        candidates: List[str] = []
+        for key in ("ocr_hits", "brands", "route_plan_clues", "transport_clues", "health_treatment_clues", "object_last_seen_clues"):
+            for value in analysis.get(key, []) or []:
+                text = str(value).strip()
+                if text and text not in candidates:
+                    candidates.append(text)
+        for item in analysis.get("raw_structured_observations", []) or []:
+            if not isinstance(item, dict):
+                continue
+            value = str(item.get("value") or "").strip()
+            field = str(item.get("field") or "").strip()
+            if value and (field or value) not in candidates:
+                candidates.append(f"{field}: {value}" if field else value)
+        return candidates
 
-        try:
-            if self.use_proxy:
-                result = self._call_with_retries(lambda: self._call_profile_via_proxy(prompt))
-            elif self.use_openrouter:
-                result = self._call_with_retries(lambda: self._call_profile_via_openrouter(prompt))
+    def _build_bursts(self, facts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        if not facts:
+            return []
+        bursts: List[List[Dict[str, Any]]] = [[facts[0]]]
+        for fact in facts[1:]:
+            current = bursts[-1]
+            previous = current[-1]
+            gap = self._seconds_between(previous.get("timestamp"), fact.get("timestamp"))
+            duration = self._seconds_between(current[0].get("timestamp"), fact.get("timestamp"))
+            if (
+                gap <= LLM_BURST_GAP_SECONDS
+                and duration <= LLM_BURST_MAX_DURATION_SECONDS
+                and len(current) < LLM_BURST_MAX_PHOTOS
+                and not self._burst_break_required(previous, fact)
+            ):
+                current.append(fact)
             else:
-                result = self._call_with_retries(lambda: self._call_profile_via_official_api(prompt))
+                bursts.append([fact])
+        burst_payloads = []
+        for index, group in enumerate(bursts, start=1):
+            dominant_person_ids = self._dominant_person_ids_from_facts(group)
+            duration_seconds = max(
+                1,
+                int(self._seconds_between(group[0].get("timestamp"), group[-1].get("timestamp"))),
+            )
+            information_score = self._estimate_information_score(group)
+            density_score = self._estimate_density_score(group, duration_seconds)
+            burst_payloads.append(
+                {
+                    "burst_id": f"burst_{index:04d}",
+                    "photo_ids": [item["photo_id"] for item in group],
+                    "started_at": group[0]["timestamp"],
+                    "ended_at": group[-1]["timestamp"],
+                    "facts": group,
+                    "location_bucket": self._location_bucket(group[0]),
+                    "location_chain": self._unique(self._location_bucket(item) for item in group),
+                    "dominant_person_ids": dominant_person_ids,
+                    "activity_hints": self._unique(item.get("activity_hint") for item in group),
+                    "scene_hints": self._unique(item.get("scene_hint") for item in group),
+                    "duration_seconds": duration_seconds,
+                    "photo_density_score": density_score,
+                    "information_score": information_score,
+                    "rare_clues": self._unique(
+                        clue
+                        for item in group
+                        for clue in item.get("rare_clues", [])
+                    ),
+                    "fact_inventory": self._build_fact_inventory(group),
+                }
+            )
+        return burst_payloads
 
-            return result
+    def _build_raw_sessions(self, bursts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        if not bursts:
+            return []
+        raw_sessions: List[List[Dict[str, Any]]] = [[bursts[0]]]
+        continuity_decisions: List[List[Dict[str, Any]]] = [[]]
+        for burst in bursts[1:]:
+            current = raw_sessions[-1]
+            previous = current[-1]
+            continuity = self._session_continuity(previous, burst)
+            if continuity["same_session"]:
+                current.append(burst)
+                continuity_decisions[-1].append(continuity)
+            else:
+                raw_sessions.append([burst])
+                continuity_decisions.append([])
+        payloads = []
+        for index, group in enumerate(raw_sessions, start=1):
+            facts = [fact for burst in group for fact in burst["facts"]]
+            payloads.append(
+                {
+                    "raw_session_id": f"raw_session_{index:04d}",
+                    "started_at": group[0]["started_at"],
+                    "ended_at": group[-1]["ended_at"],
+                    "location_bucket": group[0]["location_bucket"],
+                    "location_chain": self._unique(
+                        location_name
+                        for burst in group
+                        for location_name in burst.get("location_chain", [])
+                    ),
+                    "photo_ids": [photo_id for burst in group for photo_id in burst["photo_ids"]],
+                    "burst_ids": [burst["burst_id"] for burst in group],
+                    "bursts": list(group),
+                    "facts": facts,
+                    "dominant_person_ids": self._dominant_person_ids_from_facts(facts),
+                    "continuity_decisions": continuity_decisions[index - 1],
+                }
+            )
+        return payloads
 
-        except Exception as e:
-            print(f"警告：画像生成失败: {e}")
-            # 返回默认报告
-            return f"""# 用户全维画像分析报告
+    def _build_session_slices(self, raw_sessions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        slices: List[Dict[str, Any]] = []
+        slice_index = 1
+        for raw_session in raw_sessions:
+            bursts = list(raw_session.get("bursts", []))
+            if not bursts:
+                continue
+            start_index = 0
+            while start_index < len(bursts):
+                end_index = start_index
+                selected: List[Dict[str, Any]] = []
+                photo_count = 0
+                rare_clue_count = 0
+                information_score = 0.0
+                density_score = 0.0
+                while end_index < len(bursts) and len(selected) < LLM_SLICE_HARD_MAX_BURSTS:
+                    burst = bursts[end_index]
+                    projected_photo_count = photo_count + len(burst["facts"])
+                    projected_rare_count = rare_clue_count + len(burst["rare_clues"])
+                    projected_information_score = information_score + float(burst.get("information_score") or 0.0)
+                    projected_density_score = density_score + float(burst.get("photo_density_score") or 0.0)
+                    if selected:
+                        if len(selected) >= LLM_SLICE_MAX_BURSTS:
+                            break
+                        if projected_photo_count > LLM_SLICE_MAX_PHOTOS:
+                            break
+                        if projected_rare_count > LLM_SLICE_MAX_RARE_CLUES and photo_count >= LLM_SLICE_MIN_PHOTOS:
+                            break
+                        if projected_information_score > LLM_SLICE_MAX_INFO_SCORE and photo_count >= LLM_SLICE_MIN_PHOTOS:
+                            break
+                        if projected_density_score > LLM_SLICE_MAX_DENSITY_SCORE and photo_count >= LLM_SLICE_MIN_PHOTOS:
+                            break
+                    selected.append(burst)
+                    photo_count = projected_photo_count
+                    rare_clue_count = projected_rare_count
+                    information_score = projected_information_score
+                    density_score = projected_density_score
+                    end_index += 1
+                if not selected:
+                    selected = [bursts[start_index]]
+                    end_index = start_index + 1
+                    photo_count = len(selected[0]["facts"])
+                    rare_clue_count = len(selected[0]["rare_clues"])
+                    information_score = float(selected[0].get("information_score") or 0.0)
+                    density_score = float(selected[0].get("photo_density_score") or 0.0)
+                overlap_bursts = (
+                    [burst["burst_id"] for burst in selected[:LLM_SLICE_OVERLAP_BURSTS]]
+                    if start_index > 0
+                    else []
+                )
+                slices.append(
+                    self._slice_payload(
+                        raw_session=raw_session,
+                        bursts=selected,
+                        rare_clue_count=rare_clue_count,
+                        information_score=information_score,
+                        density_score=density_score,
+                        slice_index=slice_index,
+                        overlap_burst_ids=overlap_bursts,
+                    )
+                )
+                slice_index += 1
+                if end_index >= len(bursts):
+                    break
+                start_index = max(end_index - LLM_SLICE_OVERLAP_BURSTS, start_index + 1)
+        return slices
 
-## 生成失败
+    def _slice_payload(
+        self,
+        raw_session: Dict[str, Any],
+        bursts: List[Dict[str, Any]],
+        rare_clue_count: int,
+        information_score: float,
+        density_score: float,
+        slice_index: int,
+        overlap_burst_ids: List[str],
+    ) -> Dict[str, Any]:
+        slice_id = f"slice_{slice_index:04d}"
+        facts = [fact for burst in bursts for fact in burst["facts"]]
+        evidence_packet = self._build_slice_evidence_packet(
+            raw_session=raw_session,
+            bursts=bursts,
+            facts=facts,
+            overlap_burst_ids=overlap_burst_ids,
+        )
+        evidence_packet["slice_id"] = slice_id
+        return {
+            "slice_id": slice_id,
+            "raw_session_id": raw_session["raw_session_id"],
+            "photo_ids": [fact["photo_id"] for fact in facts],
+            "burst_ids": [burst["burst_id"] for burst in bursts],
+            "overlap_burst_ids": overlap_burst_ids,
+            "started_at": facts[0]["timestamp"],
+            "ended_at": facts[-1]["timestamp"],
+            "location_bucket": self._location_bucket(facts[0]),
+            "rare_clue_count": rare_clue_count,
+            "information_score": round(float(information_score), 3),
+            "density_score": round(float(density_score), 3),
+            "bursts": list(bursts),
+            "facts": list(facts),
+            "evidence_packet": evidence_packet,
+        }
 
-画像生成过程中发生错误：{e}
+    def _build_slice_evidence_packet(
+        self,
+        *,
+        raw_session: Dict[str, Any],
+        bursts: List[Dict[str, Any]],
+        facts: List[Dict[str, Any]],
+        overlap_burst_ids: List[str],
+    ) -> Dict[str, Any]:
+        location_chain = self._unique(
+            location_name
+            for burst in bursts
+            for location_name in burst.get("location_chain", [])
+        )
+        rare_clues = self._unique(
+            clue
+            for fact in facts
+            for clue in fact.get("rare_clues", [])
+        )
+        return {
+            "session_id": raw_session["raw_session_id"],
+            "slice_id": "",
+            "time_range": {
+                "start": facts[0]["timestamp"],
+                "end": facts[-1]["timestamp"],
+            },
+            "location_chain": location_chain,
+            "dominant_person_ids": self._dominant_person_ids_from_facts(facts),
+            "burst_ids": [burst["burst_id"] for burst in bursts],
+            "overlap_burst_ids": list(overlap_burst_ids),
+            "fact_inventory": self._build_fact_inventory(facts),
+            "rare_clues": rare_clues,
+            "change_points": self._build_change_points(bursts),
+            "conflicts": self._detect_slice_conflicts(facts),
+            "slice_budget_metrics": {
+                "photo_count": len(facts),
+                "burst_count": len(bursts),
+                "rare_clue_count": len(rare_clues),
+                "information_score": round(sum(float(burst.get("information_score") or 0.0) for burst in bursts), 3),
+                "density_score": round(sum(float(burst.get("photo_density_score") or 0.0) for burst in bursts), 3),
+            },
+            "photo_refs": [fact["photo_id"] for fact in facts],
+            "photo_facts": [
+                {
+                    "photo_id": fact["photo_id"],
+                    "timestamp": fact["timestamp"],
+                    "location_name": fact.get("location_name", ""),
+                    "person_ids": fact.get("person_ids", []),
+                    "scene_hint": fact.get("scene_hint", ""),
+                    "activity_hint": fact.get("activity_hint", ""),
+                    "social_hint": fact.get("social_hint", ""),
+                    "summary": fact.get("summary", ""),
+                    "rare_clues": fact.get("rare_clues", []),
+                }
+                for fact in facts
+            ],
+            "session_context": {
+                "raw_session_id": raw_session["raw_session_id"],
+                "raw_session_started_at": raw_session["started_at"],
+                "raw_session_ended_at": raw_session["ended_at"],
+                "raw_session_location_chain": list(raw_session["location_chain"]),
+            },
+        }
 
-请检查输入数据或重试。
+    def _build_fact_inventory(self, facts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        aggregated: Dict[tuple[str, str], Dict[str, Any]] = {}
+
+        def add_fact(fact_type: str, value: str, photo_id: str, confidence: float = 0.0) -> None:
+            normalized_value = str(value or "").strip()
+            if not normalized_value:
+                return
+            key = (fact_type, normalized_value)
+            item = aggregated.setdefault(
+                key,
+                {
+                    "fact_type": fact_type,
+                    "value": normalized_value,
+                    "support_count": 0,
+                    "photo_ids": [],
+                    "confidence": 0.0,
+                },
+            )
+            item["support_count"] += 1
+            if photo_id not in item["photo_ids"]:
+                item["photo_ids"].append(photo_id)
+            item["confidence"] = max(float(item["confidence"]), float(confidence or 0.0))
+
+        for fact in facts:
+            photo_id = str(fact.get("photo_id") or "")
+            add_fact("scene_location", str(fact.get("scene_hint") or ""), photo_id)
+            add_fact("activity", str(fact.get("activity_hint") or ""), photo_id)
+            add_fact("social_context", str(fact.get("social_hint") or ""), photo_id)
+            add_fact("summary", str(fact.get("summary") or ""), photo_id)
+            for value in fact.get("key_objects", []) or []:
+                add_fact("object", str(value), photo_id)
+            for value in fact.get("ocr_hits", []) or []:
+                add_fact("ocr", str(value), photo_id, confidence=0.95)
+            for value in fact.get("brands", []) or []:
+                add_fact("brand", str(value), photo_id, confidence=0.9)
+            for value in fact.get("route_plan_clues", []) or []:
+                add_fact("route_plan", str(value), photo_id, confidence=0.8)
+            for value in fact.get("transport_clues", []) or []:
+                add_fact("transport", str(value), photo_id, confidence=0.8)
+            for value in fact.get("health_treatment_clues", []) or []:
+                add_fact("health_treatment", str(value), photo_id, confidence=0.8)
+            for value in fact.get("object_last_seen_clues", []) or []:
+                add_fact("object_last_seen", str(value), photo_id, confidence=0.8)
+            for candidate in fact.get("place_candidates", []) or []:
+                if not isinstance(candidate, dict):
+                    continue
+                add_fact(
+                    "place_candidate",
+                    str(candidate.get("name") or ""),
+                    photo_id,
+                    confidence=float(candidate.get("confidence") or 0.0),
+                )
+        inventory = list(aggregated.values())
+        inventory.sort(key=lambda item: (item["support_count"], item["confidence"], item["fact_type"], item["value"]), reverse=True)
+        return inventory
+
+    def _estimate_information_score(self, facts: List[Dict[str, Any]]) -> float:
+        weights = {
+            "ocr": 3.5,
+            "brand": 3.0,
+            "route_plan": 3.0,
+            "health_treatment": 3.0,
+            "object_last_seen": 3.0,
+            "place_candidate": 2.5,
+            "transport": 2.0,
+            "activity": 1.5,
+            "scene_location": 1.5,
+            "social_context": 1.0,
+            "object": 0.8,
+            "summary": 0.4,
+        }
+        score = 0.0
+        for item in self._build_fact_inventory(facts):
+            fact_type = str(item.get("fact_type") or "")
+            support_count = int(item.get("support_count") or 0)
+            confidence = float(item.get("confidence") or 0.0)
+            weight = weights.get(fact_type, 0.75)
+            support_multiplier = min(1.5, 0.5 + (support_count * 0.25))
+            confidence_multiplier = 1.0 + min(0.5, confidence * 0.5)
+            score += weight * support_multiplier * confidence_multiplier
+        rare_clue_count = len(self._unique(clue for fact in facts for clue in fact.get("rare_clues", [])))
+        score += rare_clue_count * 1.5
+        return round(score, 3)
+
+    def _estimate_density_score(self, facts: List[Dict[str, Any]], duration_seconds: int) -> float:
+        if not facts:
+            return 0.0
+        duration_minutes = max(1.0, float(duration_seconds) / 60.0)
+        photos_per_minute = len(facts) / duration_minutes
+        return round(min(8.0, photos_per_minute), 3)
+
+    def _build_change_points(self, bursts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        change_points: List[Dict[str, Any]] = []
+        seen_rare_clues: set[str] = set()
+        for burst in bursts:
+            new_clues = [clue for clue in burst.get("rare_clues", []) if clue not in seen_rare_clues]
+            if new_clues:
+                change_points.append(
+                    {
+                        "change_type": "rare_clue_emergence",
+                        "burst_id": burst["burst_id"],
+                        "photo_ids": list(burst["photo_ids"]),
+                        "details": new_clues[:5],
+                    }
+                )
+                seen_rare_clues.update(new_clues)
+
+        for left, right in zip(bursts, bursts[1:]):
+            if left.get("location_bucket") != right.get("location_bucket"):
+                change_points.append(
+                    {
+                        "change_type": "location_chain_change",
+                        "from_burst_id": left["burst_id"],
+                        "to_burst_id": right["burst_id"],
+                        "details": [left.get("location_bucket"), right.get("location_bucket")],
+                    }
+                )
+            if set(left.get("dominant_person_ids", [])) != set(right.get("dominant_person_ids", [])):
+                change_points.append(
+                    {
+                        "change_type": "dominant_person_change",
+                        "from_burst_id": left["burst_id"],
+                        "to_burst_id": right["burst_id"],
+                        "details": {
+                            "from": left.get("dominant_person_ids", []),
+                            "to": right.get("dominant_person_ids", []),
+                        },
+                    }
+                )
+            if set(left.get("activity_hints", [])) != set(right.get("activity_hints", [])):
+                change_points.append(
+                    {
+                        "change_type": "activity_change",
+                        "from_burst_id": left["burst_id"],
+                        "to_burst_id": right["burst_id"],
+                        "details": {
+                            "from": left.get("activity_hints", []),
+                            "to": right.get("activity_hints", []),
+                        },
+                    }
+                )
+        return change_points
+
+    def _detect_slice_conflicts(self, facts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        conflicts: List[Dict[str, Any]] = []
+        strong_places = [
+            candidate["name"]
+            for fact in facts
+            for candidate in fact.get("place_candidates", [])
+            if isinstance(candidate, dict)
+            and candidate.get("name")
+            and float(candidate.get("confidence") or 0.0) >= 0.7
+        ]
+        if len(set(strong_places)) > 1:
+            conflicts.append(
+                {
+                    "conflict_type": "multiple_strong_place_candidates",
+                    "values": self._unique(strong_places),
+                }
+            )
+        return conflicts
+
+    def _session_continuity(self, left: Dict[str, Any], right: Dict[str, Any]) -> Dict[str, Any]:
+        gap_seconds = self._seconds_between(left.get("ended_at"), right.get("started_at"))
+        if gap_seconds > LLM_SESSION_HARD_GAP_SECONDS:
+            return {
+                "same_session": False,
+                "score": -99,
+                "reason": "hard_split_time_gap",
+                "gap_seconds": gap_seconds,
+            }
+
+        distance_km = self._distance_km(left.get("facts", [None])[0], right.get("facts", [None])[0])
+        if distance_km > LLM_SESSION_HARD_DISTANCE_KM and not self._looks_like_explainable_transition(left, right):
+            return {
+                "same_session": False,
+                "score": -99,
+                "reason": "hard_split_distance_jump",
+                "gap_seconds": gap_seconds,
+                "distance_km": round(distance_km, 3),
+            }
+
+        score = 0
+        signals: List[str] = []
+
+        if gap_seconds <= LLM_SESSION_STRONG_GAP_SECONDS:
+            score += 2
+            signals.append("strong_time_continuity")
+        elif gap_seconds <= LLM_SESSION_SOFT_GAP_SECONDS:
+            score += 1
+            signals.append("soft_time_continuity")
+
+        left_bucket = str(left.get("location_bucket") or "")
+        right_bucket = str(right.get("location_bucket") or "")
+        if left_bucket and right_bucket and left_bucket == right_bucket:
+            score += 2
+            signals.append("same_location_bucket")
+        elif distance_km and distance_km <= LLM_SESSION_NEAR_DISTANCE_KM:
+            score += 2
+            signals.append("near_distance")
+        elif self._looks_like_explainable_transition(left, right):
+            score += 1
+            signals.append("explainable_transition")
+
+        left_people = set(left.get("dominant_person_ids", []) or [])
+        right_people = set(right.get("dominant_person_ids", []) or [])
+        shared_people = left_people.intersection(right_people)
+        if left_people and right_people and max(len(left_people), len(right_people)) > 0:
+            overlap_ratio = len(shared_people) / max(len(left_people), len(right_people))
+            if overlap_ratio >= 0.5:
+                score += 2
+                signals.append("strong_people_continuity")
+            elif shared_people:
+                score += 1
+                signals.append("weak_people_continuity")
+
+        left_scene = set(self._normalized_hint_set(left.get("scene_hints", [])))
+        right_scene = set(self._normalized_hint_set(right.get("scene_hints", [])))
+        if left_scene.intersection(right_scene):
+            score += 1
+            signals.append("scene_continuity")
+
+        left_activity = set(self._normalized_hint_set(left.get("activity_hints", [])))
+        right_activity = set(self._normalized_hint_set(right.get("activity_hints", [])))
+        if left_activity.intersection(right_activity):
+            score += 1
+            signals.append("activity_continuity")
+
+        if self._rare_clue_conflict(left, right):
+            score -= 3
+            signals.append("rare_clue_conflict")
+
+        if not shared_people and left_bucket != right_bucket and not left_scene.intersection(right_scene) and not left_activity.intersection(right_activity):
+            score -= 3
+            signals.append("semantic_rupture")
+
+        if score >= 3:
+            decision = "same_session"
+            same_session = True
+        elif score >= 1:
+            decision = "review_needed"
+            same_session = True
+        else:
+            decision = "distinct"
+            same_session = False
+        return {
+            "same_session": same_session,
+            "score": score,
+            "decision": decision,
+            "gap_seconds": gap_seconds,
+            "distance_km": round(distance_km, 3),
+            "signals": signals,
+        }
+
+    def _burst_break_required(self, left: Dict[str, Any], right: Dict[str, Any]) -> bool:
+        left_bucket = self._location_bucket(left)
+        right_bucket = self._location_bucket(right)
+        if left_bucket and right_bucket and left_bucket != right_bucket:
+            return True
+        left_people = set(left.get("person_ids") or [])
+        right_people = set(right.get("person_ids") or [])
+        left_activity = str(left.get("activity_hint") or "").strip().lower()
+        right_activity = str(right.get("activity_hint") or "").strip().lower()
+        if left_people and right_people and not left_people.intersection(right_people) and left_activity and right_activity and left_activity != right_activity:
+            return True
+        return False
+
+    def _location_bucket(self, fact: Dict[str, Any]) -> str:
+        location = fact.get("location") or {}
+        if isinstance(location, dict):
+            name = str(location.get("name") or "").strip().lower()
+            if name:
+                return name
+        place_candidates = fact.get("place_candidates", []) or []
+        for candidate in place_candidates:
+            if not isinstance(candidate, dict):
+                continue
+            name = str(candidate.get("name") or "").strip().lower()
+            if name:
+                return name
+        return str(fact.get("location_name") or "").strip().lower()
+
+    def _seconds_between(self, left: Optional[str], right: Optional[str]) -> float:
+        try:
+            left_dt = datetime.fromisoformat(str(left))
+            right_dt = datetime.fromisoformat(str(right))
+        except Exception:
+            return 0.0
+        return abs((right_dt - left_dt).total_seconds())
+
+    def _distance_km(self, left: Optional[Dict[str, Any]], right: Optional[Dict[str, Any]]) -> float:
+        if not left or not right:
+            return 0.0
+        left_location = left.get("location") if isinstance(left, dict) else None
+        right_location = right.get("location") if isinstance(right, dict) else None
+        if not isinstance(left_location, dict) or not isinstance(right_location, dict):
+            return 0.0
+        if any(key not in left_location for key in ("lat", "lng")) or any(key not in right_location for key in ("lat", "lng")):
+            return 0.0
+        lat1 = radians(float(left_location["lat"]))
+        lon1 = radians(float(left_location["lng"]))
+        lat2 = radians(float(right_location["lat"]))
+        lon2 = radians(float(right_location["lng"]))
+        delta_lat = lat2 - lat1
+        delta_lon = lon2 - lon1
+        hav = sin(delta_lat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(delta_lon / 2) ** 2
+        return 2 * 6371.0 * asin(sqrt(hav))
+
+    def _dominant_person_ids_from_facts(self, facts: List[Dict[str, Any]]) -> List[str]:
+        counts = Counter(
+            person_id
+            for fact in facts
+            for person_id in fact.get("person_ids", []) or []
+            if person_id
+        )
+        return [person_id for person_id, _count in counts.most_common(3)]
+
+    def _normalized_hint_set(self, values: Iterable[str]) -> List[str]:
+        normalized: List[str] = []
+        for value in values:
+            text = str(value or "").strip().lower()
+            if text and text not in normalized:
+                normalized.append(text)
+        return normalized
+
+    def _looks_like_explainable_transition(self, left: Dict[str, Any], right: Dict[str, Any]) -> bool:
+        left_bucket = str(left.get("location_bucket") or "")
+        right_bucket = str(right.get("location_bucket") or "")
+        if left_bucket and right_bucket:
+            left_tokens = set(re.split(r"[\s_:/-]+", left_bucket))
+            right_tokens = set(re.split(r"[\s_:/-]+", right_bucket))
+            if left_tokens.intersection(right_tokens):
+                return True
+        left_scene = set(self._normalized_hint_set(left.get("scene_hints", [])))
+        right_scene = set(self._normalized_hint_set(right.get("scene_hints", [])))
+        left_activity = set(self._normalized_hint_set(left.get("activity_hints", [])))
+        right_activity = set(self._normalized_hint_set(right.get("activity_hints", [])))
+        return bool(left_scene.intersection(right_scene) or left_activity.intersection(right_activity))
+
+    def _rare_clue_conflict(self, left: Dict[str, Any], right: Dict[str, Any]) -> bool:
+        left_ocr = {clue.lower() for clue in left.get("rare_clues", []) if clue}
+        right_ocr = {clue.lower() for clue in right.get("rare_clues", []) if clue}
+        if not left_ocr or not right_ocr:
+            return False
+        if left_ocr.intersection(right_ocr):
+            return False
+        left_places = {name.lower() for name in left.get("location_chain", []) if name}
+        right_places = {name.lower() for name in right.get("location_chain", []) if name}
+        return bool(left_places and right_places and not left_places.intersection(right_places))
+
+    def _create_slice_memory_prompt(self, evidence_packet: Dict[str, Any], primary_person_id: Optional[str]) -> str:
+        primary_label = primary_person_id or "authenticated_user"
+        return f"""你是 memory materialization LLM。你现在只处理一个 session slice，不要总结整个相册。
+
+规则：
+1. 你的目标是把 session-scoped evidence packet 转成可落库的 memory contract。
+2. 不能编造城市、人物关系、偏好或长期画像。
+3. 你必须优先使用 fact_inventory、rare_clues、change_points、conflicts，而不是只看 summary。
+4. 允许输出 uncertainty。
+5. “我” 在内部永远对应 authenticated user={primary_label}，但只有在证据足够时才说用户出镜。
+6. events 只是 memory 的一部分；细粒度事实必须进入 observations 或 claims。
+7. 这个 slice 只是分析窗口，不等于完整现实活动链；不要跨越 packet 边界做过强推断。
+
+请输出严格 JSON，包含以下 6 个顶层字段：
+{{
+  "events": [
+    {{
+      "event_id": "字符串",
+      "title": "字符串",
+      "coarse_event_type": "unknown/social_outing/sightseeing/dining/training/daily_life/travel/work/study/health/shopping/other",
+      "event_facets": ["字符串"],
+      "alternative_type_candidates": [{{"type": "字符串", "score": 0.0}}],
+      "started_at": "ISO时间",
+      "ended_at": "ISO时间",
+      "location": "字符串",
+      "participant_person_ids": ["Person_001"],
+      "photo_ids": ["photo_001"],
+      "description": "客观描述",
+      "narrative_synthesis": "一句话客观归纳",
+      "confidence": 0.0,
+      "reason": "判断依据"
+    }}
+  ],
+  "observations": [
+    {{
+      "observation_id": "字符串",
+      "category": "ocr|object|brand|dish|price|clothing|style|health|transport|route_plan|scene|activity|place_hint",
+      "field_key": "字符串",
+      "field_value": "字符串",
+      "confidence": 0.0,
+      "photo_ids": ["photo_001"],
+      "event_id": "可为空",
+      "session_id": "{evidence_packet['session_id']}",
+      "person_ids": ["Person_001"],
+      "evidence_refs": [{{"ref_type": "photo", "ref_id": "photo_001"}}]
+    }}
+  ],
+  "claims": [
+    {{
+      "claim_id": "字符串",
+      "claim_type": "location|identity|brand|dish|price|health|transport|route_plan|preference_signal|culture_signal|object_last_seen",
+      "subject": "对象ID或语义主体",
+      "predicate": "字符串",
+      "object": "字符串",
+      "confidence": 0.0,
+      "photo_ids": ["photo_001"],
+      "event_id": "可为空",
+      "session_id": "{evidence_packet['session_id']}",
+      "evidence_refs": [{{"ref_type": "photo", "ref_id": "photo_001"}}]
+    }}
+  ],
+  "relationship_hypotheses": [
+    {{
+      "person_id": "Person_002",
+      "relationship_type": "acquaintance|friend|close_friend|colleague|family|partner|co_presence_only",
+      "label": "标签",
+      "confidence": 0.0,
+      "reason_summary": "原因",
+      "reason": "原因",
+      "evidence": {{}}
+    }}
+  ],
+  "profile_deltas": [
+    {{
+      "profile_key": "career_profile|preference_profile|opinion_trajectory_profile|style_profile|identity_trajectory_profile|consumption_profile|aesthetic_profile|recommendation_prior_profile",
+      "field_key": "字符串",
+      "field_value": "字符串",
+      "summary": "增量总结",
+      "confidence": 0.0,
+      "supporting_event_ids": ["event_001"],
+      "supporting_photo_ids": ["photo_001"],
+      "evidence_refs": [{{"ref_type": "photo", "ref_id": "photo_001"}}]
+    }}
+  ],
+  "uncertainty": [
+    {{
+      "field": "字符串",
+      "status": "unknown|insufficient_evidence|ambiguous",
+      "reason": "为什么"
+    }}
+  ]
+}}
+
+注意：
+- 如果只是看到环境中的品牌或物体，不要直接推断用户偏好。
+- 如果只有单次暴露，不要直接推断长期兴趣。
+- 如果没有稳定跨时段证据，不要输出强关系。
+- rare clues 和 OCR / 品牌 / 路线 / 价格 / 地点名 / 物体最后出现线索必须尽量保留。
+
+Session-scoped evidence packet:
+{json.dumps(evidence_packet, ensure_ascii=False, indent=2)}
 """
 
-    def _create_profile_prompt(
+    def _create_session_merge_prompt(
+        self,
+        *,
+        raw_session: Dict[str, Any],
+        session_slice_records: List[Dict[str, Any]],
+        slice_contracts: List[Dict[str, Any]],
+        primary_person_id: Optional[str],
+    ) -> str:
+        primary_label = primary_person_id or "authenticated_user"
+        session_summary = {
+            "raw_session_id": raw_session["raw_session_id"],
+            "started_at": raw_session["started_at"],
+            "ended_at": raw_session["ended_at"],
+            "location_chain": raw_session["location_chain"],
+            "photo_ids": raw_session["photo_ids"],
+            "burst_ids": raw_session["burst_ids"],
+            "dominant_person_ids": raw_session["dominant_person_ids"],
+            "continuity_decisions": raw_session["continuity_decisions"],
+        }
+        return f"""你是 memory session aggregator。你会收到同一个 raw session 下多个带 overlap 的 slice memory contracts，请先在 session 内部做去重、拼接和保守确认。
+
+规则：
+1. 优先比较相邻 slice 的事件与 claims，依据 overlap_burst_ids / photo_ids / 时间连续性 / 人物连续性 / location_chain 做拼接。
+2. 不要丢失 rare clues、OCR、brands、place claims、object last-seen claims。
+3. 如果证据不足，宁可保守保留多条 event，也不要强行 merge。
+4. “我” 对应 authenticated_user={primary_label}，不要把任何 Person_x 直接绑成用户。
+5. 输出仍然是完整 6 段 memory contract。
+
+Session summary:
+{json.dumps(session_summary, ensure_ascii=False, indent=2)}
+
+Slice packets:
+{json.dumps(session_slice_records, ensure_ascii=False, indent=2)}
+
+Slice contracts:
+{json.dumps(slice_contracts, ensure_ascii=False, indent=2)}
+"""
+
+    def _create_merge_prompt(
+        self,
+        *,
+        photo_fact_count: int,
+        raw_sessions: List[Dict[str, Any]],
+        session_slices: List[Dict[str, Any]],
+        session_contracts: List[Dict[str, Any]],
+        session_artifacts: List[Dict[str, Any]],
+        primary_person_id: Optional[str],
+    ) -> str:
+        compact_sessions = [
+            {
+                "raw_session_id": session["raw_session_id"],
+                "started_at": session["started_at"],
+                "ended_at": session["ended_at"],
+                "location_chain": session["location_chain"],
+                "photo_ids": session["photo_ids"],
+            }
+            for session in raw_sessions
+        ]
+        compact_slices = [
+            {
+                "slice_id": session_slice["slice_id"],
+                "raw_session_id": session_slice["raw_session_id"],
+                "photo_ids": session_slice["photo_ids"],
+                "burst_ids": session_slice["burst_ids"],
+                "information_score": session_slice.get("information_score"),
+                "density_score": session_slice.get("density_score"),
+            }
+            for session_slice in session_slices
+        ]
+        primary_label = primary_person_id or "authenticated_user"
+        return f"""你是 memory global aggregator。你会收到多个 raw session 的 session-level memory contracts，请做全局去重、合并、谨慎关系修订，并输出最终 memory contract。
+
+规则：
+1. 不要丢失高价值 observations / claims。
+2. 允许多个 event 合并，但只能在时间/地点/活动证据充分时合并。
+3. 关系版本要保守：没有纵向证据就不要输出强关系。
+4. “我” 对应 authenticated_user={primary_label}，但不要因为缺少人脸锚点就把任何 Person_x 绑成用户。
+5. profile_deltas 只输出增量，不直接下绝对结论。
+
+输出仍然是同样的 6 段 JSON contract，顶层字段必须完整。
+
+输入概览：
+- total_photo_facts: {photo_fact_count}
+- raw_sessions: {json.dumps(compact_sessions, ensure_ascii=False)}
+- session_slices: {json.dumps(compact_slices, ensure_ascii=False)}
+- session_artifacts: {json.dumps(session_artifacts, ensure_ascii=False)}
+- session_contracts:
+{json.dumps(session_contracts, ensure_ascii=False, indent=2)}
+"""
+
+    def _empty_contract(self) -> Dict[str, Any]:
+        return {
+            "events": [],
+            "observations": [],
+            "claims": [],
+            "relationship_hypotheses": [],
+            "profile_deltas": [],
+            "uncertainty": [],
+        }
+
+    def _normalize_memory_contract(self, payload: Any) -> Dict[str, Any]:
+        contract = self._empty_contract()
+        if isinstance(payload, str):
+            payload = self._extract_json_payload(payload)
+        if not isinstance(payload, dict):
+            return contract
+        for key in contract:
+            value = payload.get(key, [])
+            contract[key] = value if isinstance(value, list) else []
+
+        for index, event in enumerate(contract["events"], start=1):
+            if not isinstance(event, dict):
+                contract["events"][index - 1] = {}
+                event = contract["events"][index - 1]
+            event.setdefault("event_id", f"EVT_{index:03d}")
+            event.setdefault("title", "")
+            event.setdefault("coarse_event_type", "other")
+            event.setdefault("event_facets", [])
+            event.setdefault("alternative_type_candidates", [])
+            event.setdefault("participant_person_ids", [])
+            event.setdefault("photo_ids", [])
+            event.setdefault("description", "")
+            event.setdefault("narrative_synthesis", "")
+            event.setdefault("confidence", 0.0)
+            event.setdefault("reason", "")
+        for key in ("observations", "claims", "relationship_hypotheses", "profile_deltas", "uncertainty"):
+            for index, item in enumerate(contract[key], start=1):
+                if not isinstance(item, dict):
+                    contract[key][index - 1] = {}
+        for index, item in enumerate(contract["observations"], start=1):
+            if not isinstance(item, dict):
+                item = contract["observations"][index - 1]
+            item.setdefault("observation_id", f"OBS_{index:03d}")
+            item.setdefault("category", "scene")
+            item.setdefault("field_key", "")
+            item.setdefault("field_value", "")
+            item.setdefault("confidence", 0.0)
+            item.setdefault("photo_ids", [])
+            item.setdefault("event_id", "")
+            item.setdefault("session_id", "")
+            item.setdefault("person_ids", [])
+            item.setdefault("evidence_refs", [])
+        for index, item in enumerate(contract["claims"], start=1):
+            if not isinstance(item, dict):
+                item = contract["claims"][index - 1]
+            item.setdefault("claim_id", f"CLM_{index:03d}")
+            item.setdefault("claim_type", "other")
+            item.setdefault("subject", "")
+            item.setdefault("predicate", "")
+            item.setdefault("object", "")
+            item.setdefault("confidence", 0.0)
+            item.setdefault("photo_ids", [])
+            item.setdefault("event_id", "")
+            item.setdefault("session_id", "")
+            item.setdefault("evidence_refs", [])
+        for index, item in enumerate(contract["relationship_hypotheses"], start=1):
+            if not isinstance(item, dict):
+                item = contract["relationship_hypotheses"][index - 1]
+            item.setdefault("relationship_id", f"REL_{index:03d}")
+            item.setdefault("person_id", item.get("target_person_id", ""))
+            item.setdefault("relationship_type", "co_presence_only")
+            item.setdefault("label", "")
+            item.setdefault("confidence", 0.0)
+            item.setdefault("reason_summary", "")
+            item.setdefault("reason", "")
+            item.setdefault("evidence", {})
+        for index, item in enumerate(contract["profile_deltas"], start=1):
+            if not isinstance(item, dict):
+                item = contract["profile_deltas"][index - 1]
+            item.setdefault("delta_id", f"DELTA_{index:03d}")
+            item.setdefault("profile_key", "general_profile")
+            item.setdefault("field_key", "")
+            item.setdefault("field_value", "")
+            item.setdefault("summary", "")
+            item.setdefault("confidence", 0.0)
+            item.setdefault("supporting_event_ids", [])
+            item.setdefault("supporting_photo_ids", [])
+            item.setdefault("evidence_refs", [])
+        for index, item in enumerate(contract["uncertainty"], start=1):
+            if not isinstance(item, dict):
+                item = contract["uncertainty"][index - 1]
+            item.setdefault("uncertainty_id", f"UNC_{index:03d}")
+            item.setdefault("field", "")
+            item.setdefault("status", "unknown")
+            item.setdefault("reason", "")
+        return contract
+
+    def _contract_counts(self, contract: Dict[str, Any]) -> Dict[str, int]:
+        return {key: len(contract.get(key, [])) for key in self._empty_contract()}
+
+    def _legacy_time_fields(self, started_at: str, ended_at: str) -> tuple[str, str]:
+        try:
+            start_dt = datetime.fromisoformat(started_at)
+            end_dt = datetime.fromisoformat(ended_at or started_at)
+        except Exception:
+            return "", ""
+        return start_dt.strftime("%Y-%m-%d"), f"{start_dt.strftime('%H:%M')} - {end_dt.strftime('%H:%M')}"
+
+    def _create_legacy_profile(
         self,
         events: List[Event],
         relationships: List[Relationship],
         primary_person_id: Optional[str],
     ) -> str:
-        """创建画像生成prompt - FBI级别人格画像师版本"""
-        # 构建事件详情（包含更多上下文）
-        events_str = ""
-        for event in events:
-            # 提取evidence_photos作为证据链接
-            evidence_str = ", ".join(event.evidence_photos) if event.evidence_photos else "无"
+        lines = ["# Profile", ""]
+        if primary_person_id:
+            lines.append(f"- primary_person_id_hint: {primary_person_id}")
+            lines.append("")
+        if events:
+            lines.append("## recent_events")
+            lines.append("")
+            for event in events[:10]:
+                lines.append(f"- {event.title}: {event.narrative_synthesis or event.description}")
+            lines.append("")
+        if relationships:
+            lines.append("## relationships")
+            lines.append("")
+            for relationship in relationships[:10]:
+                lines.append(f"- {relationship.person_id}: {relationship.label} ({relationship.confidence:.2f})")
+        return "\n".join(lines).strip()
 
-            events_str += f"""
-### Event: {event.title}
-- **ID**: {event.event_id}
-- **时间**: {event.date} {event.time_range}（{event.duration}）
-- **类型**: {event.type}
-- **地点**: {event.location}
-- **参与者**: {', '.join(event.participants) if event.participants else '无'}
-- **描述**: {event.description}
-- **叙事**: {event.narrative_synthesis if event.narrative_synthesis else '无'}
-- **照片数**: {event.photo_count}张
-- **证据照片**: {evidence_str}
-- **标签**: {', '.join(event.tags) if event.tags else '无'}
-- **画像证据**:
-  - 行为特征: {', '.join(event.persona_evidence.get('behavioral', []))}
-  - 审美特征: {', '.join(event.persona_evidence.get('aesthetic', []))}
-  - 社会经济: {', '.join(event.persona_evidence.get('socioeconomic', []))}
-- **社交动态**:
-"""
+    def _unique(self, items: Iterable[Optional[str]]) -> List[str]:
+        values: List[str] = []
+        for item in items:
+            if not item:
+                continue
+            text = str(item)
+            if text not in values:
+                values.append(text)
+        return values
 
-            # 添加社交动态详情
-            for dyn in event.social_dynamics:
-                events_str += f"  - {dyn.get('target_id', '未知')}: {dyn.get('interaction_type', '')} | {dyn.get('relation_hypothesis', '')} (置信度: {dyn.get('confidence', 0):.0%})\n"
+    def _call_json_prompt(self, prompt: str) -> Dict[str, Any]:
+        if self.use_proxy:
+            return self._call_llm_via_proxy(prompt)
+        if self.use_openrouter:
+            return self._call_llm_via_openrouter(prompt)
+        if self.use_bedrock:
+            return self._call_llm_via_bedrock(prompt)
+        return self._call_llm_via_official_api(prompt)
 
-        # 构建关系详情
-        relationships_str = ""
-        for rel in relationships:
-            evidence = rel.evidence
-            relationships_str += f"""
-### {rel.person_id}
-- **推断关系**: {rel.label}
-- **关系类型**: {rel.relationship_type}
-- **置信度**: {rel.confidence:.0%}
-- **共同出现**: {evidence.get('photo_count', 0)}次
-- **时间跨度**: {evidence.get('time_span', '未知')}
-- **常见场景**: {', '.join(evidence.get('scenes', []))}
-- **互动行为**: {', '.join(evidence.get('interaction_behavior', []))}
-- **推理依据**: {rel.reason}
-"""
-
-        primary_label = primary_person_id or "主用户"
-
-        prompt = f"""# Role
-你是一位世界级的行为分析专家和 FBI 级别的人格画像师，擅长通过"行为残迹"还原人类灵魂。
-
-# Task
-分析提供的围绕 {primary_label} 的用户事件，产出《用户全维画像分析报告》。
-
-# Reasoning Process (Chain of Thought - 必须在输出前按此逻辑分步思考)
-
-## Step 1: 行为基频分析 (Baseline Establishing)
-- 扫描日志全貌，确定该用户的"正常节律"：几点起床？几点活跃？主要坐标点 A（家）和 B（公司）在哪？
-- [思考]：如果此人的行为偏离了 9-5 规律，这种偏离是偶然的还是结构性的（如：长期 11-23 点在软件园，暗示高薪程序员身份）？
-
-## Step 2: 线索交叉印证 (Cross-Referencing)
-- **空间+消费**：如果用户在 A 地（高档写字楼）停留，但购买的是"瑞幸 9.9 优惠券"，说明什么？（是实用主义的中产，还是入不敷出的奋斗者？）
-- **时间+社交**：深夜 22:00 后的社交互动是发生在"办公室"还是"酒吧"？（判定是职场协作还是情感依赖。）
-
-## Step 3: 异常值探测 (Anomaly Detection)
-- 寻找这一年中的"剧变时刻"：某个月消费突然激增？某周突然换了常驻地？
-- [思考]：这些异常点通常对应人生重大事件（跳槽、分手、搬家、暴富）。
-
-## Step 4: 矛盾仲裁 (Conflict Resolution)
-- 如果发现证据冲突（例如：既去奢饰品店又买临期食品），不要忽略。
-- [思考]：这种矛盾点正是刻画人物"伪装"或"复杂价值观"的关键。
-
----
-
-# Output Format (严格按此模版输出)
-
-## [推理草稿箱 (Reasoning Scratchpad)]
-*在给出报告前，请先简述你的核心推理发现：*
-1. **时空锚点确认**：[地点 A 是 XX，地点 B 是 XX，职业初步判定为 XX]
-2. **社交实体挖掘**：[发现 Person_X 出现了 N 次，关系特征为 XX]
-3. **职业逻辑修正**：[针对工作时间非 9-18 的情况，我的解释逻辑是 XX]
-
----
-
-## 1. 基础画像 (Base Persona)
-- **姓名/称呼推测**：[结论] —— **证据链接**：(证据见 event_xxx)
-- **估算年龄/生命周期**：[例如：28-32岁，正处于职业上升期] —— **证据链接**：(证据见 event_xxx)
-- **核心身份/阶层**：[描述] —— **逻辑推导**：[基于消费水平与职业地点的综合推论]
-- **常驻地/通勤模式**：[描述] —— **证据链接**：(证据见 event_xxx)
-- **兴趣爱好**：[描述] —— **证据链接**：(证据见 event_xxx)
-- **是否单身/伴侣是谁**：[描述] —— **证据链接**：(证据见 event_xxx)
-
-## 2. 社交关系图谱 (Social Graph)
-- **重要关系识别表**：
-  | 实体ID/姓名 | 推测关系 | 亲密度 (1-10) | 关键证据 (event_id) | 判定理由 |
-  | :--- | :--- | :--- | :--- | :--- |
-  | | | | | |
-- **社交性格总结**：[是社交能量输出者，还是被动接受者？]
-
-## 3. 深度人格分析 (Psychological Profiling)
-- **性格特征与 MBTI**：[结论] —— **心理学逻辑**：[为何从行为 X 推导出性格 Y]
-- **价值观与底层驱动力**：[他/她真正在乎什么？]
-- **审美偏好和对外展示**：[他/她认为什么是美的？他/她希望自己展示给外界的形象]
-- **底层人格侧写**：[用一段感性的、带有文学洞察力的文字描述这个人的本质。]
-
----
-
-# Constraint & Rules
-1. **证据闭环**：严禁出现没有 event_id 支持的形容词。
-2. **动态演进**：如果数据跨度为一年，必须指出用户在年初和年末是否有明显的性格或状态变化。
-3. **留白原则**：对于模糊信息，使用"高概率、疑似、待进一步观察"等词汇，体现 FBI 专家的严谨。
-
----
-
-# 用户事件数据
-
-{events_str}
-
-# 用户社交关系数据
-
-{relationships_str}
-
-请开始分析并生成报告："""
-
-        return prompt
+    def _call_markdown_prompt(self, prompt: str) -> str:
+        if self.use_proxy:
+            return self._call_profile_via_proxy(prompt)
+        if self.use_openrouter:
+            return self._call_profile_via_openrouter(prompt)
+        if self.use_bedrock:
+            return self._call_profile_via_bedrock(prompt)
+        return self._call_profile_via_official_api(prompt)
 
     def _call_llm_via_official_api(self, prompt: str) -> dict:
-        """通过官方 Gemini API 调用 LLM"""
         response = self.client.models.generate_content(
             model=self.model,
             contents=prompt,
-            config=self.genai.types.GenerateContentConfig(
-                response_mime_type="application/json"
-            )
+            config=self.genai.types.GenerateContentConfig(response_mime_type="application/json"),
         )
-        result = json.loads(response.text)
-        return result
+        return self._extract_json_payload(response.text)
+
+    def _call_llm_via_bedrock(self, prompt: str) -> dict:
+        candidates = self.bedrock_model_candidates or [self.model]
+        last_error: Exception | None = None
+        for index, model_id in enumerate(candidates):
+            try:
+                response = self.bedrock_client.converse(
+                    modelId=model_id,
+                    messages=build_text_message(prompt),
+                    inferenceConfig=build_inference_config(
+                        temperature=0.1,
+                        max_tokens=BEDROCK_LLM_MAX_OUTPUT_TOKENS,
+                    ),
+                )
+                self.model = model_id
+                return self._extract_json_payload(extract_text_from_converse_response(response))
+            except Exception as exc:
+                last_error = exc
+                if index < len(candidates) - 1 and should_try_next_bedrock_model(exc):
+                    continue
+                raise
+        if last_error:
+            raise last_error
+        raise RuntimeError("未能调用任何 Bedrock LLM 模型")
 
     def _call_llm_via_proxy(self, prompt: str) -> dict:
-        """通过代理服务调用 LLM"""
         headers = {
             "x-api-key": self.proxy_key,
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
         }
-
         payload = {
             "contents": [
                 {
                     "role": "user",
-                    "parts": [
-                        {
-                            "text": prompt
-                        }
-                    ]
+                    "parts": [{"text": prompt}],
                 }
             ]
         }
-
         url = f"{self.proxy_url}/api/gemini/v1beta/models/{self.proxy_model}:generateContent"
-
         response = self.requests.post(url, json=payload, headers=headers, timeout=60)
-
         if response.status_code == 200:
             response_data = response.json()
-
-            # 提取文本内容
-            if "candidates" in response_data and len(response_data["candidates"]) > 0:
+            if "candidates" in response_data and response_data["candidates"]:
                 candidate = response_data["candidates"][0]
                 if "content" in candidate and "parts" in candidate["content"]:
                     for part in candidate["content"]["parts"]:
                         if "text" in part:
-                            try:
-                                # 尝试解析为 JSON
-                                result = json.loads(part["text"])
-                                return result
-                            except json.JSONDecodeError:
-                                # 如果是 Markdown JSON，尝试提取
-                                text = part["text"]
-                                import re
-                                json_match = re.search(r'```json\n(.*?)\n```', text, re.DOTALL)
-                                if json_match:
-                                    json_str = json_match.group(1)
-                                    try:
-                                        result = json.loads(json_str)
-                                        return result
-                                    except:
-                                        pass
-                                # 返回原始文本
-                                return {"text": text}
-
-            return None
-        else:
-            error_msg = f"代理 API 返回状态码 {response.status_code}"
-            if response.text:
-                try:
-                    error_data = response.json()
-                    error_msg += f": {error_data.get('error', {}).get('message', response.text)}"
-                except:
-                    error_msg += f": {response.text[:200]}"
-            raise Exception(error_msg)
+                            return self._extract_json_payload(part["text"])
+            return {}
+        error_msg = f"代理 API 返回状态码 {response.status_code}"
+        if response.text:
+            try:
+                error_data = response.json()
+                error_msg += f": {error_data.get('error', {}).get('message', response.text)}"
+            except Exception:
+                error_msg += f": {response.text[:200]}"
+        raise Exception(error_msg)
 
     def _openrouter_headers(self) -> Dict[str, str]:
         return {
@@ -1013,18 +1569,15 @@ Output Format (严格执行以下JSON格式):
             "max_tokens": 8192,
             "temperature": 0.1,
         }
-
         response = self.requests.post(
             f"{self.openrouter_base_url}/chat/completions",
             json=payload,
             headers=self._openrouter_headers(),
             timeout=60,
         )
-
         if response.status_code == 200:
             response_data = response.json()
             return self._extract_json_payload(self._extract_openrouter_content(response_data))
-
         error_msg = f"OpenRouter 返回状态码 {response.status_code}"
         if response.text:
             try:
@@ -1035,59 +1588,65 @@ Output Format (严格执行以下JSON格式):
         raise Exception(error_msg)
 
     def _call_profile_via_official_api(self, prompt: str) -> str:
-        """通过官方 Gemini API 生成用户画像"""
-        response = self.client.models.generate_content(
-            model=self.model,
-            contents=prompt
-            # 不指定 response_mime_type，让LLM自由输出Markdown
-        )
+        response = self.client.models.generate_content(model=self.model, contents=prompt)
         return response.text
 
+    def _call_profile_via_bedrock(self, prompt: str) -> str:
+        candidates = self.bedrock_model_candidates or [self.model]
+        last_error: Exception | None = None
+        for index, model_id in enumerate(candidates):
+            try:
+                response = self.bedrock_client.converse(
+                    modelId=model_id,
+                    messages=build_text_message(prompt),
+                    inferenceConfig=build_inference_config(
+                        temperature=0.3,
+                        max_tokens=BEDROCK_LLM_MAX_OUTPUT_TOKENS,
+                    ),
+                )
+                self.model = model_id
+                return extract_text_from_converse_response(response)
+            except Exception as exc:
+                last_error = exc
+                if index < len(candidates) - 1 and should_try_next_bedrock_model(exc):
+                    continue
+                raise
+        if last_error:
+            raise last_error
+        raise RuntimeError("未能调用任何 Bedrock profile 模型")
+
     def _call_profile_via_proxy(self, prompt: str) -> str:
-        """通过代理服务生成用户画像"""
         headers = {
             "x-api-key": self.proxy_key,
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
         }
-
         payload = {
             "contents": [
                 {
                     "role": "user",
-                    "parts": [
-                        {
-                            "text": prompt
-                        }
-                    ]
+                    "parts": [{"text": prompt}],
                 }
             ]
         }
-
         url = f"{self.proxy_url}/api/gemini/v1beta/models/{self.proxy_model}:generateContent"
-
         response = self.requests.post(url, json=payload, headers=headers, timeout=60)
-
         if response.status_code == 200:
             response_data = response.json()
-
-            # 提取文本内容
-            if "candidates" in response_data and len(response_data["candidates"]) > 0:
+            if "candidates" in response_data and response_data["candidates"]:
                 candidate = response_data["candidates"][0]
                 if "content" in candidate and "parts" in candidate["content"]:
                     for part in candidate["content"]["parts"]:
                         if "text" in part:
                             return part["text"]
-
             return ""
-        else:
-            error_msg = f"代理 API 返回状态码 {response.status_code}"
-            if response.text:
-                try:
-                    error_data = response.json()
-                    error_msg += f": {error_data.get('error', {}).get('message', response.text)}"
-                except:
-                    error_msg += f": {response.text[:200]}"
-            raise Exception(error_msg)
+        error_msg = f"代理 API 返回状态码 {response.status_code}"
+        if response.text:
+            try:
+                error_data = response.json()
+                error_msg += f": {error_data.get('error', {}).get('message', response.text)}"
+            except Exception:
+                error_msg += f": {response.text[:200]}"
+        raise Exception(error_msg)
 
     def _call_profile_via_openrouter(self, prompt: str) -> str:
         payload = {
@@ -1096,18 +1655,14 @@ Output Format (严格执行以下JSON格式):
             "max_tokens": 8192,
             "temperature": 0.4,
         }
-
         response = self.requests.post(
             f"{self.openrouter_base_url}/chat/completions",
             json=payload,
             headers=self._openrouter_headers(),
             timeout=60,
         )
-
         if response.status_code == 200:
-            response_data = response.json()
-            return self._extract_openrouter_content(response_data)
-
+            return self._extract_openrouter_content(response.json())
         error_msg = f"OpenRouter 返回状态码 {response.status_code}"
         if response.text:
             try:

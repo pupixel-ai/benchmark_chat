@@ -14,6 +14,7 @@ from memory_module.dto import (
     EntityRecallCandidateDTO,
     GraphDebugTraceDTO,
     OperatorPlanDTO,
+    QueryPlanDTO,
     QueryDSLDTO,
     TimeScopeDTO,
 )
@@ -62,6 +63,7 @@ class MemoryQueryService:
         memory = memory_payload.get("memory", memory_payload)
         storage = memory.get("storage", {})
         storage_graph = storage.get("neo4j", {})
+        redis_payload = storage.get("redis", {})
         request = AgentMemoryQueryRequestDTO(
             user_id=user_id or memory.get("envelope", {}).get("scope", {}).get("user_id") or "",
             question=question,
@@ -70,12 +72,13 @@ class MemoryQueryService:
             time_hint=time_hint,
             answer_shape_hint=answer_shape_hint,
         )
-        indexes = self._build_indexes(storage_graph)
+        indexes = self._build_indexes(storage_graph, redis_payload)
         segments = storage.get("milvus", {}).get("segments", [])
         operator_plan = self._build_operator_plan(question, indexes, time_hint=time_hint, answer_shape_hint=answer_shape_hint)
+        query_plan = self._build_query_plan(question, operator_plan, context_hints=context_hints)
         recall_candidates = self._recall(indexes, question, operator_plan)
         dsl = self._build_dsl(operator_plan, recall_candidates, indexes)
-        answer = self._execute(memory, indexes, segments, operator_plan, dsl, question)
+        answer, execution_details = self._execute(memory, indexes, segments, operator_plan, query_plan, dsl, question)
         trace = GraphDebugTraceDTO(
             operator_plan=self._serialize(operator_plan),
             recall_candidates=[self._serialize(item) for item in recall_candidates],
@@ -84,13 +87,59 @@ class MemoryQueryService:
             evidence_fill={
                 "segment_count": len(answer.evidence_segment_ids),
                 "segment_ids": answer.evidence_segment_ids,
+                "source_path": execution_details["source_path"],
             },
         )
         return {
             "request": self._serialize(request),
+            "query_plan": self._serialize(query_plan),
+            "source_order": list(query_plan.source_order),
             "answer": self._serialize(answer),
+            "structured_answer": self._serialize(answer),
+            "supporting_redis_profiles": execution_details["supporting_redis_profiles"],
+            "supporting_graph_entities": execution_details["supporting_graph_entities"],
+            "supporting_segments": execution_details["supporting_segments"],
+            "abstain_reason": execution_details["abstain_reason"],
             "debug_trace": self._serialize(trace),
         }
+
+    def _build_query_plan(
+        self,
+        question: str,
+        operator_plan: OperatorPlanDTO,
+        *,
+        context_hints: Optional[Dict[str, Any]] = None,
+    ) -> QueryPlanDTO:
+        normalized = str(question or "").lower()
+        subject_binding = "authenticated_user" if any(token in question for token in ("我", "我的")) else "unknown"
+        operators = self._infer_operators(normalized)
+        source_order = self._source_order_for_question(normalized, operator_plan)
+        target_spec = {
+            "raw_question": question,
+            "target_concepts": list(operator_plan.target_concepts),
+            "target_entities": list(operator_plan.target_entities),
+            "context_hints": dict(context_hints or {}),
+        }
+        constraints = {
+            "time_scope": asdict(operator_plan.time_scope),
+            "ordinal": operator_plan.ordinal,
+            "threshold": operator_plan.threshold,
+        }
+        answer_schema = {
+            "shape": operator_plan.output_shape,
+            "group_by": operator_plan.group_by,
+            "metric": operator_plan.metric,
+        }
+        evidence_requirements = self._evidence_requirements_for_source_order(source_order)
+        return QueryPlanDTO(
+            subject_binding=subject_binding,
+            target_spec=target_spec,
+            operators=operators,
+            constraints=constraints,
+            source_order=source_order,
+            answer_schema=answer_schema,
+            evidence_requirements=evidence_requirements,
+        )
 
     def _build_operator_plan(
         self,
@@ -206,6 +255,78 @@ class MemoryQueryService:
                         confidence=float(props.get("confidence") or 0.8),
                     )
         return TimeScopeDTO(raw_text=raw_text, resolution="unbounded", confidence=0.4)
+
+    def _infer_operators(self, normalized_question: str) -> List[str]:
+        operators: List[str] = []
+        keyword_map = {
+            "locate": ("哪里", "哪儿", "在哪", "在哪儿", "去了哪"),
+            "list": ("哪些", "有什么", "列举", "列出"),
+            "count": ("几次", "多少次", "多少个"),
+            "rank": ("top", "第", "最"),
+            "compare": ("变化", "相比", "对比"),
+            "trace_change": ("变化", "经历了怎样的变化", "轨迹"),
+            "infer": ("是否", "是不是", "判定", "分析", "推断", "画像"),
+            "recommend": ("推荐", "策划", "建议"),
+            "summarize": ("总结", "概括", "描述"),
+        }
+        for operator, tokens in keyword_map.items():
+            if any(token in normalized_question for token in tokens):
+                operators.append(operator)
+        if not operators:
+            operators.append("summarize")
+        return operators
+
+    def _source_order_for_question(self, normalized_question: str, operator_plan: OperatorPlanDTO) -> List[str]:
+        redis_tokens = (
+            "喜欢",
+            "偏好",
+            "评价",
+            "画像",
+            "风格",
+            "身份",
+            "职业",
+            "公司",
+            "股权",
+            "消费",
+            "审美",
+            "推荐",
+            "轨迹",
+            "变化",
+        )
+        milvus_tokens = (
+            "品牌",
+            "菜",
+            "饮料",
+            "价格",
+            "围巾",
+            "玩具",
+            "鱼缸",
+            "动作",
+            "材质",
+            "ocr",
+            "票据",
+            "产品",
+            "药",
+            "治疗",
+            "路线",
+        )
+        if any(token in normalized_question for token in redis_tokens):
+            return ["redis_first", "neo4j", "milvus"]
+        if any(token in normalized_question for token in milvus_tokens):
+            return ["milvus_first", "neo4j", "redis"]
+        if operator_plan.intent in {"relationship_explore", "relationship_rank_query", "mood_lookup"}:
+            return ["neo4j_first", "milvus", "redis"]
+        return ["neo4j_first", "milvus", "redis"]
+
+    def _evidence_requirements_for_source_order(self, source_order: List[str]) -> List[str]:
+        requirements: List[str] = []
+        if source_order and source_order[0] == "redis_first":
+            requirements.extend(["materialized_profile_fields", "supporting_segments"])
+        elif source_order and source_order[0] == "milvus_first":
+            requirements.extend(["semantic_segments", "graph_backfill"])
+        else:
+            requirements.extend(["graph_entities", "supporting_segments"])
+        return requirements
 
     def _extract_ordinal(self, normalized_question: str) -> Optional[int]:
         for marker in ("第", "top "):
@@ -362,16 +483,278 @@ class MemoryQueryService:
         indexes: Dict[str, Any],
         segments: List[Dict[str, Any]],
         operator_plan: OperatorPlanDTO,
+        query_plan: QueryPlanDTO,
         dsl: QueryDSLDTO,
         question: str,
-    ) -> AnswerDTO:
+    ) -> tuple[AnswerDTO, Dict[str, Any]]:
         if operator_plan.intent == "mood_lookup":
-            return self._answer_mood(indexes, segments, operator_plan)
+            answer = self._answer_mood(indexes, segments, operator_plan)
+            return answer, self._execution_details(answer, segments, source_path=["neo4j_first"])
         if operator_plan.intent == "relationship_explore":
-            return self._answer_relationship(indexes, segments, operator_plan)
+            answer = self._answer_relationship(indexes, segments, operator_plan)
+            return answer, self._execution_details(answer, segments, source_path=["neo4j_first"])
         if operator_plan.intent == "relationship_rank_query":
-            return self._answer_relationship_rank(indexes, segments, operator_plan)
-        return self._answer_events(indexes, segments, operator_plan, question)
+            answer = self._answer_relationship_rank(indexes, segments, operator_plan)
+            return answer, self._execution_details(answer, segments, source_path=["neo4j_first"])
+
+        source_handlers = {
+            "neo4j_first": lambda: self._answer_events(indexes, segments, operator_plan, question),
+            "redis_first": lambda: self._answer_profiles(memory, indexes, segments, operator_plan, query_plan, question),
+            "milvus_first": lambda: self._answer_evidence_lookup(indexes, segments, operator_plan, query_plan, question),
+            "neo4j": lambda: self._answer_events(indexes, segments, operator_plan, question),
+            "redis": lambda: self._answer_profiles(memory, indexes, segments, operator_plan, query_plan, question),
+            "milvus": lambda: self._answer_evidence_lookup(indexes, segments, operator_plan, query_plan, question),
+        }
+        source_path: List[str] = []
+        first_answer: Optional[AnswerDTO] = None
+        for source in query_plan.source_order:
+            handler = source_handlers.get(source)
+            if handler is None:
+                continue
+            source_path.append(source)
+            candidate = handler()
+            if candidate is None:
+                continue
+            if first_answer is None:
+                first_answer = candidate
+            if not self._is_empty_answer(candidate):
+                return candidate, self._execution_details(candidate, segments, source_path=source_path)
+
+        fallback = first_answer or self._memory_abstain_answer(operator_plan, query_plan, question)
+        return fallback, self._execution_details(fallback, segments, source_path=source_path)
+
+    def _answer_profiles(
+        self,
+        memory: Dict[str, Any],
+        indexes: Dict[str, Any],
+        segments: List[Dict[str, Any]],
+        operator_plan: OperatorPlanDTO,
+        query_plan: QueryPlanDTO,
+        question: str,
+    ) -> Optional[AnswerDTO]:
+        _ = memory
+        _ = query_plan
+        redis_payload = indexes.get("redis", {})
+        profile_core = redis_payload.get("profile_core", {})
+        fields = profile_core.get("fields", {}) if isinstance(profile_core, dict) else {}
+        structured_profiles = profile_core.get("profiles", {}) if isinstance(profile_core, dict) else {}
+        query_vector = self.embedder.embed_query(question)
+        candidates: List[Dict[str, Any]] = []
+
+        for field_key, payload in fields.items():
+            if not isinstance(payload, dict):
+                continue
+            values = [str(item) for item in payload.get("values", []) or [] if item]
+            text = " ".join([str(field_key), *values])
+            candidates.append(
+                {
+                    "source": "profile_field",
+                    "profile_key": "profile_core",
+                    "field_key": str(field_key),
+                    "text": text,
+                    "summary": " / ".join(values),
+                    "confidence": float(payload.get("confidence") or 0.0),
+                    "supporting_event_ids": [str(item) for item in payload.get("supporting_event_ids", []) or []],
+                    "evidence_refs": payload.get("evidence_refs", []) or [],
+                }
+            )
+
+        for profile_key, profile_fields in structured_profiles.items():
+            if not isinstance(profile_fields, dict):
+                continue
+            for field_key, payload in profile_fields.items():
+                if not isinstance(payload, dict):
+                    continue
+                summary = str(payload.get("summary") or payload.get("value") or "")
+                text = " ".join([str(profile_key), str(field_key), summary])
+                candidates.append(
+                    {
+                        "source": "materialized_profile",
+                        "profile_key": str(profile_key),
+                        "field_key": str(field_key),
+                        "text": text,
+                        "summary": summary,
+                        "confidence": float(payload.get("confidence") or 0.0),
+                        "supporting_event_ids": [str(item) for item in payload.get("supporting_event_ids", []) or []],
+                        "evidence_refs": payload.get("evidence_refs", []) or [],
+                    }
+                )
+
+        scored: List[Dict[str, Any]] = []
+        for item in candidates:
+            score = self._text_or_embedding_score(question, item["text"], query_vector)
+            score += self._profile_candidate_bonus(question, item)
+            if score < 0.18:
+                continue
+            payload = dict(item)
+            payload["match_score"] = round(score, 4)
+            scored.append(payload)
+
+        scored.sort(key=lambda item: (float(item["match_score"]), float(item["confidence"])), reverse=True)
+        top = scored[:5]
+        if not top:
+            return None
+
+        supporting_events = self._events_from_ids(indexes, [event_id for item in top for event_id in item["supporting_event_ids"]])
+        evidence_segment_ids = self._segment_ids_for_profile_candidates(
+            segments,
+            profile_candidates=top,
+            event_uuids=[item["event_uuid"] for item in supporting_events],
+        )
+        avg_confidence = round(sum(float(item["confidence"]) for item in top) / max(len(top), 1), 4)
+        summary = "；".join(
+            f"{item['profile_key']}.{item['field_key']}: {item['summary'] or 'n/a'}"
+            for item in top[:3]
+        )
+        return AnswerDTO(
+            answer_type="profile_lookup",
+            summary=summary,
+            confidence=avg_confidence,
+            resolved_entities=[
+                {
+                    "source": item["source"],
+                    "profile_key": item["profile_key"],
+                    "field_key": item["field_key"],
+                    "summary": item["summary"],
+                    "confidence": item["confidence"],
+                    "match_score": item["match_score"],
+                    "supporting_event_ids": item["supporting_event_ids"],
+                    "evidence_refs": item["evidence_refs"],
+                }
+                for item in top
+            ],
+            resolved_concepts=self._unique(str(item["profile_key"]) for item in top),
+            time_window=asdict(operator_plan.time_scope),
+            supporting_events=supporting_events,
+            evidence_segment_ids=evidence_segment_ids,
+            explanation="优先查询 Redis 中物化的画像字段，再补充事件与证据段。",
+            uncertainty_flags=[] if avg_confidence >= 0.45 else ["profile_low_confidence"],
+        )
+
+    def _answer_evidence_lookup(
+        self,
+        indexes: Dict[str, Any],
+        segments: List[Dict[str, Any]],
+        operator_plan: OperatorPlanDTO,
+        query_plan: QueryPlanDTO,
+        question: str,
+    ) -> Optional[AnswerDTO]:
+        _ = query_plan
+        if not segments:
+            return None
+        query_vector = self.embedder.embed_query(question)
+        scored_segments: List[Dict[str, Any]] = []
+        for segment in segments:
+            if not self._segment_in_time_scope(segment, operator_plan.time_scope):
+                continue
+            search_text = " ".join(
+                [
+                    str(segment.get("segment_type") or ""),
+                    str(segment.get("text") or ""),
+                    str(segment.get("location_hint") or ""),
+                ]
+            )
+            score = self._text_or_embedding_score(question, search_text, query_vector)
+            score += self._segment_candidate_bonus(question, segment)
+            if score < 0.22:
+                continue
+            payload = dict(segment)
+            payload["match_score"] = round(score, 4)
+            scored_segments.append(payload)
+
+        scored_segments.sort(key=lambda item: float(item["match_score"]), reverse=True)
+        top_segments = scored_segments[:6]
+        if not top_segments:
+            return None
+
+        event_uuids = [str(item.get("event_uuid") or "") for item in top_segments if item.get("event_uuid")]
+        session_uuids = [str(item.get("session_uuid") or "") for item in top_segments if item.get("session_uuid")]
+        relationship_uuids = [str(item.get("relationship_uuid") or "") for item in top_segments if item.get("relationship_uuid")]
+        supporting_events = self._events_by_uuids(indexes, event_uuids)
+        supporting_sessions = self._sessions_by_uuids(indexes, session_uuids)
+        supporting_relationships = self._relationships_by_uuids(indexes, relationship_uuids)
+        evidence_segment_ids = [str(item.get("segment_uuid")) for item in top_segments if item.get("segment_uuid")]
+        summary = "；".join(
+            f"{item.get('segment_type')}: {str(item.get('text') or '')[:80]}"
+            for item in top_segments[:3]
+        )
+        confidence = round(sum(float(item["match_score"]) for item in top_segments) / len(top_segments), 4)
+        return AnswerDTO(
+            answer_type="evidence_lookup",
+            summary=summary,
+            confidence=confidence,
+            resolved_entities=[
+                {
+                    "segment_uuid": item.get("segment_uuid"),
+                    "segment_type": item.get("segment_type"),
+                    "text": item.get("text"),
+                    "match_score": item.get("match_score"),
+                    "location_hint": item.get("location_hint"),
+                }
+                for item in top_segments
+            ],
+            resolved_concepts=[],
+            time_window=asdict(operator_plan.time_scope),
+            supporting_sessions=supporting_sessions,
+            supporting_events=supporting_events,
+            supporting_relationships=supporting_relationships,
+            evidence_segment_ids=evidence_segment_ids,
+            explanation="优先在 Milvus 证据段中做开放语义召回，再回填图谱中的事件、会话与关系骨架。",
+            uncertainty_flags=[] if confidence >= 0.32 else ["evidence_low_confidence"],
+        )
+
+    def _memory_abstain_answer(
+        self,
+        operator_plan: OperatorPlanDTO,
+        query_plan: QueryPlanDTO,
+        question: str,
+    ) -> AnswerDTO:
+        _ = query_plan
+        return AnswerDTO(
+            answer_type="memory_abstain",
+            summary=f"当前 memory 中没有足够证据回答：{question}",
+            confidence=0.0,
+            resolved_entities=[],
+            resolved_concepts=list(operator_plan.target_concepts),
+            time_window=asdict(operator_plan.time_scope),
+            explanation="已按 source_order 查询 Redis / Neo4j / Milvus，但没有找到足够强的记忆证据。",
+            uncertainty_flags=["not_answerable_from_memory"],
+        )
+
+    def _is_empty_answer(self, answer: Optional[AnswerDTO]) -> bool:
+        if answer is None:
+            return True
+        if answer.answer_type == "memory_abstain":
+            return True
+        if answer.confidence > 0.0 and answer.resolved_entities:
+            return False
+        return bool(
+            not answer.resolved_entities
+            and not answer.supporting_events
+            and not answer.supporting_relationships
+            and not answer.evidence_segment_ids
+        )
+
+    def _execution_details(
+        self,
+        answer: AnswerDTO,
+        segments: List[Dict[str, Any]],
+        *,
+        source_path: List[str],
+    ) -> Dict[str, Any]:
+        supporting_segments = self._segments_by_ids(segments, answer.evidence_segment_ids)
+        supporting_redis_profiles = [
+            entity for entity in answer.resolved_entities
+            if isinstance(entity, dict) and entity.get("profile_key")
+        ]
+        abstain_reason = answer.summary if "not_answerable_from_memory" in answer.uncertainty_flags else ""
+        return {
+            "source_path": list(source_path),
+            "supporting_redis_profiles": self._serialize(supporting_redis_profiles),
+            "supporting_graph_entities": self._serialize(answer.resolved_entities),
+            "supporting_segments": self._serialize(supporting_segments),
+            "abstain_reason": abstain_reason,
+        }
 
     def _answer_events(
         self,
@@ -721,7 +1104,7 @@ class MemoryQueryService:
             uncertainty_flags=uncertainty_flags,
         )
 
-    def _build_indexes(self, neo4j_payload: Dict[str, Any]) -> Dict[str, Any]:
+    def _build_indexes(self, neo4j_payload: Dict[str, Any], redis_payload: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         nodes_by_group = neo4j_payload.get("nodes", {})
         nodes: Dict[str, Dict[str, Any]] = {}
         user_id = ""
@@ -747,7 +1130,73 @@ class MemoryQueryService:
             "nodes": nodes,
             "outgoing": outgoing,
             "incoming": incoming,
+            "redis": dict(redis_payload or {}),
         }
+
+    def _text_or_embedding_score(self, question: str, candidate_text: str, query_vector: List[float]) -> float:
+        normalized_question = str(question or "").lower()
+        normalized_candidate = str(candidate_text or "").lower()
+        if normalized_candidate and normalized_candidate in normalized_question:
+            return 0.99
+        overlap_tokens = [
+            token
+            for token in re.split(r"[\s,，。！？?!.:：/_-]+", normalized_question)
+            if token and token in normalized_candidate
+        ]
+        lexical_bonus = min(0.45, len(overlap_tokens) * 0.08)
+        candidate_vector = self.embedder.embed_text(candidate_text, task_type="document")[0]
+        semantic_score = max(0.0, cosine_similarity(query_vector, candidate_vector))
+        return round(max(semantic_score, semantic_score + lexical_bonus), 4)
+
+    def _profile_candidate_bonus(self, question: str, candidate: Dict[str, Any]) -> float:
+        normalized_question = str(question or "").lower()
+        profile_key = str(candidate.get("profile_key") or "").lower()
+        field_key = str(candidate.get("field_key") or "").lower()
+        bonus = 0.0
+        if any(token in normalized_question for token in ("喜欢", "偏好", "爱喝", "饮料", "喝什么", "吃什么")):
+            if "preference" in profile_key:
+                bonus += 0.22
+            if any(token in field_key for token in ("drink", "beverage", "food", "favorite")):
+                bonus += 0.22
+        if any(token in normalized_question for token in ("评价", "差评", "口味", "商家")) and "opinion" in profile_key:
+            bonus += 0.28
+        if any(token in normalized_question for token in ("风格", "穿搭", "材质", "品牌")) and "style" in profile_key:
+            bonus += 0.28
+        if any(token in normalized_question for token in ("职业", "公司", "股权", "身份")) and ("career" in profile_key or "identity" in profile_key):
+            bonus += 0.28
+        if any(token in normalized_question for token in ("消费", "阶层")) and "consumption" in profile_key:
+            bonus += 0.28
+        if any(token in normalized_question for token in ("审美", "精神", "命运", "超自然")) and "aesthetic" in profile_key:
+            bonus += 0.28
+        if "推荐" in normalized_question and "recommendation" in profile_key:
+            bonus += 0.28
+        return round(bonus, 4)
+
+    def _segment_candidate_bonus(self, question: str, segment: Dict[str, Any]) -> float:
+        normalized_question = str(question or "").lower()
+        segment_type = str(segment.get("segment_type") or "").lower()
+        segment_text = str(segment.get("text") or "").lower()
+        bonus = 0.0
+        if any(token in normalized_question for token in ("饮料", "喝什么", "产品", "品牌")):
+            if any(token in segment_type for token in ("brand", "dish", "price", "observation", "claim")):
+                bonus += 0.2
+            if any(token in segment_text for token in ("drink", "beverage", "latte", "coffee", "brand", "product")):
+                bonus += 0.25
+        if any(token in normalized_question for token in ("围巾", "材质", "穿搭", "品牌")):
+            if any(token in segment_type for token in ("clothing", "brand", "observation", "claim")):
+                bonus += 0.2
+            if any(token in segment_text for token in ("scarf", "material", "cotton", "wool", "brand")):
+                bonus += 0.25
+        if any(token in normalized_question for token in ("玩具", "鱼缸", "在哪里", "最后")):
+            if any(token in segment_type for token in ("object", "observation", "claim")):
+                bonus += 0.2
+            if any(token in segment_text for token in ("last seen", "object", "toy", "aquarium")):
+                bonus += 0.25
+        if any(token in normalized_question for token in ("路线", "规划", "景点")) and any(token in segment_type for token in ("route", "plan", "observation", "claim")):
+            bonus += 0.24
+        if any(token in normalized_question for token in ("治疗", "生病", "药")) and any(token in segment_type for token in ("health", "observation", "claim")):
+            bonus += 0.24
+        return round(bonus, 4)
 
     def _match_score(self, question: str, props: Dict[str, Any], query_vector: List[float]) -> float:
         aliases = [str(item).lower() for item in props.get("aliases", [])]
@@ -953,6 +1402,108 @@ class MemoryQueryService:
             if segment_type in {"relationship_reason", "session_summary", "event_narrative"}:
                 fallback.append(segment_id)
         return self._unique(selected or fallback)
+
+    def _segment_ids_for_profile_candidates(
+        self,
+        segments: List[Dict[str, Any]],
+        *,
+        profile_candidates: List[Dict[str, Any]],
+        event_uuids: List[str],
+    ) -> List[str]:
+        event_set = {str(item) for item in event_uuids if item}
+        evidence_tokens = {
+            str(ref.get("ref_id") or "").lower()
+            for candidate in profile_candidates
+            for ref in candidate.get("evidence_refs", []) or []
+            if isinstance(ref, dict)
+        }
+        selected: List[str] = []
+        for segment in segments:
+            segment_uuid = str(segment.get("segment_uuid") or "")
+            if event_set and str(segment.get("event_uuid") or "") in event_set:
+                selected.append(segment_uuid)
+                continue
+            segment_text = str(segment.get("text") or "").lower()
+            if evidence_tokens and any(token and token in segment_text for token in evidence_tokens):
+                selected.append(segment_uuid)
+                continue
+            if str(segment.get("segment_type") or "") == "profile_evidence_snippet":
+                for candidate in profile_candidates:
+                    field_key = str(candidate.get("field_key") or "").lower()
+                    summary = str(candidate.get("summary") or "").lower()
+                    if field_key and field_key in segment_text:
+                        selected.append(segment_uuid)
+                        break
+                    if summary and summary in segment_text:
+                        selected.append(segment_uuid)
+                        break
+        return self._unique(selected)
+
+    def _events_from_ids(self, indexes: Dict[str, Any], event_ids: List[str]) -> List[Dict[str, Any]]:
+        event_uuid_by_id = {
+            str(node.get("properties", {}).get("event_id") or ""): node.get("event_uuid")
+            for node in indexes["nodes_by_group"].get("events", [])
+        }
+        event_uuids = [event_uuid_by_id.get(str(event_id) or "") for event_id in event_ids if event_uuid_by_id.get(str(event_id) or "")]
+        return self._events_by_uuids(indexes, event_uuids)
+
+    def _events_by_uuids(self, indexes: Dict[str, Any], event_uuids: List[str]) -> List[Dict[str, Any]]:
+        seen = set()
+        payloads: List[Dict[str, Any]] = []
+        for event_uuid in event_uuids:
+            node = indexes["nodes"].get(str(event_uuid))
+            if not node or str(event_uuid) in seen:
+                continue
+            seen.add(str(event_uuid))
+            payloads.append(self._event_payload(indexes, node))
+        return payloads
+
+    def _sessions_by_uuids(self, indexes: Dict[str, Any], session_uuids: List[str]) -> List[Dict[str, Any]]:
+        seen = set()
+        payloads: List[Dict[str, Any]] = []
+        for session_uuid in session_uuids:
+            node = indexes["nodes"].get(str(session_uuid))
+            if not node or str(session_uuid) in seen:
+                continue
+            seen.add(str(session_uuid))
+            payloads.append(self._session_payload(node))
+        return payloads
+
+    def _relationships_by_uuids(self, indexes: Dict[str, Any], relationship_uuids: List[str]) -> List[Dict[str, Any]]:
+        seen = set()
+        payloads: List[Dict[str, Any]] = []
+        for relationship_uuid in relationship_uuids:
+            node = indexes["nodes"].get(str(relationship_uuid))
+            if not node or str(relationship_uuid) in seen:
+                continue
+            seen.add(str(relationship_uuid))
+            payloads.append(self._relationship_payload(indexes, node))
+        return payloads
+
+    def _segment_in_time_scope(self, segment: Dict[str, Any], time_scope: TimeScopeDTO) -> bool:
+        if not time_scope.start_at:
+            return True
+        return self._overlaps_time_scope(
+            segment.get("started_at"),
+            segment.get("ended_at") or segment.get("started_at"),
+            time_scope,
+        )
+
+    def _segments_by_ids(self, segments: List[Dict[str, Any]], segment_ids: List[str]) -> List[Dict[str, Any]]:
+        segment_set = {str(item) for item in segment_ids if item}
+        return [
+            {
+                "segment_uuid": segment.get("segment_uuid"),
+                "segment_type": segment.get("segment_type"),
+                "text": segment.get("text"),
+                "location_hint": segment.get("location_hint"),
+                "event_uuid": segment.get("event_uuid"),
+                "session_uuid": segment.get("session_uuid"),
+                "relationship_uuid": segment.get("relationship_uuid"),
+            }
+            for segment in segments
+            if str(segment.get("segment_uuid") or "") in segment_set
+        ]
 
     def _outgoing_concepts(self, indexes: Dict[str, Any], source_id: Optional[str]) -> List[str]:
         concepts = []

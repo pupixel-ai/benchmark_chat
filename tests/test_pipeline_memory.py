@@ -5,6 +5,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+import services.pipeline_service
 from models import Event, Person, Photo, Relationship
 
 
@@ -51,6 +52,19 @@ class FakeImageProcessor:
         return photos
 
     def dedupe_before_face_recognition(self, photos):
+        self.last_dedupe_report = {
+            "total_images": len(photos),
+            "retained_images": len(photos),
+            "exact_duplicates_removed": 0,
+            "near_duplicates_removed": 0,
+            "burst_group_count": len(photos),
+            "burst_groups": [
+                {"representative_photo_id": photo.photo_id, "photo_ids": [photo.photo_id]}
+                for photo in photos
+            ],
+            "representative_photo_ids": [photo.photo_id for photo in photos],
+            "duplicate_backrefs": {},
+        }
         return photos
 
     def preprocess(self, photos):
@@ -234,7 +248,97 @@ class FakeVLMAnalyzer:
 
 
 class FakeLLMProcessor:
-    def extract_events(self, vlm_results, primary_person_id):
+    def extract_memory_contract(self, vlm_results, face_db, primary_person_id):
+        self.last_chunk_artifacts = {
+            "photo_fact_count": len(vlm_results),
+            "raw_session_count": 2,
+            "slice_count": 2,
+            "slices": [
+                {"slice_id": "slice_0001", "photo_count": 2, "rare_clue_count": 1},
+                {"slice_id": "slice_0002", "photo_count": 1, "rare_clue_count": 0},
+            ],
+        }
+        return {
+            "events": [
+                {
+                    "event_id": "EVT_001",
+                    "title": "Breakfast Session",
+                    "coarse_event_type": "用餐",
+                    "event_facets": ["breakfast", "home"],
+                    "alternative_type_candidates": [],
+                    "started_at": "2026-03-15T09:00:00",
+                    "ended_at": "2026-03-15T09:30:00",
+                    "location": "Home",
+                    "participant_person_ids": ["Person_001", "Person_002"],
+                    "photo_ids": ["photo_001", "photo_002"],
+                    "description": "Breakfast at home",
+                    "narrative_synthesis": "Breakfast at home with a friend.",
+                    "confidence": 0.8,
+                    "reason": "stub",
+                    "persona_evidence": {"behavioral": ["hosts breakfast"], "aesthetic": ["simple table"], "socioeconomic": ["stable home life"]},
+                }
+            ],
+            "observations": [
+                {
+                    "observation_id": "obs_001",
+                    "category": "scene",
+                    "field_key": "meal_context",
+                    "field_value": "home breakfast",
+                    "confidence": 0.8,
+                    "photo_ids": ["photo_001", "photo_002"],
+                    "event_id": "EVT_001",
+                    "session_id": "session_001",
+                    "person_ids": ["Person_001", "Person_002"],
+                    "evidence_refs": [{"ref_type": "photo", "ref_id": "photo_001"}],
+                }
+            ],
+            "claims": [
+                {
+                    "claim_id": "claim_001",
+                    "claim_type": "location",
+                    "subject": "EVT_001",
+                    "predicate": "happened_at",
+                    "object": "Home",
+                    "confidence": 0.8,
+                    "photo_ids": ["photo_001", "photo_002"],
+                    "event_id": "EVT_001",
+                    "session_id": "session_001",
+                    "evidence_refs": [{"ref_type": "photo", "ref_id": "photo_001"}],
+                }
+            ],
+            "relationship_hypotheses": [
+                {
+                    "person_id": "Person_002",
+                    "relationship_type": "friend",
+                    "label": "朋友",
+                    "confidence": 0.75,
+                    "reason_summary": "stub",
+                    "reason": "stub",
+                    "evidence": {
+                        "photo_count": 2,
+                        "time_span": "1天",
+                        "scenes": ["Home"],
+                        "interaction_behavior": ["talking"],
+                        "sample_scenes": [{"timestamp": "2026-03-15T09:00:00", "scene": "Home", "summary": "Breakfast", "activity": "meal"}],
+                    },
+                }
+            ],
+            "profile_deltas": [
+                {
+                    "profile_key": "preference_profile",
+                    "field_key": "hosting",
+                    "field_value": "hosts breakfast at home",
+                    "summary": "enjoys hosting friends at home",
+                    "confidence": 0.72,
+                    "supporting_event_ids": ["EVT_001"],
+                    "supporting_photo_ids": ["photo_001", "photo_002"],
+                    "evidence_refs": [{"ref_type": "event", "ref_id": "EVT_001"}],
+                }
+            ],
+            "uncertainty": [],
+        }
+
+    def events_from_memory_contract(self, memory_contract):
         return [
             Event(
                 event_id="EVT_001",
@@ -256,7 +360,7 @@ class FakeLLMProcessor:
             )
         ]
 
-    def infer_relationships(self, vlm_results, face_db, primary_person_id):
+    def relationships_from_memory_contract(self, memory_contract):
         return [
             Relationship(
                 person_id="Person_002",
@@ -274,7 +378,7 @@ class FakeLLMProcessor:
             )
         ]
 
-    def generate_profile(self, events, relationships, primary_person_id):
+    def profile_markdown_from_memory_contract(self, memory_contract, primary_person_id):
         return "# Profile\n\n- enjoys hosting friends at home"
 
 
@@ -307,13 +411,20 @@ class PipelineMemoryTests(unittest.TestCase):
             self.assertEqual(result["summary"]["vlm_processed_images"], 3)
             self.assertEqual(result["summary"]["event_count"], 1)
             self.assertEqual(result["summary"]["relationship_count"], 1)
+            self.assertEqual(result["summary"]["observation_count"], 1)
+            self.assertEqual(result["summary"]["claim_count"], 1)
+            self.assertEqual(result["summary"]["profile_delta_count"], 1)
             self.assertIn("memory", result)
             self.assertEqual(result["memory"]["summary"]["session_count"], 2)
             self.assertGreater(result["memory"]["summary"]["profile_field_count"], 0)
             self.assertTrue(result["profile_markdown"].startswith("# Profile"))
+            self.assertEqual(result["dedupe_report"]["retained_images"], 3)
+            self.assertEqual(result["llm_chunk_artifacts"]["slice_count"], 2)
             self.assertTrue((task_dir / "output" / "result.json").exists())
             self.assertTrue((task_dir / "output" / "memory" / "memory_envelope.json").exists())
             self.assertTrue((task_dir / "output" / "memory" / "memory_storage.json").exists())
+            self.assertTrue((task_dir / "output" / "memory_contract.json").exists())
+            self.assertTrue((task_dir / "output" / "llm_chunks.json").exists())
 
     def test_pre_v0317_pipeline_stops_after_face_recognition(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

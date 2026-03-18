@@ -18,6 +18,8 @@ class FaceStageView:
 class VLMStageView:
     processed_photos: int
     cached_hits: int
+    representative_photo_count: int = 0
+    total_input_photos: int = 0
     summaries: List[Dict[str, Any]] = field(default_factory=list)
 
 
@@ -35,6 +37,11 @@ class LLMStageView:
     event_candidate_count: int
     relationship_hypothesis_count: int
     profile_evidence_count: int
+    observation_count: int = 0
+    claim_count: int = 0
+    profile_delta_count: int = 0
+    uncertainty_count: int = 0
+    slice_count: int = 0
     summaries: List[Dict[str, Any]] = field(default_factory=list)
 
 

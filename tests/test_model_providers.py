@@ -34,6 +34,24 @@ class _FakeRequests:
         return _FakeResponse(self.payload)
 
 
+class _FakeBedrockClient:
+    def __init__(self, payload_text: str) -> None:
+        self.payload_text = payload_text
+        self.calls: list[dict] = []
+
+    def converse(self, **kwargs):
+        self.calls.append(kwargs)
+        return {
+            "output": {
+                "message": {
+                    "content": [
+                        {"text": self.payload_text},
+                    ]
+                }
+            }
+        }
+
+
 class OpenRouterProviderTests(unittest.TestCase):
     def test_json_payload_parser_handles_wrappers_and_trailing_text(self) -> None:
         analyzer = VLMAnalyzer.__new__(VLMAnalyzer)
@@ -51,10 +69,50 @@ class OpenRouterProviderTests(unittest.TestCase):
         self.assertEqual(llm_payload["events"], [])
         self.assertEqual(llm_payload["relationships"], [])
 
+    def test_bedrock_vlm_request_uses_converse_image_blocks(self) -> None:
+        with patch.multiple(
+            "services.vlm_analyzer",
+            VLM_PROVIDER="bedrock",
+            VLM_MODEL="amazon.nova-2-pro-preview-20251202-v1:0",
+            BEDROCK_REGION="ap-southeast-1",
+        ), patch("services.vlm_analyzer.build_bedrock_client", return_value=_FakeBedrockClient('{"summary":"ok","people":[],"scene":{},"event":{},"details":[],"key_objects":[]}')), patch(
+            "services.vlm_analyzer.resolve_bedrock_model_candidates",
+            return_value=["amazon.nova-2-pro-preview-20251202-v1:0"],
+        ):
+            analyzer = VLMAnalyzer(cache_path="cache/test_bedrock_vlm.json")
+            result = analyzer._analyze_via_bedrock("只返回 JSON", b"image-bytes", "image/jpeg")
+
+        self.assertEqual(result["summary"], "ok")
+        call = analyzer.bedrock_client.calls[0]
+        self.assertEqual(call["modelId"], "amazon.nova-2-pro-preview-20251202-v1:0")
+        content = call["messages"][0]["content"]
+        self.assertEqual(content[0]["text"], "只返回 JSON")
+        self.assertEqual(content[1]["image"]["format"], "jpeg")
+
+    def test_bedrock_llm_request_returns_structured_contract(self) -> None:
+        payload_text = '{"events":[],"observations":[],"claims":[],"relationship_hypotheses":[],"profile_deltas":[],"uncertainty":[]}'
+        with patch.multiple(
+            "services.llm_processor",
+            LLM_PROVIDER="bedrock",
+            LLM_MODEL="anthropic.claude-sonnet-4-6",
+            BEDROCK_REGION="ap-southeast-1",
+        ), patch("services.llm_processor.build_bedrock_client", return_value=_FakeBedrockClient(payload_text)), patch(
+            "services.llm_processor.resolve_bedrock_model_candidates",
+            return_value=["anthropic.claude-sonnet-4-6"],
+        ):
+            processor = LLMProcessor()
+            result = processor._call_llm_via_bedrock("只返回 JSON")
+
+        self.assertEqual(result["events"], [])
+        self.assertEqual(result["observations"], [])
+        call = processor.bedrock_client.calls[0]
+        self.assertEqual(call["modelId"], "anthropic.claude-sonnet-4-6")
+        self.assertEqual(call["messages"][0]["content"][0]["text"], "只返回 JSON")
+
     def test_vlm_openrouter_request_stays_single_image(self) -> None:
         with patch.multiple(
             "services.vlm_analyzer",
-            MODEL_PROVIDER="openrouter",
+            VLM_PROVIDER="openrouter",
             OPENROUTER_API_KEY="test-openrouter-key",
             OPENROUTER_BASE_URL="https://openrouter.ai/api/v1",
             OPENROUTER_SITE_URL="http://localhost:8000",
@@ -93,12 +151,12 @@ class OpenRouterProviderTests(unittest.TestCase):
     def test_llm_openrouter_json_and_markdown_calls(self) -> None:
         with patch.multiple(
             "services.llm_processor",
-            MODEL_PROVIDER="openrouter",
+            LLM_PROVIDER="openrouter",
             OPENROUTER_API_KEY="test-openrouter-key",
             OPENROUTER_BASE_URL="https://openrouter.ai/api/v1",
             OPENROUTER_SITE_URL="http://localhost:8000",
             OPENROUTER_APP_NAME="Memory Engineering Test",
-            OPENROUTER_LLM_MODEL="google/gemini-2.5-flash",
+            OPENROUTER_LLM_MODEL="minimax/minimax-m2.7",
             GEMINI_API_KEY="",
         ):
             processor = LLMProcessor()

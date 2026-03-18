@@ -26,6 +26,7 @@ class ImageProcessor:
     def __init__(self, cache_dir: str = CACHE_DIR, amap_api_key: str = AMAP_API_KEY):
         self.cache_dir = cache_dir
         self.amap_api_key = amap_api_key
+        self.last_dedupe_report: Dict[str, object] = {}
         self.compress_dir = os.path.join(cache_dir, "compressed_images")
         self.jpeg_dir = os.path.join(cache_dir, "jpeg_images")  # 全尺寸JPEG，用于人脸识别
         self.boxed_dir = os.path.join(cache_dir, "boxed_images")  # 带人脸框的图片
@@ -180,14 +181,33 @@ class ImageProcessor:
         - 对时间接近的照片再做轻量感知哈希比较，减少近重复帧。
         """
         if len(photos) <= 1:
+            self.last_dedupe_report = {
+                "total_images": len(photos),
+                "exact_duplicates_removed": 0,
+                "near_duplicates_removed": 0,
+                "burst_groups": [],
+                "representative_photo_ids": [photo.photo_id for photo in photos],
+                "duplicate_backrefs": {},
+            }
             return photos
 
         deduped: List[Photo] = []
         source_hash_seen: Dict[str, str] = {}
         recent_representatives: List[Tuple[Photo, Optional[str]]] = []
+        burst_groups: Dict[str, List[str]] = {}
+        duplicate_backrefs: Dict[str, Dict[str, object]] = {}
+        exact_duplicates_removed = 0
+        near_duplicates_removed = 0
 
         for photo in photos:
             if photo.source_hash and photo.source_hash in source_hash_seen:
+                exact_duplicates_removed += 1
+                representative_photo_id = source_hash_seen[photo.source_hash]
+                duplicate_backrefs[photo.photo_id] = {
+                    "duplicate_type": "exact_duplicate",
+                    "representative_photo_id": representative_photo_id,
+                    "source_hash": photo.source_hash,
+                }
                 continue
 
             current_hash = self._compute_average_hash(photo.path)
@@ -200,6 +220,15 @@ class ImageProcessor:
                     updated_recent.append((representative, representative_hash))
                     if self._is_near_duplicate(photo, current_hash, representative, representative_hash):
                         is_duplicate = True
+                        near_duplicates_removed += 1
+                        burst_key = representative.photo_id
+                        burst_groups.setdefault(burst_key, [representative.photo_id])
+                        burst_groups[burst_key].append(photo.photo_id)
+                        duplicate_backrefs[photo.photo_id] = {
+                            "duplicate_type": "near_duplicate",
+                            "representative_photo_id": representative.photo_id,
+                            "age_seconds": age_seconds,
+                        }
                 # 超出 burst window 的代表图不再参与比较
 
             if is_duplicate:
@@ -210,6 +239,26 @@ class ImageProcessor:
                 source_hash_seen[photo.source_hash] = photo.photo_id
             updated_recent.append((photo, current_hash))
             recent_representatives = updated_recent
+
+        for photo in deduped:
+            burst_groups.setdefault(photo.photo_id, [photo.photo_id])
+
+        self.last_dedupe_report = {
+            "total_images": len(photos),
+            "retained_images": len(deduped),
+            "exact_duplicates_removed": exact_duplicates_removed,
+            "near_duplicates_removed": near_duplicates_removed,
+            "burst_group_count": len(burst_groups),
+            "burst_groups": [
+                {
+                    "representative_photo_id": representative_photo_id,
+                    "photo_ids": photo_ids,
+                }
+                for representative_photo_id, photo_ids in burst_groups.items()
+            ],
+            "representative_photo_ids": [photo.photo_id for photo in deduped],
+            "duplicate_backrefs": duplicate_backrefs,
+        }
 
         return deduped
 

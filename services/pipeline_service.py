@@ -5,17 +5,39 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
-from typing import Callable, Dict, List, Optional
+from typing import TYPE_CHECKING, Callable, Dict, List, Optional
 
-from backend.face_review_store import FaceReviewStore
 from config import DEFAULT_TASK_VERSION, FACE_MIN_SIZE, MAX_UPLOAD_PHOTOS, TASK_VERSION_V0315, TASK_VERSION_V0317
 from memory_module import MemoryModuleService
-from services.asset_store import TaskAssetStore
-from services.face_recognition import FaceRecognition
-from services.image_processor import ImageProcessor
-from services.llm_processor import LLMProcessor
 from utils import load_json, save_json
-from services.vlm_analyzer import VLMAnalyzer
+
+try:
+    from services.asset_store import TaskAssetStore
+except ModuleNotFoundError:  # pragma: no cover - dependency-light test envs
+    TaskAssetStore = None  # type: ignore[assignment]
+
+try:
+    from services.face_recognition import FaceRecognition
+except ModuleNotFoundError:  # pragma: no cover - dependency-light test envs
+    FaceRecognition = None  # type: ignore[assignment]
+
+try:
+    from services.image_processor import ImageProcessor
+except ModuleNotFoundError:  # pragma: no cover - dependency-light test envs
+    ImageProcessor = None  # type: ignore[assignment]
+
+try:
+    from services.llm_processor import LLMProcessor
+except ModuleNotFoundError:  # pragma: no cover - dependency-light test envs
+    LLMProcessor = None  # type: ignore[assignment]
+
+try:
+    from services.vlm_analyzer import VLMAnalyzer
+except ModuleNotFoundError:  # pragma: no cover - dependency-light test envs
+    VLMAnalyzer = None  # type: ignore[assignment]
+
+if TYPE_CHECKING:
+    from backend.face_review_store import FaceReviewStore
 
 
 class MemoryPipelineService:
@@ -25,16 +47,26 @@ class MemoryPipelineService:
         self,
         task_id: str,
         task_dir: str,
-        asset_store: Optional[TaskAssetStore] = None,
+        asset_store: Optional["TaskAssetStore"] = None,
         user_id: Optional[str] = None,
-        face_review_store: Optional[FaceReviewStore] = None,
+        face_review_store: Optional["FaceReviewStore"] = None,
         task_version: str = DEFAULT_TASK_VERSION,
     ):
         self.task_id = task_id
         self.task_dir = Path(task_dir)
-        self.asset_store = asset_store or TaskAssetStore()
+        if asset_store is None:
+            if TaskAssetStore is None:
+                from services.asset_store import TaskAssetStore as _TaskAssetStore
+            else:
+                _TaskAssetStore = TaskAssetStore
+            asset_store = _TaskAssetStore()
+        self.asset_store = asset_store
         self.user_id = user_id
-        self.face_review_store = face_review_store or FaceReviewStore()
+        if face_review_store is None:
+            from backend.face_review_store import FaceReviewStore
+
+            face_review_store = FaceReviewStore()
+        self.face_review_store = face_review_store
         self.task_version = task_version
 
         self.upload_dir = self.task_dir / "uploads"
@@ -46,8 +78,15 @@ class MemoryPipelineService:
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
-        self.image_processor = ImageProcessor(cache_dir=str(self.cache_dir))
-        self.face_recognition = FaceRecognition(
+        image_processor_cls = ImageProcessor
+        if image_processor_cls is None:
+            from services.image_processor import ImageProcessor as image_processor_cls
+        face_recognition_cls = FaceRecognition
+        if face_recognition_cls is None:
+            from services.face_recognition import FaceRecognition as face_recognition_cls
+
+        self.image_processor = image_processor_cls(cache_dir=str(self.cache_dir))
+        self.face_recognition = face_recognition_cls(
             state_path=str(self.cache_dir / "face_recognition_state.json"),
             index_path=str(self.cache_dir / "faces.index"),
             output_path=str(self.cache_dir / "face_recognition_output.json"),
@@ -58,6 +97,9 @@ class MemoryPipelineService:
         self.failed_images: List[Dict] = list(self.initial_upload_failures)
         self.warnings: List[Dict] = []
         self.vlm_cache_path = self.cache_dir / "vlm_cache.json"
+        self.dedupe_report_path = self.cache_dir / "dedupe_report.json"
+        self.llm_contract_path = self.output_dir / "memory_contract.json"
+        self.llm_chunks_path = self.output_dir / "llm_chunks.json"
         self.profile_report_path = self.output_dir / "user_profile_report.md"
 
     def run(
@@ -82,6 +124,9 @@ class MemoryPipelineService:
         photos = self.image_processor.convert_to_jpeg(photos)
         photos_to_process = self._apply_image_policies(photos)
         photos_to_process = self.image_processor.dedupe_before_face_recognition(photos_to_process)
+        dedupe_report = getattr(self.image_processor, "last_dedupe_report", {}) or {}
+        if dedupe_report:
+            save_json(dedupe_report, str(self.dedupe_report_path))
 
         self._notify(
             progress_callback,
@@ -155,7 +200,10 @@ class MemoryPipelineService:
         photos_for_vlm = self.image_processor.preprocess(face_ready_photos)
 
         self._notify(progress_callback, "vlm", {"message": "进行视觉分析", "photo_count": len(photos_for_vlm)})
-        vlm = VLMAnalyzer(cache_path=str(self.vlm_cache_path))
+        vlm_analyzer_cls = VLMAnalyzer
+        if vlm_analyzer_cls is None:
+            from services.vlm_analyzer import VLMAnalyzer as vlm_analyzer_cls
+        vlm = vlm_analyzer_cls(cache_path=str(self.vlm_cache_path))
         cached_photo_ids = set()
         if use_cache:
             vlm.load_cache()
@@ -189,13 +237,29 @@ class MemoryPipelineService:
         events = []
         relationships = []
         profile_markdown = ""
+        memory_contract: Dict[str, object] = {
+            "events": [],
+            "observations": [],
+            "claims": [],
+            "relationship_hypotheses": [],
+            "profile_deltas": [],
+            "uncertainty": [],
+        }
+        llm_chunk_artifacts: Dict[str, object] = {}
 
         if vlm.results:
             self._notify(progress_callback, "llm", {"message": "提取事件、关系与画像"})
-            llm = LLMProcessor()
-            events = llm.extract_events(vlm.results, primary_person_id)
-            relationships = llm.infer_relationships(vlm.results, face_db, primary_person_id)
-            profile_markdown = llm.generate_profile(events, relationships, primary_person_id)
+            llm_processor_cls = LLMProcessor
+            if llm_processor_cls is None:
+                from services.llm_processor import LLMProcessor as llm_processor_cls
+            llm = llm_processor_cls()
+            memory_contract = llm.extract_memory_contract(vlm.results, face_db, primary_person_id)
+            llm_chunk_artifacts = dict(getattr(llm, "last_chunk_artifacts", {}) or {})
+            save_json(memory_contract, str(self.llm_contract_path))
+            save_json(llm_chunk_artifacts, str(self.llm_chunks_path))
+            events = llm.events_from_memory_contract(memory_contract)
+            relationships = llm.relationships_from_memory_contract(memory_contract)
+            profile_markdown = llm.profile_markdown_from_memory_contract(memory_contract, primary_person_id)
             self._write_profile_report(profile_markdown)
         else:
             self.warnings.append({
@@ -218,6 +282,9 @@ class MemoryPipelineService:
             relationships=relationships,
             profile_markdown=profile_markdown,
             cached_photo_ids=cached_photo_ids,
+            memory_contract=memory_contract,
+            dedupe_report=dedupe_report,
+            chunk_artifacts=llm_chunk_artifacts,
         )
 
         detailed_output = {
@@ -236,6 +303,9 @@ class MemoryPipelineService:
                 "primary_person_id": primary_person_id,
                 "event_count": len(events),
                 "relationship_count": len(relationships),
+                "observation_count": len(memory_contract.get("observations", [])),
+                "claim_count": len(memory_contract.get("claims", [])),
+                "profile_delta_count": len(memory_contract.get("profile_deltas", [])),
                 "session_count": memory.get("summary", {}).get("session_count", 0),
                 "profile_version": memory.get("summary", {}).get("profile_version", 0),
             },
@@ -246,6 +316,9 @@ class MemoryPipelineService:
             "events": [self._serialize_event(event) for event in events],
             "relationships": [self._serialize_relationship(item) for item in relationships],
             "profile_markdown": profile_markdown,
+            "memory_contract": memory_contract,
+            "llm_chunk_artifacts": llm_chunk_artifacts,
+            "dedupe_report": dedupe_report,
             "memory": memory,
             "artifacts": {},
         }
@@ -255,6 +328,9 @@ class MemoryPipelineService:
         detailed_output["artifacts"]["result_url"] = self._public_url(result_path)
         detailed_output["artifacts"]["face_output_url"] = self._public_url(self.cache_dir / "face_recognition_output.json")
         detailed_output["artifacts"]["vlm_cache_url"] = self._public_url(self.vlm_cache_path)
+        detailed_output["artifacts"]["dedupe_report_url"] = self._public_url(self.dedupe_report_path) if self.dedupe_report_path.exists() else None
+        detailed_output["artifacts"]["memory_contract_url"] = self._public_url(self.llm_contract_path) if self.llm_contract_path.exists() else None
+        detailed_output["artifacts"]["llm_chunks_url"] = self._public_url(self.llm_chunks_path) if self.llm_chunks_path.exists() else None
         detailed_output["artifacts"]["profile_report_url"] = self._public_url(self.profile_report_path) if self.profile_report_path.exists() else None
         for artifact_key, artifact_value in memory.get("artifacts", {}).items():
             if artifact_key.endswith("_url"):

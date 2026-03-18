@@ -169,6 +169,8 @@ MEMORY_EMBEDDING_TIMEOUT_SECONDS = float(os.getenv("MEMORY_EMBEDDING_TIMEOUT_SEC
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 AMAP_API_KEY = os.getenv("AMAP_API_KEY", "")
 MODEL_PROVIDER = os.getenv("MODEL_PROVIDER", "").strip().lower()
+VLM_PROVIDER = os.getenv("VLM_PROVIDER", "").strip().lower()
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "").strip().lower()
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "").strip()
 OPENROUTER_BASE_URL = (
     os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1").strip()
@@ -187,9 +189,36 @@ OPENROUTER_VLM_MODEL = (
     or "z-ai/glm-4.6v"
 )
 OPENROUTER_LLM_MODEL = (
-    os.getenv("OPENROUTER_LLM_MODEL", "minimax/minimax-m2.5").strip()
-    or "minimax/minimax-m2.5"
+    os.getenv("OPENROUTER_LLM_MODEL", "minimax/minimax-m2.7").strip()
+    or "minimax/minimax-m2.7"
 )
+BEDROCK_REGION = (
+    os.getenv("BEDROCK_REGION", AWS_REGION or "ap-southeast-1").strip()
+    or "ap-southeast-1"
+)
+BEDROCK_VLM_MODEL_PRIMARY = (
+    os.getenv(
+        "BEDROCK_VLM_MODEL_PRIMARY",
+        "amazon.nova-2-pro-preview-20251202-v1:0",
+    ).strip()
+    or "amazon.nova-2-pro-preview-20251202-v1:0"
+)
+BEDROCK_VLM_MODEL_FALLBACK = (
+    os.getenv("BEDROCK_VLM_MODEL_FALLBACK", "amazon.nova-pro-v1:0").strip()
+    or "amazon.nova-pro-v1:0"
+)
+BEDROCK_VLM_MODEL_POLICY = (
+    os.getenv("BEDROCK_VLM_MODEL_POLICY", "primary").strip().lower()
+    or "primary"
+)
+BEDROCK_LLM_MODEL = (
+    os.getenv("BEDROCK_LLM_MODEL", "anthropic.claude-sonnet-4-6").strip()
+    or "anthropic.claude-sonnet-4-6"
+)
+BEDROCK_MAX_OUTPUT_TOKENS = int(os.getenv("BEDROCK_MAX_OUTPUT_TOKENS", "8192"))
+BEDROCK_VLM_MAX_OUTPUT_TOKENS = int(os.getenv("BEDROCK_VLM_MAX_OUTPUT_TOKENS", "4096"))
+BEDROCK_LLM_MAX_OUTPUT_TOKENS = int(os.getenv("BEDROCK_LLM_MAX_OUTPUT_TOKENS", str(BEDROCK_MAX_OUTPUT_TOKENS)))
+BEDROCK_REQUEST_TIMEOUT_SECONDS = int(os.getenv("BEDROCK_REQUEST_TIMEOUT_SECONDS", "120"))
 
 # 代理服务配置（可选）
 USE_API_PROXY = os.getenv("USE_API_PROXY", "false").lower() == "true"
@@ -197,10 +226,13 @@ API_PROXY_URL = os.getenv("API_PROXY_URL", "")  # 代理服务基础 URL
 API_PROXY_KEY = os.getenv("API_PROXY_KEY", "")  # 代理服务 API Key
 API_PROXY_MODEL = os.getenv("API_PROXY_MODEL", "gemini-2.0-flash")  # 代理支持的模型
 
-def _resolve_model_provider() -> str:
-    explicit = MODEL_PROVIDER
-    if explicit in {"gemini", "proxy", "openrouter"}:
+def _resolve_model_provider(explicit: str = "", *, fallback: str = "") -> str:
+    explicit = explicit.strip().lower()
+    if explicit in {"gemini", "proxy", "openrouter", "bedrock"}:
         return explicit
+    fallback = fallback.strip().lower()
+    if fallback in {"gemini", "proxy", "openrouter", "bedrock"}:
+        return fallback
     if USE_API_PROXY:
         return "proxy"
     if OPENROUTER_API_KEY:
@@ -210,9 +242,27 @@ def _resolve_model_provider() -> str:
     return "gemini"
 
 
-MODEL_PROVIDER = _resolve_model_provider()
-VLM_MODEL = OPENROUTER_VLM_MODEL if MODEL_PROVIDER == "openrouter" else "gemini-2.0-flash"
-LLM_MODEL = OPENROUTER_LLM_MODEL if MODEL_PROVIDER == "openrouter" else "gemini-2.5-flash"  # 画像生成使用 Flash 2.5
+MODEL_PROVIDER = _resolve_model_provider(MODEL_PROVIDER)
+VLM_PROVIDER = _resolve_model_provider(VLM_PROVIDER, fallback=MODEL_PROVIDER)
+LLM_PROVIDER = _resolve_model_provider(LLM_PROVIDER, fallback=MODEL_PROVIDER)
+
+if VLM_PROVIDER == "openrouter":
+    VLM_MODEL = OPENROUTER_VLM_MODEL
+elif VLM_PROVIDER == "bedrock":
+    VLM_MODEL = (
+        BEDROCK_VLM_MODEL_FALLBACK
+        if BEDROCK_VLM_MODEL_POLICY == "fallback"
+        else BEDROCK_VLM_MODEL_PRIMARY
+    )
+else:
+    VLM_MODEL = "gemini-2.0-flash"
+
+if LLM_PROVIDER == "openrouter":
+    LLM_MODEL = OPENROUTER_LLM_MODEL
+elif LLM_PROVIDER == "bedrock":
+    LLM_MODEL = BEDROCK_LLM_MODEL
+else:
+    LLM_MODEL = "gemini-2.5-flash"  # 画像生成使用 Flash 2.5
 
 # 人脸识别配置（默认使用仓库内置的 vendored face-recognition 源码）
 FACE_RECOGNITION_SRC_PATH = os.getenv(
@@ -226,7 +276,7 @@ FACE_SIM_THRESHOLD = float(os.getenv("FACE_SIM_THRESHOLD", "0.50"))
 FACE_MIN_SIZE = int(os.getenv("FACE_MIN_SIZE", "48"))  # 最小人脸尺寸（像素）
 FACE_MATCH_TOP_K = int(os.getenv("FACE_MATCH_TOP_K", "5"))
 FACE_MATCH_MARGIN_THRESHOLD = float(os.getenv("FACE_MATCH_MARGIN_THRESHOLD", "0.03"))
-FACE_MATCH_WEAK_DELTA = float(os.getenv("FACE_MATCH_WEAK_DELTA", "0.04"))
+FACE_MATCH_WEAK_DELTA = float(os.getenv("FACE_MATCH_WEAK_DELTA", "0.055"))
 FACE_MATCH_MIN_QUALITY_GRAY_ZONE = float(os.getenv("FACE_MATCH_MIN_QUALITY_GRAY_ZONE", "0.40"))
 FACE_MATCH_HIGH_QUALITY_THRESHOLD = float(
     os.getenv("FACE_MATCH_HIGH_QUALITY_THRESHOLD", str(FACE_MATCH_MIN_QUALITY_GRAY_ZONE))
@@ -234,6 +284,10 @@ FACE_MATCH_HIGH_QUALITY_THRESHOLD = float(
 LFW_BENCHMARK_DIR = os.getenv(
     "LFW_BENCHMARK_DIR",
     os.path.join(RUNTIME_DIR, "benchmarks", "lfw"),
+)
+MEMORY_BENCHMARK_DIR = os.getenv(
+    "MEMORY_BENCHMARK_DIR",
+    os.path.join(RUNTIME_DIR, "benchmarks", "memory_v0317"),
 )
 FACE_MATCH_THRESHOLD_PATH = os.getenv(
     "FACE_MATCH_THRESHOLD_PATH",
@@ -290,11 +344,32 @@ FEATURE_DB_PATH = os.path.join(CACHE_DIR, "vlm_feature_db.json")  # VLM特征库
 OUTPUT_PATH = os.path.join(OUTPUT_DIR, "事件yoyo.json")  # 事件提取结果
 DETAILED_OUTPUT_PATH = os.path.join(OUTPUT_DIR, "memory_detailed.md")
 PROFILE_REPORT_PATH = os.path.join(OUTPUT_DIR, "user_profile_report.md")  # 用户画像报告（FBI级别）
+LLM_MEMORY_CONTRACT_PATH = os.path.join(OUTPUT_DIR, "memory_contract.json")
+LLM_CHUNK_OUTPUT_PATH = os.path.join(OUTPUT_DIR, "llm_chunks.json")
+DEDUP_REPORT_PATH = os.path.join(CACHE_DIR, "dedupe_report.json")
 
 # 错误处理
 MAX_RETRIES = 3  # 最大重试次数
 RETRY_DELAY = 1  # 重试延迟（秒）
 CONTINUE_ON_ERROR = True  # 出错后继续处理
+
+# 分层切分与大批量处理配置
+LLM_BURST_GAP_SECONDS = int(os.getenv("LLM_BURST_GAP_SECONDS", "90"))
+LLM_BURST_MAX_DURATION_SECONDS = int(os.getenv("LLM_BURST_MAX_DURATION_SECONDS", "180"))
+LLM_BURST_MAX_PHOTOS = int(os.getenv("LLM_BURST_MAX_PHOTOS", "30"))
+LLM_SESSION_HARD_GAP_SECONDS = int(os.getenv("LLM_SESSION_HARD_GAP_SECONDS", str(4 * 60 * 60)))
+LLM_SESSION_STRONG_GAP_SECONDS = int(os.getenv("LLM_SESSION_STRONG_GAP_SECONDS", str(30 * 60)))
+LLM_SESSION_SOFT_GAP_SECONDS = int(os.getenv("LLM_SESSION_SOFT_GAP_SECONDS", str(2 * 60 * 60)))
+LLM_SESSION_NEAR_DISTANCE_KM = float(os.getenv("LLM_SESSION_NEAR_DISTANCE_KM", "1.5"))
+LLM_SESSION_HARD_DISTANCE_KM = float(os.getenv("LLM_SESSION_HARD_DISTANCE_KM", "20"))
+LLM_SLICE_MAX_PHOTOS = int(os.getenv("LLM_SLICE_MAX_PHOTOS", "18"))
+LLM_SLICE_MAX_RARE_CLUES = int(os.getenv("LLM_SLICE_MAX_RARE_CLUES", "14"))
+LLM_SLICE_MIN_PHOTOS = int(os.getenv("LLM_SLICE_MIN_PHOTOS", "4"))
+LLM_SLICE_MAX_BURSTS = int(os.getenv("LLM_SLICE_MAX_BURSTS", "12"))
+LLM_SLICE_HARD_MAX_BURSTS = int(os.getenv("LLM_SLICE_HARD_MAX_BURSTS", "20"))
+LLM_SLICE_OVERLAP_BURSTS = int(os.getenv("LLM_SLICE_OVERLAP_BURSTS", "1"))
+LLM_SLICE_MAX_INFO_SCORE = float(os.getenv("LLM_SLICE_MAX_INFO_SCORE", "36"))
+LLM_SLICE_MAX_DENSITY_SCORE = float(os.getenv("LLM_SLICE_MAX_DENSITY_SCORE", "18"))
 
 # 输出配置
 SHOW_PROGRESS = True  # 显示进度条
