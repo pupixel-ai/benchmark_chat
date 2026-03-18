@@ -274,7 +274,7 @@ class LLMProcessor:
             session_slice_records = [
                 artifact
                 for artifact in slice_artifacts
-                if artifact["raw_session_id"] == raw_session["raw_session_id"]
+                if artifact.get("raw_event_id") == raw_session["raw_session_id"]
             ]
             session_prompt = self._create_session_merge_prompt(
                 raw_session=raw_session,
