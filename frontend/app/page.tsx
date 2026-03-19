@@ -26,7 +26,7 @@ const MAX_BATCH_FILES = 50;
 const MAX_BATCH_BYTES = 64 * 1024 * 1024;
 const GALLERY_PREVIEW_LIMIT = 120;
 const FACE_RECOGNITION_STAGES = new Set(["queued", "starting", "loading", "converting", "face_recognition"]);
-const FALLBACK_TASK_VERSIONS = ["v0317", "v0315", "v0312"];
+const FALLBACK_TASK_VERSIONS = ["v0317-Heavy", "v0317", "v0315", "v0312"];
 const FALLBACK_DEFAULT_TASK_VERSION = FALLBACK_TASK_VERSIONS[0];
 const LEGACY_TASK_VERSION = FALLBACK_TASK_VERSIONS[FALLBACK_TASK_VERSIONS.length - 1];
 
@@ -701,6 +701,10 @@ function InferencePipelinePanel({ task }: { task: TaskState }) {
     task.result?.memory_contract ??
     (llmStage.memory_contract_preview as unknown) ??
     null;
+  const profileValue =
+    task.result?.profile_markdown ??
+    (llmStage.profile_markdown_preview as unknown) ??
+    null;
   const redisValue =
     task.result?.memory?.storage?.redis ??
     (memoryStage.redis_preview as unknown) ??
@@ -721,7 +725,7 @@ function InferencePipelinePanel({ task }: { task: TaskState }) {
           <p className="font-mono text-xs uppercase tracking-[0.24em] text-black/40">Inference Timeline</p>
           <h2 className="mt-3 text-2xl font-semibold text-ink">推理生成逐阶段展开</h2>
           <p className="mt-3 max-w-3xl text-sm leading-6 text-black/60">
-            前端会按 `Face → VLM → LLM → Redis → Neo4j` 顺序展示当前任务的阶段结果，并在运行阶段保留 3 dots 提示。
+            前端会按 `Face → VLM → LLM Contract → Profile → Redis → Neo4j` 顺序展示当前任务的阶段结果，并在运行阶段保留 3 dots 与完成度百分比。
           </p>
         </div>
         <div className="rounded-[12px] border border-[#ddcebb] bg-white/70 px-5 py-4">
@@ -756,6 +760,15 @@ function InferencePipelinePanel({ task }: { task: TaskState }) {
           loading={llmLoading}
           meta={llmRuntime ? `运行时间 ${llmRuntime}` : undefined}
           loadingLabel="LLM 改写进行中"
+          loadingPercent={llmPercent}
+        />
+        <ScrollableJsonPanel
+          title="Profile Report"
+          value={profileValue}
+          emptyText="用户画像报告尚未产出。"
+          loading={llmLoading && !hasDisplayValue(profileValue)}
+          meta={llmRuntime ? `运行时间 ${llmRuntime}` : undefined}
+          loadingLabel="画像报告生成中"
           loadingPercent={llmPercent}
         />
         <ScrollableJsonPanel

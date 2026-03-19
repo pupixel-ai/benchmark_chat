@@ -8,7 +8,14 @@ from pathlib import Path
 from time import perf_counter
 from typing import TYPE_CHECKING, Callable, Dict, List, Optional
 
-from config import DEFAULT_TASK_VERSION, FACE_MIN_SIZE, MAX_UPLOAD_PHOTOS, TASK_VERSION_V0315, TASK_VERSION_V0317
+from config import (
+    DEFAULT_TASK_VERSION,
+    FACE_MIN_SIZE,
+    MAX_UPLOAD_PHOTOS,
+    TASK_VERSION_V0315,
+    TASK_VERSION_V0317,
+    TASK_VERSION_V0317_HEAVY,
+)
 from memory_module import MemoryModuleService
 from utils import load_json, save_json
 
@@ -236,7 +243,7 @@ class MemoryPipelineService:
         vlm_analyzer_cls = VLMAnalyzer
         if vlm_analyzer_cls is None:
             from services.vlm_analyzer import VLMAnalyzer as vlm_analyzer_cls
-        vlm = vlm_analyzer_cls(cache_path=str(self.vlm_cache_path))
+        vlm = vlm_analyzer_cls(cache_path=str(self.vlm_cache_path), task_version=self.task_version)
         cached_photo_ids = set()
         if use_cache:
             vlm.load_cache()
@@ -311,7 +318,7 @@ class MemoryPipelineService:
             llm_processor_cls = LLMProcessor
             if llm_processor_cls is None:
                 from services.llm_processor import LLMProcessor as llm_processor_cls
-            llm = llm_processor_cls()
+            llm = llm_processor_cls(task_version=self.task_version)
             memory_contract = llm.extract_memory_contract(
                 vlm.results,
                 face_db,
@@ -323,7 +330,20 @@ class MemoryPipelineService:
             save_json(llm_chunk_artifacts, str(self.llm_chunks_path))
             facts = llm.facts_from_memory_contract(memory_contract)
             relationships = llm.relationships_from_memory_contract(memory_contract)
-            profile_markdown = llm.profile_markdown_from_memory_contract(memory_contract, primary_person_id)
+            self._notify(
+                progress_callback,
+                "llm",
+                {
+                    "message": "LLM 用户画像生成中",
+                    "processed_slices": llm_chunk_artifacts.get("slice_count", 0),
+                    "slice_count": llm_chunk_artifacts.get("slice_count", 0),
+                    "processed_events": llm_chunk_artifacts.get("raw_event_count", 0),
+                    "event_count": llm_chunk_artifacts.get("raw_event_count", 0),
+                    "percent": 99,
+                    "runtime_seconds": round(perf_counter() - llm_started_at, 4),
+                },
+            )
+            profile_markdown = llm.generate_profile(facts, relationships, primary_person_id)
             self._write_profile_report(profile_markdown)
             self._notify(
                 progress_callback,
@@ -331,6 +351,7 @@ class MemoryPipelineService:
                 self._build_llm_stage_progress(
                     memory_contract,
                     llm_chunk_artifacts,
+                    profile_markdown=profile_markdown,
                     runtime_seconds=perf_counter() - llm_started_at,
                 ),
             )
@@ -432,7 +453,7 @@ class MemoryPipelineService:
         return detailed_output
 
     def _supports_memory_graph(self) -> bool:
-        return self.task_version == TASK_VERSION_V0317
+        return self.task_version in {TASK_VERSION_V0317, TASK_VERSION_V0317_HEAVY}
 
     def _run_face_recognition(
         self,
@@ -629,7 +650,7 @@ class MemoryPipelineService:
             "识别与画框统一使用方向归一化后的工作图，避免展示翻转与坐标错位",
             f"最小人脸尺寸阈值调整为 {FACE_MIN_SIZE}px，提升小脸检出能力",
         ]
-        if self.task_version in {TASK_VERSION_V0315, TASK_VERSION_V0317}:
+        if self.task_version in {TASK_VERSION_V0315, TASK_VERSION_V0317, TASK_VERSION_V0317_HEAVY}:
             return [
                 *base_items,
                 "MediaPipe Face Landmarker 为每张脸补充 pose 诊断，MediaPipe 失败时回退到 InsightFace pose",
@@ -876,6 +897,7 @@ class MemoryPipelineService:
         memory_contract: Dict[str, object],
         llm_chunk_artifacts: Dict[str, object],
         *,
+        profile_markdown: str = "",
         runtime_seconds: float,
     ) -> Dict:
         contract_preview = {
@@ -892,6 +914,7 @@ class MemoryPipelineService:
             "percent": 100,
             "runtime_seconds": round(runtime_seconds, 4),
             "memory_contract_preview": contract_preview,
+            "profile_markdown_preview": profile_markdown[:4000] if profile_markdown else "",
             "memory_contract_url": self._public_url(self.llm_contract_path) if self.llm_contract_path.exists() else None,
             "llm_chunks_url": self._public_url(self.llm_chunks_path) if self.llm_chunks_path.exists() else None,
             "llm_chunk_artifacts_preview": dict(llm_chunk_artifacts or {}),

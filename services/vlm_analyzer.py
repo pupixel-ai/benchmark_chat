@@ -27,6 +27,7 @@ from config import (
     OPENROUTER_SITE_URL,
     OPENROUTER_VLM_MODEL,
     RETRY_DELAY,
+    TASK_VERSION_V0317_HEAVY,
     VLM_PROVIDER,
     VLM_CACHE_PATH,
     VLM_MODEL,
@@ -46,13 +47,15 @@ from utils import load_json, save_json
 class VLMAnalyzer:
     """VLM analyzer with Bedrock, Gemini proxy, and OpenRouter support."""
 
-    def __init__(self, cache_path: str = VLM_CACHE_PATH):
+    def __init__(self, cache_path: str = VLM_CACHE_PATH, task_version: str = ""):
         self.provider = VLM_PROVIDER
         self.use_proxy = self.provider == "proxy"
         self.use_openrouter = self.provider == "openrouter"
         self.use_bedrock = self.provider == "bedrock"
         self.model = OPENROUTER_VLM_MODEL if self.use_openrouter else VLM_MODEL
         self.cache_path = cache_path
+        self.task_version = task_version
+        self.use_heavy_prompt = self.task_version == TASK_VERSION_V0317_HEAVY
         self.results: List[Dict[str, Any]] = []
         self._result_index: Dict[str, int] = {}
         self.requests = None
@@ -186,6 +189,7 @@ class VLMAnalyzer:
         normalized.setdefault("details", [])
         normalized.setdefault("key_objects", [])
         normalized.setdefault("people", [])
+        normalized.setdefault("relations", [])
         normalized.setdefault("ocr_hits", [])
         normalized.setdefault("brands", [])
         normalized.setdefault("place_candidates", [])
@@ -195,6 +199,12 @@ class VLMAnalyzer:
         normalized.setdefault("object_last_seen_clues", [])
         normalized.setdefault("raw_structured_observations", [])
         normalized.setdefault("uncertainty", [])
+        if not isinstance(normalized.get("event"), dict):
+            normalized["event"] = {}
+        normalized["event"].setdefault("story_hints", [])
+        if not isinstance(normalized.get("scene"), dict):
+            normalized["scene"] = {}
+        normalized["scene"].setdefault("location_type", "")
         return normalized
 
     def _infer_reliable_primary_person_id(self, face_db: Dict) -> str | None:
@@ -414,6 +424,11 @@ class VLMAnalyzer:
         raise Exception(error_msg)
 
     def _create_prompt(self, photo: Photo, face_db: Dict, primary_person_id: Optional[str]) -> str:
+        if self.use_heavy_prompt:
+            return self._create_heavy_prompt(photo, face_db, primary_person_id)
+        return self._create_default_prompt(photo, face_db, primary_person_id)
+
+    def _create_default_prompt(self, photo: Photo, face_db: Dict, primary_person_id: Optional[str]) -> str:
         time_str = photo.timestamp.strftime("%Y-%m-%d %H:%M")
         if photo.location and photo.location.get("name"):
             location_str = str(photo.location["name"])
@@ -460,7 +475,16 @@ class VLMAnalyzer:
       "clothing": "服装/材质/配饰",
       "activity": "动作",
       "interaction": "与他人/拍摄者的互动",
+      "contact_type": "接触类型或 no_contact",
       "expression": "表情",
+      "confidence": 0.0
+    }}
+  ],
+  "relations": [
+    {{
+      "subject": "person_001",
+      "relation": "looking_at",
+      "object": "scene_or_person",
       "confidence": 0.0
     }}
   ],
@@ -481,7 +505,8 @@ class VLMAnalyzer:
     "activity": "活动候选",
     "social_context": "社交上下文",
     "interaction": "互动动作",
-    "mood": "氛围"
+    "mood": "氛围",
+    "story_hints": ["基于视觉证据的情境线索"]
   }},
   "details": ["值得保留的硬线索"],
   "key_objects": ["关键物体"],
@@ -511,6 +536,114 @@ class VLMAnalyzer:
   ]
 }}
 """
+
+    def _create_heavy_prompt(self, photo: Photo, face_db: Dict, primary_person_id: Optional[str]) -> str:
+        time_str = photo.timestamp.strftime("%Y-%m-%d %H:%M")
+        if photo.location and photo.location.get("name"):
+            location_str = str(photo.location["name"])
+        elif photo.location and photo.location.get("lat") is not None and photo.location.get("lng") is not None:
+            location_str = f"GPS: {photo.location['lat']:.4f}, {photo.location['lng']:.4f}"
+        else:
+            location_str = "未知"
+
+        visible_people = []
+        for face in photo.faces:
+            person_id = face.get("person_id")
+            if not person_id:
+                continue
+            if person_id == primary_person_id:
+                visible_people.append(f"{person_id}（候选主用户脸）")
+            else:
+                visible_people.append(person_id)
+        people_hint = "、".join(visible_people) if visible_people else "未检测到可靠可见人脸"
+        primary_hint = primary_person_id or "无稳定主用户脸锚点"
+
+        return f"""你是一位精通视觉人类学与社会空间重构的专家。你的任务是针对【主角】的相册，建立一套高度复原、可供画像分析的客观视觉档案。
+
+照片上下文：
+- 时间: {time_str}
+- EXIF 地点: {location_str}
+- 可见人脸 person_id: {people_hint}
+- 候选主用户脸锚点: {primary_hint}
+
+输出要求：
+1. 只输出严格 JSON，不要解释。
+2. 高召回提取人物、关系、场景、事件、OCR、品牌、价格、菜品、服装材质、地点候选、路线/计划、交通、健康治疗、物体最后出现线索。
+3. 如果画面人物来自海报、屏幕、包装、广告牌或反射，不能当作现场人物，必须写入 details / raw_structured_observations / uncertainty。
+4. 允许 story_hints，但必须基于视觉证据。
+5. contact_type 只能从以下枚举里选：kiss/hug/holding_hands/arm_in_arm/selfie_together/shoulder_lean/sitting_close/standing_near/no_contact
+
+输出 JSON schema:
+{{
+  "summary": "完整叙事句，包含时间/地点/主角状态/核心场景",
+  "people": [
+    {{
+      "person_id": "person_0",
+      "appearance": "年龄段、发型、体态、外貌特征",
+      "clothing": "材质、版型、品牌Logo、配饰",
+      "activity": "动作/姿态",
+      "interaction": "与主角或他人的互动",
+      "contact_type": "kiss|hug|holding_hands|arm_in_arm|selfie_together|shoulder_lean|sitting_close|standing_near|no_contact",
+      "expression": "表情和情绪状态",
+      "confidence": 0.0
+    }}
+  ],
+  "relations": [
+    {{
+      "subject": "person_0",
+      "relation": "looking_at|standing_near|holding|sitting_at|placed_on|interacting_with",
+      "object": "person_1 或物体或场景元素",
+      "confidence": 0.0
+    }}
+  ],
+  "scene": {{
+    "environment_description": "宏观场景",
+    "environment_details": ["场景细节"],
+    "location_detected": "地点候选",
+    "location_type": "室内/室外/未知",
+    "visual_clues": ["视觉线索"],
+    "weather": "天气或空字符串",
+    "lighting": "光线描述",
+    "layout": {{
+      "foreground": "",
+      "midground": "",
+      "background": ""
+    }}
+  }},
+  "event": {{
+    "activity": "喝咖啡/吃饭/工作/运动/旅行/购物/学习/其他",
+    "social_context": "和朋友/独自/和家人/和同事/和伴侣/未知",
+    "interaction": "互动动作",
+    "mood": "氛围",
+    "story_hints": ["1-2 条基于视觉证据的故事线索"]
+  }},
+  "details": ["硬核线索"],
+  "key_objects": ["关键物体"],
+  "ocr_hits": ["OCR 命中"],
+  "brands": ["品牌/媒体/IP/商家名"],
+  "place_candidates": [
+    {{"name": "地点候选", "confidence": 0.0, "reason": "为什么"}}
+  ],
+  "route_plan_clues": ["路线/计划/景点线索"],
+  "transport_clues": ["交通/通勤/车内线索"],
+  "health_treatment_clues": ["症状/药品/治疗线索"],
+  "object_last_seen_clues": ["物体最后出现线索"],
+  "raw_structured_observations": [
+    {{
+      "observation_type": "ocr_observation|brand_observation|dish_observation|price_observation|clothing_observation|transport_observation|health_observation|route_plan_observation|object_last_seen",
+      "field": "字段名",
+      "value": "值",
+      "confidence": 0.0
+    }}
+  ],
+  "uncertainty": [
+    {{
+      "field": "exact_city",
+      "status": "unknown|insufficient_evidence|ambiguous",
+      "reason": "原因"
+    }}
+  ]
+}}"""
 
     def save_cache(self) -> None:
         data = {

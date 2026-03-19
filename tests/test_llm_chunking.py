@@ -84,6 +84,81 @@ class LLMChunkingTests(unittest.TestCase):
         self.assertIn("density_score", session_slices[0])
         self.assertIn("slice_budget_metrics", session_slices[0]["evidence_packet"])
 
+    def test_sparse_global_merge_recovers_from_session_contracts(self) -> None:
+        processor = LLMProcessor.__new__(LLMProcessor)
+        merged_contract = processor._finalize_memory_contract(
+            {
+                "facts": [],
+                "observations": [],
+                "claims": [],
+                "relationship_hypotheses": [],
+                "profile_deltas": [],
+                "uncertainty": [],
+            }
+        )
+        session_contracts = [
+            processor._finalize_memory_contract(
+                {
+                    "facts": [
+                        {
+                            "fact_id": "FACT_001",
+                            "title": "巴黎夜景观光",
+                            "started_at": "2025-11-02T20:09:20+08:00",
+                            "ended_at": "2025-11-02T20:09:20+08:00",
+                            "location": "巴黎埃菲尔铁塔周边",
+                            "photo_ids": ["photo_001"],
+                            "original_image_ids": ["photo_001"],
+                            "confidence": 0.92,
+                        }
+                    ],
+                    "observations": [
+                        {
+                            "observation_id": "OBS_001",
+                            "category": "place_hint",
+                            "field_key": "landmark",
+                            "field_value": "Eiffel Tower",
+                            "photo_ids": ["photo_001"],
+                            "original_image_ids": ["photo_001"],
+                            "confidence": 0.9,
+                        }
+                    ],
+                    "claims": [
+                        {
+                            "claim_id": "CLM_001",
+                            "claim_type": "location",
+                            "predicate": "landmark_candidate",
+                            "object": "Eiffel Tower",
+                            "photo_ids": ["photo_001"],
+                            "original_image_ids": ["photo_001"],
+                            "confidence": 0.91,
+                        }
+                    ],
+                    "profile_deltas": [
+                        {
+                            "delta_id": "DELTA_001",
+                            "profile_key": "identity_trajectory_profile",
+                            "field_key": "place_signal",
+                            "field_value": "Paris",
+                            "confidence": 0.8,
+                        }
+                    ],
+                }
+            )
+        ]
+
+        recovered = processor._recover_contract_if_sparse(
+            merged_contract=merged_contract,
+            session_contracts=session_contracts,
+            session_artifacts=[{"raw_event_id": "raw_session_0001"}],
+        )
+
+        self.assertEqual(len(recovered["facts"]), 1)
+        self.assertEqual(len(recovered["observations"]), 1)
+        self.assertEqual(len(recovered["claims"]), 1)
+        self.assertGreaterEqual(len(recovered["profile_deltas"]), 1)
+        self.assertTrue(recovered["uncertainty"])
+        self.assertEqual(recovered["facts"][0]["original_image_ids"], ["photo_001"])
+
 
 if __name__ == "__main__":
     unittest.main()
