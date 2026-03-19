@@ -319,12 +319,21 @@ class MemoryPipelineService:
             if llm_processor_cls is None:
                 from services.llm_processor import LLMProcessor as llm_processor_cls
             llm = llm_processor_cls(task_version=self.task_version)
-            memory_contract = llm.extract_memory_contract(
-                vlm.results,
-                face_db,
-                primary_person_id,
-                progress_callback=lambda payload: self._notify(progress_callback, "llm", payload),
-            )
+            try:
+                memory_contract = llm.extract_memory_contract(
+                    vlm.results,
+                    face_db,
+                    primary_person_id,
+                    progress_callback=lambda payload: self._notify(progress_callback, "llm", payload),
+                )
+            except Exception:
+                llm_chunk_artifacts = dict(getattr(llm, "last_chunk_artifacts", {}) or {})
+                partial_contract = dict(getattr(llm, "last_memory_contract", {}) or {})
+                if llm_chunk_artifacts:
+                    save_json(llm_chunk_artifacts, str(self.llm_chunks_path))
+                if partial_contract:
+                    save_json(partial_contract, str(self.llm_contract_path))
+                raise
             llm_chunk_artifacts = dict(getattr(llm, "last_chunk_artifacts", {}) or {})
             save_json(memory_contract, str(self.llm_contract_path))
             save_json(llm_chunk_artifacts, str(self.llm_chunks_path))

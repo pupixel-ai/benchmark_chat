@@ -9,7 +9,7 @@ import time
 from collections import Counter, defaultdict
 from datetime import datetime
 from math import asin, cos, radians, sin, sqrt
-from typing import Any, Callable, Dict, Iterable, List, Optional
+from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence
 
 from config import (
     API_PROXY_KEY,
@@ -78,6 +78,7 @@ class LLMProcessor:
         self.relationship_bedrock_model_candidates: List[str] = []
         self.last_memory_contract: Dict[str, Any] | None = None
         self.last_chunk_artifacts: Dict[str, Any] = {}
+        self._active_json_context: Dict[str, Any] = {}
 
         if self.use_proxy:
             if not API_PROXY_URL or not API_PROXY_KEY:
@@ -151,10 +152,9 @@ class LLMProcessor:
                 return text.strip()
         raise ValueError(f"无法从内容中提取文本: {type(content).__name__}")
 
-    def _extract_json_payload(self, raw_text: str) -> Dict[str, Any]:
+    def _sanitize_json_text(self, raw_text: str) -> str:
         text = str(raw_text or "").strip()
         text = text.replace("<|begin_of_box|>", "").replace("<|end_of_box|>", "").strip()
-
         if text.startswith("```"):
             lines = text.splitlines()
             if lines:
@@ -164,28 +164,258 @@ class LLMProcessor:
             text = "\n".join(lines).strip()
             if text.lower().startswith("json"):
                 text = text[4:].strip()
+        return text.strip()
 
+    def _extract_balanced_json_candidate(self, text: str) -> str:
+        start = -1
+        depth = 0
+        in_string = False
+        escaped = False
+        for index, char in enumerate(text):
+            if start == -1:
+                if char in "{[":
+                    start = index
+                    depth = 1
+                continue
+            if in_string:
+                if escaped:
+                    escaped = False
+                elif char == "\\":
+                    escaped = True
+                elif char == '"':
+                    in_string = False
+                continue
+            if char == '"':
+                in_string = True
+            elif char in "{[":
+                depth += 1
+            elif char in "}]":
+                depth -= 1
+                if depth == 0:
+                    return text[start : index + 1]
+        return ""
+
+    def _try_parse_json_candidate(self, candidate: str) -> tuple[Optional[Dict[str, Any]], Optional[json.JSONDecodeError]]:
         decoder = json.JSONDecoder()
-        candidates = [text]
+        try:
+            payload = json.loads(candidate)
+            if isinstance(payload, dict):
+                return payload, None
+            return {"items": payload}, None
+        except json.JSONDecodeError as exc:
+            try:
+                payload, _end = decoder.raw_decode(candidate)
+                if isinstance(payload, dict):
+                    return payload, None
+                return {"items": payload}, None
+            except json.JSONDecodeError:
+                return None, exc
+
+    def _insert_missing_commas(self, candidate: str) -> str:
+        repaired = candidate
+        patterns = (
+            r'(?<=[0-9\]}\"])(\s+)(?=("|\{|\[|true|false|null|-?\d))',
+            r'(?<=true)(\s+)(?=("|\{|\[|-?\d))',
+            r'(?<=false)(\s+)(?=("|\{|\[|-?\d))',
+            r'(?<=null)(\s+)(?=("|\{|\[|-?\d))',
+        )
+        for _ in range(3):
+            updated = repaired
+            for pattern in patterns:
+                updated = re.sub(pattern, r",\1", updated)
+            if updated == repaired:
+                break
+            repaired = updated
+        return repaired
+
+    def _normalize_json_string_literals(self, candidate: str) -> str:
+        repaired: List[str] = []
+        in_string = False
+        escaped = False
+        length = len(candidate)
+        index = 0
+        while index < length:
+            char = candidate[index]
+            if escaped:
+                if char in {'"', "\\", "/", "b", "f", "n", "r", "t", "u"}:
+                    repaired.append(char)
+                else:
+                    repaired.append("\\")
+                    repaired.append(char)
+                escaped = False
+                index += 1
+                continue
+            if char == "\\":
+                repaired.append(char)
+                escaped = True
+                index += 1
+                continue
+            if char == '"':
+                if not in_string:
+                    in_string = True
+                    repaired.append(char)
+                    index += 1
+                    continue
+                lookahead = index + 1
+                while lookahead < length and candidate[lookahead].isspace():
+                    lookahead += 1
+                next_char = candidate[lookahead] if lookahead < length else ""
+                if next_char in {":", ",", "}", "]", ""}:
+                    in_string = False
+                    repaired.append(char)
+                else:
+                    repaired.append('\\"')
+                index += 1
+                continue
+            if in_string and char == "\n":
+                repaired.append("\\n")
+                index += 1
+                continue
+            if in_string and char == "\r":
+                repaired.append("\\r")
+                index += 1
+                continue
+            if in_string and char == "\t":
+                repaired.append("\\t")
+                index += 1
+                continue
+            repaired.append(char)
+            index += 1
+        return "".join(repaired)
+
+    def _escape_internal_quotes(self, candidate: str) -> str:
+        return self._normalize_json_string_literals(candidate)
+
+    def _repair_json_candidates(
+        self,
+        candidate: str,
+        error: Optional[json.JSONDecodeError] = None,
+    ) -> List[str]:
+        repairs: List[str] = []
+
+        def add(item: str) -> None:
+            item = str(item or "").strip()
+            if item and item not in repairs:
+                repairs.append(item)
+
+        translated_quotes = candidate.translate(
+            str.maketrans(
+                {
+                    "“": '"',
+                    "”": '"',
+                    "‘": "'",
+                    "’": "'",
+                }
+            )
+        )
+        translated = translated_quotes.translate(
+            str.maketrans(
+                {
+                    "，": ",",
+                    "：": ":",
+                    "（": "(",
+                    "）": ")",
+                }
+            )
+        )
+        add(translated_quotes)
+        add(self._normalize_json_string_literals(translated_quotes))
+        add(re.sub(r",(?=\s*[}\]])", "", translated_quotes))
+        add(re.sub(r"\bNone\b", "null", translated_quotes))
+        add(re.sub(r"\bTrue\b", "true", translated_quotes))
+        add(re.sub(r"\bFalse\b", "false", translated_quotes))
+        add(self._insert_missing_commas(translated_quotes))
+        add(self._insert_missing_commas(re.sub(r",(?=\s*[}\]])", "", translated_quotes)))
+        add(self._insert_missing_commas(self._normalize_json_string_literals(translated_quotes)))
+        add(translated)
+        add(self._normalize_json_string_literals(translated))
+        add(re.sub(r",(?=\s*[}\]])", "", translated))
+        add(re.sub(r"\bNone\b", "null", translated))
+        add(re.sub(r"\bTrue\b", "true", translated))
+        add(re.sub(r"\bFalse\b", "false", translated))
+        add(self._insert_missing_commas(translated))
+        add(self._insert_missing_commas(re.sub(r",(?=\s*[}\]])", "", translated)))
+        add(self._insert_missing_commas(self._normalize_json_string_literals(translated)))
+
+        if error and "Expecting ',' delimiter" in str(error):
+            position = int(getattr(error, "pos", -1))
+            if 0 <= position < len(candidate):
+                add(candidate[:position] + "," + candidate[position:])
+                previous_quote = candidate.rfind('"', 0, position)
+                if previous_quote != -1 and (previous_quote == 0 or candidate[previous_quote - 1] != "\\"):
+                    add(candidate[:previous_quote] + '\\"' + candidate[previous_quote + 1 :])
+                    next_quote = candidate.find('"', position)
+                    if next_quote != -1 and (next_quote == 0 or candidate[next_quote - 1] != "\\"):
+                        add(
+                            candidate[:previous_quote]
+                            + '\\"'
+                            + candidate[previous_quote + 1 : next_quote]
+                            + '\\"'
+                            + candidate[next_quote + 1 :]
+                        )
+        return repairs
+
+    def _record_parse_failure(
+        self,
+        *,
+        raw_text: str,
+        error: Exception,
+        repaired_attempts: List[str],
+    ) -> None:
+        if not hasattr(self, "last_chunk_artifacts") or not isinstance(self.last_chunk_artifacts, dict):
+            self.last_chunk_artifacts = {}
+        failures = self.last_chunk_artifacts.setdefault("parse_failures", [])
+        failures.append(
+            {
+                **dict(getattr(self, "_active_json_context", {}) or {}),
+                "error": str(error),
+                "raw_text_preview": str(raw_text or "")[:4000],
+                "raw_text_tail": str(raw_text or "")[-4000:],
+                "repair_attempt_preview": [item[:1000] for item in repaired_attempts[:6]],
+                "failed_at": datetime.now().isoformat(),
+            }
+        )
+
+    def _extract_json_payload(self, raw_text: str) -> Dict[str, Any]:
+        text = self._sanitize_json_text(raw_text)
+        candidates: List[str] = []
+
+        def add_candidate(item: str) -> None:
+            item = str(item or "").strip()
+            if item and item not in candidates:
+                candidates.append(item)
+
+        add_candidate(text)
         first_json_start = min((idx for idx in (text.find("{"), text.find("[")) if idx != -1), default=-1)
         if first_json_start != -1:
-            candidates.append(text[first_json_start:])
+            add_candidate(text[first_json_start:])
+        balanced_candidate = self._extract_balanced_json_candidate(text)
+        if balanced_candidate:
+            add_candidate(balanced_candidate)
 
-        last_error = None
+        last_error: Optional[Exception] = None
+        repair_attempts: List[str] = []
         for candidate in candidates:
-            try:
-                return json.loads(candidate)
-            except json.JSONDecodeError as exc:
-                last_error = exc
-                try:
-                    payload, _end = decoder.raw_decode(candidate)
-                    if isinstance(payload, dict):
-                        return payload
-                    return {"items": payload}
-                except json.JSONDecodeError:
-                    continue
+            payload, error = self._try_parse_json_candidate(candidate)
+            if payload is not None:
+                return payload
+            if error is not None:
+                last_error = error
+            for repaired in self._repair_json_candidates(candidate, error):
+                if repaired not in repair_attempts:
+                    repair_attempts.append(repaired)
+                payload, repaired_error = self._try_parse_json_candidate(repaired)
+                if payload is not None:
+                    return payload
+                if repaired_error is not None:
+                    last_error = repaired_error
 
         if last_error:
+            self._record_parse_failure(
+                raw_text=text,
+                error=last_error,
+                repaired_attempts=repair_attempts,
+            )
             raise last_error
         raise ValueError("无法解析 JSON payload")
 
@@ -193,6 +423,41 @@ class LLMProcessor:
         message = str(exc).lower()
         retry_keywords = ["429", "rate limit", "connection", "timeout", "temporarily unavailable", "reset by peer", "throttl", "too many requests"]
         return any(keyword in message for keyword in retry_keywords)
+
+    def _is_json_parse_error(self, exc: Exception) -> bool:
+        if isinstance(exc, json.JSONDecodeError):
+            return True
+        message = str(exc).lower()
+        json_error_markers = (
+            "unterminated string",
+            "expecting value",
+            "expecting ',' delimiter",
+            "extra data",
+            "invalid control character",
+            "unterminated string starting at",
+            "无法解析 json payload",
+        )
+        return any(marker in message for marker in json_error_markers)
+
+    def _record_salvage_recovery(
+        self,
+        *,
+        stage: str,
+        reason: str,
+        payload_summary: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        if not hasattr(self, "last_chunk_artifacts") or not isinstance(self.last_chunk_artifacts, dict):
+            self.last_chunk_artifacts = {}
+        recoveries = self.last_chunk_artifacts.setdefault("salvage_recoveries", [])
+        recoveries.append(
+            {
+                **dict(getattr(self, "_active_json_context", {}) or {}),
+                "stage": stage,
+                "reason": reason,
+                "payload_summary": payload_summary or {},
+                "recovered_at": datetime.now().isoformat(),
+            }
+        )
 
     def _call_with_retries(self, callback):
         last_error = None
@@ -207,6 +472,55 @@ class LLMProcessor:
                 print(f"[LLM] 可重试错误，{delay_seconds}s 后重试 ({attempt + 1}/{MAX_RETRIES}): {exc}")
                 time.sleep(delay_seconds)
         raise last_error
+
+    def _call_json_prompt_with_compact_retry(
+        self,
+        *,
+        primary_prompt: str,
+        compact_prompt_builder: Optional[Callable[[], str]] = None,
+        salvage_builder: Optional[Callable[[], Dict[str, Any]]] = None,
+        salvage_stage: str,
+    ) -> Dict[str, Any]:
+        original_context = dict(getattr(self, "_active_json_context", {}) or {})
+        try:
+            return self._call_with_retries(lambda prompt=primary_prompt: self._call_json_prompt(prompt))
+        except Exception as exc:
+            if not self._is_json_parse_error(exc):
+                raise
+
+            if compact_prompt_builder is not None:
+                compact_context = {**original_context, "recovery_mode": "compact_retry", "initial_error": str(exc)}
+                self._active_json_context = compact_context
+                try:
+                    compact_prompt = compact_prompt_builder()
+                    return self._call_with_retries(lambda prompt=compact_prompt: self._call_json_prompt(prompt))
+                except Exception as compact_exc:
+                    if not self._is_json_parse_error(compact_exc):
+                        raise
+                    if salvage_builder is None:
+                        raise
+                    salvage_contract = self._finalize_memory_contract(salvage_builder())
+                    self._record_salvage_recovery(
+                        stage=salvage_stage,
+                        reason=f"compact retry failed after parse error: {compact_exc}",
+                        payload_summary=self._contract_counts(salvage_contract),
+                    )
+                    return salvage_contract
+                finally:
+                    self._active_json_context = original_context
+
+            if salvage_builder is None:
+                raise
+
+            salvage_contract = self._finalize_memory_contract(salvage_builder())
+            self._record_salvage_recovery(
+                stage=salvage_stage,
+                reason=f"primary parse failed without compact retry: {exc}",
+                payload_summary=self._contract_counts(salvage_contract),
+            )
+            return salvage_contract
+        finally:
+            self._active_json_context = original_context
 
     def extract_memory_contract(
         self,
@@ -233,6 +547,16 @@ class LLMProcessor:
         bursts = self._build_bursts(photo_facts)
         raw_sessions = self._build_raw_sessions(bursts)
         session_slices = self._build_session_slices(raw_sessions)
+        self.last_chunk_artifacts = {
+            "task_version": self.task_version,
+            "photo_fact_count": len(photo_facts),
+            "burst_count": len(bursts),
+            "raw_event_count": len(raw_sessions),
+            "slice_count": len(session_slices),
+            "slices": [],
+            "event_summaries": [],
+            "parse_failures": [],
+        }
         self._emit_progress(
             progress_callback,
             {
@@ -250,8 +574,21 @@ class LLMProcessor:
         slice_artifacts = []
         slice_contracts_by_session: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
         for session_slice in session_slices:
+            self._active_json_context = {
+                "stage": "slice_contract",
+                "slice_id": session_slice["slice_id"],
+                "raw_event_id": session_slice["raw_session_id"],
+                "photo_ids": list(session_slice["photo_ids"]),
+            }
             prompt = self._create_slice_memory_prompt(session_slice["evidence_packet"], primary_person_id)
-            response = self._call_with_retries(lambda prompt=prompt: self._call_json_prompt(prompt))
+            response = self._call_json_prompt_with_compact_retry(
+                primary_prompt=prompt,
+                compact_prompt_builder=(
+                    lambda packet=session_slice["evidence_packet"], pid=primary_person_id: self._create_compact_slice_memory_prompt(packet, pid)
+                ),
+                salvage_builder=lambda packet=session_slice["evidence_packet"]: self._salvage_slice_contract_from_evidence_packet(packet),
+                salvage_stage="slice_contract",
+            )
             normalized = self._finalize_memory_contract(response)
             slice_contracts.append(normalized)
             slice_contracts_by_session[session_slice["raw_session_id"]].append(normalized)
@@ -275,6 +612,7 @@ class LLMProcessor:
                     "contract_counts": self._contract_counts(normalized),
                 }
             )
+            self.last_chunk_artifacts["slices"] = list(slice_artifacts)
             self._emit_progress(
                 progress_callback,
                 {
@@ -291,6 +629,11 @@ class LLMProcessor:
         session_contracts = []
         session_artifacts = []
         for raw_session in raw_sessions:
+            self._active_json_context = {
+                "stage": "session_merge",
+                "raw_event_id": raw_session["raw_session_id"],
+                "photo_ids": list(raw_session["photo_ids"]),
+            }
             session_slice_records = [
                 artifact
                 for artifact in slice_artifacts
@@ -302,7 +645,17 @@ class LLMProcessor:
                 slice_contracts=slice_contracts_by_session.get(raw_session["raw_session_id"], []),
                 primary_person_id=primary_person_id,
             )
-            session_contract = self._call_with_retries(lambda prompt=session_prompt: self._call_json_prompt(prompt))
+            session_contract = self._call_json_prompt_with_compact_retry(
+                primary_prompt=session_prompt,
+                compact_prompt_builder=None,
+                salvage_builder=(
+                    lambda contracts=slice_contracts_by_session.get(raw_session["raw_session_id"], []), raw_event_id=raw_session["raw_session_id"]: self._salvage_session_contract_from_slices(
+                        raw_event_id=raw_event_id,
+                        slice_contracts=contracts,
+                    )
+                ),
+                salvage_stage="session_merge",
+            )
             normalized_session_contract = self._finalize_memory_contract(session_contract)
             session_contracts.append(normalized_session_contract)
             session_artifacts.append(
@@ -326,6 +679,7 @@ class LLMProcessor:
                     "contract_counts": self._contract_counts(normalized_session_contract),
                 }
             )
+            self.last_chunk_artifacts["event_summaries"] = list(session_artifacts)
             self._emit_progress(
                 progress_callback,
                 {
@@ -359,7 +713,18 @@ class LLMProcessor:
                 "runtime_seconds": round(time.perf_counter() - started_at, 4),
             },
         )
-        merged_contract = self._call_with_retries(lambda: self._call_json_prompt(merge_prompt))
+        self._active_json_context = {
+            "stage": "global_merge",
+            "photo_fact_count": len(photo_facts),
+            "raw_event_count": len(raw_sessions),
+            "slice_count": len(session_slices),
+        }
+        merged_contract = self._call_json_prompt_with_compact_retry(
+            primary_prompt=merge_prompt,
+            compact_prompt_builder=None,
+            salvage_builder=lambda contracts=session_contracts: self._salvage_global_contract_from_sessions(contracts),
+            salvage_stage="global_merge",
+        )
         contract = self._finalize_memory_contract(merged_contract)
         recovered_contract = self._recover_contract_if_sparse(
             merged_contract=contract,
@@ -386,6 +751,8 @@ class LLMProcessor:
                 photo_facts=photo_facts,
                 primary_person_id=primary_person_id,
             )
+
+        self._active_json_context = {}
 
         self.last_memory_contract = contract
         self.last_chunk_artifacts = {
@@ -1870,6 +2237,7 @@ Relationships:
 6. facts 只是 memory 的一部分；细粒度事实必须进入 observations 或 claims。
 7. 这个 slice 只是分析窗口，不等于完整现实活动链；不要跨越 packet 边界做过强推断。
 8. 只要 evidence packet 与主用户有关，就尽量输出 profile_deltas；不要把画像层完全留空。
+9. 所有字符串内部如果需要出现双引号，必须转义为 \\\"，输出必须能被 JSON 解析器直接解析。
 
 请输出严格 JSON，包含以下 6 个顶层字段：
 {{
@@ -1982,6 +2350,8 @@ Event-scoped evidence packet:
 - OCR、品牌、价格、菜品、地点候选、路线线索、服饰材质、物品最后出现线索不能丢。
 - 如果只看到商店、海报、广告牌、环境品牌，不要直接推断长期偏好。
 - 如果这个窗口有多张逻辑连贯的照片，可以合并为 1-n 个 facts；重点是“事实完整”而不是“事件数尽量少”。
+- 所有长文本字段（description / narrative_synthesis / reason / social_clue / summary）中禁止直接出现 ASCII 双引号 `"`；引用 OCR 或原文时，请改用《》或「」。
+- OCR 原文、品牌原文、价格原文优先放进 observations / claims，不要在长文本字段里重复堆叠。
 
 请严格输出 JSON，且必须包含以下 6 个顶层字段：
 {{
@@ -2028,6 +2398,222 @@ Event-scoped evidence packet:
 窗口 evidence packet:
 {json.dumps(evidence_packet, ensure_ascii=False, indent=2)}
 """
+
+    def _compact_contract_limits(self, evidence_packet: Dict[str, Any]) -> Dict[str, int]:
+        metrics = evidence_packet.get("slice_budget_metrics", {}) if isinstance(evidence_packet, dict) else {}
+        photo_count = int(metrics.get("photo_count") or len(evidence_packet.get("photo_refs", []) or []))
+        rare_clue_count = int(metrics.get("rare_clue_count") or len(evidence_packet.get("rare_clues", []) or []))
+        information_score = float(metrics.get("information_score") or 0.0)
+        density_score = float(metrics.get("density_score") or 0.0)
+
+        fact_cap = 1
+        if photo_count >= 6 or information_score >= 8 or rare_clue_count >= 5:
+            fact_cap = 2
+        if photo_count >= 12 or information_score >= 16 or rare_clue_count >= 10:
+            fact_cap = 3
+
+        observation_cap = 6
+        if rare_clue_count >= 5 or information_score >= 8:
+            observation_cap = 8
+        if rare_clue_count >= 10 or information_score >= 16 or density_score >= 8:
+            observation_cap = 10
+
+        claim_cap = 4
+        if rare_clue_count >= 5 or information_score >= 10:
+            claim_cap = 5
+        if rare_clue_count >= 10 or information_score >= 18:
+            claim_cap = 6
+
+        return {
+            "fact_cap": fact_cap,
+            "observation_cap": observation_cap,
+            "claim_cap": claim_cap,
+            "relationship_cap": 2 if photo_count >= 8 else 1,
+            "profile_cap": 6 if information_score >= 10 else 4,
+            "uncertainty_cap": 4,
+        }
+
+    def _create_compact_slice_memory_prompt(self, evidence_packet: Dict[str, Any], primary_person_id: Optional[str]) -> str:
+        primary_label = primary_person_id or "authenticated_user"
+        limits = self._compact_contract_limits(evidence_packet)
+        return f"""你是 memory materialization LLM 的紧凑恢复模式。上一次该窗口输出过长或 JSON 损坏，这一次必须输出更短、更稳、更易解析的 contract。
+
+恢复原则：
+1. 仍然只分析当前窗口，不要跨窗口推断。
+2. 优先保留高价值 OCR、品牌、地点候选、价格、路线/计划、物体最后出现线索。
+3. 所有长文本字段必须压缩成短句或短语；单字段尽量不超过 60 个汉字。
+4. 所有长文本字段禁止直接出现 ASCII 双引号 `"`；引用原文时用《》或「」。
+5. “我” 永远代表 authenticated_user={primary_label}，不要把 Person_x 强行认成用户。
+6. 如果没有足够证据，宁可放进 uncertainty，也不要补全。
+7. `original_image_ids` 必须精确绑定原始图片 ID。
+
+输出上限：
+- facts <= {limits['fact_cap']}
+- observations <= {limits['observation_cap']}
+- claims <= {limits['claim_cap']}
+- relationship_hypotheses <= {limits['relationship_cap']}
+- profile_deltas <= {limits['profile_cap']}
+- uncertainty <= {limits['uncertainty_cap']}
+
+输出格式仍必须是完整 6 段 JSON contract：
+{{
+  "facts": [],
+  "observations": [],
+  "claims": [],
+  "relationship_hypotheses": [],
+  "profile_deltas": [],
+  "uncertainty": []
+}}
+
+字段约束：
+- facts 只保留最重要的原子事实，title/description/narrative_synthesis 要短。
+- observations 只保留最可检索的高价值项。
+- claims 只保留最可能被 query 直接命中的项。
+- relationship_hypotheses 只保留弱共现，不做强关系定型。
+- profile_deltas 只保留有明确证据引用的增量。
+
+窗口 evidence packet:
+{json.dumps(evidence_packet, ensure_ascii=False, indent=2)}
+"""
+
+    def _salvage_slice_contract_from_evidence_packet(self, evidence_packet: Dict[str, Any]) -> Dict[str, Any]:
+        photo_ids = [str(item) for item in evidence_packet.get("photo_refs", []) or [] if item]
+        location_chain = [str(item) for item in evidence_packet.get("location_chain", []) or [] if item]
+        dominant_person_ids = [str(item) for item in evidence_packet.get("dominant_person_ids", []) or [] if item]
+        fact_inventory = [item for item in evidence_packet.get("fact_inventory", []) or [] if isinstance(item, dict)]
+        time_range = evidence_packet.get("time_range", {}) if isinstance(evidence_packet.get("time_range"), dict) else {}
+        rare_clues = [str(item) for item in evidence_packet.get("rare_clues", []) or [] if item]
+
+        activity_values = [
+            str(item.get("value") or "").strip()
+            for item in fact_inventory
+            if str(item.get("type") or "").strip() == "activity_hint" and str(item.get("value") or "").strip()
+        ]
+        scene_values = [
+            str(item.get("value") or "").strip()
+            for item in fact_inventory
+            if str(item.get("type") or "").strip() == "scene_hint" and str(item.get("value") or "").strip()
+        ]
+        top_activity = activity_values[0] if activity_values else ""
+        top_scene = scene_values[0] if scene_values else ""
+        location_label = location_chain[0] if location_chain else ""
+
+        coarse_event_type = "other"
+        activity_text = " ".join(activity_values).lower()
+        if any(keyword in activity_text for keyword in ("餐", "吃", "meal", "dining", "coffee", "cafe", "restaurant")):
+            coarse_event_type = "dining"
+        elif any(keyword in activity_text for keyword in ("travel", "trip", "旅行", "观光", "sight", "景")):
+            coarse_event_type = "travel"
+        elif any(keyword in activity_text for keyword in ("walk", "stroll", "逛", "散步", "view")):
+            coarse_event_type = "social_outing"
+        elif any(keyword in activity_text for keyword in ("work", "办公", "会议")):
+            coarse_event_type = "work"
+
+        title_parts = [part for part in (top_activity, top_scene, location_label) if part]
+        title = " / ".join(title_parts[:2]) or "恢复的窗口事实"
+        description = "由切片证据直接恢复的窗口事实，原始 LLM 输出因 JSON 截断未能完整解析。"
+
+        observations: List[Dict[str, Any]] = []
+        for index, clue in enumerate(rare_clues[:6], start=1):
+            category = "ocr" if any(char.isdigit() for char in clue) or any(token in clue.lower() for token in ("http", "www", "tel", "t.", "街", "路", "店", "馆")) else "scene"
+            observations.append(
+                {
+                    "observation_id": f"OBS_SALVAGE_{index:03d}",
+                    "category": category,
+                    "field_key": "rare_clue",
+                    "field_value": clue,
+                    "confidence": 0.34,
+                    "photo_ids": list(photo_ids),
+                    "original_image_ids": list(photo_ids),
+                    "fact_id": "FACT_SALVAGE_001",
+                    "event_id": str(evidence_packet.get("event_id") or ""),
+                    "person_ids": list(dominant_person_ids),
+                    "evidence_refs": [{"ref_type": "photo", "ref_id": photo_id} for photo_id in photo_ids[:4]],
+                }
+            )
+
+        claims: List[Dict[str, Any]] = []
+        if location_label:
+            claims.append(
+                {
+                    "claim_id": "CLM_SALVAGE_001",
+                    "claim_type": "location",
+                    "subject": str(evidence_packet.get("event_id") or "slice"),
+                    "predicate": "location_candidate",
+                    "object": location_label,
+                    "confidence": 0.41,
+                    "photo_ids": list(photo_ids),
+                    "original_image_ids": list(photo_ids),
+                    "fact_id": "FACT_SALVAGE_001",
+                    "event_id": str(evidence_packet.get("event_id") or ""),
+                    "evidence_refs": [{"ref_type": "photo", "ref_id": photo_id} for photo_id in photo_ids[:4]],
+                }
+            )
+
+        return {
+            "facts": [
+                {
+                    "fact_id": "FACT_SALVAGE_001",
+                    "title": title,
+                    "coarse_event_type": coarse_event_type,
+                    "event_facets": [item for item in (top_activity, top_scene) if item][:4],
+                    "alternative_type_candidates": [],
+                    "started_at": str(time_range.get("start") or ""),
+                    "ended_at": str(time_range.get("end") or time_range.get("start") or ""),
+                    "location": location_label,
+                    "participant_person_ids": list(dominant_person_ids),
+                    "photo_ids": list(photo_ids),
+                    "original_image_ids": list(photo_ids),
+                    "description": description,
+                    "narrative_synthesis": description,
+                    "confidence": 0.22,
+                    "reason": "slice JSON parse failed; recovered from evidence packet",
+                    "social_dynamics": [],
+                    "persona_evidence": {},
+                }
+            ],
+            "observations": observations,
+            "claims": claims,
+            "relationship_hypotheses": [],
+            "profile_deltas": [],
+            "uncertainty": [
+                {
+                    "field": "slice_contract",
+                    "status": "insufficient_evidence",
+                    "reason": "slice output was truncated and recovered from evidence packet",
+                }
+            ],
+        }
+
+    def _salvage_session_contract_from_slices(
+        self,
+        *,
+        raw_event_id: str,
+        slice_contracts: Sequence[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        merged = self._merge_contracts_union(list(slice_contracts))
+        merged.setdefault("uncertainty", []).append(
+            {
+                "field": "session_merge_contract",
+                "status": "insufficient_evidence",
+                "reason": f"session merge for {raw_event_id} failed to parse and was recovered from slice unions",
+            }
+        )
+        return merged
+
+    def _salvage_global_contract_from_sessions(
+        self,
+        session_contracts: Sequence[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        merged = self._merge_contracts_union(list(session_contracts))
+        merged.setdefault("uncertainty", []).append(
+            {
+                "field": "global_merge_contract",
+                "status": "insufficient_evidence",
+                "reason": "global merge failed to parse and was recovered from session unions",
+            }
+        )
+        return merged
 
     def _create_session_merge_prompt(
         self,
@@ -2101,6 +2687,7 @@ Slice contracts:
 4. relationship_hypotheses 此阶段只允许保留弱共现，不做强关系定型。
 5. profile_deltas 只保留有明确证据引用的增量。
 6. “我” 代表 authenticated_user={primary_label}。
+7. 所有长文本字段禁止直接出现 ASCII 双引号 `"`；引用 OCR 或原文时统一改用《》或「」。
 
 输出仍为完整 6 段 contract。
 
@@ -2163,6 +2750,7 @@ Slice contracts:
 3. 关系版本要保守：没有纵向证据就不要输出强关系。
 4. “我” 对应 authenticated_user={primary_label}，但不要因为缺少人脸锚点就把任何 Person_x 绑成用户。
 5. profile_deltas 只输出增量，不直接下绝对结论。
+6. 所有字符串内部如果需要出现双引号，必须转义为 \\\"，输出必须能被 JSON 解析器直接解析。
 
 输出仍然是同样的 6 段 JSON contract，顶层字段必须完整。
 
@@ -2216,6 +2804,7 @@ Slice contracts:
 4. relationship_hypotheses 此阶段只保留可从事件层直接观察到的弱共现证据；最终关系判定由下一层关系模型完成。
 5. profile_deltas 允许保守增量，不允许把单次暴露写成稳定画像。
 6. “我” 代表 authenticated_user={primary_label}，不能因为缺少 face 锚点就阻断用户视角。
+7. 所有长文本字段禁止直接出现 ASCII 双引号 `"`；引用 OCR 或原文时统一改用《》或「」。
 
 输出必须是完整 6 段 contract。
 

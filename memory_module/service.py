@@ -2928,8 +2928,12 @@ class MemoryModuleService:
 
         for relationship in relationship_hypotheses:
             if relationship.reason_summary:
-                anchor_session_uuid = relationship.feature_snapshot.get("supporting_session_uuids", [None])[0]
-                anchor_event_uuid = relationship.feature_snapshot.get("supporting_event_uuids", [None])[0]
+                anchor_session_uuid = self._first_or_none(
+                    relationship.feature_snapshot.get("supporting_session_uuids")
+                )
+                anchor_event_uuid = self._first_or_none(
+                    relationship.feature_snapshot.get("supporting_event_uuids")
+                )
                 anchor_session = session_by_uuid.get(anchor_session_uuid) if anchor_session_uuid else None
                 anchor_event = event_by_uuid.get(anchor_event_uuid) if anchor_event_uuid else None
                 segments.append(
@@ -3164,6 +3168,12 @@ class MemoryModuleService:
         if event and event.location:
             return event.location
         return self._session_location_name(session)
+
+    @staticmethod
+    def _first_or_none(values: Optional[Sequence[Any]]) -> Optional[Any]:
+        if not values:
+            return None
+        return values[0]
 
     def _build_redis_records(
         self,

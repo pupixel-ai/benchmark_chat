@@ -7,7 +7,13 @@ from pathlib import Path
 from unittest.mock import patch
 
 from memory_module import MemoryModuleService
-from memory_module.dto import EventCandidateDTO, PhotoFactDTO, SessionDTO, VLMPhotoObservationDTO
+from memory_module.dto import (
+    EventCandidateDTO,
+    PhotoFactDTO,
+    RelationshipHypothesisDTO,
+    SessionDTO,
+    VLMPhotoObservationDTO,
+)
 from memory_module.ontology import collect_concepts
 from models import Event, Photo, Relationship
 
@@ -330,6 +336,66 @@ class MemoryModuleTests(unittest.TestCase):
             ]
             self.assertGreaterEqual(len(observed_fact_edges), 1)
             self.assertEqual(len(result["storage"]["neo4j"]["nodes"]["primary_person_hypotheses"]), 0)
+
+    def test_materialize_handles_relationships_with_empty_supporting_lists(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            task_dir = Path(tmpdir)
+            photos = self._sample_photos(task_dir)
+            service = MemoryModuleService(
+                task_id="task_relationship_sparse",
+                task_dir=str(task_dir),
+                user_id="user_relationship_sparse",
+                pipeline_version="v0317-Heavy",
+            )
+            sparse_relationship = RelationshipHypothesisDTO(
+                relationship_uuid="rel-sparse-001",
+                relationship_key="user_relationship_sparse:person-002",
+                upstream_ref={"object_type": "relationship_hypothesis", "object_id": "rel-sparse-001"},
+                anchor_person_uuid="person-001",
+                target_person_uuid="person-002",
+                target_face_person_id="Person_002",
+                relationship_type="friend",
+                label="朋友候选",
+                confidence=0.62,
+                status="active",
+                reason_summary="同框出现，但当前 supporting 列表为空。",
+                feature_snapshot={
+                    "supporting_session_uuids": [],
+                    "supporting_event_uuids": [],
+                },
+            )
+
+            with (
+                patch(
+                    "memory_module.service.MemoryStoragePublisher.publish",
+                    return_value={
+                        "enabled": False,
+                        "redis": {"status": "skipped", "reason": "test"},
+                        "neo4j": {"status": "skipped", "reason": "test"},
+                        "milvus": {"status": "skipped", "reason": "test"},
+                    },
+                ),
+                patch.object(service, "_build_relationships", return_value=[sparse_relationship]),
+                patch.object(service, "_augment_primary_relationship_hypotheses", side_effect=lambda **kwargs: kwargs["relationship_hypotheses"]),
+            ):
+                result = service.materialize(
+                    photos=photos,
+                    face_output=self._face_output(),
+                    vlm_results=self._vlm_results(photos),
+                    events=self._events(),
+                    relationships=[],
+                    profile_markdown="",
+                    cached_photo_ids=set(),
+                )
+
+            relationship_segments = [
+                item
+                for item in result["storage"]["milvus"]["segments"]
+                if item["segment_type"] == "relationship_reason"
+            ]
+            self.assertEqual(len(relationship_segments), 1)
+            self.assertIsNone(relationship_segments[0]["session_uuid"])
+            self.assertIsNone(relationship_segments[0]["event_uuid"])
 
     def _sample_photos(self, task_dir: Path) -> list[Photo]:
         uploads_dir = task_dir / "uploads"

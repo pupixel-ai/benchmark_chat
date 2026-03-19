@@ -464,6 +464,8 @@ class VLMAnalyzer:
 4. 如果信息不存在，返回空数组或空对象，不要编造。
 5. 如果人物只出现在海报、屏幕、广告牌、包装或反射中，必须写入 uncertainty 或 raw_structured_observations，不要当成现场实体人物。
 6. summary 只做客观一句话概括，不做身份结论。
+7. 所有字符串内部如果需要出现双引号，必须转义为 \\\"，不要输出坏 JSON。
+8. 在 summary / appearance / clothing / activity / interaction / expression / reason 这类长文本字段中，禁止直接出现 ASCII 双引号 `"`；引用 OCR 或原文时改用《》或「」。
 
 输出 JSON schema:
 {{
@@ -572,6 +574,8 @@ class VLMAnalyzer:
 3. 如果画面人物来自海报、屏幕、包装、广告牌或反射，不能当作现场人物，必须写入 details / raw_structured_observations / uncertainty。
 4. 允许 story_hints，但必须基于视觉证据。
 5. contact_type 只能从以下枚举里选：kiss/hug/holding_hands/arm_in_arm/selfie_together/shoulder_lean/sitting_close/standing_near/no_contact
+6. 所有字符串内部如果需要出现双引号，必须转义为 \\\"，不要输出坏 JSON。
+7. 在 summary / people.* / scene.* / event.* / raw_structured_observations.reason 这类长文本字段中，禁止直接出现 ASCII 双引号 `"`；引用 OCR 或原文时统一改用《》或「」。
 
 输出 JSON schema:
 {{

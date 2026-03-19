@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import unittest
 from unittest.mock import patch
 
@@ -158,6 +159,114 @@ class LLMChunkingTests(unittest.TestCase):
         self.assertGreaterEqual(len(recovered["profile_deltas"]), 1)
         self.assertTrue(recovered["uncertainty"])
         self.assertEqual(recovered["facts"][0]["original_image_ids"], ["photo_001"])
+
+    def test_extract_json_payload_repairs_missing_comma_between_fields(self) -> None:
+        processor = LLMProcessor.__new__(LLMProcessor)
+        processor.last_chunk_artifacts = {}
+        processor._active_json_context = {"stage": "unit_test"}
+
+        payload = processor._extract_json_payload('{"facts": []\n"observations": []}')
+
+        self.assertEqual(payload["facts"], [])
+        self.assertEqual(payload["observations"], [])
+
+    def test_extract_json_payload_repairs_unescaped_quotes_in_value(self) -> None:
+        processor = LLMProcessor.__new__(LLMProcessor)
+        processor.last_chunk_artifacts = {}
+        processor._active_json_context = {"stage": "unit_test"}
+
+        payload = processor._extract_json_payload(
+            '{"claims": [{"claim_id": "CLM_001", "object": "he said "wow"", "confidence": 0.8}]}'
+        )
+
+        self.assertEqual(payload["claims"][0]["object"], 'he said "wow"')
+
+    def test_extract_json_payload_repairs_ocr_quote_sequences(self) -> None:
+        processor = LLMProcessor.__new__(LLMProcessor)
+        processor.last_chunk_artifacts = {}
+        processor._active_json_context = {"stage": "unit_test"}
+
+        payload = processor._extract_json_payload(
+            '{'
+            '"facts":[{'
+            '"fact_id":"FACT_001",'
+            '"description":"拍摄于北京恒电大厦B座6楼报告厅，OCR识别到\\"新春寄语\\"、"北京-恒电B-6F-报告厅"、"共享密钥 JYONWX"、品牌"恒电"。",'
+            '"narrative_synthesis":"图像带有"豆包AI生成"水印",'
+            '"confidence":0.9'
+            '}]}'
+        )
+
+        self.assertIn('北京-恒电B-6F-报告厅', payload["facts"][0]["description"])
+        self.assertIn('豆包AI生成', payload["facts"][0]["narrative_synthesis"])
+
+    def test_extract_json_payload_repairs_unescaped_quotes_and_newlines_in_long_text(self) -> None:
+        processor = LLMProcessor.__new__(LLMProcessor)
+        processor.last_chunk_artifacts = {}
+        processor._active_json_context = {"stage": "unit_test"}
+
+        payload = processor._extract_json_payload(
+            '{'
+            '"facts":[{'
+            '"fact_id":"FACT_001",'
+            '"description":"背景大屏幕显示"新春寄语"，social_hint标注为"和同事"，并且这里有一段原始换行\n继续描述。",'
+            '"reason":"时间由OCR"18:29"提供，activity_hint为"工作"。",'
+            '"confidence":0.91'
+            '}],'
+            '"observations":[]'
+            '}'
+        )
+
+        self.assertIn('"新春寄语"', payload["facts"][0]["description"])
+        self.assertIn('"18:29"', payload["facts"][0]["reason"])
+
+    def test_call_json_prompt_with_compact_retry_recovers_parse_failure(self) -> None:
+        processor = LLMProcessor.__new__(LLMProcessor)
+        processor.last_chunk_artifacts = {"parse_failures": []}
+        processor._active_json_context = {"stage": "slice_contract", "slice_id": "slice_0001"}
+
+        calls: list[str] = []
+
+        def fake_call_with_retries(callback):
+            return callback()
+
+        def fake_call_json_prompt(prompt: str):
+            calls.append(prompt)
+            if "紧凑恢复模式" in prompt:
+                return {
+                    "facts": [
+                        {
+                            "fact_id": "FACT_001",
+                            "title": "恢复后的事实",
+                            "started_at": "2025-11-02T20:09:20+08:00",
+                            "ended_at": "2025-11-02T20:09:20+08:00",
+                            "location": "巴黎埃菲尔铁塔周边",
+                            "photo_ids": ["photo_001"],
+                            "original_image_ids": ["photo_001"],
+                            "confidence": 0.92,
+                        }
+                    ],
+                    "observations": [],
+                    "claims": [],
+                    "relationship_hypotheses": [],
+                    "profile_deltas": [],
+                    "uncertainty": [],
+                }
+            raise json.JSONDecodeError("Unterminated string starting at", '{"facts":[', 10)
+
+        processor._call_with_retries = fake_call_with_retries
+        processor._call_json_prompt = fake_call_json_prompt
+
+        result = processor._call_json_prompt_with_compact_retry(
+            primary_prompt="standard slice prompt",
+            compact_prompt_builder=lambda: "紧凑恢复模式 compact slice prompt",
+            salvage_builder=None,
+            salvage_stage="slice_contract",
+        )
+
+        self.assertEqual(result["facts"][0]["fact_id"], "FACT_001")
+        self.assertEqual(len(calls), 2)
+        self.assertIn("standard slice prompt", calls[0])
+        self.assertIn("紧凑恢复模式", calls[1])
 
 
 if __name__ == "__main__":
