@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import tempfile
+import time
 import unittest
+import json
 from pathlib import Path
 from unittest.mock import patch
 
@@ -211,7 +213,7 @@ class FakeFaceRecognition:
 
 
 class FakeVLMAnalyzer:
-    def __init__(self, cache_path: str):
+    def __init__(self, cache_path: str, task_version: str = ""):
         self.cache_path = cache_path
         self.results = []
 
@@ -233,21 +235,57 @@ class FakeVLMAnalyzer:
             "key_objects": ["table"],
         }
 
+    def analyze_photo_with_metadata(self, photo, face_db, primary_person_id):
+        result = self.analyze_photo(photo, face_db, primary_person_id)
+        return result, {"retry_count": 0, "runtime_seconds": 0.01}
+
+    def build_result_entry(self, photo, result):
+        return {
+            "photo_id": photo.photo_id,
+            "filename": photo.filename,
+            "timestamp": photo.timestamp.isoformat(),
+            "location": photo.location,
+            "face_person_ids": [face["person_id"] for face in photo.faces],
+            "vlm_analysis": result,
+        }
+
+    def replace_results(self, ordered_results):
+        self.results = list(ordered_results)
+
+    def save_cache(self):
+        Path(self.cache_path).parent.mkdir(parents=True, exist_ok=True)
+        Path(self.cache_path).write_text(
+            json.dumps(
+                {
+                    "metadata": {"schema_version": 3, "face_id_scheme": "Person_###"},
+                    "photos": self.results,
+                },
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+
     def add_result(self, photo, result, persist: bool = False):
         photo.vlm_analysis = result
-        self.results.append(
-            {
-                "photo_id": photo.photo_id,
-                "filename": photo.filename,
-                "timestamp": photo.timestamp.isoformat(),
-                "location": photo.location,
-                "face_person_ids": [face["person_id"] for face in photo.faces],
-                "vlm_analysis": result,
-            }
-        )
+        self.results.append(self.build_result_entry(photo, result))
+
+
+class SlowOutOfOrderFakeVLMAnalyzer(FakeVLMAnalyzer):
+    def analyze_photo_with_metadata(self, photo, face_db, primary_person_id):
+        delays = {
+            "photo_001": 0.03,
+            "photo_002": 0.01,
+            "photo_003": 0.02,
+        }
+        time.sleep(delays.get(photo.photo_id, 0.0))
+        result = self.analyze_photo(photo, face_db, primary_person_id)
+        return result, {"retry_count": 0, "runtime_seconds": delays.get(photo.photo_id, 0.0) + 0.01}
 
 
 class FakeLLMProcessor:
+    def __init__(self, task_version: str = ""):
+        self.task_version = task_version
+
     def extract_memory_contract(self, vlm_results, face_db, primary_person_id, progress_callback=None):
         self.last_chunk_artifacts = {
             "photo_fact_count": len(vlm_results),
@@ -384,6 +422,9 @@ class FakeLLMProcessor:
     def profile_markdown_from_memory_contract(self, memory_contract, primary_person_id):
         return "# Profile\n\n- enjoys hosting friends at home"
 
+    def generate_profile(self, facts, relationships, primary_person_id):
+        return self.profile_markdown_from_memory_contract({}, primary_person_id)
+
 
 class PipelineMemoryTests(unittest.TestCase):
     def test_task_pipeline_runs_to_memory_output(self) -> None:
@@ -429,6 +470,56 @@ class PipelineMemoryTests(unittest.TestCase):
             self.assertTrue((task_dir / "output" / "memory" / "memory_storage.json").exists())
             self.assertTrue((task_dir / "output" / "memory_contract.json").exists())
             self.assertTrue((task_dir / "output" / "llm_chunks.json").exists())
+
+    def test_vlm_parallel_execution_preserves_result_and_cache_order(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            task_dir = Path(tmpdir)
+            uploads_dir = task_dir / "uploads"
+            uploads_dir.mkdir(parents=True, exist_ok=True)
+            for name in ("a.jpg", "b.jpg", "c.jpg"):
+                (uploads_dir / name).write_bytes(b"stub")
+
+            progress_events = []
+
+            with patch("services.pipeline_service.ImageProcessor", FakeImageProcessor), patch(
+                "services.pipeline_service.FaceRecognition", FakeFaceRecognition
+            ), patch("services.pipeline_service.VLMAnalyzer", SlowOutOfOrderFakeVLMAnalyzer), patch(
+                "services.pipeline_service.LLMProcessor", FakeLLMProcessor
+            ), patch("services.pipeline_service.VLM_MAX_CONCURRENCY", 3), patch(
+                "services.pipeline_service.VLM_CACHE_FLUSH_EVERY_N", 1
+            ), patch(
+                "services.pipeline_service.VLM_CACHE_FLUSH_INTERVAL_SECONDS", 1
+            ):
+                from services.pipeline_service import MemoryPipelineService
+
+                service = MemoryPipelineService(
+                    task_id="task_pipeline_vlm_order",
+                    task_dir=str(task_dir),
+                    asset_store=FakeAssetStore(),
+                    user_id="user_pipeline",
+                    face_review_store=FakeFaceReviewStore(),
+                    task_version="v0317",
+                )
+                result = service.run(
+                    max_photos=3,
+                    use_cache=False,
+                    progress_callback=lambda stage, payload: progress_events.append((stage, payload)),
+                )
+
+            result_photo_ids = [item["photo_id"] for item in result["memory"]["transparency"]["vlm_stage"]["summaries"]]
+            self.assertEqual(result_photo_ids[:3], ["photo_001", "photo_002", "photo_003"])
+
+            cache_payload = json.loads((task_dir / "cache" / "vlm_cache.json").read_text(encoding="utf-8"))
+            cache_photo_ids = [item["photo_id"] for item in cache_payload["photos"]]
+            self.assertEqual(cache_photo_ids, ["photo_001", "photo_002", "photo_003"])
+
+            final_vlm_payload = [payload for stage, payload in progress_events if stage == "vlm"][-1]
+            self.assertTrue(final_vlm_payload["order_invariant_verified"])
+            self.assertEqual(final_vlm_payload["concurrency"], 3)
+            self.assertGreaterEqual(final_vlm_payload["flush_count"], 1)
+            self.assertIn("queued", final_vlm_payload)
+            self.assertIn("in_flight", final_vlm_payload)
+            self.assertIn("avg_latency_seconds", final_vlm_payload)
 
     def test_pre_v0317_pipeline_stops_after_face_recognition(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

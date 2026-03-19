@@ -59,6 +59,7 @@ class VLMAnalyzer:
         self.results: List[Dict[str, Any]] = []
         self._result_index: Dict[str, int] = {}
         self.requests = None
+        self.http_session = None
         self.genai = None
         self.types = None
         self.bedrock_client = None
@@ -72,6 +73,7 @@ class VLMAnalyzer:
             except ModuleNotFoundError:
                 requests = None
             self.requests = requests
+            self.http_session = self._build_http_session(requests)
             self.proxy_url = API_PROXY_URL
             self.proxy_key = API_PROXY_KEY
             self.proxy_model = API_PROXY_MODEL
@@ -82,6 +84,7 @@ class VLMAnalyzer:
             except ModuleNotFoundError:
                 requests = None
             self.requests = requests
+            self.http_session = self._build_http_session(requests)
             self.openrouter_api_key = OPENROUTER_API_KEY or GEMINI_API_KEY
             if not self.openrouter_api_key:
                 raise ValueError("使用 OpenRouter 需要配置 OPENROUTER_API_KEY 或 GEMINI_API_KEY")
@@ -111,6 +114,20 @@ class VLMAnalyzer:
             self.types = types
             self.client = genai.Client(api_key=GEMINI_API_KEY)
             print("[VLM] 使用官方 Gemini API")
+
+    def _build_http_session(self, requests_module):
+        if requests_module is None:
+            return None
+        session = requests_module.Session()
+        try:
+            from requests.adapters import HTTPAdapter
+
+            adapter = HTTPAdapter(pool_connections=16, pool_maxsize=16, max_retries=0)
+            session.mount("https://", adapter)
+            session.mount("http://", adapter)
+        except Exception:
+            pass
+        return session
 
     def _coerce_text_content(self, content: Any) -> str:
         if isinstance(content, str):
@@ -230,14 +247,33 @@ class VLMAnalyzer:
         return top_person_id
 
     def analyze_photo(self, photo: Photo, face_db: Dict, primary_person_id: str = None) -> Dict[str, Any] | None:
+        result, _metadata = self.analyze_photo_with_metadata(photo, face_db, primary_person_id)
+        return result
+
+    def analyze_photo_with_metadata(
+        self,
+        photo: Photo,
+        face_db: Dict,
+        primary_person_id: str = None,
+    ) -> tuple[Dict[str, Any] | None, Dict[str, Any]]:
         image_path = (
             getattr(photo, "boxed_path", None)
             or getattr(photo, "annotated_path", None)
             or photo.compressed_path
         )
+        started_at = time.perf_counter()
+        metadata: Dict[str, Any] = {
+            "photo_id": photo.photo_id,
+            "retry_count": 0,
+            "runtime_seconds": 0.0,
+            "provider": self.provider,
+            "model": self.model,
+        }
         if not image_path:
             photo.processing_errors["vlm"] = "未找到可供 VLM 分析的图片路径"
-            return None
+            metadata["runtime_seconds"] = round(time.perf_counter() - started_at, 4)
+            metadata["error"] = photo.processing_errors["vlm"]
+            return None, metadata
 
         if primary_person_id is None:
             primary_person_id = self._infer_reliable_primary_person_id(face_db)
@@ -263,6 +299,7 @@ class VLMAnalyzer:
                 except Exception as exc:
                     if attempt == MAX_RETRIES - 1 or not self._is_retryable_error(exc):
                         raise
+                    metadata["retry_count"] += 1
                     delay_seconds = RETRY_DELAY * (2 ** attempt)
                     print(f"[VLM] 可重试错误，{delay_seconds}s 后重试 ({attempt + 1}/{MAX_RETRIES}): {exc}")
                     time.sleep(delay_seconds)
@@ -270,11 +307,16 @@ class VLMAnalyzer:
             normalized = self._normalize_result(result)
             photo.vlm_analysis = normalized
             photo.processing_errors.pop("vlm", None)
-            return normalized
+            metadata["runtime_seconds"] = round(time.perf_counter() - started_at, 4)
+            metadata["model"] = self.model
+            return normalized, metadata
         except Exception as exc:
             photo.processing_errors["vlm"] = str(exc)
             print(f"警告：VLM分析失败 ({photo.filename}): {exc}")
-            return None
+            metadata["runtime_seconds"] = round(time.perf_counter() - started_at, 4)
+            metadata["model"] = self.model
+            metadata["error"] = str(exc)
+            return None, metadata
 
     def _guess_mime_type(self, image_path: str) -> str:
         guessed, _ = mimetypes.guess_type(image_path)
@@ -343,7 +385,8 @@ class VLMAnalyzer:
             ]
         }
         url = f"{self.proxy_url}/api/gemini/v1beta/models/{self.proxy_model}:generateContent"
-        response = self.requests.post(url, json=payload, headers=headers, timeout=60)
+        client = self.http_session or self.requests
+        response = client.post(url, json=payload, headers=headers, timeout=60)
         if response.status_code == 200:
             response_data = response.json()
             if "candidates" in response_data and response_data["candidates"]:
@@ -403,7 +446,8 @@ class VLMAnalyzer:
             "temperature": 0.1,
         }
 
-        response = self.requests.post(
+        client = self.http_session or self.requests
+        response = client.post(
             f"{self.openrouter_base_url}/chat/completions",
             json=payload,
             headers=self._openrouter_headers(),
@@ -422,6 +466,21 @@ class VLMAnalyzer:
             except Exception:
                 error_msg += f": {response.text[:200]}"
         raise Exception(error_msg)
+
+    def build_result_entry(self, photo: Photo, vlm_result: Dict[str, Any]) -> Dict[str, Any]:
+        normalized = self._normalize_result(vlm_result)
+        return {
+            "photo_id": photo.photo_id,
+            "filename": photo.filename,
+            "timestamp": photo.timestamp.isoformat(),
+            "location": photo.location,
+            "face_person_ids": [face["person_id"] for face in photo.faces if face.get("person_id")],
+            "vlm_analysis": normalized,
+        }
+
+    def replace_results(self, ordered_results: List[Dict[str, Any]]) -> None:
+        self.results = list(ordered_results)
+        self._rebuild_result_index()
 
     def _create_prompt(self, photo: Photo, face_db: Dict, primary_person_id: Optional[str]) -> str:
         if self.use_heavy_prompt:
@@ -703,15 +762,7 @@ class VLMAnalyzer:
         return self.results[index]
 
     def add_result(self, photo: Photo, vlm_result: Dict[str, Any], persist: bool = False) -> None:
-        normalized = self._normalize_result(vlm_result)
-        result = {
-            "photo_id": photo.photo_id,
-            "filename": photo.filename,
-            "timestamp": photo.timestamp.isoformat(),
-            "location": photo.location,
-            "face_person_ids": [face["person_id"] for face in photo.faces if face.get("person_id")],
-            "vlm_analysis": normalized,
-        }
+        result = self.build_result_entry(photo, vlm_result)
         existing_index = self._result_index.get(photo.photo_id)
         if existing_index is not None:
             self.results[existing_index] = result

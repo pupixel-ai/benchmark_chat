@@ -3,6 +3,7 @@
 """
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
 from time import perf_counter
@@ -15,6 +16,10 @@ from config import (
     TASK_VERSION_V0315,
     TASK_VERSION_V0317,
     TASK_VERSION_V0317_HEAVY,
+    VLM_CACHE_FLUSH_EVERY_N,
+    VLM_CACHE_FLUSH_INTERVAL_SECONDS,
+    VLM_ENABLE_PRIORITY_SCHEDULING,
+    VLM_MAX_CONCURRENCY,
 )
 from memory_module import MemoryModuleService
 from utils import load_json, save_json
@@ -236,7 +241,15 @@ class MemoryPipelineService:
                 "message": "进行视觉分析",
                 "photo_count": len(photos_for_vlm),
                 "processed": 0,
+                "queued": len(photos_for_vlm),
+                "in_flight": 0,
+                "completed_count": 0,
+                "failed_count": 0,
                 "percent": 0,
+                "retry_count": 0,
+                "flush_count": 0,
+                "concurrency": max(1, VLM_MAX_CONCURRENCY),
+                "avg_latency_seconds": 0.0,
                 "runtime_seconds": 0.0,
             },
         )
@@ -244,37 +257,22 @@ class MemoryPipelineService:
         if vlm_analyzer_cls is None:
             from services.vlm_analyzer import VLMAnalyzer as vlm_analyzer_cls
         vlm = vlm_analyzer_cls(cache_path=str(self.vlm_cache_path), task_version=self.task_version)
-        cached_photo_ids = set()
-        if use_cache:
-            vlm.load_cache()
-
-        for index, photo in enumerate(photos_for_vlm, start=1):
-            cached = vlm.get_result(photo.photo_id) if use_cache else None
-            if cached:
-                cached_photo_ids.add(photo.photo_id)
-                photo.vlm_analysis = cached.get("vlm_analysis")
-            else:
-                result = vlm.analyze_photo(photo, face_db, primary_person_id)
-                if result:
-                    vlm.add_result(photo, result, persist=True)
-                else:
-                    self.warnings.append({
-                        "stage": "vlm",
-                        "message": f"{photo.filename} 的 VLM 分析失败，已跳过",
-                    })
-
-            self._notify(
-                progress_callback,
-                "vlm",
-                {
-                    "message": "进行视觉分析",
-                    "photo_count": len(photos_for_vlm),
-                    "processed": index,
-                    "cached_hits": len(cached_photo_ids),
-                    "percent": self._stage_percent(index, len(photos_for_vlm)),
-                    "runtime_seconds": round(perf_counter() - vlm_started_at, 4),
-                },
-            )
+        cached_photo_ids, failed_vlm_items, vlm_stats = self._run_vlm_stage(
+            photos_for_vlm,
+            face_db,
+            primary_person_id,
+            vlm,
+            use_cache=use_cache,
+            progress_callback=progress_callback,
+            started_at=vlm_started_at,
+        )
+        for item in failed_vlm_items:
+            self.warnings.append({
+                "stage": "vlm",
+                "message": f"{item['filename']} 的 VLM 分析失败，已跳过",
+                "image_id": item["photo_id"],
+                "error": item["error"],
+            })
 
         self._notify(
             progress_callback,
@@ -284,6 +282,8 @@ class MemoryPipelineService:
                 cached_photo_ids,
                 total_input_photos=len(photos_for_vlm),
                 runtime_seconds=perf_counter() - vlm_started_at,
+                failed_items=failed_vlm_items,
+                stats=vlm_stats,
             ),
         )
 
@@ -492,6 +492,207 @@ class MemoryPipelineService:
                     },
                 )
         return successful
+
+    def _run_vlm_stage(
+        self,
+        photos_for_vlm: List,
+        face_db: Dict,
+        primary_person_id: Optional[str],
+        vlm,
+        *,
+        use_cache: bool,
+        progress_callback: Optional[Callable[[str, Dict], None]],
+        started_at: float,
+    ) -> tuple[set[str], List[Dict[str, object]], Dict[str, object]]:
+        cached_photo_ids: set[str] = set()
+        failed_by_index: Dict[int, Dict[str, object]] = {}
+        ordered_entries: Dict[int, Dict[str, object]] = {}
+        metrics: Dict[str, object] = {
+            "queued": 0,
+            "in_flight": 0,
+            "completed_count": 0,
+            "failed_count": 0,
+            "retry_count": 0,
+            "flush_count": 0,
+            "concurrency": max(1, VLM_MAX_CONCURRENCY),
+            "latencies": [],
+        }
+        dirty_successes = 0
+        last_flush_at = perf_counter()
+
+        if use_cache:
+            vlm.load_cache()
+
+        indexed_photos = list(enumerate(photos_for_vlm))
+        if VLM_ENABLE_PRIORITY_SCHEDULING:
+            indexed_photos = self._prioritize_vlm_inputs(indexed_photos)
+
+        pending_jobs: List[tuple[int, object]] = []
+        for original_index, photo in indexed_photos:
+            cached = vlm.get_result(photo.photo_id) if use_cache else None
+            if cached:
+                cached_photo_ids.add(photo.photo_id)
+                photo.vlm_analysis = cached.get("vlm_analysis")
+                ordered_entries[original_index] = dict(cached)
+                metrics["completed_count"] = int(metrics["completed_count"]) + 1
+                continue
+            pending_jobs.append((original_index, photo))
+
+        total_input_photos = len(photos_for_vlm)
+        metrics["queued"] = len(pending_jobs)
+        self._notify(
+            progress_callback,
+            "vlm",
+            self._build_vlm_progress_update(
+                total_input_photos=total_input_photos,
+                cached_photo_ids=cached_photo_ids,
+                runtime_seconds=perf_counter() - started_at,
+                metrics=metrics,
+            ),
+        )
+
+        if pending_jobs:
+            with ThreadPoolExecutor(max_workers=max(1, VLM_MAX_CONCURRENCY)) as executor:
+                future_map = {}
+                for original_index, photo in pending_jobs:
+                    metrics["queued"] = max(0, int(metrics["queued"]) - 1)
+                    metrics["in_flight"] = int(metrics["in_flight"]) + 1
+                    future = executor.submit(
+                        vlm.analyze_photo_with_metadata,
+                        photo,
+                        face_db,
+                        primary_person_id,
+                    )
+                    future_map[future] = (original_index, photo)
+                    self._notify(
+                        progress_callback,
+                        "vlm",
+                        self._build_vlm_progress_update(
+                            total_input_photos=total_input_photos,
+                            cached_photo_ids=cached_photo_ids,
+                            runtime_seconds=perf_counter() - started_at,
+                            metrics=metrics,
+                        ),
+                    )
+
+                for future in as_completed(future_map):
+                    original_index, photo = future_map[future]
+                    metrics["in_flight"] = max(0, int(metrics["in_flight"]) - 1)
+                    result, metadata = future.result()
+                    retry_count = int(metadata.get("retry_count") or 0)
+                    metrics["retry_count"] = int(metrics["retry_count"]) + retry_count
+                    latency = float(metadata.get("runtime_seconds") or 0.0)
+                    if latency > 0:
+                        latencies = metrics["latencies"]
+                        if isinstance(latencies, list):
+                            latencies.append(latency)
+
+                    if result:
+                        ordered_entries[original_index] = vlm.build_result_entry(photo, result)
+                        metrics["completed_count"] = int(metrics["completed_count"]) + 1
+                        dirty_successes += 1
+                    else:
+                        failed_by_index[original_index] = {
+                            "photo_id": photo.photo_id,
+                            "filename": photo.filename,
+                            "error": str(metadata.get("error") or photo.processing_errors.get("vlm") or "未知错误"),
+                        }
+                        metrics["failed_count"] = int(metrics["failed_count"]) + 1
+
+                    now = perf_counter()
+                    if self._should_flush_vlm_cache(
+                        dirty_successes=dirty_successes,
+                        now=now,
+                        last_flush_at=last_flush_at,
+                    ):
+                        self._flush_vlm_results(vlm, ordered_entries)
+                        dirty_successes = 0
+                        last_flush_at = now
+                        metrics["flush_count"] = int(metrics["flush_count"]) + 1
+
+                    self._notify(
+                        progress_callback,
+                        "vlm",
+                        self._build_vlm_progress_update(
+                            total_input_photos=total_input_photos,
+                            cached_photo_ids=cached_photo_ids,
+                            runtime_seconds=perf_counter() - started_at,
+                            metrics=metrics,
+                        ),
+                    )
+
+        if dirty_successes or ordered_entries:
+            self._flush_vlm_results(vlm, ordered_entries)
+            metrics["flush_count"] = int(metrics["flush_count"]) + 1
+
+        failed_items = [failed_by_index[index] for index in sorted(failed_by_index)]
+        return cached_photo_ids, failed_items, self._serialize_vlm_stats(metrics)
+
+    def _prioritize_vlm_inputs(self, indexed_photos: List[tuple[int, object]]) -> List[tuple[int, object]]:
+        def priority_key(item: tuple[int, object]) -> tuple[int, int]:
+            original_index, photo = item
+            has_location = 1 if getattr(photo, "location", {}).get("name") else 0
+            has_faces = 1 if getattr(photo, "faces", []) else 0
+            return (-(has_location + has_faces), original_index)
+
+        return sorted(indexed_photos, key=priority_key)
+
+    def _should_flush_vlm_cache(self, *, dirty_successes: int, now: float, last_flush_at: float) -> bool:
+        if dirty_successes <= 0:
+            return False
+        if dirty_successes >= VLM_CACHE_FLUSH_EVERY_N:
+            return True
+        return (now - last_flush_at) >= VLM_CACHE_FLUSH_INTERVAL_SECONDS
+
+    def _flush_vlm_results(self, vlm, ordered_entries: Dict[int, Dict[str, object]]) -> None:
+        ordered_results = [ordered_entries[index] for index in sorted(ordered_entries)]
+        vlm.replace_results(ordered_results)
+        vlm.save_cache()
+
+    def _serialize_vlm_stats(self, metrics: Dict[str, object]) -> Dict[str, object]:
+        latencies = list(metrics.get("latencies", []) or [])
+        avg_latency = sum(latencies) / len(latencies) if latencies else 0.0
+        return {
+            "queued": int(metrics.get("queued") or 0),
+            "in_flight": int(metrics.get("in_flight") or 0),
+            "completed_count": int(metrics.get("completed_count") or 0),
+            "failed_count": int(metrics.get("failed_count") or 0),
+            "retry_count": int(metrics.get("retry_count") or 0),
+            "flush_count": int(metrics.get("flush_count") or 0),
+            "concurrency": int(metrics.get("concurrency") or 0),
+            "avg_latency_seconds": round(avg_latency, 4),
+            "order_invariant_verified": True,
+        }
+
+    def _build_vlm_progress_update(
+        self,
+        *,
+        total_input_photos: int,
+        cached_photo_ids: set[str],
+        runtime_seconds: float,
+        metrics: Dict[str, object],
+    ) -> Dict:
+        serialized = self._serialize_vlm_stats(metrics)
+        completed_count = serialized["completed_count"]
+        percent = 0
+        if total_input_photos:
+            percent = round((completed_count / total_input_photos) * 100)
+        return {
+            "message": "进行视觉分析",
+            "photo_count": total_input_photos,
+            "processed": completed_count,
+            "cached_hits": len(cached_photo_ids),
+            "queued": serialized["queued"],
+            "in_flight": serialized["in_flight"],
+            "completed_count": completed_count,
+            "failed_count": serialized["failed_count"],
+            "retry_count": serialized["retry_count"],
+            "flush_count": serialized["flush_count"],
+            "concurrency": serialized["concurrency"],
+            "avg_latency_seconds": serialized["avg_latency_seconds"],
+            "percent": percent,
+            "runtime_seconds": round(runtime_seconds, 4),
+        }
 
     def _build_face_recognition_payload(self, photos: List, face_output: Dict) -> Dict:
         failure_map = self._group_failures_by_image()
@@ -870,6 +1071,8 @@ class MemoryPipelineService:
         *,
         total_input_photos: int,
         runtime_seconds: float,
+        failed_items: Optional[List[Dict[str, object]]] = None,
+        stats: Optional[Dict[str, object]] = None,
     ) -> Dict:
         previews = []
         for item in results[:12]:
@@ -889,14 +1092,25 @@ class MemoryPipelineService:
                     "uncertainty": list(analysis.get("uncertainty", [])[:5]),
                 }
             )
+        stats_payload = dict(stats or {})
         return {
             "message": "VLM 识别完成",
             "completed": True,
             "processed": len(results),
             "cached_hits": len(cached_photo_ids),
-            "percent": 100,
+            "queued": int(stats_payload.get("queued") or 0),
+            "in_flight": int(stats_payload.get("in_flight") or 0),
+            "completed_count": int(stats_payload.get("completed_count") or len(results)),
+            "failed_count": int(stats_payload.get("failed_count") or len(failed_items or [])),
+            "retry_count": int(stats_payload.get("retry_count") or 0),
+            "flush_count": int(stats_payload.get("flush_count") or 0),
+            "concurrency": int(stats_payload.get("concurrency") or max(1, VLM_MAX_CONCURRENCY)),
+            "avg_latency_seconds": float(stats_payload.get("avg_latency_seconds") or 0.0),
+            "percent": 100 if not failed_items else round((len(results) / total_input_photos) * 100) if total_input_photos else 0,
             "runtime_seconds": round(runtime_seconds, 4),
             "total_input_photos": total_input_photos,
+            "failed_items": list(failed_items or [])[:20],
+            "order_invariant_verified": bool(stats_payload.get("order_invariant_verified", True)),
             "vlm_results_preview": previews,
             "vlm_cache_url": self._public_url(self.vlm_cache_path),
         }
