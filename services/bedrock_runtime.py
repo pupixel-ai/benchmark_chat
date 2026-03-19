@@ -29,7 +29,7 @@ def build_bedrock_client(region_name: Optional[str] = None):
         region_name=region_name or BEDROCK_REGION,
         config=BotoConfig(
             read_timeout=timeout,
-            connect_timeout=min(timeout, 30),
+            connect_timeout=timeout,
             retries={"max_attempts": 3, "mode": "standard"},
         ),
     )
@@ -53,7 +53,7 @@ def build_bedrock_management_client(region_name: Optional[str] = None):
         region_name=region_name or BEDROCK_REGION,
         config=BotoConfig(
             read_timeout=timeout,
-            connect_timeout=min(timeout, 30),
+            connect_timeout=timeout,
             retries={"max_attempts": 3, "mode": "standard"},
         ),
     )
@@ -129,6 +129,13 @@ def resolve_bedrock_model_candidates(
     normalized_requested = [str(value or "").strip() for value in requested_model_ids if str(value or "").strip()]
     if not normalized_requested:
         return []
+
+    # Fast path: if callers already provided explicit Bedrock inference profile ids
+    # (for example global./apac. profiles), trust them directly and skip the
+    # management catalog round-trip. This avoids slow startup or hangs before
+    # the actual model invocation on long-running resume flows.
+    if all(model_id.startswith(("global.", "apac.")) for model_id in normalized_requested):
+        return list(dict.fromkeys(normalized_requested))
 
     catalog = _bedrock_catalog(region_name or BEDROCK_REGION)
     model_ids = catalog.get("model_ids", set())

@@ -34,6 +34,28 @@ class _FakeRequests:
         return _FakeResponse(self.payload)
 
 
+class _FlakyRequests:
+    def __init__(self, sequence) -> None:
+        self.sequence = list(sequence)
+        self.calls: list[dict] = []
+
+    def post(self, url: str, json=None, headers=None, timeout=None):
+        self.calls.append(
+            {
+                "url": url,
+                "json": json,
+                "headers": headers,
+                "timeout": timeout,
+            }
+        )
+        if not self.sequence:
+            raise AssertionError("No more fake responses configured")
+        item = self.sequence.pop(0)
+        if isinstance(item, Exception):
+            raise item
+        return item
+
+
 class _FakeBedrockClient:
     def __init__(self, payload_text: str) -> None:
         self.payload_text = payload_text
@@ -96,12 +118,10 @@ class OpenRouterProviderTests(unittest.TestCase):
             LLM_PROVIDER="bedrock",
             LLM_MODEL="anthropic.claude-sonnet-4-6",
             BEDROCK_REGION="ap-southeast-1",
-        ), patch("services.llm_processor.build_bedrock_client", return_value=_FakeBedrockClient(payload_text)), patch(
-            "services.llm_processor.resolve_bedrock_model_candidates",
-            return_value=["anthropic.claude-sonnet-4-6"],
         ):
-            processor = LLMProcessor()
-            result = processor._call_llm_via_bedrock("只返回 JSON")
+            with patch("services.llm_processor.build_bedrock_client", return_value=_FakeBedrockClient(payload_text)):
+                processor = LLMProcessor()
+                result = processor._call_llm_via_bedrock("只返回 JSON")
 
         self.assertEqual(result["facts"], [])
         self.assertEqual(result["observations"], [])
@@ -156,7 +176,7 @@ class OpenRouterProviderTests(unittest.TestCase):
             OPENROUTER_BASE_URL="https://openrouter.ai/api/v1",
             OPENROUTER_SITE_URL="http://localhost:8000",
             OPENROUTER_APP_NAME="Memory Engineering Test",
-            OPENROUTER_LLM_MODEL="minimax/minimax-m2.7",
+            OPENROUTER_LLM_MODEL="minimax/minimax-m2.5",
             GEMINI_API_KEY="",
         ):
             processor = LLMProcessor()
@@ -192,6 +212,76 @@ class OpenRouterProviderTests(unittest.TestCase):
         self.assertEqual(profile_result, "# Markdown Profile\n\nOK")
         self.assertEqual(json_requests.calls[0]["json"]["messages"][0]["content"], "只返回 JSON")
         self.assertEqual(markdown_requests.calls[0]["json"]["messages"][0]["content"], "输出 Markdown")
+
+    def test_llm_openrouter_retries_premature_response(self) -> None:
+        with patch.multiple(
+            "services.llm_processor",
+            LLM_PROVIDER="openrouter",
+            OPENROUTER_API_KEY="test-openrouter-key",
+            OPENROUTER_BASE_URL="https://openrouter.ai/api/v1",
+            OPENROUTER_SITE_URL="http://localhost:8000",
+            OPENROUTER_APP_NAME="Memory Engineering Test",
+            OPENROUTER_LLM_MODEL="minimax/minimax-m2.5",
+            GEMINI_API_KEY="",
+        ):
+            processor = LLMProcessor()
+            processor.requests = _FlakyRequests(
+                [
+                    RuntimeError("Response ended prematurely"),
+                    _FakeResponse(
+                        {
+                            "choices": [
+                                {
+                                    "message": {
+                                        "content": "{\"facts\": [], \"observations\": [], \"claims\": [], \"relationship_hypotheses\": [], \"profile_deltas\": [], \"uncertainty\": []}"
+                                    }
+                                }
+                            ]
+                        }
+                    ),
+                ]
+            )
+
+            result = processor._call_with_retries(lambda: processor._call_llm_via_openrouter("只返回 JSON"))
+
+        self.assertEqual(result["facts"], [])
+        self.assertEqual(len(processor.requests.calls), 2)
+
+    def test_relationship_provider_follows_main_openrouter(self) -> None:
+        with patch.multiple(
+            "services.llm_processor",
+            LLM_PROVIDER="openrouter",
+            RELATIONSHIP_FOLLOWS_MAIN_LLM=True,
+            RELATIONSHIP_PROVIDER="openrouter",
+            OPENROUTER_API_KEY="test-openrouter-key",
+            OPENROUTER_BASE_URL="https://openrouter.ai/api/v1",
+            OPENROUTER_SITE_URL="http://localhost:8000",
+            OPENROUTER_APP_NAME="Memory Engineering Test",
+            OPENROUTER_LLM_MODEL="minimax/minimax-m2.5",
+            GEMINI_API_KEY="",
+        ):
+            processor = LLMProcessor()
+            processor.requests = _FakeRequests(
+                {
+                    "choices": [
+                        {
+                            "message": {
+                                "content": "{\"relationship_type\": \"friend\", \"status\": \"stable\", \"confidence\": 0.8, \"reason\": \"ok\"}"
+                            }
+                        }
+                    ]
+                }
+            )
+
+            result = processor._call_relationship_prompt("relationship prompt")
+
+        self.assertEqual(processor.relationship_provider, "openrouter")
+        self.assertEqual(result["relationship_type"], "friend")
+
+    def test_retryable_error_detects_premature_openrouter_response(self) -> None:
+        processor = LLMProcessor.__new__(LLMProcessor)
+        self.assertTrue(processor._is_retryable_error(RuntimeError("Response ended prematurely")))
+        self.assertTrue(processor._is_retryable_error(RuntimeError("OpenRouter 返回状态码 502: bad gateway")))
 
 
 if __name__ == "__main__":

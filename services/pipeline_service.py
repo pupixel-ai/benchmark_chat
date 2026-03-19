@@ -3,6 +3,7 @@
 """
 from __future__ import annotations
 
+import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
@@ -113,6 +114,9 @@ class MemoryPipelineService:
         self.dedupe_report_path = self.cache_dir / "dedupe_report.json"
         self.llm_contract_path = self.output_dir / "memory_contract.json"
         self.llm_chunks_path = self.output_dir / "llm_chunks.json"
+        self.llm_slice_contracts_path = self.output_dir / "slice_contracts.jsonl"
+        self.llm_event_merges_path = self.output_dir / "event_merges.jsonl"
+        self.llm_pre_relationship_contract_path = self.output_dir / "pre_relationship_contract.json"
         self.profile_report_path = self.output_dir / "user_profile_report.md"
 
     def run(
@@ -307,6 +311,7 @@ class MemoryPipelineService:
                 "llm",
                 {
                     "message": "提取事实、关系与画像",
+                    "substage": "slice_contract",
                     "processed_slices": 0,
                     "slice_count": 0,
                     "processed_events": 0,
@@ -329,12 +334,20 @@ class MemoryPipelineService:
             except Exception:
                 llm_chunk_artifacts = dict(getattr(llm, "last_chunk_artifacts", {}) or {})
                 partial_contract = dict(getattr(llm, "last_memory_contract", {}) or {})
+                self._persist_llm_intermediate_outputs(
+                    llm_chunk_artifacts=llm_chunk_artifacts,
+                    partial_contract=partial_contract,
+                )
                 if llm_chunk_artifacts:
                     save_json(llm_chunk_artifacts, str(self.llm_chunks_path))
                 if partial_contract:
                     save_json(partial_contract, str(self.llm_contract_path))
                 raise
             llm_chunk_artifacts = dict(getattr(llm, "last_chunk_artifacts", {}) or {})
+            self._persist_llm_intermediate_outputs(
+                llm_chunk_artifacts=llm_chunk_artifacts,
+                partial_contract=memory_contract,
+            )
             save_json(memory_contract, str(self.llm_contract_path))
             save_json(llm_chunk_artifacts, str(self.llm_chunks_path))
             facts = llm.facts_from_memory_contract(memory_contract)
@@ -344,11 +357,14 @@ class MemoryPipelineService:
                 "llm",
                 {
                     "message": "LLM 用户画像生成中",
+                    "substage": "profile_materialization",
                     "processed_slices": llm_chunk_artifacts.get("slice_count", 0),
                     "slice_count": llm_chunk_artifacts.get("slice_count", 0),
                     "processed_events": llm_chunk_artifacts.get("raw_event_count", 0),
                     "event_count": llm_chunk_artifacts.get("raw_event_count", 0),
                     "percent": 99,
+                    "provider": getattr(llm, "provider", None),
+                    "model": getattr(llm, "model", None),
                     "runtime_seconds": round(perf_counter() - llm_started_at, 4),
                 },
             )
@@ -453,6 +469,9 @@ class MemoryPipelineService:
         detailed_output["artifacts"]["dedupe_report_url"] = self._public_url(self.dedupe_report_path) if self.dedupe_report_path.exists() else None
         detailed_output["artifacts"]["memory_contract_url"] = self._public_url(self.llm_contract_path) if self.llm_contract_path.exists() else None
         detailed_output["artifacts"]["llm_chunks_url"] = self._public_url(self.llm_chunks_path) if self.llm_chunks_path.exists() else None
+        detailed_output["artifacts"]["slice_contracts_url"] = self._public_url(self.llm_slice_contracts_path) if self.llm_slice_contracts_path.exists() else None
+        detailed_output["artifacts"]["event_merges_url"] = self._public_url(self.llm_event_merges_path) if self.llm_event_merges_path.exists() else None
+        detailed_output["artifacts"]["pre_relationship_contract_url"] = self._public_url(self.llm_pre_relationship_contract_path) if self.llm_pre_relationship_contract_path.exists() else None
         detailed_output["artifacts"]["profile_report_url"] = self._public_url(self.profile_report_path) if self.profile_report_path.exists() else None
         for artifact_key, artifact_value in memory.get("artifacts", {}).items():
             if artifact_key.endswith("_url"):
@@ -1134,14 +1153,42 @@ class MemoryPipelineService:
         return {
             "message": "LLM 改写完成",
             "completed": True,
+            "substage": "completed",
             "percent": 100,
             "runtime_seconds": round(runtime_seconds, 4),
             "memory_contract_preview": contract_preview,
             "profile_markdown_preview": profile_markdown[:4000] if profile_markdown else "",
             "memory_contract_url": self._public_url(self.llm_contract_path) if self.llm_contract_path.exists() else None,
             "llm_chunks_url": self._public_url(self.llm_chunks_path) if self.llm_chunks_path.exists() else None,
+            "slice_contracts_url": self._public_url(self.llm_slice_contracts_path) if self.llm_slice_contracts_path.exists() else None,
+            "event_merges_url": self._public_url(self.llm_event_merges_path) if self.llm_event_merges_path.exists() else None,
+            "pre_relationship_contract_url": self._public_url(self.llm_pre_relationship_contract_path) if self.llm_pre_relationship_contract_path.exists() else None,
             "llm_chunk_artifacts_preview": dict(llm_chunk_artifacts or {}),
         }
+
+    def _persist_llm_intermediate_outputs(
+        self,
+        *,
+        llm_chunk_artifacts: Dict[str, object],
+        partial_contract: Dict[str, object],
+    ) -> None:
+        slice_records = list(llm_chunk_artifacts.get("slice_contract_records", []) or [])
+        if slice_records:
+            self._write_jsonl(self.llm_slice_contracts_path, slice_records)
+        event_merges = list(llm_chunk_artifacts.get("event_merge_records", []) or [])
+        if event_merges:
+            self._write_jsonl(self.llm_event_merges_path, event_merges)
+        pre_relationship_contract = llm_chunk_artifacts.get("pre_relationship_contract")
+        if isinstance(pre_relationship_contract, dict) and pre_relationship_contract:
+            save_json(pre_relationship_contract, str(self.llm_pre_relationship_contract_path))
+        elif partial_contract:
+            save_json(partial_contract, str(self.llm_pre_relationship_contract_path))
+
+    def _write_jsonl(self, path: Path, records: List[Dict[str, object]]) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("w", encoding="utf-8") as handle:
+            for item in records:
+                handle.write(f"{json.dumps(item, ensure_ascii=False)}\n")
 
     def _build_memory_stage_progress(self, memory: Dict[str, object], *, runtime_seconds: float) -> Dict:
         storage = dict(memory.get("storage", {}) or {})

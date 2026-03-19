@@ -6,7 +6,9 @@ from __future__ import annotations
 import json
 import re
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from collections import Counter, defaultdict
+from copy import deepcopy
 from datetime import datetime
 from math import asin, cos, radians, sin, sqrt
 from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence
@@ -46,6 +48,14 @@ from config import (
     OPENROUTER_BASE_URL,
     OPENROUTER_LLM_MODEL,
     OPENROUTER_SITE_URL,
+    RELATIONSHIP_FOLLOWS_MAIN_LLM,
+    RELATIONSHIP_MAX_CONCURRENCY,
+    RELATIONSHIP_MAX_RETRIES,
+    RELATIONSHIP_MIN_CO_OCCURRENCE,
+    RELATIONSHIP_MIN_DISTINCT_DAYS,
+    RELATIONSHIP_MIN_INTIMACY_SCORE,
+    RELATIONSHIP_PROVIDER,
+    RELATIONSHIP_REQUEST_TIMEOUT_SECONDS,
     RETRY_DELAY,
     TASK_VERSION_V0317_HEAVY,
 )
@@ -55,7 +65,6 @@ from services.bedrock_runtime import (
     build_inference_config,
     build_text_message,
     extract_text_from_converse_response,
-    resolve_bedrock_model_candidates,
     should_try_next_bedrock_model,
 )
 
@@ -63,14 +72,24 @@ from services.bedrock_runtime import (
 class LLMProcessor:
     """Chunk-aware LLM processor with Bedrock support."""
 
+    @staticmethod
+    def _dedupe_bedrock_candidates(candidates: Sequence[str]) -> List[str]:
+        return list(dict.fromkeys(str(candidate or "").strip() for candidate in candidates if str(candidate or "").strip()))
+
     def __init__(self, task_version: str = DEFAULT_TASK_VERSION):
         self.task_version = task_version
         self.use_heavy_pipeline = self.task_version == TASK_VERSION_V0317_HEAVY
         self.provider = LLM_PROVIDER
+        self.relationship_follows_main_llm = RELATIONSHIP_FOLLOWS_MAIN_LLM
+        self.relationship_provider = RELATIONSHIP_PROVIDER if not self.relationship_follows_main_llm else self.provider
         self.use_proxy = self.provider == "proxy"
         self.use_openrouter = self.provider == "openrouter"
         self.use_bedrock = self.provider == "bedrock"
+        self.relationship_use_proxy = self.relationship_provider == "proxy"
+        self.relationship_use_openrouter = self.relationship_provider == "openrouter"
+        self.relationship_use_bedrock = self.relationship_provider == "bedrock"
         self.model = OPENROUTER_LLM_MODEL if self.use_openrouter else LLM_MODEL
+        self.relationship_model = self.model
         self.requests = None
         self.genai = None
         self.bedrock_client = None
@@ -107,13 +126,13 @@ class LLMProcessor:
             print(f"[LLM] 使用 OpenRouter: {self.model}")
         elif self.use_bedrock:
             self.bedrock_client = build_bedrock_client(BEDROCK_REGION)
-            self.bedrock_model_candidates = resolve_bedrock_model_candidates(
+            # Trust explicit configured Bedrock model/profile identifiers directly.
+            # This avoids a slow management-catalog lookup during heavy-task resume.
+            self.bedrock_model_candidates = self._dedupe_bedrock_candidates(
                 [self.model],
-                BEDROCK_REGION,
             )
-            self.relationship_bedrock_model_candidates = resolve_bedrock_model_candidates(
+            self.relationship_bedrock_model_candidates = self._dedupe_bedrock_candidates(
                 [BEDROCK_RELATIONSHIP_LLM_MODEL, BEDROCK_RELATIONSHIP_LLM_FALLBACK_MODEL],
-                BEDROCK_REGION,
             )
             if self.bedrock_model_candidates:
                 self.model = self.bedrock_model_candidates[0]
@@ -125,12 +144,31 @@ class LLMProcessor:
             self.client = genai.Client(api_key=GEMINI_API_KEY)
             print("[LLM] 使用官方 Gemini API")
 
-        if self.use_heavy_pipeline and self.bedrock_client is None:
+        if self.relationship_use_openrouter and self.requests is None:
+            try:
+                import requests
+            except ModuleNotFoundError:
+                requests = None
+            self.requests = requests
+            self.openrouter_api_key = OPENROUTER_API_KEY or GEMINI_API_KEY
+            if not self.openrouter_api_key:
+                raise ValueError("relationship 使用 OpenRouter 需要配置 OPENROUTER_API_KEY 或 GEMINI_API_KEY")
+            self.openrouter_base_url = OPENROUTER_BASE_URL.rstrip("/")
+            self.openrouter_site_url = OPENROUTER_SITE_URL
+            self.openrouter_app_name = OPENROUTER_APP_NAME
+
+        if self.relationship_use_openrouter:
+            self.relationship_model = OPENROUTER_LLM_MODEL
+        elif self.relationship_use_bedrock:
+            self.relationship_model = BEDROCK_RELATIONSHIP_LLM_MODEL
+        else:
+            self.relationship_model = self.model
+
+        if (self.use_bedrock or self.relationship_use_bedrock) and self.bedrock_client is None:
             self.bedrock_client = build_bedrock_client(BEDROCK_REGION)
-        if self.use_heavy_pipeline and not self.relationship_bedrock_model_candidates:
-            self.relationship_bedrock_model_candidates = resolve_bedrock_model_candidates(
+        if self.use_heavy_pipeline and self.relationship_use_bedrock and not self.relationship_bedrock_model_candidates:
+            self.relationship_bedrock_model_candidates = self._dedupe_bedrock_candidates(
                 [BEDROCK_RELATIONSHIP_LLM_MODEL, BEDROCK_RELATIONSHIP_LLM_FALLBACK_MODEL],
-                BEDROCK_REGION,
             )
 
     def _coerce_text_content(self, content: Any) -> str:
@@ -421,7 +459,31 @@ class LLMProcessor:
 
     def _is_retryable_error(self, exc: Exception) -> bool:
         message = str(exc).lower()
-        retry_keywords = ["429", "rate limit", "connection", "timeout", "temporarily unavailable", "reset by peer", "throttl", "too many requests"]
+        retry_keywords = [
+            "429",
+            "500",
+            "502",
+            "503",
+            "504",
+            "520",
+            "522",
+            "524",
+            "rate limit",
+            "connection",
+            "timeout",
+            "temporarily unavailable",
+            "reset by peer",
+            "throttl",
+            "too many requests",
+            "bad gateway",
+            "gateway timeout",
+            "response ended prematurely",
+            "chunkedencodingerror",
+            "incomplete read",
+            "server disconnected",
+            "remote end closed connection",
+            "connection aborted",
+        ]
         return any(keyword in message for keyword in retry_keywords)
 
     def _is_json_parse_error(self, exc: Exception) -> bool:
@@ -554,24 +616,33 @@ class LLMProcessor:
             "raw_event_count": len(raw_sessions),
             "slice_count": len(session_slices),
             "slices": [],
+            "slice_contract_records": [],
             "event_summaries": [],
+            "event_merge_records": [],
+            "pre_relationship_contract": None,
             "parse_failures": [],
         }
         self._emit_progress(
             progress_callback,
             {
                 "message": "LLM 改写中",
+                "substage": "slice_contract",
                 "processed_slices": 0,
                 "slice_count": len(session_slices),
                 "processed_events": 0,
                 "event_count": len(raw_sessions),
                 "percent": 5,
+                "provider": self._active_llm_provider(),
+                "model": self._active_llm_model(),
+                "last_success_at": None,
+                "retry_count": 0,
                 "runtime_seconds": round(time.perf_counter() - started_at, 4),
             },
         )
 
         slice_contracts = []
         slice_artifacts = []
+        slice_contract_records: List[Dict[str, Any]] = []
         slice_contracts_by_session: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
         for session_slice in session_slices:
             self._active_json_context = {
@@ -592,6 +663,14 @@ class LLMProcessor:
             normalized = self._finalize_memory_contract(response)
             slice_contracts.append(normalized)
             slice_contracts_by_session[session_slice["raw_session_id"]].append(normalized)
+            slice_contract_records.append(
+                {
+                    "slice_id": session_slice["slice_id"],
+                    "raw_event_id": session_slice["raw_session_id"],
+                    "photo_ids": list(session_slice["photo_ids"]),
+                    "contract": deepcopy(normalized),
+                }
+            )
             slice_artifacts.append(
                 {
                     "slice_id": session_slice["slice_id"],
@@ -613,21 +692,28 @@ class LLMProcessor:
                 }
             )
             self.last_chunk_artifacts["slices"] = list(slice_artifacts)
+            self.last_chunk_artifacts["slice_contract_records"] = list(slice_contract_records)
             self._emit_progress(
                 progress_callback,
                 {
                     "message": "LLM 改写中",
+                    "substage": "slice_contract",
                     "processed_slices": len(slice_artifacts),
                     "slice_count": len(session_slices),
                     "processed_events": 0,
                     "event_count": len(raw_sessions),
                     "percent": self._progress_percent(len(slice_artifacts), max(len(session_slices), 1), start=5, end=65),
+                    "provider": self._active_llm_provider(),
+                    "model": self._active_llm_model(),
+                    "last_success_at": self._iso_now(),
+                    "retry_count": len(self.last_chunk_artifacts.get("parse_failures", []) or []),
                     "runtime_seconds": round(time.perf_counter() - started_at, 4),
                 },
             )
 
         session_contracts = []
         session_artifacts = []
+        event_merge_records: List[Dict[str, Any]] = []
         for raw_session in raw_sessions:
             self._active_json_context = {
                 "stage": "session_merge",
@@ -658,6 +744,13 @@ class LLMProcessor:
             )
             normalized_session_contract = self._finalize_memory_contract(session_contract)
             session_contracts.append(normalized_session_contract)
+            event_merge_records.append(
+                {
+                    "raw_event_id": raw_session["raw_session_id"],
+                    "photo_ids": list(raw_session["photo_ids"]),
+                    "contract": deepcopy(normalized_session_contract),
+                }
+            )
             session_artifacts.append(
                 {
                     "raw_event_id": raw_session["raw_session_id"],
@@ -680,15 +773,21 @@ class LLMProcessor:
                 }
             )
             self.last_chunk_artifacts["event_summaries"] = list(session_artifacts)
+            self.last_chunk_artifacts["event_merge_records"] = list(event_merge_records)
             self._emit_progress(
                 progress_callback,
                 {
                     "message": "LLM 汇总事件窗口",
+                    "substage": "event_merge",
                     "processed_slices": len(slice_artifacts),
                     "slice_count": len(session_slices),
                     "processed_events": len(session_artifacts),
                     "event_count": len(raw_sessions),
                     "percent": self._progress_percent(len(session_artifacts), max(len(raw_sessions), 1), start=65, end=92),
+                    "provider": self._active_llm_provider(),
+                    "model": self._active_llm_model(),
+                    "last_success_at": self._iso_now(),
+                    "retry_count": len(self.last_chunk_artifacts.get("parse_failures", []) or []),
                     "runtime_seconds": round(time.perf_counter() - started_at, 4),
                 },
             )
@@ -705,11 +804,16 @@ class LLMProcessor:
             progress_callback,
             {
                 "message": "LLM 生成最终 memory contract",
+                "substage": "global_merge",
                 "processed_slices": len(slice_artifacts),
                 "slice_count": len(session_slices),
                 "processed_events": len(session_artifacts),
                 "event_count": len(raw_sessions),
                 "percent": 96,
+                "provider": self._active_llm_provider(),
+                "model": self._active_llm_model(),
+                "last_success_at": None,
+                "retry_count": len(self.last_chunk_artifacts.get("parse_failures", []) or []),
                 "runtime_seconds": round(time.perf_counter() - started_at, 4),
             },
         )
@@ -733,16 +837,26 @@ class LLMProcessor:
         )
         merge_recovered = recovered_contract is not contract
         contract = recovered_contract
+        self.last_memory_contract = deepcopy(contract)
+        self.last_chunk_artifacts["pre_relationship_contract"] = deepcopy(contract)
         if self.use_heavy_pipeline:
             self._emit_progress(
                 progress_callback,
                 {
                     "message": "LLM 关系推断中",
+                    "substage": "relationship_inference",
                     "processed_slices": len(slice_artifacts),
                     "slice_count": len(session_slices),
                     "processed_events": len(session_artifacts),
                     "event_count": len(raw_sessions),
                     "percent": 98,
+                    "provider": self._active_relationship_provider(),
+                    "model": self._active_relationship_model(),
+                    "candidate_count": 0,
+                    "filtered_count": 0,
+                    "processed_candidates": 0,
+                    "last_success_at": None,
+                    "retry_count": 0,
                     "runtime_seconds": round(time.perf_counter() - started_at, 4),
                 },
             )
@@ -750,6 +864,12 @@ class LLMProcessor:
                 contract=contract,
                 photo_facts=photo_facts,
                 primary_person_id=primary_person_id,
+                progress_callback=progress_callback,
+                llm_started_at=started_at,
+                slice_count=len(session_slices),
+                event_count=len(raw_sessions),
+                processed_events=len(session_artifacts),
+                processed_slices=len(slice_artifacts),
             )
 
         self._active_json_context = {}
@@ -763,7 +883,11 @@ class LLMProcessor:
             "slice_count": len(session_slices),
             "task_version": self.task_version,
             "merge_recovered_from_sessions": merge_recovered,
+            "relationship_provider": self._active_relationship_provider(),
             "relationship_model_candidates": list(self.relationship_bedrock_model_candidates or []),
+            "slice_contract_records": slice_contract_records,
+            "event_merge_records": event_merge_records,
+            "pre_relationship_contract": deepcopy(self.last_chunk_artifacts.get("pre_relationship_contract")),
             "bursts": [
                 {
                     "burst_id": burst["burst_id"],
@@ -1222,6 +1346,12 @@ class LLMProcessor:
         contract: Dict[str, Any],
         photo_facts: List[Dict[str, Any]],
         primary_person_id: Optional[str],
+        progress_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
+        llm_started_at: Optional[float] = None,
+        slice_count: int = 0,
+        event_count: int = 0,
+        processed_events: int = 0,
+        processed_slices: int = 0,
     ) -> List[Dict[str, Any]]:
         people = sorted(
             {
@@ -1234,23 +1364,217 @@ class LLMProcessor:
         if not people:
             return []
 
+        candidate_records: List[Dict[str, Any]] = []
         results: List[Dict[str, Any]] = []
-        for person_id in people:
+        for person_index, person_id in enumerate(people):
             evidence = self._build_relationship_evidence(
                 person_id=person_id,
                 contract=contract,
                 photo_facts=photo_facts,
                 primary_person_id=primary_person_id,
             )
-            prompt = self._create_relationship_prompt(person_id=person_id, evidence=evidence)
+            requires_llm = self._relationship_candidate_requires_llm(evidence)
+            candidate_records.append(
+                {
+                    "index": person_index,
+                    "person_id": person_id,
+                    "evidence": evidence,
+                    "requires_llm": requires_llm,
+                }
+            )
+            if not requires_llm:
+                results.append(
+                    self._co_presence_only_relationship(
+                        person_id=person_id,
+                        evidence=evidence,
+                        reason="weak evidence below relationship LLM thresholds; downgraded to co_presence_only",
+                    )
+                )
+
+        llm_candidates = [item for item in candidate_records if item["requires_llm"]]
+        self.last_chunk_artifacts["relationship_candidates"] = [
+            {
+                "person_id": item["person_id"],
+                "requires_llm": item["requires_llm"],
+                "evidence": deepcopy(item["evidence"]),
+            }
+            for item in candidate_records
+        ]
+
+        relationship_runtime_start = llm_started_at if llm_started_at is not None else time.perf_counter()
+        if llm_candidates:
+            self._preflight_relationship_provider()
+
+        processed_candidates = 0
+        relationship_retry_count = 0
+        if llm_candidates:
+            with ThreadPoolExecutor(max_workers=min(RELATIONSHIP_MAX_CONCURRENCY, len(llm_candidates))) as executor:
+                future_map = {
+                    executor.submit(
+                        self._infer_single_relationship_candidate,
+                        person_id=str(item["person_id"]),
+                        evidence=deepcopy(item["evidence"]),
+                    ): item
+                    for item in llm_candidates
+                }
+                llm_results_by_person: Dict[str, Dict[str, Any]] = {}
+                for future in as_completed(future_map):
+                    item = future_map[future]
+                    person_id = str(item["person_id"])
+                    normalized, retry_count = future.result()
+                    relationship_retry_count += int(retry_count or 0)
+                    llm_results_by_person[person_id] = normalized
+                    processed_candidates += 1
+                    self._emit_progress(
+                        progress_callback,
+                        {
+                            "message": "LLM 关系推断中",
+                            "substage": "relationship_inference",
+                            "processed_slices": processed_slices,
+                            "slice_count": slice_count,
+                            "processed_events": processed_events,
+                            "event_count": event_count,
+                            "candidate_count": len(candidate_records),
+                            "filtered_count": len(llm_candidates),
+                            "processed_candidates": processed_candidates,
+                            "current_person_id": person_id,
+                            "provider": self._active_relationship_provider(),
+                            "model": self._active_relationship_model(),
+                            "retry_count": relationship_retry_count,
+                            "last_success_at": self._iso_now(),
+                            "percent": self._progress_percent(processed_candidates, max(len(llm_candidates), 1), start=97, end=99),
+                            "runtime_seconds": round(time.perf_counter() - relationship_runtime_start, 4),
+                        },
+                    )
+                for item in llm_candidates:
+                    person_id = str(item["person_id"])
+                    normalized = llm_results_by_person.get(person_id)
+                    if normalized is not None:
+                        results.append(normalized)
+
+        results.sort(
+            key=lambda item: (
+                -float(item.get("confidence") or 0.0),
+                -len(item.get("supporting_fact_ids", []) or []),
+                str(item.get("person_id") or ""),
+            )
+        )
+        self.last_chunk_artifacts["relationship_stage"] = {
+            "provider": self._active_relationship_provider(),
+            "model": self._active_relationship_model(),
+            "candidate_count": len(candidate_records),
+            "filtered_count": len(llm_candidates),
+            "processed_candidates": processed_candidates,
+            "retry_count": relationship_retry_count,
+            "result_count": len(results),
+            "completed_at": self._iso_now(),
+        }
+        return results
+
+    def _relationship_candidate_requires_llm(self, evidence: Dict[str, Any]) -> bool:
+        if int(evidence.get("distinct_days") or 0) >= RELATIONSHIP_MIN_DISTINCT_DAYS:
+            return True
+        if int(evidence.get("co_occurrence_count") or 0) >= RELATIONSHIP_MIN_CO_OCCURRENCE:
+            return True
+        if bool(evidence.get("contact_types")):
+            return True
+        if bool(evidence.get("interaction")):
+            return True
+        if int(evidence.get("exclusive_one_on_one") or 0) > 0:
+            return True
+        return float(evidence.get("intimacy_score") or 0.0) >= RELATIONSHIP_MIN_INTIMACY_SCORE
+
+    def _co_presence_only_relationship(
+        self,
+        *,
+        person_id: str,
+        evidence: Dict[str, Any],
+        reason: str,
+    ) -> Dict[str, Any]:
+        supporting_fact_ids = [
+            str(item.get("fact_id") or "")
+            for item in evidence.get("shared_facts", [])
+            if item.get("fact_id")
+        ]
+        supporting_photo_ids = self._unique(
+            photo_id
+            for item in evidence.get("shared_facts", [])
+            for photo_id in item.get("original_image_ids", []) or []
+        )
+        confidence = round(
+            min(
+                0.45,
+                0.12
+                + (min(6, int(evidence.get("co_occurrence_count") or 0)) * 0.035)
+                + (min(3, int(evidence.get("distinct_days") or 0)) * 0.03),
+            ),
+            4,
+        )
+        return {
+            "relationship_id": f"REL_{person_id}",
+            "person_id": person_id,
+            "relationship_type": "co_presence_only",
+            "label": "co_presence_only",
+            "confidence": confidence,
+            "supporting_fact_ids": supporting_fact_ids,
+            "supporting_photo_ids": supporting_photo_ids,
+            "reason_summary": reason,
+            "reason": reason,
+            "evidence": {
+                "status": "filtered_without_llm",
+                "co_occurrence_count": evidence.get("co_occurrence_count", 0),
+                "distinct_days": evidence.get("distinct_days", 0),
+                "monthly_average": evidence.get("monthly_average", 0),
+                "intimacy_score": evidence.get("intimacy_score", 0.0),
+                "scenes": evidence.get("scenes", []),
+                "contact_types": evidence.get("contact_types", []),
+                "interaction": evidence.get("interaction", []),
+                "shared_facts": evidence.get("shared_facts", []),
+                "supporting_fact_ids": supporting_fact_ids,
+                "supporting_photo_ids": supporting_photo_ids,
+            },
+        }
+
+    def _preflight_relationship_provider(self) -> None:
+        if self.relationship_use_openrouter:
+            if not self.requests or not getattr(self, "openrouter_api_key", ""):
+                raise RuntimeError("relationship provider openrouter unavailable")
+            return
+        if self.relationship_use_bedrock:
+            if not self.bedrock_client or not (self.relationship_bedrock_model_candidates or [BEDROCK_RELATIONSHIP_LLM_MODEL]):
+                raise RuntimeError("relationship provider bedrock unavailable")
+            return
+        if self.relationship_use_proxy:
+            if not self.requests:
+                raise RuntimeError("relationship provider proxy unavailable")
+
+    def _infer_single_relationship_candidate(
+        self,
+        *,
+        person_id: str,
+        evidence: Dict[str, Any],
+    ) -> tuple[Dict[str, Any], int]:
+        prompt = self._create_relationship_prompt(person_id=person_id, evidence=evidence)
+        retry_count = 0
+        last_error: Exception | None = None
+        for attempt in range(RELATIONSHIP_MAX_RETRIES):
             try:
                 payload = self._call_relationship_prompt(prompt)
-            except Exception:
-                payload = self._call_json_prompt(prompt)
+                normalized = self._normalize_relationship_result(person_id=person_id, payload=payload, evidence=evidence)
+                return normalized, retry_count
+            except Exception as exc:
+                last_error = exc
+                if attempt == RELATIONSHIP_MAX_RETRIES - 1 or not self._is_retryable_error(exc):
+                    break
+                retry_count += 1
+                time.sleep(RETRY_DELAY * (attempt + 1))
+        if last_error is not None and self._is_json_parse_error(last_error):
+            payload = self._call_json_prompt(prompt)
             normalized = self._normalize_relationship_result(person_id=person_id, payload=payload, evidence=evidence)
-            results.append(normalized)
-        results.sort(key=lambda item: float(item.get("confidence") or 0.0), reverse=True)
-        return results
+            return normalized, retry_count
+        if last_error is not None:
+            raise last_error
+        raise RuntimeError(f"relationship inference failed for {person_id}")
 
     def _build_relationship_evidence(
         self,
@@ -1398,6 +1722,17 @@ Output JSON:
 """
 
     def _call_relationship_prompt(self, prompt: str) -> Dict[str, Any]:
+        if self.relationship_use_openrouter:
+            return self._call_llm_via_openrouter(
+                prompt,
+                model=self.relationship_model,
+                max_tokens=BEDROCK_RELATIONSHIP_MAX_OUTPUT_TOKENS,
+                timeout=(15, RELATIONSHIP_REQUEST_TIMEOUT_SECONDS),
+            )
+        if self.relationship_use_proxy:
+            return self._call_llm_via_proxy(prompt)
+        if not self.relationship_use_bedrock:
+            return self._call_json_prompt(prompt)
         if not self.bedrock_client:
             raise RuntimeError("Bedrock relationship client unavailable")
         candidates = self.relationship_bedrock_model_candidates or [BEDROCK_RELATIONSHIP_LLM_MODEL, BEDROCK_RELATIONSHIP_LLM_FALLBACK_MODEL]
@@ -1413,12 +1748,11 @@ Output JSON:
                         top_p=None,
                     ),
                 )
+                self.relationship_model = model_id
                 return self._extract_json_payload(extract_text_from_converse_response(response))
             except Exception as exc:
                 last_error = exc
                 if index < len(candidates) - 1 and should_try_next_bedrock_model(exc):
-                    continue
-                if index < len(candidates) - 1:
                     continue
                 raise
         if last_error:
@@ -2226,6 +2560,7 @@ Relationships:
         if self.use_heavy_pipeline:
             return self._create_heavy_slice_memory_prompt(evidence_packet, primary_person_id)
         primary_label = primary_person_id or "authenticated_user"
+        compact_packet = self._compact_evidence_packet_for_prompt(evidence_packet)
         return f"""你是 memory materialization LLM。你现在只处理一个 event slice，不要总结整个相册。
 
 规则：
@@ -2332,11 +2667,12 @@ Relationships:
 - `original_image_ids` 必须精确绑定原始图片 ID；没有额外来源时可与 `photo_ids` 相同。
 
 Event-scoped evidence packet:
-{json.dumps(evidence_packet, ensure_ascii=False, indent=2)}
+{json.dumps(compact_packet, ensure_ascii=False, indent=2)}
 """
 
     def _create_heavy_slice_memory_prompt(self, evidence_packet: Dict[str, Any], primary_person_id: Optional[str]) -> str:
         primary_label = primary_person_id or "authenticated_user"
+        compact_packet = self._compact_evidence_packet_for_prompt(evidence_packet)
         return f"""你是一位资深的人类学专家与社会学行为分析师。现在只分析一个切分后的事件窗口，不要跨越这个窗口做推断。
 
 目标：
@@ -2396,7 +2732,7 @@ Event-scoped evidence packet:
 }}
 
 窗口 evidence packet:
-{json.dumps(evidence_packet, ensure_ascii=False, indent=2)}
+{json.dumps(compact_packet, ensure_ascii=False, indent=2)}
 """
 
     def _compact_contract_limits(self, evidence_packet: Dict[str, Any]) -> Dict[str, int]:
@@ -2436,6 +2772,7 @@ Event-scoped evidence packet:
     def _create_compact_slice_memory_prompt(self, evidence_packet: Dict[str, Any], primary_person_id: Optional[str]) -> str:
         primary_label = primary_person_id or "authenticated_user"
         limits = self._compact_contract_limits(evidence_packet)
+        compact_packet = self._compact_evidence_packet_for_prompt(evidence_packet)
         return f"""你是 memory materialization LLM 的紧凑恢复模式。上一次该窗口输出过长或 JSON 损坏，这一次必须输出更短、更稳、更易解析的 contract。
 
 恢复原则：
@@ -2473,7 +2810,7 @@ Event-scoped evidence packet:
 - profile_deltas 只保留有明确证据引用的增量。
 
 窗口 evidence packet:
-{json.dumps(evidence_packet, ensure_ascii=False, indent=2)}
+{json.dumps(compact_packet, ensure_ascii=False, indent=2)}
 """
 
     def _salvage_slice_contract_from_evidence_packet(self, evidence_packet: Dict[str, Any]) -> Dict[str, Any]:
@@ -2615,6 +2952,157 @@ Event-scoped evidence packet:
         )
         return merged
 
+    def _compact_text_for_prompt(self, value: Any, *, limit: int = 180) -> str:
+        text = str(value or "").strip()
+        if len(text) <= limit:
+            return text
+        return f"{text[:limit].rstrip()}..."
+
+    def _compact_slice_record_for_prompt(self, record: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "slice_id": record.get("slice_id"),
+            "raw_event_id": record.get("raw_event_id"),
+            "photo_ids": list(record.get("photo_ids", [])[:12]),
+            "burst_ids": list(record.get("burst_ids", [])[:8]),
+            "overlap_burst_ids": list(record.get("overlap_burst_ids", [])[:4]),
+            "rare_clue_count": int(record.get("rare_clue_count") or 0),
+            "photo_count": int(record.get("photo_count") or 0),
+            "burst_count": int(record.get("burst_count") or 0),
+            "fact_inventory_count": int(record.get("fact_inventory_count") or 0),
+            "change_point_count": int(record.get("change_point_count") or 0),
+            "location_chain": list(record.get("location_chain", [])[:6]),
+            "dominant_person_ids": list(record.get("dominant_person_ids", [])[:6]),
+            "conflict_count": int(record.get("conflict_count") or 0),
+            "information_score": float(record.get("information_score") or 0.0),
+            "density_score": float(record.get("density_score") or 0.0),
+            "contract_counts": dict(record.get("contract_counts", {}) or {}),
+        }
+
+    def _compact_contract_for_prompt(self, contract: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "facts": [
+                {
+                    "fact_id": item.get("fact_id"),
+                    "title": item.get("title"),
+                    "coarse_event_type": item.get("coarse_event_type"),
+                    "event_facets": list(item.get("event_facets", [])[:8]),
+                    "started_at": item.get("started_at"),
+                    "ended_at": item.get("ended_at"),
+                    "location": item.get("location"),
+                    "participant_person_ids": list(item.get("participant_person_ids", [])[:8]),
+                    "original_image_ids": list(item.get("original_image_ids", item.get("photo_ids", []))[:8]),
+                    "description": self._compact_text_for_prompt(item.get("description"), limit=160),
+                    "narrative_synthesis": self._compact_text_for_prompt(item.get("narrative_synthesis"), limit=160),
+                    "confidence": item.get("confidence"),
+                }
+                for item in contract.get("facts", [])[:8]
+                if isinstance(item, dict)
+            ],
+            "observations": [
+                {
+                    "observation_id": item.get("observation_id"),
+                    "category": item.get("category"),
+                    "field_key": item.get("field_key"),
+                    "field_value": self._compact_text_for_prompt(item.get("field_value"), limit=120),
+                    "fact_id": item.get("fact_id"),
+                    "original_image_ids": list(item.get("original_image_ids", item.get("photo_ids", []))[:6]),
+                    "confidence": item.get("confidence"),
+                }
+                for item in contract.get("observations", [])[:12]
+                if isinstance(item, dict)
+            ],
+            "claims": [
+                {
+                    "claim_id": item.get("claim_id"),
+                    "claim_type": item.get("claim_type"),
+                    "predicate": item.get("predicate"),
+                    "object": self._compact_text_for_prompt(item.get("object"), limit=120),
+                    "fact_id": item.get("fact_id"),
+                    "original_image_ids": list(item.get("original_image_ids", item.get("photo_ids", []))[:6]),
+                    "confidence": item.get("confidence"),
+                }
+                for item in contract.get("claims", [])[:12]
+                if isinstance(item, dict)
+            ],
+            "relationship_hypotheses": [
+                {
+                    "person_id": item.get("person_id"),
+                    "relationship_type": item.get("relationship_type"),
+                    "confidence": item.get("confidence"),
+                    "supporting_fact_ids": list(item.get("supporting_fact_ids", [])[:6]),
+                }
+                for item in contract.get("relationship_hypotheses", [])[:6]
+                if isinstance(item, dict)
+            ],
+            "profile_deltas": [
+                {
+                    "profile_key": item.get("profile_key"),
+                    "field_key": item.get("field_key"),
+                    "field_value": self._compact_text_for_prompt(item.get("field_value"), limit=100),
+                    "confidence": item.get("confidence"),
+                }
+                for item in contract.get("profile_deltas", [])[:8]
+                if isinstance(item, dict)
+            ],
+            "uncertainty": [
+                {
+                    "field": item.get("field"),
+                    "status": item.get("status"),
+                    "reason": self._compact_text_for_prompt(item.get("reason"), limit=120),
+                }
+                for item in contract.get("uncertainty", [])[:8]
+                if isinstance(item, dict)
+            ],
+        }
+
+    def _compact_evidence_packet_for_prompt(self, evidence_packet: Dict[str, Any]) -> Dict[str, Any]:
+        fact_inventory = []
+        for item in evidence_packet.get("fact_inventory", [])[:36]:
+            if not isinstance(item, dict):
+                continue
+            fact_inventory.append(
+                {
+                    "fact_type": item.get("fact_type"),
+                    "value": self._compact_text_for_prompt(item.get("value"), limit=120),
+                    "support_count": item.get("support_count"),
+                    "photo_ids": list(item.get("photo_ids", [])[:6]),
+                    "confidence": item.get("confidence"),
+                }
+            )
+        photo_facts = []
+        for item in evidence_packet.get("photo_facts", [])[:18]:
+            if not isinstance(item, dict):
+                continue
+            photo_facts.append(
+                {
+                    "photo_id": item.get("photo_id"),
+                    "timestamp": item.get("timestamp"),
+                    "location_name": item.get("location_name"),
+                    "person_ids": list(item.get("person_ids", [])[:8]),
+                    "scene_hint": self._compact_text_for_prompt(item.get("scene_hint"), limit=80),
+                    "activity_hint": self._compact_text_for_prompt(item.get("activity_hint"), limit=80),
+                    "social_hint": self._compact_text_for_prompt(item.get("social_hint"), limit=80),
+                    "rare_clues": list(item.get("rare_clues", [])[:8]),
+                }
+            )
+        return {
+            "event_id": evidence_packet.get("event_id"),
+            "slice_id": evidence_packet.get("slice_id"),
+            "time_range": dict(evidence_packet.get("time_range", {}) or {}),
+            "location_chain": list(evidence_packet.get("location_chain", [])[:8]),
+            "dominant_person_ids": list(evidence_packet.get("dominant_person_ids", [])[:8]),
+            "burst_ids": list(evidence_packet.get("burst_ids", [])[:12]),
+            "overlap_burst_ids": list(evidence_packet.get("overlap_burst_ids", [])[:4]),
+            "fact_inventory": fact_inventory,
+            "rare_clues": list(evidence_packet.get("rare_clues", [])[:24]),
+            "change_points": list(evidence_packet.get("change_points", [])[:12]),
+            "conflicts": list(evidence_packet.get("conflicts", [])[:8]),
+            "slice_budget_metrics": dict(evidence_packet.get("slice_budget_metrics", {}) or {}),
+            "photo_refs": list(evidence_packet.get("photo_refs", [])[:24]),
+            "photo_facts": photo_facts,
+            "session_context": dict(evidence_packet.get("session_context", {}) or {}),
+        }
+
     def _create_session_merge_prompt(
         self,
         *,
@@ -2641,6 +3129,8 @@ Event-scoped evidence packet:
             "dominant_person_ids": raw_session["dominant_person_ids"],
             "continuity_decisions": raw_session["continuity_decisions"],
         }
+        compact_slice_packets = [self._compact_slice_record_for_prompt(item) for item in session_slice_records]
+        compact_slice_contracts = [self._compact_contract_for_prompt(item) for item in slice_contracts]
         return f"""你是 memory event aggregator。你会收到同一个 raw event 下多个带 overlap 的 slice memory contracts，请先在 event 内部做去重、拼接和保守确认。
 
 规则：
@@ -2654,10 +3144,10 @@ Event summary:
 {json.dumps(session_summary, ensure_ascii=False, indent=2)}
 
 Slice packets:
-{json.dumps(session_slice_records, ensure_ascii=False, indent=2)}
+{json.dumps(compact_slice_packets, ensure_ascii=False, indent=2)}
 
 Slice contracts:
-{json.dumps(slice_contracts, ensure_ascii=False, indent=2)}
+{json.dumps(compact_slice_contracts, ensure_ascii=False, indent=2)}
 """
 
     def _create_heavy_session_merge_prompt(
@@ -2678,6 +3168,8 @@ Slice contracts:
             "dominant_person_ids": raw_session["dominant_person_ids"],
             "continuity_decisions": raw_session["continuity_decisions"],
         }
+        compact_slice_packets = [self._compact_slice_record_for_prompt(item) for item in session_slice_records]
+        compact_slice_contracts = [self._compact_contract_for_prompt(item) for item in slice_contracts]
         return f"""你是 LP1 的 session 级聚合器。你会收到同一原始事件窗口下多个 slice 的输出，请只在同一 raw_session 内做去重与拼接。
 
 要求：
@@ -2695,10 +3187,10 @@ Session summary:
 {json.dumps(session_summary, ensure_ascii=False, indent=2)}
 
 Slice packets:
-{json.dumps(session_slice_records, ensure_ascii=False, indent=2)}
+{json.dumps(compact_slice_packets, ensure_ascii=False, indent=2)}
 
 Slice contracts:
-{json.dumps(slice_contracts, ensure_ascii=False, indent=2)}
+{json.dumps(compact_slice_contracts, ensure_ascii=False, indent=2)}
 """
 
     def _create_merge_prompt(
@@ -2742,6 +3234,7 @@ Slice contracts:
             for session_slice in session_slices
         ]
         primary_label = primary_person_id or "authenticated_user"
+        compact_event_contracts = [self._compact_contract_for_prompt(item) for item in session_contracts]
         return f"""你是 memory global aggregator。你会收到多个 raw event 的 event-level memory contracts，请做全局去重、合并、谨慎关系修订，并输出最终 memory contract。
 
 规则：
@@ -2760,7 +3253,7 @@ Slice contracts:
 - session_slices: {json.dumps(compact_slices, ensure_ascii=False)}
 - event_artifacts: {json.dumps(session_artifacts, ensure_ascii=False)}
 - event_contracts:
-{json.dumps(session_contracts, ensure_ascii=False, indent=2)}
+{json.dumps(compact_event_contracts, ensure_ascii=False, indent=2)}
 """
 
     def _create_heavy_merge_prompt(
@@ -2795,6 +3288,7 @@ Slice contracts:
             }
             for session_slice in session_slices
         ]
+        compact_event_contracts = [self._compact_contract_for_prompt(item) for item in session_contracts]
         return f"""你是 LP1 的全局聚合器。你的任务是把多个 session 级 contract 合并成最终 memory contract，但不能丢失 slice 中已有的有效内容。
 
 要求：
@@ -2814,7 +3308,7 @@ Slice contracts:
 - session_slices: {json.dumps(compact_slices, ensure_ascii=False)}
 - session_artifacts: {json.dumps(session_artifacts, ensure_ascii=False)}
 - session_contracts:
-{json.dumps(session_contracts, ensure_ascii=False, indent=2)}
+{json.dumps(compact_event_contracts, ensure_ascii=False, indent=2)}
 """
 
     def _empty_contract(self) -> Dict[str, Any]:
@@ -2940,6 +3434,23 @@ Slice contracts:
             return start
         ratio = min(1.0, max(0.0, processed / total))
         return int(round(start + ((end - start) * ratio)))
+
+    def _iso_now(self) -> str:
+        return datetime.now().isoformat()
+
+    def _active_llm_provider(self) -> str:
+        return self.provider
+
+    def _active_llm_model(self) -> str:
+        return self.model
+
+    def _active_relationship_provider(self) -> str:
+        return self.relationship_provider
+
+    def _active_relationship_model(self) -> str:
+        if self.relationship_use_bedrock and self.relationship_bedrock_model_candidates:
+            return self.relationship_bedrock_model_candidates[0]
+        return self.relationship_model
 
     def _legacy_time_fields(self, started_at: str, ended_at: str) -> tuple[str, str]:
         try:
@@ -3074,6 +3585,46 @@ Slice contracts:
             "X-Title": self.openrouter_app_name,
         }
 
+    def _is_retryable_openrouter_status(self, status_code: int) -> bool:
+        return status_code in {408, 409, 425, 429, 500, 502, 503, 504, 520, 522, 524}
+
+    def _build_openrouter_error(self, response) -> str:
+        error_msg = f"OpenRouter 返回状态码 {response.status_code}"
+        if response.text:
+            try:
+                error_data = response.json()
+                error_msg += f": {error_data.get('error', {}).get('message', response.text)}"
+            except Exception:
+                error_msg += f": {response.text[:200]}"
+        return error_msg
+
+    def _post_openrouter_chat_completion(
+        self,
+        payload: Dict[str, Any],
+        *,
+        timeout: tuple[int | float, int | float] = (15, 180),
+    ) -> Dict[str, Any]:
+        try:
+            response = self.requests.post(
+                f"{self.openrouter_base_url}/chat/completions",
+                json=payload,
+                headers=self._openrouter_headers(),
+                timeout=timeout,
+            )
+        except Exception as exc:
+            raise RuntimeError(f"OpenRouter 请求失败: {exc}") from exc
+
+        if response.status_code == 200:
+            try:
+                return response.json()
+            except Exception as exc:
+                raise RuntimeError(f"OpenRouter 响应解析失败: {exc}") from exc
+
+        error_msg = self._build_openrouter_error(response)
+        if self._is_retryable_openrouter_status(int(response.status_code)):
+            raise RuntimeError(error_msg)
+        raise Exception(error_msg)
+
     def _extract_openrouter_content(self, response_data: Dict[str, Any]) -> str:
         choices = response_data.get("choices", [])
         if not choices:
@@ -3084,30 +3635,22 @@ Slice contracts:
             content = message["reasoning"]
         return self._coerce_text_content(content)
 
-    def _call_llm_via_openrouter(self, prompt: str) -> dict:
+    def _call_llm_via_openrouter(
+        self,
+        prompt: str,
+        *,
+        model: Optional[str] = None,
+        max_tokens: int = 8192,
+        timeout: tuple[int | float, int | float] = (15, 180),
+    ) -> dict:
         payload = {
-            "model": self.model,
+            "model": model or self.model,
             "messages": [{"role": "user", "content": prompt}],
-            "max_tokens": 8192,
+            "max_tokens": max_tokens,
             "temperature": 0.1,
         }
-        response = self.requests.post(
-            f"{self.openrouter_base_url}/chat/completions",
-            json=payload,
-            headers=self._openrouter_headers(),
-            timeout=60,
-        )
-        if response.status_code == 200:
-            response_data = response.json()
-            return self._extract_json_payload(self._extract_openrouter_content(response_data))
-        error_msg = f"OpenRouter 返回状态码 {response.status_code}"
-        if response.text:
-            try:
-                error_data = response.json()
-                error_msg += f": {error_data.get('error', {}).get('message', response.text)}"
-            except Exception:
-                error_msg += f": {response.text[:200]}"
-        raise Exception(error_msg)
+        response_data = self._post_openrouter_chat_completion(payload, timeout=timeout)
+        return self._extract_json_payload(self._extract_openrouter_content(response_data))
 
     def _call_profile_via_official_api(self, prompt: str) -> str:
         response = self.client.models.generate_content(model=self.model, contents=prompt)
@@ -3178,19 +3721,5 @@ Slice contracts:
             "max_tokens": 8192,
             "temperature": 0.4,
         }
-        response = self.requests.post(
-            f"{self.openrouter_base_url}/chat/completions",
-            json=payload,
-            headers=self._openrouter_headers(),
-            timeout=60,
-        )
-        if response.status_code == 200:
-            return self._extract_openrouter_content(response.json())
-        error_msg = f"OpenRouter 返回状态码 {response.status_code}"
-        if response.text:
-            try:
-                error_data = response.json()
-                error_msg += f": {error_data.get('error', {}).get('message', response.text)}"
-            except Exception:
-                error_msg += f": {response.text[:200]}"
-        raise Exception(error_msg)
+        response_data = self._post_openrouter_chat_completion(payload)
+        return self._extract_openrouter_content(response_data)

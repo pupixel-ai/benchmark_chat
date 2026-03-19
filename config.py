@@ -195,8 +195,8 @@ OPENROUTER_VLM_MODEL = (
     or "google/gemini-3.1-flash-lite-preview"
 )
 OPENROUTER_LLM_MODEL = (
-    os.getenv("OPENROUTER_LLM_MODEL", "minimax/minimax-m2.7").strip()
-    or "minimax/minimax-m2.7"
+    os.getenv("OPENROUTER_LLM_MODEL", "minimax/minimax-m2.5").strip()
+    or "minimax/minimax-m2.5"
 )
 BEDROCK_REGION = (
     os.getenv("BEDROCK_REGION", AWS_REGION or "ap-southeast-1").strip()
@@ -236,6 +236,12 @@ BEDROCK_RELATIONSHIP_MAX_OUTPUT_TOKENS = int(
     os.getenv("BEDROCK_RELATIONSHIP_MAX_OUTPUT_TOKENS", "2048")
 )
 BEDROCK_REQUEST_TIMEOUT_SECONDS = int(os.getenv("BEDROCK_REQUEST_TIMEOUT_SECONDS", "120"))
+RELATIONSHIP_REQUEST_TIMEOUT_SECONDS = int(os.getenv("RELATIONSHIP_REQUEST_TIMEOUT_SECONDS", "45"))
+RELATIONSHIP_MAX_RETRIES = max(1, int(os.getenv("RELATIONSHIP_MAX_RETRIES", "2")))
+RELATIONSHIP_MAX_CONCURRENCY = max(1, int(os.getenv("RELATIONSHIP_MAX_CONCURRENCY", "3")))
+RELATIONSHIP_MIN_DISTINCT_DAYS = int(os.getenv("RELATIONSHIP_MIN_DISTINCT_DAYS", "2"))
+RELATIONSHIP_MIN_CO_OCCURRENCE = int(os.getenv("RELATIONSHIP_MIN_CO_OCCURRENCE", "3"))
+RELATIONSHIP_MIN_INTIMACY_SCORE = float(os.getenv("RELATIONSHIP_MIN_INTIMACY_SCORE", "0.35"))
 VLM_MAX_CONCURRENCY = max(1, int(os.getenv("VLM_MAX_CONCURRENCY", "4")))
 VLM_CACHE_FLUSH_EVERY_N = max(1, int(os.getenv("VLM_CACHE_FLUSH_EVERY_N", "10")))
 VLM_CACHE_FLUSH_INTERVAL_SECONDS = max(
@@ -269,6 +275,11 @@ def _resolve_model_provider(explicit: str = "", *, fallback: str = "") -> str:
 MODEL_PROVIDER = _resolve_model_provider(MODEL_PROVIDER)
 VLM_PROVIDER = _resolve_model_provider(VLM_PROVIDER, fallback=MODEL_PROVIDER)
 LLM_PROVIDER = _resolve_model_provider(LLM_PROVIDER, fallback=MODEL_PROVIDER)
+RELATIONSHIP_FOLLOWS_MAIN_LLM = os.getenv("RELATIONSHIP_FOLLOWS_MAIN_LLM", "true").lower() == "true"
+RELATIONSHIP_PROVIDER = _resolve_model_provider(
+    os.getenv("RELATIONSHIP_PROVIDER", ""),
+    fallback=LLM_PROVIDER if RELATIONSHIP_FOLLOWS_MAIN_LLM else LLM_PROVIDER,
+)
 
 if VLM_PROVIDER == "openrouter":
     VLM_MODEL = OPENROUTER_VLM_MODEL

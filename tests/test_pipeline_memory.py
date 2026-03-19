@@ -295,6 +295,21 @@ class FakeLLMProcessor:
                 {"slice_id": "slice_0001", "photo_count": 2, "rare_clue_count": 1},
                 {"slice_id": "slice_0002", "photo_count": 1, "rare_clue_count": 0},
             ],
+            "slice_contract_records": [
+                {"slice_id": "slice_0001", "raw_event_id": "raw_event_001", "photo_ids": ["photo_001"], "contract": {"facts": []}},
+                {"slice_id": "slice_0002", "raw_event_id": "raw_event_002", "photo_ids": ["photo_002"], "contract": {"facts": []}},
+            ],
+            "event_merge_records": [
+                {"raw_event_id": "raw_event_001", "photo_ids": ["photo_001", "photo_002"], "contract": {"facts": []}},
+            ],
+            "pre_relationship_contract": {
+                "facts": [],
+                "observations": [],
+                "claims": [],
+                "relationship_hypotheses": [],
+                "profile_deltas": [],
+                "uncertainty": [],
+            },
         }
         if progress_callback:
             progress_callback({"processed_slices": 2, "slice_count": 2, "processed_events": 2, "event_count": 2, "percent": 100})
@@ -470,6 +485,9 @@ class PipelineMemoryTests(unittest.TestCase):
             self.assertTrue((task_dir / "output" / "memory" / "memory_storage.json").exists())
             self.assertTrue((task_dir / "output" / "memory_contract.json").exists())
             self.assertTrue((task_dir / "output" / "llm_chunks.json").exists())
+            self.assertTrue((task_dir / "output" / "slice_contracts.jsonl").exists())
+            self.assertTrue((task_dir / "output" / "event_merges.jsonl").exists())
+            self.assertTrue((task_dir / "output" / "pre_relationship_contract.json").exists())
 
     def test_vlm_parallel_execution_preserves_result_and_cache_order(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

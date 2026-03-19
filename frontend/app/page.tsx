@@ -75,6 +75,15 @@ const stageLabelMap: Record<string, string> = {
   failed: "失败"
 };
 
+const llmSubstageLabelMap: Record<string, string> = {
+  slice_contract: "Fact Aggregation",
+  event_merge: "Event Aggregation",
+  global_merge: "Event Aggregation",
+  relationship_inference: "Relationship Inference",
+  profile_materialization: "Profile Materialization",
+  completed: "LLM Completed"
+};
+
 function toAbsoluteUrl(url?: string | null) {
   if (!url) {
     return null;
@@ -87,6 +96,11 @@ function toAbsoluteUrl(url?: string | null) {
 
 function formatStage(stage: string) {
   return stageLabelMap[stage] ?? stage;
+}
+
+function formatLLMSubstage(stage: Record<string, unknown>) {
+  const substage = typeof stage.substage === "string" ? stage.substage : "";
+  return llmSubstageLabelMap[substage] ?? (substage || "LLM");
 }
 
 async function apiFetch(input: string, init?: RequestInit) {
@@ -691,6 +705,30 @@ function InferencePipelinePanel({ task }: { task: TaskState }) {
   const vlmRuntime = formatRuntimeLabel(vlmStage.runtime_seconds ?? task.result?.memory?.transparency?.vlm_stage?.runtime_seconds);
   const llmRuntime = formatRuntimeLabel(llmStage.runtime_seconds ?? task.result?.memory?.transparency?.llm_stage?.runtime_seconds);
   const memoryRuntime = formatRuntimeLabel(memoryStage.runtime_seconds);
+  const llmSubstageLabel = formatLLMSubstage(llmStage);
+  const llmProcessedCandidates = readNumericValue(llmStage.processed_candidates);
+  const llmFilteredCount = readNumericValue(llmStage.filtered_count);
+  const llmCandidateCount = readNumericValue(llmStage.candidate_count);
+  const llmCurrentPersonId = typeof llmStage.current_person_id === "string" ? llmStage.current_person_id : "";
+  const llmProvider = typeof llmStage.provider === "string" ? llmStage.provider : "";
+  const llmModel = typeof llmStage.model === "string" ? llmStage.model : "";
+  const vlmLoading = task.status === "running" && currentStage === "vlm";
+  const llmLoading = task.status === "running" && currentStage === "llm";
+  const memoryLoading = task.status === "running" && currentStage === "memory";
+  const llmMetaParts = [llmRuntime ? `运行时间 ${llmRuntime}` : ""];
+  if (llmLoading && llmSubstageLabel) {
+    llmMetaParts.push(llmSubstageLabel);
+  }
+  if (llmLoading && llmFilteredCount != null) {
+    llmMetaParts.push(`候选 ${llmProcessedCandidates ?? 0}/${llmFilteredCount}${llmCandidateCount != null ? `（总计 ${llmCandidateCount}）` : ""}`);
+  }
+  if (llmLoading && llmCurrentPersonId) {
+    llmMetaParts.push(`当前 ${llmCurrentPersonId}`);
+  }
+  if (llmLoading && llmProvider) {
+    llmMetaParts.push(`${llmProvider}${llmModel ? ` · ${llmModel}` : ""}`);
+  }
+  const llmMeta = llmMetaParts.filter(Boolean).join(" · ");
 
   const faceValue = task.result?.face_recognition ?? faceStage.face_result_preview ?? null;
   const vlmValue =
@@ -714,10 +752,6 @@ function InferencePipelinePanel({ task }: { task: TaskState }) {
     (memoryStage.neo4j_preview as unknown) ??
     null;
 
-  const vlmLoading = task.status === "running" && currentStage === "vlm";
-  const llmLoading = task.status === "running" && currentStage === "llm";
-  const memoryLoading = task.status === "running" && currentStage === "memory";
-
   return (
     <section className="w-full rounded-[12px] border border-[#d8c9b7] bg-[rgba(249,244,237,0.94)] p-6 shadow-card">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -730,7 +764,7 @@ function InferencePipelinePanel({ task }: { task: TaskState }) {
         </div>
         <div className="rounded-[12px] border border-[#ddcebb] bg-white/70 px-5 py-4">
           <p className="font-mono text-xs uppercase tracking-[0.2em] text-black/42">Current Stage</p>
-          <p className="mt-2 text-xl font-semibold">{formatStage(currentStage)}</p>
+          <p className="mt-2 text-xl font-semibold">{currentStage === "llm" ? llmSubstageLabel : formatStage(currentStage)}</p>
         </div>
       </div>
 
@@ -758,8 +792,8 @@ function InferencePipelinePanel({ task }: { task: TaskState }) {
           value={llmValue}
           emptyText="LLM 结果尚未产出。"
           loading={llmLoading}
-          meta={llmRuntime ? `运行时间 ${llmRuntime}` : undefined}
-          loadingLabel="LLM 改写进行中"
+          meta={llmMeta || undefined}
+          loadingLabel={llmSubstageLabel}
           loadingPercent={llmPercent}
         />
         <ScrollableJsonPanel
@@ -767,8 +801,8 @@ function InferencePipelinePanel({ task }: { task: TaskState }) {
           value={profileValue}
           emptyText="用户画像报告尚未产出。"
           loading={llmLoading && !hasDisplayValue(profileValue)}
-          meta={llmRuntime ? `运行时间 ${llmRuntime}` : undefined}
-          loadingLabel="画像报告生成中"
+          meta={llmMeta || undefined}
+          loadingLabel={llmSubstageLabel === "Profile Materialization" ? "Profile Materialization" : "Profile Materialization"}
           loadingPercent={llmPercent}
         />
         <ScrollableJsonPanel

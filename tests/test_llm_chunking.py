@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import time
 import unittest
 from unittest.mock import patch
 
@@ -267,6 +268,120 @@ class LLMChunkingTests(unittest.TestCase):
         self.assertEqual(len(calls), 2)
         self.assertIn("standard slice prompt", calls[0])
         self.assertIn("紧凑恢复模式", calls[1])
+
+    def test_relationship_candidate_thresholds_filter_weak_evidence(self) -> None:
+        processor = LLMProcessor.__new__(LLMProcessor)
+
+        weak_evidence = {
+            "distinct_days": 1,
+            "co_occurrence_count": 2,
+            "contact_types": [],
+            "interaction": [],
+            "exclusive_one_on_one": 0,
+            "intimacy_score": 0.2,
+        }
+        strong_evidence = {
+            "distinct_days": 1,
+            "co_occurrence_count": 3,
+            "contact_types": [],
+            "interaction": [],
+            "exclusive_one_on_one": 0,
+            "intimacy_score": 0.2,
+        }
+
+        self.assertFalse(processor._relationship_candidate_requires_llm(weak_evidence))
+        self.assertTrue(processor._relationship_candidate_requires_llm(strong_evidence))
+
+    def test_heavy_relationship_pass_filters_weak_candidates_and_keeps_stable_order(self) -> None:
+        processor = LLMProcessor.__new__(LLMProcessor)
+        processor.last_chunk_artifacts = {}
+        processor.relationship_provider = "openrouter"
+        processor.relationship_model = "minimax/minimax-m2.5"
+        processor.relationship_use_openrouter = True
+        processor.relationship_use_bedrock = False
+        processor.relationship_use_proxy = False
+
+        evidence_map = {
+            "Person_002": {
+                "co_occurrence_count": 4,
+                "distinct_days": 2,
+                "monthly_average": 2.0,
+                "exclusive_one_on_one": 1,
+                "intimacy_score": 0.4,
+                "contact_types": [],
+                "interaction": [],
+                "shared_facts": [{"fact_id": "FACT_001", "original_image_ids": ["photo_001"]}],
+                "scenes": [],
+            },
+            "Person_003": {
+                "co_occurrence_count": 4,
+                "distinct_days": 2,
+                "monthly_average": 2.0,
+                "exclusive_one_on_one": 1,
+                "intimacy_score": 0.4,
+                "contact_types": [],
+                "interaction": [],
+                "shared_facts": [{"fact_id": "FACT_002", "original_image_ids": ["photo_002"]}],
+                "scenes": [],
+            },
+            "Person_004": {
+                "co_occurrence_count": 1,
+                "distinct_days": 1,
+                "monthly_average": 1.0,
+                "exclusive_one_on_one": 0,
+                "intimacy_score": 0.1,
+                "contact_types": [],
+                "interaction": [],
+                "shared_facts": [{"fact_id": "FACT_003", "original_image_ids": ["photo_003"]}],
+                "scenes": [],
+            },
+        }
+
+        processor._build_relationship_evidence = lambda **kwargs: evidence_map[kwargs["person_id"]]
+        processor._preflight_relationship_provider = lambda: None
+
+        def fake_infer_single_relationship_candidate(*, person_id: str, evidence: dict):
+            if person_id == "Person_002":
+                time.sleep(0.05)
+            return (
+                {
+                    "relationship_id": f"REL_{person_id}",
+                    "person_id": person_id,
+                    "relationship_type": "friend",
+                    "label": "friend:stable",
+                    "confidence": 0.7,
+                    "supporting_fact_ids": [item["fact_id"] for item in evidence.get("shared_facts", [])],
+                    "supporting_photo_ids": [photo_id for item in evidence.get("shared_facts", []) for photo_id in item.get("original_image_ids", [])],
+                    "reason_summary": "ok",
+                    "reason": "ok",
+                    "evidence": {},
+                },
+                0,
+            )
+
+        processor._infer_single_relationship_candidate = fake_infer_single_relationship_candidate
+
+        progress_payloads: list[dict] = []
+        results = processor._run_heavy_relationship_pass(
+            contract={"facts": []},
+            photo_facts=[
+                {"person_ids": ["Person_001", "Person_002"]},
+                {"person_ids": ["Person_001", "Person_003"]},
+                {"person_ids": ["Person_001", "Person_004"]},
+            ],
+            primary_person_id="Person_001",
+            progress_callback=progress_payloads.append,
+            llm_started_at=time.perf_counter(),
+            slice_count=5,
+            event_count=2,
+            processed_events=2,
+            processed_slices=5,
+        )
+
+        self.assertEqual([item["person_id"] for item in results], ["Person_002", "Person_003", "Person_004"])
+        self.assertEqual(results[-1]["relationship_type"], "co_presence_only")
+        self.assertTrue(any(item.get("substage") == "relationship_inference" for item in progress_payloads))
+        self.assertEqual(processor.last_chunk_artifacts["relationship_stage"]["filtered_count"], 2)
 
 
 if __name__ == "__main__":
