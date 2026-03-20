@@ -195,8 +195,8 @@ OPENROUTER_VLM_MODEL = (
     or "google/gemini-3.1-flash-lite-preview"
 )
 OPENROUTER_LLM_MODEL = (
-    os.getenv("OPENROUTER_LLM_MODEL", "minimax/minimax-m2.5").strip()
-    or "minimax/minimax-m2.5"
+    os.getenv("OPENROUTER_LLM_MODEL", "google/gemini-3.1-flash-lite-preview").strip()
+    or "google/gemini-3.1-flash-lite-preview"
 )
 BEDROCK_REGION = (
     os.getenv("BEDROCK_REGION", AWS_REGION or "ap-southeast-1").strip()

@@ -13,6 +13,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from backend.artifact_store import build_task_asset_manifest
+from backend.progress_utils import append_terminal_error, append_terminal_info, merge_stage_progress
 from backend.upload_utils import (
     UPLOAD_FAILURES_FILENAME,
     save_upload_original_streamed,
@@ -88,28 +89,15 @@ def _update_status(task_id: str, **updates) -> dict:
     return _write_status(task_id, current)
 
 
-def _merge_stage_progress(existing: dict | None, stage: str, payload: dict) -> dict:
-    base = dict(existing or {})
-    merged_stages = dict(base.get("stages") or {})
-    current_stage_payload = merged_stages.get(stage)
-    if isinstance(current_stage_payload, dict):
-        next_stage_payload = {**current_stage_payload, **payload}
-    else:
-        next_stage_payload = dict(payload)
-    merged_stages[stage] = next_stage_payload
-    base["stages"] = merged_stages
-    base["current_stage"] = stage
-    return base
-
 def _run_pipeline_task(task_id: str, max_photos: int, use_cache: bool, task_version: str) -> None:
     task_dir = _task_dir(task_id)
 
     def progress_callback(stage: str, payload: dict) -> None:
         current = _read_status(task_id)
-        merged_progress = _merge_stage_progress(
+        merged_progress = merge_stage_progress(
             current.get("progress") if isinstance(current, dict) else None,
             stage,
-            payload,
+            payload or {},
         )
         _update_status(task_id, status="running", stage=stage, progress=merged_progress, worker_status="running")
 
@@ -118,7 +106,7 @@ def _run_pipeline_task(task_id: str, max_photos: int, use_cache: bool, task_vers
             task_id,
             status="running",
             stage="starting",
-            progress=None,
+            progress=append_terminal_info(None, stage="starting", message="准备启动推理任务"),
             error=None,
             worker_status="running",
             version=task_version,
@@ -137,7 +125,11 @@ def _run_pipeline_task(task_id: str, max_photos: int, use_cache: bool, task_vers
             task_id,
             status="completed",
             stage="completed",
-            progress=None,
+            progress=append_terminal_info(
+                _read_status(task_id).get("progress"),
+                stage="completed",
+                message="任务执行完成",
+            ),
             result=result,
             result_summary=result.get("summary", {}),
             asset_manifest=build_task_asset_manifest(task_id, task_dir, asset_store),
@@ -150,6 +142,11 @@ def _run_pipeline_task(task_id: str, max_photos: int, use_cache: bool, task_vers
             task_id,
             status="failed",
             stage="failed",
+            progress=append_terminal_error(
+                _read_status(task_id).get("progress"),
+                stage="failed",
+                error=str(exc),
+            ),
             error=str(exc),
             worker_status="running",
         )

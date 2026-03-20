@@ -15,6 +15,7 @@ import type {
   MilvusSegment,
   PersonGroupEntry,
   PersonGroupImage,
+  TaskProgressLogEntry,
   TaskListResponse,
   TaskState,
   UploadItem
@@ -618,6 +619,130 @@ function readStageProgress(progress: TaskState["progress"], stage: string) {
   return stagePayload as Record<string, unknown>;
 }
 
+function readTaskLogs(progress: TaskState["progress"]) {
+  if (!progress || typeof progress !== "object") {
+    return [] as TaskProgressLogEntry[];
+  }
+  const rawLogs = (progress as Record<string, unknown>).logs;
+  if (!Array.isArray(rawLogs)) {
+    return [] as TaskProgressLogEntry[];
+  }
+  return rawLogs.filter((entry): entry is TaskProgressLogEntry => Boolean(entry && typeof entry === "object"));
+}
+
+function formatProgressLogStage(entry: TaskProgressLogEntry) {
+  if (entry.stage === "llm" && entry.substage) {
+    return formatLLMSubstage({ substage: entry.substage });
+  }
+  return formatStage(entry.stage);
+}
+
+function formatProgressLogLine(entry: TaskProgressLogEntry) {
+  const parts = [entry.message];
+  if (typeof entry.processed === "number" && typeof entry.total === "number" && entry.total > 0) {
+    parts.push(`${entry.processed}/${entry.total}`);
+  }
+  if (typeof entry.percent === "number") {
+    parts.push(`${entry.percent}%`);
+  }
+  if (entry.current_person_id) {
+    parts.push(entry.current_person_id);
+  }
+  if (entry.provider) {
+    parts.push(entry.model ? `${entry.provider} · ${entry.model}` : entry.provider);
+  }
+  if (entry.error) {
+    parts.push(entry.error);
+  }
+  return parts.filter(Boolean).join(" · ");
+}
+
+function TaskLogPanel({ logs }: { logs: TaskProgressLogEntry[] }) {
+  return (
+    <div className="rounded-[12px] border border-[#e2d4a8] bg-[#fff8dc]/85 p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-[#8a6a1f]">Task Logs</p>
+          <p className="mt-1 text-xs text-[#8d7740]">按任务运行顺序记录阶段日志与 provider 状态。</p>
+        </div>
+        <div className="rounded-full bg-white/70 px-3 py-1 text-xs text-[#8a6a1f]">{logs.length} entries</div>
+      </div>
+      {logs.length > 0 ? (
+        <div className="mt-3 max-h-[220px] overflow-auto rounded-[10px] border border-[#eadcae] bg-[#fffaf0] px-3 py-2">
+          <div className="space-y-2">
+            {logs.map((entry, index) => (
+              <div key={`${entry.timestamp}-${index}`} className="rounded-[8px] bg-[#fff2bf] px-3 py-2 text-xs leading-6 text-[#73581e]">
+                <div className="flex flex-wrap items-center gap-2 text-[11px] text-[#8d7740]">
+                  <span>{formatDateTime(entry.timestamp)}</span>
+                  <span className="rounded-full bg-white/70 px-2 py-0.5 font-mono">{formatProgressLogStage(entry)}</span>
+                </div>
+                <p className="mt-1 break-all">{formatProgressLogLine(entry)}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <p className="mt-3 text-sm text-[#8d7740]">当前任务还没有运行日志。</p>
+      )}
+    </div>
+  );
+}
+
+function TaskErrorPanel({
+  errors,
+  taskError
+}: {
+  errors: TaskProgressLogEntry[];
+  taskError?: string | null;
+}) {
+  const combined = [
+    ...errors.map((entry, index) => ({
+      key: `${entry.timestamp}-${index}`,
+      timestamp: entry.timestamp,
+      stage: formatProgressLogStage(entry),
+      message: entry.error || entry.message,
+    })),
+    ...(taskError
+      ? [
+          {
+            key: "task-error",
+            timestamp: null,
+            stage: "Task Failure",
+            message: taskError,
+          },
+        ]
+      : []),
+  ];
+  return (
+    <div className="rounded-[12px] border border-[#e8c6c6] bg-[#fff1f1]/88 p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-[#9b4a4a]">Task Errors</p>
+          <p className="mt-1 text-xs text-[#9f6a6a]">这里会显示阶段错误和最终任务失败原因。</p>
+        </div>
+        <div className="rounded-full bg-white/80 px-3 py-1 text-xs text-[#9b4a4a]">{combined.length} entries</div>
+      </div>
+      {combined.length > 0 ? (
+        <div className="mt-3 max-h-[180px] overflow-auto rounded-[10px] border border-[#efd6d6] bg-[#fff7f7] px-3 py-2">
+          <div className="space-y-2">
+            {combined.map((entry) => (
+              <div key={entry.key} className="rounded-[8px] bg-[#ffe1e1] px-3 py-2 text-xs leading-6 text-[#7e3a3a]">
+                <div className="flex flex-wrap items-center gap-2 text-[11px] text-[#9f6a6a]">
+                  {entry.timestamp ? <span>{formatDateTime(entry.timestamp)}</span> : null}
+                  <span className="rounded-full bg-white/80 px-2 py-0.5 font-mono">{entry.stage}</span>
+                </div>
+                <p className="mt-1 break-all">{entry.message}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <p className="mt-3 text-sm text-[#9f6a6a]">当前任务没有显式错误。</p>
+      )}
+    </div>
+  );
+}
+
 function ScrollableJsonPanel({
   title,
   value,
@@ -705,6 +830,8 @@ function InferencePipelinePanel({ task }: { task: TaskState }) {
   const vlmRuntime = formatRuntimeLabel(vlmStage.runtime_seconds ?? task.result?.memory?.transparency?.vlm_stage?.runtime_seconds);
   const llmRuntime = formatRuntimeLabel(llmStage.runtime_seconds ?? task.result?.memory?.transparency?.llm_stage?.runtime_seconds);
   const memoryRuntime = formatRuntimeLabel(memoryStage.runtime_seconds);
+  const taskLogs = readTaskLogs(task.progress);
+  const taskErrorLogs = taskLogs.filter((entry) => entry.level === "error" || Boolean(entry.error));
   const llmSubstageLabel = formatLLMSubstage(llmStage);
   const llmProcessedCandidates = readNumericValue(llmStage.processed_candidates);
   const llmFilteredCount = readNumericValue(llmStage.filtered_count);
@@ -823,6 +950,10 @@ function InferencePipelinePanel({ task }: { task: TaskState }) {
           loadingLabel="Neo4j 图谱物化中"
           loadingPercent={memoryPercent}
         />
+      </div>
+      <div className="mt-5 grid gap-4 xl:grid-cols-2">
+        <TaskLogPanel logs={taskLogs} />
+        <TaskErrorPanel errors={taskErrorLogs} taskError={task.error} />
       </div>
     </section>
   );

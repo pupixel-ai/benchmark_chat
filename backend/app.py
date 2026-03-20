@@ -26,6 +26,7 @@ from backend.auth import (
     register_user,
 )
 from backend.face_review_store import FaceReviewStore
+from backend.progress_utils import append_terminal_error, append_terminal_info, merge_stage_progress
 from backend.task_store import TaskStore
 from backend.upload_utils import (
     UPLOAD_FAILURES_FILENAME,
@@ -418,18 +419,15 @@ def _run_pipeline_task(task_id: str, user_id: Optional[str], max_photos: int, us
             }
         },
     }
+    progress_state = append_terminal_info(
+        progress_state,
+        stage="starting",
+        message="准备启动推理任务",
+    )
 
     def progress_callback(stage: str, payload: dict):
-        stages = progress_state.setdefault("stages", {})
-        if not isinstance(stages, dict):
-            stages = {}
-            progress_state["stages"] = stages
-        stage_payload = copy.deepcopy(stages.get(stage) or {})
-        stage_payload.update(copy.deepcopy(payload or {}))
-        stage_payload["updated_at"] = datetime.now().isoformat()
-        stages[stage] = stage_payload
-        progress_state["current_stage"] = stage
-        progress_state["updated_at"] = stage_payload["updated_at"]
+        nonlocal progress_state
+        progress_state = merge_stage_progress(progress_state, stage, payload or {})
         task_store.update_task(task_id, status="running", stage=stage, progress=copy.deepcopy(progress_state))
 
     try:
@@ -457,6 +455,13 @@ def _run_pipeline_task(task_id: str, user_id: Optional[str], max_photos: int, us
             task_id,
             status="completed",
             stage="completed",
+            progress=copy.deepcopy(
+                append_terminal_info(
+                    progress_state,
+                    stage="completed",
+                    message="任务执行完成",
+                )
+            ),
             result=result,
             error=None,
         )
@@ -465,10 +470,16 @@ def _run_pipeline_task(task_id: str, user_id: Optional[str], max_photos: int, us
         if user_id:
             artifact_catalog.replace_task_artifacts(task_id, user_id, manifest)
     except Exception as exc:
+        failed_progress = append_terminal_error(
+            progress_state,
+            stage="failed",
+            error=str(exc),
+        )
         task_store.update_task(
             task_id,
             status="failed",
             stage="failed",
+            progress=copy.deepcopy(failed_progress),
             error=str(exc),
         )
 

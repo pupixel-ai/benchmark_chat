@@ -506,10 +506,32 @@ export type TaskState = {
   updated_at: string;
   upload_count: number;
   uploads?: UploadItem[];
-  progress?: Record<string, unknown>;
+  progress?: TaskProgressState | Record<string, unknown>;
   result?: TaskResult | null;
   result_summary?: Record<string, unknown> | null;
   error?: string | null;
+};
+
+export type TaskProgressLogEntry = {
+  timestamp: string;
+  level: string;
+  stage: string;
+  substage?: string | null;
+  message: string;
+  percent?: number | null;
+  processed?: number | null;
+  total?: number | null;
+  provider?: string | null;
+  model?: string | null;
+  current_person_id?: string | null;
+  error?: string | null;
+};
+
+export type TaskProgressState = {
+  current_stage?: string;
+  updated_at?: string;
+  stages?: Record<string, unknown>;
+  logs?: TaskProgressLogEntry[];
 };
 
 export type TaskListResponse = {
