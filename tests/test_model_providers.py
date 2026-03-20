@@ -153,6 +153,7 @@ class OpenRouterProviderTests(unittest.TestCase):
                 }
             )
             analyzer.requests = fake_requests
+            analyzer.http_session = fake_requests
 
             result = analyzer._analyze_via_openrouter(
                 "只返回 JSON",
