@@ -1032,13 +1032,14 @@ function InferencePipelinePanel({
       : null) ??
     null;
   const profileReportValue =
-    task.result?.memory?.delta_profile_revision ??
     task.result?.memory?.profile_revision ??
+    task.result?.memory?.delta_profile_revision ??
     task.result?.memory?.storage?.redis?.profile_current ??
     null;
   const profileMarkdownValue =
-    task.result?.memory?.delta_profile_markdown ??
     task.result?.profile_markdown ??
+    task.result?.memory?.profile_markdown ??
+    task.result?.memory?.delta_profile_markdown ??
     (llmStage.profile_markdown_preview as unknown) ??
     task.result?.memory?.storage?.redis?.profile_core?.profile_markdown ??
     null;

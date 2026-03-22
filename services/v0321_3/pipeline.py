@@ -398,13 +398,17 @@ class V03213PipelineFamily:
         self._summary: Dict[str, Any] = {
             "pipeline_family": PIPELINE_FAMILY_V0321_3,
             "asset_count": 0,
+            "burst_count": 0,
             "event_window_count": 0,
+            "single_photo_window_count": 0,
+            "multi_burst_window_count": 0,
             "event_revision_count": 0,
             "relationship_revision_count": 0,
             "reference_media_signal_count": 0,
             "ambiguous_boundary_count": 0,
             "relationship_llm_count": 0,
             "event_llm_count": 0,
+            "event_finalize_candidate_count": 0,
             "profile_llm_count": 0,
         }
 
@@ -473,7 +477,10 @@ class V03213PipelineFamily:
         )
         windows = self._build_event_windows(bursts, boundaries)
         self._summary["asset_count"] = len(asset_records)
+        self._summary["burst_count"] = len(bursts)
         self._summary["event_window_count"] = len(windows)
+        self._summary["single_photo_window_count"] = sum(1 for item in windows if len(item.get("photo_ids", []) or []) == 1)
+        self._summary["multi_burst_window_count"] = sum(1 for item in windows if len(item.get("burst_ids", []) or []) > 1)
         self._summary["ambiguous_boundary_count"] = sum(1 for item in boundaries if item.get("decision") == "ambiguous")
         self._summary["reference_media_signal_count"] = len(all_reference_signals)
         llm_started_at = perf_counter()
@@ -498,6 +505,7 @@ class V03213PipelineFamily:
             event_drafts.append(draft)
             if self._window_requires_event_finalize(window):
                 finalize_candidate_count += 1
+                self._summary["event_finalize_candidate_count"] = finalize_candidate_count
             progress_percent = 15
             if total_windows > 0:
                 progress_percent = min(44, 15 + int((index / total_windows) * 29))
@@ -1583,27 +1591,36 @@ class V03213PipelineFamily:
             return False
         last_place = str(burst.get("place_keys", [""])[-1] or "")
         next_place = str(asset.get("place_key") or "")
-        if last_place and next_place and last_place == next_place:
-            return True
-        place_overlap = self._has_overlap(
+        continuity = self._continuity_flags(
             [last_place, *list(burst.get("place_candidates", []) or [])],
             [next_place, *list(observation.get("place_candidates", []) or [])[:3]],
-        )
-        live_overlap = self._has_overlap(
             list(burst.get("live_person_ids", []) or []),
             list(live_person_ids or []),
-        )
-        activity_overlap = self._has_overlap(
             list(burst.get("activity_hints", []) or []),
             [str(observation.get("activity_hint") or "").strip()],
-        )
-        scene_overlap = self._has_overlap(
             list(burst.get("scene_hints", []) or []),
             [str(observation.get("scene_hint") or "").strip()],
         )
-        if gap <= timedelta(minutes=8) and live_overlap and (place_overlap or activity_overlap or scene_overlap):
+        continuity_count = int(continuity["place_overlap"]) + int(continuity["live_overlap"]) + int(continuity["activity_overlap"]) + int(continuity["scene_overlap"])
+        if continuity["same_place"] and gap <= timedelta(minutes=2):
             return True
-        if gap <= timedelta(minutes=5) and place_overlap and (activity_overlap or scene_overlap):
+        if gap <= timedelta(minutes=5) and continuity["live_overlap"] and (
+            continuity["place_overlap"] or continuity["activity_overlap"] or continuity["scene_overlap"]
+        ):
+            return True
+        if gap <= timedelta(minutes=6) and continuity["place_overlap"] and (
+            continuity["activity_overlap"] or continuity["scene_overlap"] or continuity["live_overlap"]
+        ):
+            return True
+        if gap <= timedelta(minutes=10) and continuity_count >= 2 and (
+            continuity["place_overlap"] or continuity["live_overlap"]
+        ):
+            return True
+        if gap <= timedelta(minutes=15) and continuity["same_place"] and continuity_count >= 2:
+            return True
+        if gap <= timedelta(minutes=20) and continuity_count >= 3 and (
+            continuity["place_overlap"] or continuity["live_overlap"]
+        ):
             return True
         return False
 
@@ -1615,35 +1632,40 @@ class V03213PipelineFamily:
             left_end = self._parse_dt(left.get("ended_at"))
             right_start = self._parse_dt(right.get("started_at"))
             gap = (right_start - left_end).total_seconds() if left_end and right_start else 0.0
-            same_place = str(left.get("place_keys", [""])[-1] or "") == str(right.get("place_keys", [""])[0] or "")
-            place_overlap = same_place or self._has_overlap(
+            continuity = self._continuity_flags(
                 [*list(left.get("place_keys", []) or []), *list(left.get("place_candidates", []) or [])],
                 [*list(right.get("place_keys", []) or []), *list(right.get("place_candidates", []) or [])],
-            )
-            live_overlap = self._has_overlap(
                 list(left.get("live_person_ids", []) or []),
                 list(right.get("live_person_ids", []) or []),
-            )
-            activity_overlap = self._has_overlap(
                 list(left.get("activity_hints", []) or []),
                 list(right.get("activity_hints", []) or []),
-            )
-            scene_overlap = self._has_overlap(
                 list(left.get("scene_hints", []) or []),
                 list(right.get("scene_hints", []) or []),
             )
+            same_place = continuity["same_place"]
+            place_overlap = continuity["place_overlap"]
+            live_overlap = continuity["live_overlap"]
+            activity_overlap = continuity["activity_overlap"]
+            scene_overlap = continuity["scene_overlap"]
+            continuity_count = int(place_overlap) + int(live_overlap) + int(activity_overlap) + int(scene_overlap)
             decision = "ambiguous"
-            if gap > 3 * 3600:
+            if gap > 4 * 3600:
                 decision = "split"
-            elif gap > 45 * 60 and not place_overlap and not live_overlap:
+            elif gap > 2 * 3600 and continuity_count <= 1:
                 decision = "split"
-            elif place_overlap and gap <= 15 * 60:
+            elif gap > 90 * 60 and not (place_overlap and live_overlap):
+                decision = "split"
+            elif gap <= 6 * 60 and continuity_count >= 2:
                 decision = "continue"
-            elif gap <= 10 * 60 and live_overlap and (activity_overlap or scene_overlap):
+            elif gap <= 15 * 60 and live_overlap and (place_overlap or activity_overlap or scene_overlap):
                 decision = "continue"
-            elif gap <= 25 * 60 and place_overlap and (live_overlap or activity_overlap):
+            elif gap <= 20 * 60 and place_overlap and (live_overlap or activity_overlap or scene_overlap):
                 decision = "continue"
-            elif gap > 90 * 60:
+            elif gap <= 30 * 60 and continuity_count >= 3 and (place_overlap or live_overlap):
+                decision = "continue"
+            elif gap <= 45 * 60 and same_place and continuity_count >= 2:
+                decision = "continue"
+            elif gap > 20 * 60 and continuity_count == 0:
                 decision = "split"
             decisions.append(
                 {
@@ -1673,6 +1695,11 @@ class V03213PipelineFamily:
             "started_at": bursts[0]["started_at"],
             "ended_at": bursts[0]["ended_at"],
             "boundary_reason": "seed",
+            "place_candidates": self._unique([*list(bursts[0].get("place_keys", []) or []), *list(bursts[0].get("place_candidates", []) or [])]),
+            "live_person_ids": self._unique(list(bursts[0].get("live_person_ids", []) or [])),
+            "activity_hints": self._unique(list(bursts[0].get("activity_hints", []) or [])),
+            "scene_hints": self._unique(list(bursts[0].get("scene_hints", []) or [])),
+            "boundary_decisions": [],
         }
         for burst in bursts[1:]:
             boundary = boundary_map.get(burst["burst_id"], {})
@@ -1681,6 +1708,19 @@ class V03213PipelineFamily:
                 current["burst_ids"].append(burst["burst_id"])
                 current["photo_ids"].extend(burst["photo_ids"])
                 current["ended_at"] = burst["ended_at"]
+                current["place_candidates"] = self._unique(
+                    [*list(current.get("place_candidates", []) or []), *list(burst.get("place_keys", []) or []), *list(burst.get("place_candidates", []) or [])]
+                )
+                current["live_person_ids"] = self._unique(
+                    [*list(current.get("live_person_ids", []) or []), *list(burst.get("live_person_ids", []) or [])]
+                )
+                current["activity_hints"] = self._unique(
+                    [*list(current.get("activity_hints", []) or []), *list(burst.get("activity_hints", []) or [])]
+                )
+                current["scene_hints"] = self._unique(
+                    [*list(current.get("scene_hints", []) or []), *list(burst.get("scene_hints", []) or [])]
+                )
+                current["boundary_decisions"].append(dict(boundary))
                 continue
             if decision == "ambiguous":
                 current["boundary_reason"] = "ambiguous_resolved_as_split"
@@ -1692,6 +1732,11 @@ class V03213PipelineFamily:
                 "started_at": burst["started_at"],
                 "ended_at": burst["ended_at"],
                 "boundary_reason": decision,
+                "place_candidates": self._unique([*list(burst.get("place_keys", []) or []), *list(burst.get("place_candidates", []) or [])]),
+                "live_person_ids": self._unique(list(burst.get("live_person_ids", []) or [])),
+                "activity_hints": self._unique(list(burst.get("activity_hints", []) or [])),
+                "scene_hints": self._unique(list(burst.get("scene_hints", []) or [])),
+                "boundary_decisions": [],
             }
         windows.append(current)
         return windows
@@ -1761,6 +1806,27 @@ class V03213PipelineFamily:
 
     def _has_overlap(self, left: Sequence[Any], right: Sequence[Any]) -> bool:
         return bool(self._normalized_signal_set(left).intersection(self._normalized_signal_set(right)))
+
+    def _continuity_flags(
+        self,
+        left_places: Sequence[Any],
+        right_places: Sequence[Any],
+        left_people: Sequence[Any],
+        right_people: Sequence[Any],
+        left_activities: Sequence[Any],
+        right_activities: Sequence[Any],
+        left_scenes: Sequence[Any],
+        right_scenes: Sequence[Any],
+    ) -> Dict[str, bool]:
+        left_place_set = self._normalized_signal_set(left_places)
+        right_place_set = self._normalized_signal_set(right_places)
+        return {
+            "same_place": bool(left_place_set and right_place_set and left_place_set.intersection(right_place_set)),
+            "place_overlap": bool(left_place_set.intersection(right_place_set)),
+            "live_overlap": self._has_overlap(left_people, right_people),
+            "activity_overlap": self._has_overlap(left_activities, right_activities),
+            "scene_overlap": self._has_overlap(left_scenes, right_scenes),
+        }
 
     def _resolve_ambiguous_boundaries(
         self,
@@ -1938,7 +2004,22 @@ class V03213PipelineFamily:
         return draft
 
     def _window_requires_event_finalize(self, window: Dict[str, Any]) -> bool:
-        return bool(len(window.get("burst_ids", []) or []) > 1 or "ambiguous" in str(window.get("boundary_reason") or ""))
+        if "ambiguous" in str(window.get("boundary_reason") or ""):
+            return True
+        burst_count = len(window.get("burst_ids", []) or [])
+        if burst_count <= 1:
+            return False
+        place_count = len(self._normalized_signal_set(window.get("place_candidates", []) or []))
+        activity_count = len(self._normalized_signal_set(window.get("activity_hints", []) or []))
+        scene_count = len(self._normalized_signal_set(window.get("scene_hints", []) or []))
+        diversity_score = int(place_count > 1) + int(activity_count > 1) + int(scene_count > 1)
+        if burst_count >= 4:
+            return True
+        if diversity_score >= 2:
+            return True
+        if burst_count >= 3 and diversity_score >= 1:
+            return True
+        return False
 
     def _draft_event_window_with_llm(
         self,
@@ -3070,7 +3151,63 @@ class V03213PipelineFamily:
                 scope=scope,
             )
         )
+        if not self._is_valid_profile_markdown(markdown):
+            return None
         return markdown
+
+    def _is_valid_profile_markdown(self, markdown: Optional[str]) -> bool:
+        text = str(markdown or "").strip()
+        if not text:
+            return False
+        if (text.startswith("{") and text.endswith("}")) or (text.startswith("[") and text.endswith("]")):
+            return False
+        return True
+
+    def _build_profile_evidence_status(
+        self,
+        *,
+        primary_person_id: Optional[str],
+        event_revisions: Sequence[Dict[str, Any]],
+        relationship_revisions: Sequence[Dict[str, Any]],
+        profile_input_pack: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        social_patterns = dict(profile_input_pack.get("social_patterns") or {})
+        top_relationships = list(social_patterns.get("top_relationships", []) or [])
+        event_grounded_signals = dict(profile_input_pack.get("event_grounded_signals") or {})
+        person_centered_event_count = 0
+        primary_person_event_count = 0
+        for event in event_revisions:
+            participants = list(event.get("participant_person_ids", []) or [])
+            depicted = list(event.get("depicted_person_ids", []) or [])
+            if participants or depicted:
+                person_centered_event_count += 1
+            if primary_person_id and primary_person_id in participants:
+                primary_person_event_count += 1
+        event_grounded_signal_count = sum(len(list(value or [])) for value in event_grounded_signals.values())
+        weak_signal_count = sum(
+            len(list(value or []))
+            for value in dict(profile_input_pack.get("reference_media_weak_signals") or {}).values()
+        )
+        relationship_ready = bool(top_relationships) and len(relationship_revisions) > 0
+        identity_ready = bool(primary_person_id) and (primary_person_event_count >= 2 or person_centered_event_count >= 4)
+        if identity_ready and relationship_ready:
+            profile_mode = "subject_profile"
+        elif identity_ready:
+            profile_mode = "subject_profile_limited_social"
+        else:
+            profile_mode = "album_observation"
+        return {
+            "profile_mode": profile_mode,
+            "identity_ready": identity_ready,
+            "relationship_ready": relationship_ready,
+            "primary_person_id_present": bool(primary_person_id),
+            "person_centered_event_count": person_centered_event_count,
+            "primary_person_event_count": primary_person_event_count,
+            "relationship_count": len(relationship_revisions),
+            "top_relationship_count": len(top_relationships),
+            "event_grounded_signal_count": event_grounded_signal_count,
+            "weak_signal_count": weak_signal_count,
+        }
 
     def _build_profile_llm_prompt(
         self,
@@ -3111,6 +3248,12 @@ class V03213PipelineFamily:
             for relationship_id in key_relationship_ids[:8]
             if relationship_id in relationship_lookup
         ]
+        evidence_status = self._build_profile_evidence_status(
+            primary_person_id=primary_person_id,
+            event_revisions=event_revisions,
+            relationship_revisions=relationship_revisions,
+            profile_input_pack=profile_input_pack,
+        )
         scope_label = "本轮当前任务增量画像" if scope == "current_task" else "累计长期画像"
         return (
             "# Role\n"
@@ -3122,7 +3265,13 @@ class V03213PipelineFamily:
             "2. 没有 supporting_event_ids 或 supporting_relationship_ids 的强结论禁止出现。\n"
             "3. reference_media_weak_signals 只能进入“补充观察/弱线索”，不能直接当成真实经历、真实关系、真实职业或真实消费能力。\n"
             "4. MBTI、伴侣判断、职业判断、阶层判断、心理状态判断如果证据不够，必须显式写“待进一步观察”或“证据不足”。\n"
-            "5. 输出必须使用中文 Markdown，并尽量遵守以下结构：推理草稿箱、基础画像、社交关系图谱、深度人格分析。\n\n"
+            "5. 如果 PROFILE_EVIDENCE_STATUS.profile_mode == \"album_observation\"，说明当前没有足够证据锁定单一主角。此时必须把结果写成“相册观察摘要”：\n"
+            "   - 1.2、1.3、1.6、2.1、2.2、3.1 必须优先写“待进一步观察”或“证据不足”。\n"
+            "   - 不得使用“她/他就是…”、“这是一个…的人”这类强人物定性句式。\n"
+            "   - 只能总结时间、地点、活动、重复线索与可观察到的模式。\n"
+            "6. 如果 PROFILE_EVIDENCE_STATUS.profile_mode == \"subject_profile_limited_social\"，可以写基础画像，但社交关系图谱必须先说明“关系证据不足，以下仅为弱观察”。\n"
+            "7. 当 primary_person_id 缺失、top_relationship_count == 0、或 person_centered_event_count 很低时，禁止输出 MBTI、具体职业、阶层、伴侣判断、心理状态判断。\n"
+            "8. 输出必须使用中文 Markdown，并尽量遵守以下结构：推理草稿箱、基础画像、社交关系图谱、深度人格分析。\n\n"
             "Output Format (尽量遵守)\n"
             "推理草稿箱 (Reasoning Scratchpad)\n"
             "1. 时空锚点确认\n"
@@ -3144,6 +3293,7 @@ class V03213PipelineFamily:
             "3.3 审美偏好和对外展示\n"
             "3.4 底层人格侧写\n\n"
             f"PRIMARY_PERSON_ID={json.dumps(primary_person_id, ensure_ascii=False)}\n"
+            f"PROFILE_EVIDENCE_STATUS={json.dumps(evidence_status, ensure_ascii=False)}\n"
             f"PROFILE_INPUT_PACK={json.dumps(profile_input_pack, ensure_ascii=False)}\n"
             f"KEY_EVENT_CONTEXT={json.dumps(key_event_payload, ensure_ascii=False)}\n"
             f"KEY_RELATIONSHIP_CONTEXT={json.dumps(key_relationship_payload, ensure_ascii=False)}\n"

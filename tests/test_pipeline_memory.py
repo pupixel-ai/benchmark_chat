@@ -569,6 +569,11 @@ class CaptureMarkdownLLMProcessor(FakeLLMProcessor):
         return "# Profile\n\n- stub profile"
 
 
+class JsonLikeMarkdownLLMProcessor(FakeLLMProcessor):
+    def _call_markdown_prompt(self, prompt: str):
+        return '{"key_event_context": {"event_revision_id": "evt_001"}, "key_relationship": []}'
+
+
 class PipelineMemoryTests(unittest.TestCase):
     def test_task_pipeline_runs_to_memory_output(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -822,7 +827,7 @@ class PipelineMemoryTests(unittest.TestCase):
             )
             self.assertEqual(
                 second["profile_markdown"],
-                second["memory"]["delta_profile_markdown"],
+                second["memory"]["profile_markdown"],
             )
             self.assertEqual(second["memory"]["summary"]["reference_media_signal_count"], 2)
             self.assertEqual(
@@ -965,11 +970,39 @@ class PipelineMemoryTests(unittest.TestCase):
 
             prompt = CaptureMarkdownLLMProcessor.last_markdown_prompt
             self.assertIn("PROFILE_INPUT_PACK=", prompt)
+            self.assertIn("PROFILE_EVIDENCE_STATUS=", prompt)
             self.assertIn("KEY_EVENT_CONTEXT=", prompt)
             self.assertIn("KEY_RELATIONSHIP_CONTEXT=", prompt)
             self.assertNotIn("EVENT_REVISIONS=", prompt)
             self.assertNotIn("RELATIONSHIP_REVISIONS=", prompt)
             self.assertNotIn("REFERENCE_MEDIA_WEAK_SIGNALS=", prompt)
+
+    def test_v0321_3_invalid_json_like_profile_response_falls_back(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            task_dir = Path(tmpdir)
+            uploads_dir = task_dir / "uploads"
+            uploads_dir.mkdir(parents=True, exist_ok=True)
+            for name in ("camera_a.jpg", "camera_b.jpg", "saved_ai_reference.png"):
+                (uploads_dir / name).write_bytes(b"stub")
+
+            with patch("services.pipeline_service.ImageProcessor", FakeImageProcessor), patch(
+                "services.pipeline_service.FaceRecognition", FakeFaceRecognition
+            ), patch("services.pipeline_service.VLMAnalyzer", FakeV03213VLMAnalyzer), patch(
+                "services.pipeline_service.LLMProcessor", JsonLikeMarkdownLLMProcessor
+            ):
+                from services.pipeline_service import MemoryPipelineService
+
+                result = MemoryPipelineService(
+                    task_id="task_pipeline_v0321_3_fallback",
+                    task_dir=str(task_dir),
+                    asset_store=FakeAssetStore(),
+                    user_id="user_pipeline",
+                    face_review_store=FakeFaceReviewStore(),
+                    task_version="v0321.3",
+                ).run(max_photos=3, use_cache=False)
+
+            self.assertEqual(result["memory"]["profile_revision"]["generation_mode"], "profile_input_pack_fallback")
+            self.assertTrue(str(result["profile_markdown"]).startswith("# Profile"))
 
     def test_v0321_2_bootstraps_prior_family_state_from_task_record_result(self) -> None:
         from datetime import datetime, timezone
@@ -1070,7 +1103,7 @@ class PipelineMemoryTests(unittest.TestCase):
                 )
                 self.assertEqual(
                     second["profile_markdown"],
-                    second["memory"]["delta_profile_markdown"],
+                    second["memory"]["profile_markdown"],
                 )
                 self.assertEqual(second["memory"]["summary"]["reference_media_signal_count"], 2)
                 self.assertCountEqual(

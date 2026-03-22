@@ -391,6 +391,7 @@ export type MemoryPayload = {
   period_revisions?: Array<Record<string, unknown>>;
   profile_revision?: Record<string, unknown>;
   delta_profile_revision?: Record<string, unknown>;
+  profile_markdown?: string;
   delta_profile_markdown?: string;
   person_appearances?: Array<Record<string, unknown>>;
   reference_media_signals?: Array<Record<string, unknown>>;

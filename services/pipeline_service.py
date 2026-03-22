@@ -326,14 +326,16 @@ class MemoryPipelineService:
                 )
             delta_profile_revision = dict(memory.get("delta_profile_revision", {}) or {})
             delta_profile_markdown = str(memory.get("delta_profile_markdown") or "")
-            profile_revision = delta_profile_revision or dict(memory.get("profile_revision", {}) or {})
-            profile_markdown = delta_profile_markdown or str(memory.get("profile_markdown") or "")
+            full_profile_revision = dict(memory.get("profile_revision", {}) or {})
+            full_profile_markdown = str(memory.get("profile_markdown") or "")
+            profile_revision = full_profile_revision or delta_profile_revision
+            profile_markdown = full_profile_markdown or delta_profile_markdown
             event_revisions = list(memory.get("delta_event_revisions", []) or memory.get("event_revisions", []) or [])
             relationship_revisions = list(
                 memory.get("delta_relationship_revisions", []) or memory.get("relationship_revisions", []) or []
             )
             atomic_evidence = list(memory.get("delta_atomic_evidence", []) or memory.get("atomic_evidence", []) or [])
-            profile_buckets = dict(profile_revision.get("buckets", {}) or {})
+            profile_buckets = dict(delta_profile_revision.get("buckets", {}) or {})
 
             detailed_output = {
                 "task_id": self.task_id,
