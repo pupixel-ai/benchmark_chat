@@ -4,6 +4,7 @@ import tempfile
 import time
 import unittest
 import json
+import re
 from pathlib import Path
 from unittest.mock import patch
 
@@ -87,7 +88,7 @@ class FakeImageProcessor:
         return str(crop_path)
 
     def _timestamp_for(self, index: int):
-        from datetime import datetime
+        from datetime import datetime, timezone
 
         if index == 1:
             return datetime(2026, 3, 15, 9, 0)
@@ -99,6 +100,58 @@ class FakeImageProcessor:
         if index < 3:
             return {"name": "Home", "lat": 31.23, "lng": 121.47}
         return {"name": "Cafe", "lat": 31.22, "lng": 121.48}
+
+
+class UniqueIdFakeImageProcessor(FakeImageProcessor):
+    def load_photos_with_errors(self, photo_dir: str, max_photos: int | None = None):
+        uploads = Path(photo_dir)
+        photos = []
+        for index, file_path in enumerate(sorted(uploads.iterdir()), start=1):
+            photos.append(
+                Photo(
+                    photo_id=file_path.stem,
+                    filename=file_path.name,
+                    path=str(file_path),
+                    timestamp=self._timestamp_for(index),
+                    location=self._location_for(index),
+                    source_hash=f"hash-{file_path.stem}",
+                    original_path=str(file_path),
+                )
+            )
+        return photos[: max_photos or len(photos)], []
+
+
+class ScaleReplayFakeImageProcessor(FakeImageProcessor):
+    def load_photos_with_errors(self, photo_dir: str, max_photos: int | None = None):
+        from datetime import datetime, timedelta
+
+        uploads = Path(photo_dir)
+        photos = []
+        for file_path in sorted(uploads.iterdir()):
+            stem = file_path.stem.lower()
+            if stem.startswith("camera_event"):
+                _, event_idx_text, photo_idx_text = stem.split("_")
+                event_idx = int(event_idx_text.replace("event", ""))
+                photo_idx = int(photo_idx_text.replace("p", ""))
+                base_time = datetime(2026, 1, 1, 8, 0) + timedelta(minutes=40 * event_idx)
+                timestamp = base_time + timedelta(minutes=2 * photo_idx)
+                location = {"name": f"Place_{event_idx:03d}", "lat": 31.0 + event_idx / 1000.0, "lng": 121.0 + event_idx / 1000.0}
+            else:
+                ref_idx = int(re.sub(r"\D+", "", stem) or "0")
+                timestamp = datetime(2026, 2, 1, 9, 0) + timedelta(minutes=ref_idx)
+                location = {"name": "ReferenceLibrary", "lat": 31.23, "lng": 121.47}
+            photos.append(
+                Photo(
+                    photo_id=file_path.stem,
+                    filename=file_path.name,
+                    path=str(file_path),
+                    timestamp=timestamp,
+                    location=location,
+                    source_hash=f"hash-{file_path.stem}",
+                    original_path=str(file_path),
+                )
+            )
+        return photos[: max_photos or len(photos)], []
 
 
 class FakeFaceRecognition:
@@ -268,6 +321,64 @@ class FakeVLMAnalyzer:
     def add_result(self, photo, result, persist: bool = False):
         photo.vlm_analysis = result
         self.results.append(self.build_result_entry(photo, result))
+
+
+class FakeV03212VLMAnalyzer(FakeVLMAnalyzer):
+    def analyze_photo(self, photo, face_db, primary_person_id):
+        filename = (photo.filename or "").lower()
+        if "reference" in filename or "ai" in filename:
+            return {
+                "summary": "fashion outfit style inspiration board",
+                "people": [],
+                "scene": {"location_detected": "", "environment_description": "reference media"},
+                "event": {"activity": "", "social_context": "", "interaction": "", "mood": ""},
+                "details": ["outfit reference"],
+                "key_objects": ["lookbook"],
+                "uncertainty": ["reference-only"],
+            }
+        return {
+            "summary": f"home meal and coffee for {photo.photo_id}",
+            "people": [
+                {"person_id": "Person_001", "appearance": "casual", "clothing": "hoodie", "interaction": "present"}
+            ],
+            "scene": {"location_detected": photo.location.get("name"), "environment_description": "home scene"},
+            "event": {"activity": "meal", "social_context": "friend", "interaction": "talking", "mood": "warm"},
+            "details": ["cup", "breakfast"],
+            "key_objects": ["table", "coffee"],
+            "brands": ["local cafe"] if photo.photo_id == "photo_002" else [],
+        }
+
+
+class FakeV03213VLMAnalyzer(FakeV03212VLMAnalyzer):
+    pass
+
+
+class ScaleReplayFakeVLMAnalyzer(FakeVLMAnalyzer):
+    def analyze_photo(self, photo, face_db, primary_person_id):
+        filename = (photo.filename or "").lower()
+        if filename.startswith("ref_") or "reference" in filename or "ai_" in filename:
+            return {
+                "summary": "fashion outfit style inspiration board",
+                "people": [],
+                "scene": {"location_detected": "", "environment_description": "reference media"},
+                "event": {"activity": "", "social_context": "", "interaction": "", "mood": ""},
+                "details": ["outfit reference", "editorial style"],
+                "key_objects": ["lookbook", "mood board"],
+                "uncertainty": ["reference-only"],
+            }
+        return {
+            "summary": f"meal and coffee meetup for {photo.photo_id}",
+            "people": [
+                {"person_id": "Person_001", "appearance": "casual", "clothing": "hoodie", "interaction": "present"},
+                {"person_id": "Person_002", "appearance": "casual", "clothing": "jacket", "interaction": "present"},
+            ],
+            "scene": {"location_detected": photo.location.get("name"), "environment_description": "cafe scene"},
+            "event": {"activity": "meal", "social_context": "friend", "interaction": "talking", "mood": "warm"},
+            "details": ["cup", "breakfast", "menu"],
+            "key_objects": ["table", "coffee"],
+            "brands": [f"brand-{photo.location.get('name')}"],
+            "place_candidates": [photo.location.get("name")],
+        }
 
 
 class SlowOutOfOrderFakeVLMAnalyzer(FakeVLMAnalyzer):
@@ -441,6 +552,17 @@ class FakeLLMProcessor:
         return self.profile_markdown_from_memory_contract({}, primary_person_id)
 
 
+class CaptureMarkdownLLMProcessor(FakeLLMProcessor):
+    last_markdown_prompt = ""
+
+    def _call_json_prompt(self, prompt: str):
+        return None
+
+    def _call_markdown_prompt(self, prompt: str):
+        type(self).last_markdown_prompt = prompt
+        return "# Profile\n\n- stub profile"
+
+
 class PipelineMemoryTests(unittest.TestCase):
     def test_task_pipeline_runs_to_memory_output(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -574,6 +696,533 @@ class PipelineMemoryTests(unittest.TestCase):
             self.assertTrue(any(item["stage"] == "version_gate" for item in result["warnings"]))
             self.assertTrue((task_dir / "output" / "result.json").exists())
             self.assertFalse((task_dir / "output" / "memory").exists())
+
+    def test_v0321_2_pipeline_uses_independent_revision_family(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            task_dir = Path(tmpdir)
+            uploads_dir = task_dir / "uploads"
+            uploads_dir.mkdir(parents=True, exist_ok=True)
+            for name in ("camera_a.jpg", "camera_b.jpg", "saved_ai_reference.png"):
+                (uploads_dir / name).write_bytes(b"stub")
+
+            with patch("services.pipeline_service.ImageProcessor", FakeImageProcessor), patch(
+                "services.pipeline_service.FaceRecognition", FakeFaceRecognition
+            ), patch("services.pipeline_service.VLMAnalyzer", FakeV03212VLMAnalyzer), patch(
+                "services.pipeline_service.LLMProcessor", FakeLLMProcessor
+            ):
+                from services.pipeline_service import MemoryPipelineService
+
+                progress_events = []
+                service = MemoryPipelineService(
+                    task_id="task_pipeline_v0321_2",
+                    task_dir=str(task_dir),
+                    asset_store=FakeAssetStore(),
+                    user_id="user_pipeline",
+                    face_review_store=FakeFaceReviewStore(),
+                    task_version="v0321.2",
+                )
+                result = service.run(
+                    max_photos=3,
+                    use_cache=False,
+                    progress_callback=lambda stage, payload: progress_events.append((stage, dict(payload))),
+                )
+
+            self.assertEqual(result["version"], "v0321.2")
+            self.assertEqual(result["memory"]["pipeline_family"], "v0321_2")
+            self.assertEqual(result["summary"]["event_count"], 1)
+            self.assertEqual(result["summary"]["relationship_count"], 1)
+            self.assertEqual(result["memory"]["summary"]["reference_media_signal_count"], 1)
+            self.assertEqual(len(result["memory"]["event_revisions"]), 1)
+            self.assertEqual(len(result["memory"]["relationship_revisions"]), 1)
+            event_photo_ids = result["memory"]["event_revisions"][0]["original_photo_ids"]
+            self.assertEqual(event_photo_ids, ["hash-photo-1", "hash-photo-2"])
+            self.assertIn("aesthetic_preference", result["memory"]["profile_revision"]["buckets"])
+            self.assertTrue(result["profile_markdown"].startswith("# Profile"))
+            self.assertGreater(len(result["memory"]["transparency"]["vlm_stage"]["summaries"]), 0)
+            self.assertEqual(result["memory"]["transparency"]["llm_stage"]["fact_count"], 1)
+            self.assertEqual(
+                result["memory"]["storage"]["redis"]["profile_current"]["profile_revision_id"],
+                result["memory"]["profile_revision"]["profile_revision_id"],
+            )
+            llm_events = [payload for stage, payload in progress_events if stage == "llm"]
+            self.assertTrue(llm_events)
+            event_draft_events = [payload for payload in llm_events if payload.get("substage") == "event_draft"]
+            self.assertTrue(event_draft_events)
+            self.assertEqual(event_draft_events[0]["processed_candidates"], 0)
+            self.assertGreater(event_draft_events[-1]["processed_candidates"], 0)
+            self.assertEqual(
+                event_draft_events[-1]["processed_candidates"],
+                event_draft_events[-1]["candidate_count"],
+            )
+            self.assertEqual(llm_events[-1]["substage"], "completed")
+            self.assertIn("event_revisions", llm_events[-1]["memory_contract_preview"])
+            self.assertTrue(llm_events[-1]["profile_markdown_preview"].startswith("# Profile"))
+            self.assertTrue((task_dir / "v0321_2" / "state.db").exists())
+            self.assertTrue((task_dir / "v0321_2" / "reference_media.json").exists())
+            self.assertTrue((task_dir / "v0321_2" / "external_publish_report.json").exists())
+            self.assertFalse((task_dir / "output" / "memory_contract.json").exists())
+            self.assertEqual(result["memory_contract"], None)
+
+    def test_v0321_2_bootstraps_prior_family_snapshot(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            first_task_dir = root / "task_one"
+            second_task_dir = root / "task_two"
+            first_uploads = first_task_dir / "uploads"
+            second_uploads = second_task_dir / "uploads"
+            first_uploads.mkdir(parents=True, exist_ok=True)
+            second_uploads.mkdir(parents=True, exist_ok=True)
+
+            for name in ("alpha.jpg", "beta.jpg", "style_reference.png"):
+                (first_uploads / name).write_bytes(b"stub")
+            for name in ("gamma.jpg", "style_reference_2.png"):
+                (second_uploads / name).write_bytes(b"stub")
+
+            with patch("services.pipeline_service.ImageProcessor", UniqueIdFakeImageProcessor), patch(
+                "services.pipeline_service.FaceRecognition", FakeFaceRecognition
+            ), patch("services.pipeline_service.VLMAnalyzer", FakeV03212VLMAnalyzer), patch(
+                "services.pipeline_service.LLMProcessor", FakeLLMProcessor
+            ):
+                from services.pipeline_service import MemoryPipelineService
+
+                first = MemoryPipelineService(
+                    task_id="task_one",
+                    task_dir=str(first_task_dir),
+                    asset_store=FakeAssetStore(),
+                    user_id="user_pipeline",
+                    face_review_store=FakeFaceReviewStore(),
+                    task_version="v0321.2",
+                ).run(max_photos=3, use_cache=False)
+
+                second = MemoryPipelineService(
+                    task_id="task_two",
+                    task_dir=str(second_task_dir),
+                    asset_store=FakeAssetStore(),
+                    user_id="user_pipeline",
+                    face_review_store=FakeFaceReviewStore(),
+                    task_version="v0321.2",
+                ).run(max_photos=2, use_cache=False)
+
+            self.assertEqual(first["summary"]["event_count"], 1)
+            self.assertEqual(second["summary"]["event_count"], 1)
+            self.assertTrue(second["memory"]["summary"]["bootstrap_applied"])
+            self.assertEqual(second["memory"]["summary"]["bootstrap_source_task_id"], "task_one")
+            merged_photo_ids = second["memory"]["event_revisions"][0]["original_photo_ids"]
+            self.assertEqual(merged_photo_ids, ["hash-alpha", "hash-beta", "hash-gamma"])
+            self.assertEqual(len(second["memory"]["delta_event_revisions"]), 1)
+            self.assertEqual(
+                second["memory"]["delta_profile_revision"]["original_photo_ids"],
+                ["hash-style_reference_2"],
+            )
+            self.assertEqual(
+                second["profile_markdown"],
+                second["memory"]["delta_profile_markdown"],
+            )
+            self.assertEqual(second["memory"]["summary"]["reference_media_signal_count"], 2)
+            self.assertEqual(
+                second["memory"]["profile_revision"]["original_photo_ids"],
+                ["hash-style_reference", "hash-style_reference_2"],
+            )
+
+    def test_v0321_3_pipeline_emits_profile_input_pack_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            task_dir = Path(tmpdir)
+            uploads_dir = task_dir / "uploads"
+            uploads_dir.mkdir(parents=True, exist_ok=True)
+            for name in ("camera_a.jpg", "camera_b.jpg", "saved_ai_reference.png"):
+                (uploads_dir / name).write_bytes(b"stub")
+
+            with patch("services.pipeline_service.ImageProcessor", FakeImageProcessor), patch(
+                "services.pipeline_service.FaceRecognition", FakeFaceRecognition
+            ), patch("services.pipeline_service.VLMAnalyzer", FakeV03213VLMAnalyzer), patch(
+                "services.pipeline_service.LLMProcessor", FakeLLMProcessor
+            ):
+                from services.pipeline_service import MemoryPipelineService
+
+                result = MemoryPipelineService(
+                    task_id="task_pipeline_v0321_3",
+                    task_dir=str(task_dir),
+                    asset_store=FakeAssetStore(),
+                    user_id="user_pipeline",
+                    face_review_store=FakeFaceReviewStore(),
+                    task_version="v0321.3",
+                ).run(max_photos=3, use_cache=False)
+
+            self.assertEqual(result["version"], "v0321.3")
+            self.assertEqual(result["memory"]["pipeline_family"], "v0321_3")
+            self.assertIn("profile_input_pack_partial", result["memory"])
+            self.assertIn("profile_input_pack", result["memory"])
+            partial_pack = result["memory"]["profile_input_pack_partial"]
+            final_pack = result["memory"]["profile_input_pack"]
+            self.assertEqual(partial_pack["pipeline_family"], "v0321_3")
+            self.assertIn("baseline_rhythm", partial_pack)
+            self.assertIn("place_patterns", partial_pack)
+            self.assertIn("activity_patterns", partial_pack)
+            self.assertIn("event_grounded_signals", partial_pack)
+            self.assertIn("reference_media_weak_signals", partial_pack)
+            self.assertIn("social_patterns", final_pack)
+            self.assertIn("change_points", final_pack)
+            self.assertIn("key_relationship_refs", final_pack)
+            weak_signal_labels = [
+                item["label"]
+                for item in final_pack["reference_media_weak_signals"]["aesthetic_hints"]
+            ]
+            self.assertTrue(weak_signal_labels)
+            self.assertTrue((task_dir / "v0321_3" / "profile_input_pack_partial.json").exists())
+            self.assertTrue((task_dir / "v0321_3" / "profile_input_pack.json").exists())
+            self.assertIn(
+                "profile_input_pack_preview",
+                result["memory"]["transparency"]["llm_stage"],
+            )
+
+    def test_v0321_3_bootstraps_prior_family_snapshot(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            first_task_dir = root / "task_three_one"
+            second_task_dir = root / "task_three_two"
+            first_uploads = first_task_dir / "uploads"
+            second_uploads = second_task_dir / "uploads"
+            first_uploads.mkdir(parents=True, exist_ok=True)
+            second_uploads.mkdir(parents=True, exist_ok=True)
+
+            for name in ("alpha.jpg", "beta.jpg", "style_reference.png"):
+                (first_uploads / name).write_bytes(b"stub")
+            for name in ("gamma.jpg", "style_reference_2.png"):
+                (second_uploads / name).write_bytes(b"stub")
+
+            with patch("services.pipeline_service.ImageProcessor", UniqueIdFakeImageProcessor), patch(
+                "services.pipeline_service.FaceRecognition", FakeFaceRecognition
+            ), patch("services.pipeline_service.VLMAnalyzer", FakeV03213VLMAnalyzer), patch(
+                "services.pipeline_service.LLMProcessor", FakeLLMProcessor
+            ):
+                from services.pipeline_service import MemoryPipelineService
+
+                MemoryPipelineService(
+                    task_id="task_three_one",
+                    task_dir=str(first_task_dir),
+                    asset_store=FakeAssetStore(),
+                    user_id="user_pipeline",
+                    face_review_store=FakeFaceReviewStore(),
+                    task_version="v0321.3",
+                ).run(max_photos=3, use_cache=False)
+
+                second = MemoryPipelineService(
+                    task_id="task_three_two",
+                    task_dir=str(second_task_dir),
+                    asset_store=FakeAssetStore(),
+                    user_id="user_pipeline",
+                    face_review_store=FakeFaceReviewStore(),
+                    task_version="v0321.3",
+                ).run(max_photos=2, use_cache=False)
+
+            self.assertTrue(second["memory"]["summary"]["bootstrap_applied"])
+            self.assertEqual(second["memory"]["summary"]["bootstrap_source_task_id"], "task_three_one")
+            self.assertEqual(second["memory"]["pipeline_family"], "v0321_3")
+            self.assertIn("profile_input_pack", second["memory"])
+            self.assertGreater(
+                len(second["memory"]["profile_input_pack"]["reference_media_weak_signals"]["aesthetic_hints"]),
+                0,
+            )
+
+    def test_v0321_3_profile_prompt_uses_input_pack_not_raw_revision_blobs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            task_dir = Path(tmpdir)
+            uploads_dir = task_dir / "uploads"
+            uploads_dir.mkdir(parents=True, exist_ok=True)
+            for name in ("camera_a.jpg", "camera_b.jpg", "saved_ai_reference.png"):
+                (uploads_dir / name).write_bytes(b"stub")
+
+            CaptureMarkdownLLMProcessor.last_markdown_prompt = ""
+
+            with patch("services.pipeline_service.ImageProcessor", FakeImageProcessor), patch(
+                "services.pipeline_service.FaceRecognition", FakeFaceRecognition
+            ), patch("services.pipeline_service.VLMAnalyzer", FakeV03213VLMAnalyzer), patch(
+                "services.pipeline_service.LLMProcessor", CaptureMarkdownLLMProcessor
+            ):
+                from services.pipeline_service import MemoryPipelineService
+
+                MemoryPipelineService(
+                    task_id="task_pipeline_v0321_3_prompt",
+                    task_dir=str(task_dir),
+                    asset_store=FakeAssetStore(),
+                    user_id="user_pipeline",
+                    face_review_store=FakeFaceReviewStore(),
+                    task_version="v0321.3",
+                ).run(max_photos=3, use_cache=False)
+
+            prompt = CaptureMarkdownLLMProcessor.last_markdown_prompt
+            self.assertIn("PROFILE_INPUT_PACK=", prompt)
+            self.assertIn("KEY_EVENT_CONTEXT=", prompt)
+            self.assertIn("KEY_RELATIONSHIP_CONTEXT=", prompt)
+            self.assertNotIn("EVENT_REVISIONS=", prompt)
+            self.assertNotIn("RELATIONSHIP_REVISIONS=", prompt)
+            self.assertNotIn("REFERENCE_MEDIA_WEAK_SIGNALS=", prompt)
+
+    def test_v0321_2_bootstraps_prior_family_state_from_task_record_result(self) -> None:
+        from datetime import datetime, timezone
+        import shutil
+
+        from sqlalchemy import delete
+
+        from backend.db import SessionLocal
+        from backend.models import TaskRecord
+
+        task_ids = ["task_db_one", "task_db_two"]
+        user_id = "user_pipeline_db_bootstrap"
+        try:
+            with tempfile.TemporaryDirectory() as tmpdir:
+                root = Path(tmpdir)
+                first_task_dir = root / "task_db_one"
+                second_task_dir = root / "task_db_two"
+                first_uploads = first_task_dir / "uploads"
+                second_uploads = second_task_dir / "uploads"
+                first_uploads.mkdir(parents=True, exist_ok=True)
+                second_uploads.mkdir(parents=True, exist_ok=True)
+
+                for name in ("alpha.jpg", "beta.jpg", "style_reference.png"):
+                    (first_uploads / name).write_bytes(b"stub")
+                for name in ("gamma.jpg", "style_reference_2.png"):
+                    (second_uploads / name).write_bytes(b"stub")
+
+                with patch("services.pipeline_service.ImageProcessor", UniqueIdFakeImageProcessor), patch(
+                    "services.pipeline_service.FaceRecognition", FakeFaceRecognition
+                ), patch("services.pipeline_service.VLMAnalyzer", FakeV03212VLMAnalyzer), patch(
+                    "services.pipeline_service.LLMProcessor", FakeLLMProcessor
+                ):
+                    from services.pipeline_service import MemoryPipelineService
+
+                    first = MemoryPipelineService(
+                        task_id="task_db_one",
+                        task_dir=str(first_task_dir),
+                        asset_store=FakeAssetStore(),
+                        user_id=user_id,
+                        face_review_store=FakeFaceReviewStore(),
+                        task_version="v0321.2",
+                    ).run(max_photos=3, use_cache=False)
+
+                    now = datetime.now(timezone.utc)
+                    with SessionLocal() as session:
+                        session.execute(delete(TaskRecord).where(TaskRecord.task_id.in_(task_ids)))
+                        session.add(
+                            TaskRecord(
+                                task_id="task_db_one",
+                                user_id=user_id,
+                                version="v0321.2",
+                                status="completed",
+                                stage="completed",
+                                upload_count=3,
+                                task_dir=str(first_task_dir),
+                                progress=None,
+                                uploads=[],
+                                result={"memory": first["memory"]},
+                                result_summary=first.get("summary"),
+                                asset_manifest=None,
+                                error=None,
+                                worker_instance_id=None,
+                                worker_private_ip=None,
+                                worker_status=None,
+                                delete_state=None,
+                                created_at=now,
+                                updated_at=now,
+                                expires_at=None,
+                                deleted_at=None,
+                                last_worker_sync_at=None,
+                            )
+                        )
+                        session.commit()
+
+                    shutil.rmtree(first_task_dir / "v0321_2", ignore_errors=True)
+
+                    second = MemoryPipelineService(
+                        task_id="task_db_two",
+                        task_dir=str(second_task_dir),
+                        asset_store=FakeAssetStore(),
+                        user_id=user_id,
+                        face_review_store=FakeFaceReviewStore(),
+                        task_version="v0321.2",
+                    ).run(max_photos=2, use_cache=False)
+
+                self.assertTrue(second["memory"]["summary"]["bootstrap_applied"])
+                self.assertEqual(second["memory"]["summary"]["bootstrap_source"], "db")
+                self.assertEqual(second["memory"]["summary"]["bootstrap_source_task_id"], "task_db_one")
+                self.assertGreater(second["memory"]["summary"]["bootstrap_prior_person_appearance_count"], 0)
+                self.assertEqual(
+                    second["memory"]["event_revisions"][0]["original_photo_ids"],
+                    ["hash-alpha", "hash-beta", "hash-gamma"],
+                )
+                self.assertEqual(len(second["memory"]["delta_event_revisions"]), 1)
+                self.assertEqual(
+                    second["memory"]["delta_profile_revision"]["original_photo_ids"],
+                    ["hash-style_reference_2"],
+                )
+                self.assertEqual(
+                    second["profile_markdown"],
+                    second["memory"]["delta_profile_markdown"],
+                )
+                self.assertEqual(second["memory"]["summary"]["reference_media_signal_count"], 2)
+                self.assertCountEqual(
+                    second["memory"]["profile_revision"]["original_photo_ids"],
+                    ["hash-style_reference", "hash-style_reference_2"],
+                )
+        finally:
+            with SessionLocal() as session:
+                session.execute(delete(TaskRecord).where(TaskRecord.task_id.in_(task_ids)))
+                session.commit()
+
+    def test_v0321_2_scale_replay_handles_1000_images_without_oversegmentation(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            task_dir = Path(tmpdir)
+            uploads_dir = task_dir / "uploads"
+            uploads_dir.mkdir(parents=True, exist_ok=True)
+
+            for event_idx in range(120):
+                for photo_idx in range(5):
+                    (uploads_dir / f"camera_event{event_idx:03d}_p{photo_idx:02d}.jpg").write_bytes(b"stub")
+            for ref_idx in range(400):
+                (uploads_dir / f"style_reference_{ref_idx:03d}.png").write_bytes(b"stub")
+
+            with patch("services.pipeline_service.ImageProcessor", ScaleReplayFakeImageProcessor), patch(
+                "services.pipeline_service.FaceRecognition", FakeFaceRecognition
+            ), patch("services.pipeline_service.VLMAnalyzer", ScaleReplayFakeVLMAnalyzer), patch(
+                "services.pipeline_service.LLMProcessor", FakeLLMProcessor
+            ):
+                from services.pipeline_service import MemoryPipelineService
+
+                service = MemoryPipelineService(
+                    task_id="task_pipeline_v0321_2_scale",
+                    task_dir=str(task_dir),
+                    asset_store=FakeAssetStore(),
+                    user_id="user_pipeline_scale",
+                    face_review_store=FakeFaceReviewStore(),
+                    task_version="v0321.2",
+                )
+                result = service.run(max_photos=1000, use_cache=False)
+
+            memory = result["memory"]
+            self.assertEqual(result["version"], "v0321.2")
+            self.assertEqual(memory["pipeline_family"], "v0321_2")
+            self.assertEqual(result["summary"]["event_count"], 120)
+            self.assertEqual(memory["summary"]["event_window_count"], 120)
+            self.assertFalse(memory["summary"]["over_segmentation_anomaly"])
+            self.assertEqual(memory["summary"]["reference_media_signal_count"], 400)
+            self.assertEqual(len(memory["event_revisions"]), 120)
+            self.assertEqual(len(memory["reference_media_signals"]), 400)
+            self.assertIn("aesthetic_preference", memory["profile_revision"]["buckets"])
+            self.assertEqual(len(memory["profile_revision"]["original_photo_ids"]), 400)
+            self.assertEqual(
+                len(memory["event_revisions"][0]["original_photo_ids"]),
+                5,
+            )
+            self.assertTrue((task_dir / "v0321_2" / "state.db").exists())
+
+    def test_v0321_2_segmentation_uses_people_and_vlm_signals_conservatively(self) -> None:
+        from datetime import datetime, timedelta
+
+        from services.v0321_2.pipeline import V03212PipelineFamily
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            family = V03212PipelineFamily(
+                task_id="task_segmentation",
+                task_dir=tmpdir,
+                user_id="user_segmentation",
+                asset_store=FakeAssetStore(),
+                llm_processor=FakeLLMProcessor(task_version="v0321.2"),
+            )
+            started_at = datetime(2026, 3, 22, 10, 0)
+            assets = [
+                {
+                    "asset_id": "asset_1",
+                    "photo_id": "photo_1",
+                    "timestamp": started_at.isoformat(),
+                    "place_key": "unknown_a",
+                },
+                {
+                    "asset_id": "asset_2",
+                    "photo_id": "photo_2",
+                    "timestamp": (started_at + timedelta(minutes=6)).isoformat(),
+                    "place_key": "unknown_b",
+                },
+                {
+                    "asset_id": "asset_3",
+                    "photo_id": "photo_3",
+                    "timestamp": (started_at + timedelta(hours=2)).isoformat(),
+                    "place_key": "far_place",
+                },
+            ]
+            observations_by_photo = {
+                "photo_1": {
+                    "place_candidates": ["Cafe_A"],
+                    "activity_hint": "meal",
+                    "scene_hint": "cafe interior",
+                },
+                "photo_2": {
+                    "place_candidates": ["Cafe_A"],
+                    "activity_hint": "meal",
+                    "scene_hint": "cafe interior",
+                },
+                "photo_3": {
+                    "place_candidates": ["Office_B"],
+                    "activity_hint": "meeting",
+                    "scene_hint": "meeting room",
+                },
+            }
+            appearances = [
+                {"photo_id": "photo_1", "person_id": "Person_001", "appearance_mode": "live_presence"},
+                {"photo_id": "photo_2", "person_id": "Person_001", "appearance_mode": "live_presence"},
+                {"photo_id": "photo_3", "person_id": "Person_002", "appearance_mode": "live_presence"},
+            ]
+
+            bursts = family._build_bursts(
+                assets,
+                observations_by_photo=observations_by_photo,
+                appearances=appearances,
+            )
+            boundaries = family._score_boundaries(bursts)
+
+            self.assertEqual(len(bursts), 2)
+            self.assertEqual(bursts[0]["photo_ids"], ["photo_1", "photo_2"])
+            self.assertEqual(len(boundaries), 1)
+            self.assertEqual(boundaries[0]["decision"], "split")
+            self.assertFalse(boundaries[0]["place_overlap"])
+            self.assertFalse(boundaries[0]["live_overlap"])
+
+    def test_v0321_2_frontier_keeps_stale_event_open_when_continuity_is_strong(self) -> None:
+        from services.v0321_2.pipeline import V03212PipelineFamily
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            family = V03212PipelineFamily(
+                task_id="task_frontier",
+                task_dir=tmpdir,
+                user_id="user_frontier",
+                asset_store=FakeAssetStore(),
+                llm_processor=FakeLLMProcessor(task_version="v0321.2"),
+            )
+            stale_candidate = {
+                "event_root_id": "event_root_old",
+                "event_revision_id": "event_rev_old",
+                "ended_at": "2026-03-22T09:00:00",
+                "participant_person_ids": ["Person_001"],
+                "place_refs": ["Cafe_A"],
+                "title": "meal @ Cafe_A",
+                "event_summary": "meal with close friend",
+            }
+            current_draft = {
+                "started_at": "2026-03-22T12:30:00",
+                "participant_person_ids": ["Person_001"],
+                "place_refs": ["Cafe_A"],
+                "title": "meal @ Cafe_A",
+                "event_summary": "meal with close friend and continued chat",
+            }
+            distant_draft = {
+                "started_at": "2026-03-22T12:30:00",
+                "participant_person_ids": ["Person_009"],
+                "place_refs": ["Office_B"],
+                "title": "meeting @ Office_B",
+                "event_summary": "work meeting",
+            }
+
+            self.assertTrue(family._should_keep_frontier_open(stale_candidate, current_draft))
+            self.assertFalse(family._should_keep_frontier_open(stale_candidate, distant_draft))
 
 
 if __name__ == "__main__":

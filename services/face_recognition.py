@@ -29,6 +29,8 @@ from config import (
     TASK_VERSION_V0315,
     TASK_VERSION_V0317,
     TASK_VERSION_V0317_HEAVY,
+    TASK_VERSION_V0321_2,
+    TASK_VERSION_V0321_3,
 )
 from models import Person, Photo
 from services.face_precision import (
@@ -80,7 +82,13 @@ class FaceRecognition:
         self.output_path = output_path
         self.workspace_dir = workspace_dir or os.getcwd()
         self.task_version = task_version
-        enhanced_versions = {TASK_VERSION_V0315, TASK_VERSION_V0317, TASK_VERSION_V0317_HEAVY}
+        enhanced_versions = {
+            TASK_VERSION_V0315,
+            TASK_VERSION_V0317,
+            TASK_VERSION_V0317_HEAVY,
+            TASK_VERSION_V0321_2,
+            TASK_VERSION_V0321_3,
+        }
         self.pose_evidence_enabled = self.task_version in enhanced_versions
         self.same_photo_guard_enabled = self.task_version in enhanced_versions
 
@@ -486,7 +494,13 @@ class FaceRecognition:
         保留 face-recognition 的原生 Person_### 编号，仅计算主人物。
         """
         merge_summaries: List[Dict[str, object]] = []
-        if self.task_version in {TASK_VERSION_V0315, TASK_VERSION_V0317, TASK_VERSION_V0317_HEAVY}:
+        if self.task_version in {
+            TASK_VERSION_V0315,
+            TASK_VERSION_V0317,
+            TASK_VERSION_V0317_HEAVY,
+            TASK_VERSION_V0321_2,
+            TASK_VERSION_V0321_3,
+        }:
             merge_summaries = self._run_second_pass_cluster_merge()
             if merge_summaries:
                 self._refresh_photo_faces(photos)

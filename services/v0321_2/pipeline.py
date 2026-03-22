@@ -1,0 +1,3002 @@
+"""
+Independent v0321.2 pipeline family.
+"""
+from __future__ import annotations
+
+import json
+import re
+import sqlite3
+from collections import defaultdict
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from time import perf_counter
+from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple
+from uuid import NAMESPACE_URL, uuid5
+
+from memory_module.adapters import MemoryStoragePublisher
+from utils import save_json
+
+
+PIPELINE_FAMILY_V0321_2 = "v0321_2"
+PIPELINE_VERSION_V0321_2 = "v0321.2"
+
+
+def _json_default(value: Any) -> Any:
+    if isinstance(value, datetime):
+        return value.isoformat()
+    return str(value)
+
+
+def _write_jsonl(path: Path, records: Sequence[Dict[str, Any]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as handle:
+        for record in records:
+            handle.write(json.dumps(record, ensure_ascii=False, default=_json_default))
+            handle.write("\n")
+
+
+class V03212StagingStore:
+    def __init__(self, db_path: Path) -> None:
+        self.db_path = db_path
+        self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        self._init_db()
+
+    def _connect(self) -> sqlite3.Connection:
+        conn = sqlite3.connect(str(self.db_path))
+        conn.row_factory = sqlite3.Row
+        return conn
+
+    def _init_db(self) -> None:
+        with self._connect() as conn:
+            conn.executescript(
+                """
+                CREATE TABLE IF NOT EXISTS meta (
+                    key TEXT PRIMARY KEY,
+                    value TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS assets (
+                    asset_id TEXT PRIMARY KEY,
+                    photo_id TEXT NOT NULL,
+                    timestamp TEXT,
+                    asset_type TEXT NOT NULL,
+                    event_eligible INTEGER NOT NULL,
+                    media_event_eligible INTEGER NOT NULL,
+                    reference_only INTEGER NOT NULL,
+                    place_key TEXT,
+                    payload_json TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS person_appearances (
+                    appearance_id TEXT PRIMARY KEY,
+                    person_id TEXT NOT NULL,
+                    photo_id TEXT NOT NULL,
+                    timestamp TEXT,
+                    appearance_mode TEXT NOT NULL,
+                    confidence REAL NOT NULL,
+                    payload_json TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_person_appearances_person ON person_appearances(person_id, timestamp);
+                CREATE TABLE IF NOT EXISTS event_roots (
+                    event_root_id TEXT PRIMARY KEY,
+                    current_revision_id TEXT,
+                    sealed_state TEXT NOT NULL,
+                    payload_json TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS event_revisions (
+                    event_revision_id TEXT PRIMARY KEY,
+                    event_root_id TEXT NOT NULL,
+                    revision INTEGER NOT NULL,
+                    started_at TEXT,
+                    ended_at TEXT,
+                    sealed_state TEXT NOT NULL,
+                    payload_json TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_event_revisions_root ON event_revisions(event_root_id, revision DESC);
+                CREATE INDEX IF NOT EXISTS idx_event_revisions_time ON event_revisions(started_at, ended_at);
+                CREATE TABLE IF NOT EXISTS relationship_roots (
+                    relationship_root_id TEXT PRIMARY KEY,
+                    target_person_id TEXT NOT NULL,
+                    current_revision_id TEXT,
+                    payload_json TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS relationship_revisions (
+                    relationship_revision_id TEXT PRIMARY KEY,
+                    relationship_root_id TEXT NOT NULL,
+                    revision INTEGER NOT NULL,
+                    status TEXT NOT NULL,
+                    payload_json TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_relationship_revisions_root ON relationship_revisions(relationship_root_id, revision DESC);
+                CREATE TABLE IF NOT EXISTS reference_media_signals (
+                    signal_id TEXT PRIMARY KEY,
+                    profile_bucket TEXT NOT NULL,
+                    payload_json TEXT NOT NULL
+                );
+                """
+            )
+
+    def upsert_asset(self, record: Dict[str, Any]) -> None:
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO assets (
+                    asset_id, photo_id, timestamp, asset_type, event_eligible,
+                    media_event_eligible, reference_only, place_key, payload_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    record["asset_id"],
+                    record["photo_id"],
+                    record.get("timestamp"),
+                    record.get("asset_type"),
+                    1 if record.get("event_eligible") else 0,
+                    1 if record.get("media_event_eligible") else 0,
+                    1 if record.get("reference_only") else 0,
+                    record.get("place_key"),
+                    json.dumps(record, ensure_ascii=False, default=_json_default),
+                ),
+            )
+
+    def insert_person_appearance(self, record: Dict[str, Any]) -> None:
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO person_appearances (
+                    appearance_id, person_id, photo_id, timestamp, appearance_mode, confidence, payload_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    record["appearance_id"],
+                    record["person_id"],
+                    record["photo_id"],
+                    record.get("timestamp"),
+                    record["appearance_mode"],
+                    float(record.get("confidence") or 0.0),
+                    json.dumps(record, ensure_ascii=False, default=_json_default),
+                ),
+            )
+
+    def upsert_event_revision(self, root_payload: Dict[str, Any], revision_payload: Dict[str, Any]) -> None:
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO event_roots (event_root_id, current_revision_id, sealed_state, payload_json)
+                VALUES (?, ?, ?, ?)
+                """,
+                (
+                    root_payload["event_root_id"],
+                    root_payload.get("current_revision_id"),
+                    root_payload.get("sealed_state") or "open_frontier",
+                    json.dumps(root_payload, ensure_ascii=False, default=_json_default),
+                ),
+            )
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO event_revisions (
+                    event_revision_id, event_root_id, revision, started_at, ended_at, sealed_state, payload_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    revision_payload["event_revision_id"],
+                    revision_payload["event_root_id"],
+                    int(revision_payload.get("revision") or 1),
+                    revision_payload.get("started_at"),
+                    revision_payload.get("ended_at"),
+                    revision_payload.get("sealed_state") or "open_frontier",
+                    json.dumps(revision_payload, ensure_ascii=False, default=_json_default),
+                ),
+            )
+
+    def seal_frontier_before(self, threshold_iso: str) -> List[str]:
+        sealed_ids: List[str] = []
+        with self._connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT er.event_revision_id, er.payload_json
+                FROM event_revisions er
+                JOIN event_roots r ON r.current_revision_id = er.event_revision_id
+                WHERE r.sealed_state = 'open_frontier' AND COALESCE(er.ended_at, '') < ?
+                """,
+                (threshold_iso,),
+            ).fetchall()
+            for row in rows:
+                payload = json.loads(row["payload_json"])
+                payload["sealed_state"] = "sealed"
+                conn.execute(
+                    "UPDATE event_roots SET sealed_state = ?, payload_json = ? WHERE event_root_id = ?",
+                    ("sealed", json.dumps({**payload, "event_root_id": payload["event_root_id"], "current_revision_id": payload["event_revision_id"]}, ensure_ascii=False, default=_json_default), payload["event_root_id"]),
+                )
+                conn.execute(
+                    "UPDATE event_revisions SET sealed_state = ?, payload_json = ? WHERE event_revision_id = ?",
+                    ("sealed", json.dumps(payload, ensure_ascii=False, default=_json_default), row["event_revision_id"]),
+                )
+                sealed_ids.append(payload["event_root_id"])
+        return sealed_ids
+
+    def list_open_frontier_event_revisions(self) -> List[Dict[str, Any]]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT er.payload_json
+                FROM event_revisions er
+                JOIN event_roots r ON r.current_revision_id = er.event_revision_id
+                WHERE r.sealed_state = 'open_frontier'
+                ORDER BY COALESCE(er.started_at, '')
+                """
+            ).fetchall()
+        return [json.loads(row["payload_json"]) for row in rows]
+
+    def seal_event_roots(self, event_root_ids: Sequence[str]) -> List[str]:
+        sealed_ids: List[str] = []
+        unique_root_ids = [str(root_id) for root_id in event_root_ids if str(root_id)]
+        if not unique_root_ids:
+            return sealed_ids
+        with self._connect() as conn:
+            for event_root_id in unique_root_ids:
+                row = conn.execute(
+                    """
+                    SELECT er.event_revision_id, er.payload_json
+                    FROM event_roots r
+                    JOIN event_revisions er ON er.event_revision_id = r.current_revision_id
+                    WHERE r.event_root_id = ?
+                    """,
+                    (event_root_id,),
+                ).fetchone()
+                if not row:
+                    continue
+                payload = json.loads(row["payload_json"])
+                payload["sealed_state"] = "sealed"
+                conn.execute(
+                    "UPDATE event_roots SET sealed_state = ?, payload_json = ? WHERE event_root_id = ?",
+                    ("sealed", json.dumps({**payload, "event_root_id": payload["event_root_id"], "current_revision_id": payload["event_revision_id"]}, ensure_ascii=False, default=_json_default), payload["event_root_id"]),
+                )
+                conn.execute(
+                    "UPDATE event_revisions SET sealed_state = ?, payload_json = ? WHERE event_revision_id = ?",
+                    ("sealed", json.dumps(payload, ensure_ascii=False, default=_json_default), row["event_revision_id"]),
+                )
+                sealed_ids.append(payload["event_root_id"])
+        return sealed_ids
+
+    def list_candidate_event_revisions(
+        self,
+        *,
+        event_started_at: str,
+        limit: int = 8,
+    ) -> List[Dict[str, Any]]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT er.payload_json
+                FROM event_revisions er
+                JOIN event_roots r ON r.current_revision_id = er.event_revision_id
+                ORDER BY ABS(strftime('%s', COALESCE(er.started_at, '')) - strftime('%s', ?)) ASC
+                LIMIT ?
+                """,
+                (event_started_at, limit),
+            ).fetchall()
+        return [json.loads(row["payload_json"]) for row in rows]
+
+    def list_current_event_revisions(self) -> List[Dict[str, Any]]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT er.payload_json
+                FROM event_revisions er
+                JOIN event_roots r ON r.current_revision_id = er.event_revision_id
+                ORDER BY COALESCE(er.started_at, '')
+                """
+            ).fetchall()
+        return [json.loads(row["payload_json"]) for row in rows]
+
+    def list_person_appearances(self) -> List[Dict[str, Any]]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT payload_json
+                FROM person_appearances
+                ORDER BY COALESCE(timestamp, ''), appearance_id
+                """
+            ).fetchall()
+        return [json.loads(row["payload_json"]) for row in rows]
+
+    def get_current_relationship_revision(self, relationship_root_id: str) -> Optional[Dict[str, Any]]:
+        with self._connect() as conn:
+            row = conn.execute(
+                """
+                SELECT rr.payload_json
+                FROM relationship_roots r
+                JOIN relationship_revisions rr ON rr.relationship_revision_id = r.current_revision_id
+                WHERE r.relationship_root_id = ?
+                """,
+                (relationship_root_id,),
+            ).fetchone()
+        return json.loads(row["payload_json"]) if row else None
+
+    def upsert_relationship_revision(self, root_payload: Dict[str, Any], revision_payload: Dict[str, Any]) -> None:
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO relationship_roots (
+                    relationship_root_id, target_person_id, current_revision_id, payload_json
+                ) VALUES (?, ?, ?, ?)
+                """,
+                (
+                    root_payload["relationship_root_id"],
+                    root_payload["target_person_id"],
+                    root_payload["current_revision_id"],
+                    json.dumps(root_payload, ensure_ascii=False, default=_json_default),
+                ),
+            )
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO relationship_revisions (
+                    relationship_revision_id, relationship_root_id, revision, status, payload_json
+                ) VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    revision_payload["relationship_revision_id"],
+                    revision_payload["relationship_root_id"],
+                    int(revision_payload.get("revision") or 1),
+                    revision_payload.get("status") or "active",
+                    json.dumps(revision_payload, ensure_ascii=False, default=_json_default),
+                ),
+            )
+
+    def list_current_relationship_revisions(self) -> List[Dict[str, Any]]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT rr.payload_json
+                FROM relationship_roots r
+                JOIN relationship_revisions rr ON rr.relationship_revision_id = r.current_revision_id
+                ORDER BY rr.relationship_root_id
+                """
+            ).fetchall()
+        return [json.loads(row["payload_json"]) for row in rows]
+
+    def save_reference_signal(self, payload: Dict[str, Any]) -> None:
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO reference_media_signals (signal_id, profile_bucket, payload_json)
+                VALUES (?, ?, ?)
+                """,
+                (
+                    payload["signal_id"],
+                    payload["profile_bucket"],
+                    json.dumps(payload, ensure_ascii=False, default=_json_default),
+                ),
+            )
+
+    def list_reference_signals(self) -> List[Dict[str, Any]]:
+        with self._connect() as conn:
+            rows = conn.execute("SELECT payload_json FROM reference_media_signals ORDER BY signal_id").fetchall()
+        return [json.loads(row["payload_json"]) for row in rows]
+
+
+class V03212PipelineFamily:
+    def __init__(
+        self,
+        *,
+        task_id: str,
+        task_dir: str | Path,
+        user_id: Optional[str],
+        asset_store: Any,
+        llm_processor: Any | None = None,
+        public_url_builder: Optional[Callable[[Path | str], Optional[str]]] = None,
+    ) -> None:
+        self.task_id = task_id
+        self.task_dir = Path(task_dir)
+        self.user_id = user_id or f"task:{task_id}"
+        self.asset_store = asset_store
+        self.llm_processor = llm_processor
+        self.public_url_builder = public_url_builder
+        self.family_dir = self.task_dir / PIPELINE_FAMILY_V0321_2
+        self.family_dir.mkdir(parents=True, exist_ok=True)
+        self.artifact_dir = self.family_dir
+        self.staging = V03212StagingStore(self.family_dir / "state.db")
+        self.family_prefix = f"v0321.2:{self.user_id}"
+        self._summary: Dict[str, Any] = {
+            "pipeline_family": PIPELINE_FAMILY_V0321_2,
+            "asset_count": 0,
+            "event_window_count": 0,
+            "event_revision_count": 0,
+            "relationship_revision_count": 0,
+            "reference_media_signal_count": 0,
+            "ambiguous_boundary_count": 0,
+            "relationship_llm_count": 0,
+            "event_llm_count": 0,
+            "profile_llm_count": 0,
+        }
+
+    def run(
+        self,
+        *,
+        photos: Sequence[Any],
+        face_output: Dict[str, Any],
+        primary_person_id: Optional[str],
+        vlm_results: Sequence[Dict[str, Any]],
+        cached_photo_ids: Iterable[str],
+        dedupe_report: Optional[Dict[str, Any]],
+        progress_callback: Optional[Callable[[str, Dict[str, Any]], None]] = None,
+    ) -> Dict[str, Any]:
+        prior_state = self._load_prior_state()
+        bootstrap_summary = self._bootstrap_from_prior_state(prior_state)
+        self._summary.update(bootstrap_summary)
+        cached_photo_ids = set(cached_photo_ids)
+        photo_by_id = {str(photo.photo_id): photo for photo in photos}
+        observations_by_photo = {
+            str(item.get("photo_id")): self._build_photo_observation_packet(
+                item,
+                photo=photo_by_id.get(str(item.get("photo_id") or "")),
+            )
+            for item in vlm_results
+            if isinstance(item, dict) and item.get("photo_id")
+        }
+        asset_records = []
+        person_appearances = []
+        face_anchor_report = []
+        for photo in photos:
+            observation = observations_by_photo.get(photo.photo_id, self._empty_observation_packet(photo))
+            asset = self._classify_asset(photo=photo, observation=observation)
+            asset_records.append(asset)
+            self.staging.upsert_asset(asset)
+            appearances = self._build_person_appearances(photo=photo, asset=asset, observation=observation)
+            for appearance in appearances:
+                person_appearances.append(appearance)
+                self.staging.insert_person_appearance(appearance)
+            face_anchor_report.append(
+                {
+                    "photo_id": photo.photo_id,
+                    "face_anchors": self._face_anchors(photo),
+                    "asset_type": asset["asset_type"],
+                    "event_eligible": asset["event_eligible"],
+                }
+            )
+
+        reference_signals = self._build_reference_media_signals(asset_records, observations_by_photo, primary_person_id)
+        for signal in reference_signals:
+            self.staging.save_reference_signal(signal)
+        all_reference_signals = self.staging.list_reference_signals()
+
+        event_assets = [asset for asset in asset_records if asset.get("event_eligible")]
+        bursts = self._build_bursts(
+            event_assets,
+            observations_by_photo=observations_by_photo,
+            appearances=person_appearances,
+        )
+        boundaries = self._score_boundaries(bursts)
+        boundaries = self._resolve_ambiguous_boundaries(
+            bursts=bursts,
+            boundaries=boundaries,
+            observations_by_photo=observations_by_photo,
+            person_appearances=person_appearances,
+        )
+        windows = self._build_event_windows(bursts, boundaries)
+        self._summary["asset_count"] = len(asset_records)
+        self._summary["event_window_count"] = len(windows)
+        self._summary["ambiguous_boundary_count"] = sum(1 for item in boundaries if item.get("decision") == "ambiguous")
+        self._summary["reference_media_signal_count"] = len(all_reference_signals)
+        llm_started_at = perf_counter()
+        self._emit_progress(
+            progress_callback,
+            "llm",
+            {
+                "message": "v0321.2 事件草稿生成中",
+                "substage": "event_draft",
+                "candidate_count": len(windows),
+                "filtered_count": len(windows),
+                "processed_candidates": 0,
+                "percent": 15,
+                "runtime_seconds": 0.0,
+            },
+        )
+        event_drafts: List[Dict[str, Any]] = []
+        finalize_candidate_count = 0
+        total_windows = len(windows)
+        for index, window in enumerate(windows, start=1):
+            draft = self._draft_event_window(window, observations_by_photo, person_appearances)
+            event_drafts.append(draft)
+            if self._window_requires_event_finalize(window):
+                finalize_candidate_count += 1
+            progress_percent = 15
+            if total_windows > 0:
+                progress_percent = min(44, 15 + int((index / total_windows) * 29))
+            self._emit_progress(
+                progress_callback,
+                "llm",
+                {
+                    "message": "v0321.2 事件草稿生成中",
+                    "substage": "event_draft",
+                    "candidate_count": total_windows,
+                    "filtered_count": total_windows,
+                    "processed_candidates": index,
+                    "finalize_candidate_count": finalize_candidate_count,
+                    "percent": progress_percent,
+                    "runtime_seconds": round(perf_counter() - llm_started_at, 4),
+                },
+            )
+        self._emit_progress(
+            progress_callback,
+            "llm",
+            {
+                "message": "v0321.2 事件定稿中",
+                "substage": "event_finalize",
+                "candidate_count": finalize_candidate_count,
+                "filtered_count": finalize_candidate_count,
+                "processed_candidates": finalize_candidate_count,
+                "percent": 45,
+                "runtime_seconds": round(perf_counter() - llm_started_at, 4),
+            },
+        )
+        event_revisions, atomic_evidence, changed_event_revisions = self._resolve_event_drafts(event_drafts)
+        delta_atomic_evidence = self._collect_atomic_evidence(changed_event_revisions)
+        self._emit_progress(
+            progress_callback,
+            "llm",
+            {
+                "message": "v0321.2 事件定稿完成，关系与画像继续整理中",
+                "completed": False,
+                "substage": "event_finalize",
+                "percent": 58,
+                "runtime_seconds": round(perf_counter() - llm_started_at, 4),
+                "memory_contract_preview": self._build_llm_preview(
+                    event_revisions=changed_event_revisions,
+                    atomic_evidence=delta_atomic_evidence,
+                    relationship_revisions=[],
+                    profile_revision={},
+                ),
+                "fact_count": len(changed_event_revisions),
+                "relationship_hypothesis_count": 0,
+                "profile_evidence_count": 0,
+                "profile_markdown_preview": "",
+            },
+        )
+        self._emit_progress(
+            progress_callback,
+            "llm",
+            {
+                "message": "v0321.2 关系综合中",
+                "substage": "relationship_inference",
+                "candidate_count": len(event_revisions),
+                "filtered_count": len(changed_event_revisions),
+                "processed_candidates": len(changed_event_revisions),
+                "percent": 72,
+                "runtime_seconds": round(perf_counter() - llm_started_at, 4),
+            },
+        )
+        relationship_revisions, relationship_ledgers, changed_relationship_revisions = self._project_relationships(
+            primary_person_id=primary_person_id,
+            event_revisions=event_revisions,
+            changed_event_revisions=changed_event_revisions,
+            atomic_evidence=atomic_evidence,
+        )
+        self._emit_progress(
+            progress_callback,
+            "llm",
+            {
+                "message": "v0321.2 关系综合完成，画像继续整理中",
+                "completed": False,
+                "substage": "relationship_projector",
+                "percent": 82,
+                "runtime_seconds": round(perf_counter() - llm_started_at, 4),
+                "memory_contract_preview": self._build_llm_preview(
+                    event_revisions=changed_event_revisions,
+                    atomic_evidence=delta_atomic_evidence,
+                    relationship_revisions=changed_relationship_revisions,
+                    profile_revision={},
+                ),
+                "fact_count": len(changed_event_revisions),
+                "relationship_hypothesis_count": len(changed_relationship_revisions),
+                "profile_evidence_count": 0,
+                "profile_markdown_preview": "",
+            },
+        )
+        all_person_appearances = self.staging.list_person_appearances()
+        self._emit_progress(
+            progress_callback,
+            "llm",
+            {
+                "message": "v0321.2 用户画像整理中",
+                "substage": "profile_materialization",
+                "candidate_count": len(event_revisions),
+                "filtered_count": len(relationship_revisions),
+                "processed_candidates": len(relationship_revisions),
+                "percent": 88,
+                "runtime_seconds": round(perf_counter() - llm_started_at, 4),
+            },
+        )
+        profile_revision, profile_markdown = self._build_profile_revision(
+            primary_person_id=primary_person_id,
+            event_revisions=event_revisions,
+            atomic_evidence=atomic_evidence,
+            relationship_revisions=relationship_revisions,
+            reference_signals=all_reference_signals,
+            revision_key="1",
+            scope="cumulative",
+        )
+        delta_profile_revision, delta_profile_markdown = self._build_profile_revision(
+            primary_person_id=primary_person_id,
+            event_revisions=changed_event_revisions,
+            atomic_evidence=delta_atomic_evidence,
+            relationship_revisions=changed_relationship_revisions,
+            reference_signals=reference_signals,
+            revision_key="delta",
+            scope="current_task",
+        )
+        llm_runtime_seconds = perf_counter() - llm_started_at
+        storage = self._build_storage_payload(
+            primary_person_id=primary_person_id,
+            face_output=face_output,
+            person_appearances=all_person_appearances,
+            event_revisions=event_revisions,
+            relationship_revisions=relationship_revisions,
+            relationship_ledgers=relationship_ledgers,
+            profile_revision=profile_revision,
+            reference_signals=all_reference_signals,
+        )
+        self._emit_progress(
+            progress_callback,
+            "llm",
+            self._build_llm_progress_payload(
+                event_revisions=changed_event_revisions,
+                atomic_evidence=delta_atomic_evidence,
+                relationship_revisions=changed_relationship_revisions,
+                profile_revision=delta_profile_revision,
+                profile_markdown=delta_profile_markdown,
+                reference_signals=reference_signals,
+                runtime_seconds=llm_runtime_seconds,
+            ),
+        )
+        memory_started_at = perf_counter()
+        self._emit_progress(
+            progress_callback,
+            "memory",
+            {
+                "message": "v0321.2 revision-first 落库中",
+                "pipeline_family": PIPELINE_FAMILY_V0321_2,
+                "percent": 15,
+                "runtime_seconds": 0.0,
+            },
+        )
+        external_publish = MemoryStoragePublisher(
+            task_dir=self.task_dir,
+            output_dir=self.family_dir,
+        ).publish(storage, user_id=self.user_id)
+
+        pipeline_summary = {
+            **self._summary,
+            "cached_photo_ids": sorted(cached_photo_ids),
+            "dedupe_report": dict(dedupe_report or {}),
+            "primary_person_id": primary_person_id,
+            "over_segmentation_anomaly": len(windows) >= max(10, int(len(event_assets) * 0.75)) if event_assets else False,
+        }
+
+        paths = {
+            "face_anchor_report": self.artifact_dir / "face_anchor_report.json",
+            "person_appearances": self.artifact_dir / "person_appearances.jsonl",
+            "asset_triage": self.artifact_dir / "asset_triage.jsonl",
+            "burst_manifest": self.artifact_dir / "burst_manifest.json",
+            "boundary_decisions": self.artifact_dir / "boundary_decisions.json",
+            "event_drafts": self.artifact_dir / "event_drafts.jsonl",
+            "event_revisions": self.artifact_dir / "event_revisions.jsonl",
+            "atomic_evidence": self.artifact_dir / "atomic_evidence.jsonl",
+            "relationship_revisions": self.artifact_dir / "relationship_revisions.jsonl",
+            "relationship_ledgers": self.artifact_dir / "relationship_ledgers.json",
+            "period_revisions": self.artifact_dir / "period_revisions.jsonl",
+            "profile_revision": self.artifact_dir / "profile_revision.json",
+            "pipeline_summary": self.artifact_dir / "pipeline_summary.json",
+            "reference_media": self.artifact_dir / "reference_media.json",
+            "memory_payload": self.artifact_dir / "memory_payload.json",
+        }
+        save_json({"items": face_anchor_report}, str(paths["face_anchor_report"]))
+        _write_jsonl(paths["person_appearances"], all_person_appearances)
+        _write_jsonl(paths["asset_triage"], asset_records)
+        save_json({"bursts": bursts}, str(paths["burst_manifest"]))
+        save_json({"boundaries": boundaries}, str(paths["boundary_decisions"]))
+        _write_jsonl(paths["event_drafts"], event_drafts)
+        _write_jsonl(paths["event_revisions"], event_revisions)
+        _write_jsonl(paths["atomic_evidence"], atomic_evidence)
+        _write_jsonl(paths["relationship_revisions"], relationship_revisions)
+        save_json({"items": relationship_ledgers}, str(paths["relationship_ledgers"]))
+        _write_jsonl(paths["period_revisions"], [])
+        save_json(profile_revision, str(paths["profile_revision"]))
+        save_json(pipeline_summary, str(paths["pipeline_summary"]))
+        save_json({"items": all_reference_signals}, str(paths["reference_media"]))
+
+        payload = {
+            "pipeline_family": PIPELINE_FAMILY_V0321_2,
+            "summary": {
+                "event_count": len(event_revisions),
+                "event_revision_count": len(event_revisions),
+                "relationship_count": len(relationship_revisions),
+                "relationship_revision_count": len(relationship_revisions),
+                "reference_media_signal_count": len(all_reference_signals),
+                "profile_bucket_count": len(profile_revision.get("buckets", {})),
+                "profile_field_count": sum(
+                    len(bucket.get("values", []))
+                    for bucket in profile_revision.get("buckets", {}).values()
+                ),
+                **pipeline_summary,
+            },
+            "event_revisions": event_revisions,
+            "delta_event_revisions": changed_event_revisions,
+            "atomic_evidence": atomic_evidence,
+            "delta_atomic_evidence": delta_atomic_evidence,
+            "relationship_revisions": relationship_revisions,
+            "delta_relationship_revisions": changed_relationship_revisions,
+            "period_revisions": [],
+            "profile_revision": profile_revision,
+            "profile_markdown": profile_markdown,
+            "delta_profile_revision": delta_profile_revision,
+            "delta_profile_markdown": delta_profile_markdown,
+            "person_appearances": all_person_appearances,
+            "reference_media_signals": all_reference_signals,
+            "delta_reference_media_signals": reference_signals,
+            "envelope": {
+                "event_revision_ids": [item.get("event_revision_id") for item in event_revisions],
+                "relationship_revision_ids": [item.get("relationship_revision_id") for item in relationship_revisions],
+                "profile_revision_id": profile_revision.get("profile_revision_id"),
+            },
+            "storage": storage,
+            "external_publish": external_publish,
+            "transparency": {
+                "vlm_stage": self._build_vlm_stage_transparency(
+                    observations_by_photo=observations_by_photo,
+                    cached_photo_ids=cached_photo_ids,
+                    total_input_photos=len(photos),
+                ),
+                "segmentation_stage": self._build_segmentation_stage_transparency(
+                    bursts=bursts,
+                    boundaries=boundaries,
+                    windows=windows,
+                ),
+                "llm_stage": self._build_llm_stage_transparency(
+                    event_revisions=changed_event_revisions,
+                    atomic_evidence=delta_atomic_evidence,
+                    relationship_revisions=changed_relationship_revisions,
+                    profile_revision=delta_profile_revision,
+                    reference_signals=reference_signals,
+                    runtime_seconds=llm_runtime_seconds,
+                ),
+                "neo4j_state": self._build_neo4j_state(storage),
+                "redis_state": self._build_redis_state(storage),
+                "asset_triage": asset_records,
+                "bursts": bursts,
+                "boundaries": boundaries,
+                "open_frontier_count": len([item for item in event_revisions if item.get("sealed_state") == "open_frontier"]),
+                "reference_media_signal_count": len(all_reference_signals),
+                "relationship_ledgers": relationship_ledgers,
+                "bootstrap": prior_state.get("bootstrap") or {},
+            },
+            "artifacts": {
+                f"{key}_path": str(path)
+                for key, path in paths.items()
+            },
+            "evaluation": {},
+        }
+        payload["artifacts"].update(
+            {
+                f"{key}_url": self._public_url(path)
+                for key, path in paths.items()
+            }
+        )
+        payload["artifacts"]["staging_db_path"] = str(self.staging.db_path)
+        payload["artifacts"]["staging_db_url"] = self._public_url(self.staging.db_path)
+        save_json(payload, str(paths["memory_payload"]))
+        self._emit_progress(
+            progress_callback,
+            "memory",
+            self._build_memory_progress_payload(payload=payload, runtime_seconds=perf_counter() - memory_started_at),
+        )
+        return payload
+
+    def _build_vlm_stage_transparency(
+        self,
+        *,
+        observations_by_photo: Dict[str, Dict[str, Any]],
+        cached_photo_ids: Iterable[str],
+        total_input_photos: int,
+    ) -> Dict[str, Any]:
+        cached_hits = len(list(cached_photo_ids))
+        summaries = []
+        for photo_id, observation in list(observations_by_photo.items())[:12]:
+            summaries.append(
+                {
+                    "photo_id": photo_id,
+                    "summary": observation.get("summary") or observation.get("scene_hint") or observation.get("activity_hint"),
+                    "ocr_hits": list(observation.get("ocr_hits", [])[:5]),
+                    "brands": list(observation.get("brands", [])[:5]),
+                    "place_candidates": list(observation.get("place_candidates", [])[:3]),
+                    "embedded_media_signals": list(observation.get("embedded_media_signals", [])[:3]),
+                }
+            )
+        return {
+            "processed_photos": len(observations_by_photo),
+            "cached_hits": cached_hits,
+            "total_input_photos": total_input_photos,
+            "representative_photo_count": len(summaries),
+            "summaries": summaries,
+        }
+
+    def _build_segmentation_stage_transparency(
+        self,
+        *,
+        bursts: Sequence[Dict[str, Any]],
+        boundaries: Sequence[Dict[str, Any]],
+        windows: Sequence[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        summaries = []
+        for window in list(windows)[:12]:
+            summaries.append(
+                {
+                    "window_id": window.get("window_id"),
+                    "started_at": window.get("started_at"),
+                    "ended_at": window.get("ended_at"),
+                    "photo_count": len(window.get("photo_ids", []) or []),
+                    "boundary_reason": window.get("boundary_reason"),
+                }
+            )
+        movement_count = sum(1 for item in boundaries if item.get("decision") in {"split", "ambiguous"})
+        return {
+            "burst_count": len(bursts),
+            "event_count": len(windows),
+            "movement_count": movement_count,
+            "summaries": summaries,
+        }
+
+    def _build_llm_stage_transparency(
+        self,
+        *,
+        event_revisions: Sequence[Dict[str, Any]],
+        atomic_evidence: Sequence[Dict[str, Any]],
+        relationship_revisions: Sequence[Dict[str, Any]],
+        profile_revision: Dict[str, Any],
+        reference_signals: Sequence[Dict[str, Any]],
+        runtime_seconds: float,
+    ) -> Dict[str, Any]:
+        summaries: List[Dict[str, Any]] = []
+        for event in list(event_revisions)[:8]:
+            summaries.append(
+                {
+                    "kind": "event_revision",
+                    "event_revision_id": event.get("event_revision_id"),
+                    "title": event.get("title"),
+                    "participant_person_ids": list(event.get("participant_person_ids", [])[:4]),
+                    "place_refs": list(event.get("place_refs", [])[:3]),
+                    "original_photo_ids": list(event.get("original_photo_ids", [])[:6]),
+                }
+            )
+        for relationship in list(relationship_revisions)[:6]:
+            summaries.append(
+                {
+                    "kind": "relationship_revision",
+                    "relationship_revision_id": relationship.get("relationship_revision_id"),
+                    "target_person_id": relationship.get("target_person_id"),
+                    "relationship_type": relationship.get("relationship_type"),
+                    "confidence": relationship.get("confidence"),
+                }
+            )
+        for bucket, payload in list((profile_revision.get("buckets") or {}).items())[:4]:
+            summaries.append(
+                {
+                    "kind": "profile_bucket",
+                    "bucket": bucket,
+                    "values": list((payload or {}).get("values", [])[:5]),
+                    "original_photo_ids": list((payload or {}).get("original_photo_ids", [])[:6]),
+                }
+            )
+        return {
+            "fact_count": len(event_revisions),
+            "relationship_hypothesis_count": len(relationship_revisions),
+            "profile_evidence_count": len(reference_signals),
+            "observation_count": len(atomic_evidence),
+            "profile_delta_count": sum(len((payload or {}).get("values", [])) for payload in (profile_revision.get("buckets") or {}).values()),
+            "runtime_seconds": round(runtime_seconds, 4),
+            "summaries": summaries,
+        }
+
+    def _build_llm_preview(
+        self,
+        *,
+        event_revisions: Sequence[Dict[str, Any]],
+        atomic_evidence: Sequence[Dict[str, Any]],
+        relationship_revisions: Sequence[Dict[str, Any]],
+        profile_revision: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        return {
+            "event_revisions": list(event_revisions[:8]),
+            "atomic_evidence": list(atomic_evidence[:16]),
+            "relationship_revisions": list(relationship_revisions[:8]),
+            "profile_revision": profile_revision,
+        }
+
+    def _build_llm_progress_payload(
+        self,
+        *,
+        event_revisions: Sequence[Dict[str, Any]],
+        atomic_evidence: Sequence[Dict[str, Any]],
+        relationship_revisions: Sequence[Dict[str, Any]],
+        profile_revision: Dict[str, Any],
+        profile_markdown: str,
+        reference_signals: Sequence[Dict[str, Any]],
+        runtime_seconds: float,
+    ) -> Dict[str, Any]:
+        return {
+            "message": "v0321.2 LLM revision 生成完成",
+            "completed": True,
+            "substage": "completed",
+            "percent": 100,
+            "runtime_seconds": round(runtime_seconds, 4),
+            "memory_contract_preview": self._build_llm_preview(
+                event_revisions=event_revisions,
+                atomic_evidence=atomic_evidence,
+                relationship_revisions=relationship_revisions,
+                profile_revision=profile_revision,
+            ),
+            "profile_markdown_preview": profile_markdown[:4000] if profile_markdown else "",
+            "fact_count": len(event_revisions),
+            "relationship_hypothesis_count": len(relationship_revisions),
+            "profile_evidence_count": len(reference_signals),
+        }
+
+    def _build_neo4j_state(self, storage: Dict[str, Any]) -> Dict[str, Any]:
+        neo4j_storage = dict(storage.get("neo4j", {}) or {})
+        nodes = dict(neo4j_storage.get("nodes", {}) or {})
+        node_counts = {
+            key: len(value) if isinstance(value, list) else 0
+            for key, value in nodes.items()
+        }
+        return {
+            "node_counts": node_counts,
+            "edge_count": len(list(neo4j_storage.get("edges", []) or [])),
+        }
+
+    def _build_redis_state(self, storage: Dict[str, Any]) -> Dict[str, Any]:
+        redis_payload = dict(storage.get("redis", {}) or {})
+        return {
+            "profile_version": int(((redis_payload.get("profile_current") or {}).get("version") or 0)),
+            "published_field_count": len(list(((redis_payload.get("profile_current") or {}).get("buckets") or {}).keys())),
+            "relationship_count": len([key for key in redis_payload.keys() if str(key).startswith("relationship_ledger_")]),
+            "recent_event_count": 0,
+            "recent_fact_count": 0,
+            "materialized_profile_count": len(list(((redis_payload.get("profile_current") or {}).get("buckets") or {}).keys())),
+        }
+
+    def _build_memory_progress_payload(self, *, payload: Dict[str, Any], runtime_seconds: float) -> Dict[str, Any]:
+        storage = dict(payload.get("storage", {}) or {})
+        neo4j_storage = dict(storage.get("neo4j", {}) or {})
+        neo4j_nodes = dict(neo4j_storage.get("nodes", {}) or {})
+        neo4j_preview = {
+            "nodes": {
+                key: list(value[:8]) if isinstance(value, list) else value
+                for key, value in neo4j_nodes.items()
+            },
+            "edges": list((neo4j_storage.get("edges", []) or [])[:20]),
+        }
+        return {
+            "message": "v0321.2 revision-first 落位完成",
+            "completed": True,
+            "percent": 100,
+            "runtime_seconds": round(runtime_seconds, 4),
+            "pipeline_family": PIPELINE_FAMILY_V0321_2,
+            "redis_preview": dict(storage.get("redis", {}) or {}),
+            "neo4j_preview": neo4j_preview,
+            "memory_transparency_preview": dict(payload.get("transparency", {}) or {}),
+            "artifacts": dict(payload.get("artifacts", {}) or {}),
+        }
+
+    def _classify_asset(self, *, photo: Any, observation: Dict[str, Any]) -> Dict[str, Any]:
+        name = str(photo.filename or "").lower()
+        summary = " ".join(
+            str(part).lower()
+            for part in [
+                observation.get("summary"),
+                observation.get("scene_hint"),
+                observation.get("activity_hint"),
+                " ".join(observation.get("ocr_hits", [])[:5]),
+            ]
+            if part
+        )
+        asset_type = "camera_photo"
+        reference_only = False
+        media_event_eligible = False
+        if any(token in name for token in ("screenshot", "screen", "截屏", "截图")):
+            asset_type = "screenshot"
+            media_event_eligible = self._looks_like_media_action(summary)
+        elif any(token in name for token in ("ai", "midjourney", "stable", "wallpaper", "meme", "inspo", "reference", "web")):
+            asset_type = "ai_generated_or_reference" if "ai" in name else "saved_web_image"
+            reference_only = True
+        elif any(token in summary for token in ("poster", "screenshot", "wallpaper", "meme", "海报", "屏幕", "网图")):
+            asset_type = "saved_web_image"
+            reference_only = True
+        if any(token in summary for token in ("polaroid", "instant photo", "printed photo", "相纸", "照片中的照片", "屏幕中的照片")):
+            asset_type = "scanned_or_embedded_media"
+        event_eligible = asset_type == "camera_photo" or media_event_eligible
+        timestamp_iso = photo.timestamp.isoformat() if isinstance(photo.timestamp, datetime) else str(photo.timestamp)
+        place_key = str((photo.location or {}).get("name") or observation.get("place_candidates", ["unknown"])[0] or "unknown")
+        return {
+            "asset_id": self._stable_id("asset", photo.photo_id),
+            "photo_id": photo.photo_id,
+            "original_photo_id": self._original_photo_id(photo),
+            "filename": photo.filename,
+            "timestamp": timestamp_iso,
+            "asset_type": asset_type,
+            "event_eligible": event_eligible,
+            "media_event_eligible": media_event_eligible,
+            "reference_only": reference_only,
+            "place_key": place_key,
+            "time_source": "exif" if getattr(photo, "timestamp", None) else "unknown",
+            "triage_reason": "filename_or_summary_heuristics",
+        }
+
+    def _load_prior_state(self) -> Dict[str, Any]:
+        db_state = self._load_prior_state_from_db()
+        if db_state.get("event_revisions") or db_state.get("relationship_revisions"):
+            return db_state
+        sibling_state = self._load_prior_state_from_sibling_snapshot()
+        if sibling_state.get("event_revisions") or sibling_state.get("relationship_revisions"):
+            return sibling_state
+        return {
+            "event_revisions": [],
+            "relationship_revisions": [],
+            "person_appearances": [],
+            "reference_signals": [],
+            "bootstrap": {
+                "applied": False,
+                "source": None,
+                "source_task_id": None,
+            },
+        }
+
+    def _load_prior_state_from_db(self) -> Dict[str, Any]:
+        try:
+            from sqlalchemy import desc, select
+
+            from backend.db import SessionLocal
+            from backend.models import TaskRecord
+        except Exception:
+            return {
+                "event_revisions": [],
+                "relationship_revisions": [],
+                "person_appearances": [],
+                "reference_signals": [],
+                "bootstrap": {"applied": False, "source": "db_unavailable", "source_task_id": None},
+            }
+
+        with SessionLocal() as session:
+            stmt = (
+                select(TaskRecord)
+                .where(
+                    TaskRecord.user_id == self.user_id,
+                    TaskRecord.version == PIPELINE_VERSION_V0321_2,
+                    TaskRecord.task_id != self.task_id,
+                    TaskRecord.result.is_not(None),
+                )
+                .order_by(desc(TaskRecord.updated_at))
+                .limit(1)
+            )
+            record = session.execute(stmt).scalar_one_or_none()
+
+        if record is None:
+            return {
+                "event_revisions": [],
+                "relationship_revisions": [],
+                "person_appearances": [],
+                "reference_signals": [],
+                "bootstrap": {"applied": False, "source": "db", "source_task_id": None},
+            }
+
+        memory_payload = dict(((record.result or {}).get("memory") or {}))
+        if memory_payload.get("pipeline_family") != PIPELINE_FAMILY_V0321_2:
+            return {
+                "event_revisions": [],
+                "relationship_revisions": [],
+                "person_appearances": [],
+                "reference_signals": [],
+                "bootstrap": {"applied": False, "source": "db", "source_task_id": record.task_id},
+            }
+        return self._assemble_prior_state(
+            source="db",
+            task_id=record.task_id,
+            task_dir=Path(record.task_dir),
+            memory_payload=memory_payload,
+        )
+
+    def _load_prior_state_from_sibling_snapshot(self) -> Dict[str, Any]:
+        parent = self.task_dir.parent
+        if not parent.exists():
+            return {
+                "event_revisions": [],
+                "relationship_revisions": [],
+                "person_appearances": [],
+                "reference_signals": [],
+                "bootstrap": {"applied": False, "source": "sibling_scan", "source_task_id": None},
+            }
+        candidates = sorted(
+            (
+                path
+                for path in parent.glob(f"*/{PIPELINE_FAMILY_V0321_2}/memory_payload.json")
+                if path.parent.parent.resolve() != self.task_dir.resolve()
+            ),
+            key=lambda path: path.stat().st_mtime,
+            reverse=True,
+        )
+        for payload_path in candidates:
+            try:
+                memory_payload = json.loads(payload_path.read_text(encoding="utf-8"))
+            except Exception:
+                continue
+            if memory_payload.get("pipeline_family") != PIPELINE_FAMILY_V0321_2:
+                continue
+            return self._assemble_prior_state(
+                source="sibling_scan",
+                task_id=payload_path.parent.parent.name,
+                task_dir=payload_path.parent.parent,
+                memory_payload=memory_payload,
+            )
+        return {
+            "event_revisions": [],
+            "relationship_revisions": [],
+            "person_appearances": [],
+            "reference_signals": [],
+            "bootstrap": {"applied": False, "source": "sibling_scan", "source_task_id": None},
+        }
+
+    def _assemble_prior_state(
+        self,
+        *,
+        source: str,
+        task_id: str,
+        task_dir: Path,
+        memory_payload: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        person_appearances = list(memory_payload.get("person_appearances", []) or [])
+        if not person_appearances:
+            person_appearances = self._load_jsonl_artifact(
+                task_id=task_id,
+                task_dir=task_dir,
+                relative_path=f"{PIPELINE_FAMILY_V0321_2}/person_appearances.jsonl",
+            )
+        reference_signals = list(memory_payload.get("reference_media_signals", []) or [])
+        if not reference_signals:
+            reference_signals = self._load_json_artifact_items(
+                task_id=task_id,
+                task_dir=task_dir,
+                relative_path=f"{PIPELINE_FAMILY_V0321_2}/reference_media.json",
+            )
+        return {
+            "event_revisions": list(memory_payload.get("event_revisions", []) or []),
+            "relationship_revisions": list(memory_payload.get("relationship_revisions", []) or []),
+            "person_appearances": person_appearances,
+            "reference_signals": reference_signals,
+            "bootstrap": {
+                "applied": True,
+                "source": source,
+                "source_task_id": task_id,
+                "prior_event_revision_count": len(list(memory_payload.get("event_revisions", []) or [])),
+                "prior_relationship_revision_count": len(list(memory_payload.get("relationship_revisions", []) or [])),
+                "prior_person_appearance_count": len(person_appearances),
+                "prior_reference_media_signal_count": len(reference_signals),
+            },
+        }
+
+    def _load_jsonl_artifact(self, *, task_id: str, task_dir: Path, relative_path: str) -> List[Dict[str, Any]]:
+        local_path = task_dir / relative_path
+        raw_bytes: Optional[bytes] = None
+        if local_path.exists():
+            raw_bytes = local_path.read_bytes()
+        elif getattr(self.asset_store, "enabled", False):
+            try:
+                if self.asset_store.has_object(task_id, relative_path):
+                    raw_bytes, _ = self.asset_store.read_bytes(task_id, relative_path)
+            except Exception:
+                raw_bytes = None
+        if not raw_bytes:
+            return []
+        records: List[Dict[str, Any]] = []
+        for line in raw_bytes.decode("utf-8").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                records.append(json.loads(line))
+            except Exception:
+                continue
+        return records
+
+    def _load_json_artifact_items(self, *, task_id: str, task_dir: Path, relative_path: str) -> List[Dict[str, Any]]:
+        local_path = task_dir / relative_path
+        raw_bytes: Optional[bytes] = None
+        if local_path.exists():
+            raw_bytes = local_path.read_bytes()
+        elif getattr(self.asset_store, "enabled", False):
+            try:
+                if self.asset_store.has_object(task_id, relative_path):
+                    raw_bytes, _ = self.asset_store.read_bytes(task_id, relative_path)
+            except Exception:
+                raw_bytes = None
+        if not raw_bytes:
+            return []
+        try:
+            payload = json.loads(raw_bytes.decode("utf-8"))
+        except Exception:
+            return []
+        return list(payload.get("items", []) or [])
+
+    def _bootstrap_from_prior_state(self, prior_state: Dict[str, Any]) -> Dict[str, Any]:
+        for appearance in prior_state.get("person_appearances", []) or []:
+            self.staging.insert_person_appearance(appearance)
+        for signal in prior_state.get("reference_signals", []) or []:
+            self.staging.save_reference_signal(signal)
+        for event in prior_state.get("event_revisions", []) or []:
+            root_payload = {
+                "event_root_id": event["event_root_id"],
+                "current_revision_id": event["event_revision_id"],
+                "sealed_state": event.get("sealed_state") or "sealed",
+                "pipeline_family": PIPELINE_FAMILY_V0321_2,
+            }
+            self.staging.upsert_event_revision(root_payload, event)
+        for relationship in prior_state.get("relationship_revisions", []) or []:
+            root_payload = {
+                "relationship_root_id": relationship["relationship_root_id"],
+                "target_person_id": relationship["target_person_id"],
+                "current_revision_id": relationship["relationship_revision_id"],
+                "pipeline_family": PIPELINE_FAMILY_V0321_2,
+            }
+            self.staging.upsert_relationship_revision(root_payload, relationship)
+        bootstrap = dict(prior_state.get("bootstrap") or {})
+        return {
+            "bootstrap_applied": bool(bootstrap.get("applied")),
+            "bootstrap_source": bootstrap.get("source"),
+            "bootstrap_source_task_id": bootstrap.get("source_task_id"),
+            "bootstrap_prior_event_revision_count": int(bootstrap.get("prior_event_revision_count") or 0),
+            "bootstrap_prior_relationship_revision_count": int(bootstrap.get("prior_relationship_revision_count") or 0),
+            "bootstrap_prior_person_appearance_count": int(bootstrap.get("prior_person_appearance_count") or 0),
+            "bootstrap_prior_reference_media_signal_count": int(bootstrap.get("prior_reference_media_signal_count") or 0),
+        }
+
+    def _looks_like_media_action(self, summary: str) -> bool:
+        return any(
+            token in summary
+            for token in (
+                "payment",
+                "paid",
+                "order",
+                "ticket",
+                "boarding",
+                "itinerary",
+                "receipt",
+                "confirmation",
+                "支付",
+                "订单",
+                "机票",
+                "车票",
+                "登机",
+                "行程",
+                "票据",
+                "确认",
+            )
+        )
+
+    def _build_person_appearances(self, *, photo: Any, asset: Dict[str, Any], observation: Dict[str, Any]) -> List[Dict[str, Any]]:
+        timestamp_iso = photo.timestamp.isoformat() if isinstance(photo.timestamp, datetime) else str(photo.timestamp)
+        appearances = []
+        asset_type = str(asset.get("asset_type") or "camera_photo")
+        live_mode = "live_presence" if asset_type == "camera_photo" or asset.get("media_event_eligible") else "embedded_media"
+        source_kind = "face_recognition" if live_mode == "live_presence" else "face_recognition_non_camera"
+        original_photo_id = self._original_photo_id(photo)
+        for face in list(getattr(photo, "faces", []) or []):
+            person_id = str(face.get("person_id") or "")
+            if not person_id:
+                continue
+            appearances.append(
+                {
+                    "appearance_id": self._stable_id("appearance", original_photo_id, person_id, live_mode),
+                    "person_id": person_id,
+                    "photo_id": photo.photo_id,
+                    "original_photo_id": original_photo_id,
+                    "timestamp": timestamp_iso,
+                    "appearance_mode": live_mode,
+                    "confidence": float(face.get("score") or face.get("similarity") or 0.0),
+                    "bbox_ref": dict(face.get("bbox_xywh") or {}),
+                    "source_kind": source_kind,
+                }
+            )
+        for embedded_person_id in observation.get("embedded_media_person_ids", []) or []:
+            appearances.append(
+                {
+                    "appearance_id": self._stable_id("appearance", original_photo_id, embedded_person_id, "embedded_media"),
+                    "person_id": str(embedded_person_id),
+                    "photo_id": photo.photo_id,
+                    "original_photo_id": original_photo_id,
+                    "timestamp": timestamp_iso,
+                    "appearance_mode": "embedded_media",
+                    "confidence": 0.55,
+                    "bbox_ref": {},
+                    "source_kind": "vlm_embedded_media",
+                }
+            )
+        return appearances
+
+    def _build_photo_observation_packet(self, item: Dict[str, Any], *, photo: Optional[Any] = None) -> Dict[str, Any]:
+        analysis = dict(item.get("vlm_analysis", {}) or {})
+        scene = dict(analysis.get("scene", {}) or {})
+        event = dict(analysis.get("event", {}) or {})
+        details = [str(value) for value in analysis.get("details", []) or [] if value]
+        key_objects = [str(value) for value in analysis.get("key_objects", []) or [] if value]
+        summary = str(analysis.get("summary") or "")
+        ocr_hits = [str(value) for value in analysis.get("ocr_hits", []) or [] if value]
+        if not ocr_hits:
+            ocr_hits = [detail for detail in details if re.search(r"[A-Za-z0-9]{3,}", detail)]
+        brands = [str(value) for value in analysis.get("brands", []) or [] if value]
+        place_candidates = [str(value) for value in analysis.get("place_candidates", []) or [] if value]
+        if not place_candidates and scene.get("location_detected"):
+            place_candidates = [str(scene.get("location_detected"))]
+        embedded_ids = [str(value) for value in analysis.get("embedded_media_person_ids", []) or [] if value]
+        original_photo_id = self._original_photo_id(photo) if photo is not None else str(item.get("photo_id") or "")
+        return {
+            "photo_id": str(item.get("photo_id") or ""),
+            "summary": summary,
+            "scene_hint": str(scene.get("environment_description") or scene.get("location_detected") or ""),
+            "activity_hint": str(event.get("activity") or ""),
+            "social_hint": str(event.get("social_context") or event.get("interaction") or ""),
+            "ocr_hits": ocr_hits[:10],
+            "brands": brands[:10],
+            "place_candidates": place_candidates[:5],
+            "object_clues": key_objects[:10],
+            "embedded_media_signals": [summary] if embedded_ids else [],
+            "embedded_media_person_ids": embedded_ids,
+            "uncertainty": [str(value) for value in analysis.get("uncertainty", []) or [] if value][:5],
+            "original_photo_ids": [original_photo_id] if original_photo_id else [],
+        }
+
+    def _empty_observation_packet(self, photo: Any) -> Dict[str, Any]:
+        return {
+            "photo_id": photo.photo_id,
+            "summary": "",
+            "scene_hint": "",
+            "activity_hint": "",
+            "social_hint": "",
+            "ocr_hits": [],
+            "brands": [],
+            "place_candidates": [str((photo.location or {}).get("name") or "unknown")],
+            "object_clues": [],
+            "embedded_media_signals": [],
+            "embedded_media_person_ids": [],
+            "uncertainty": [],
+            "original_photo_ids": [self._original_photo_id(photo)],
+        }
+
+    def _build_reference_media_signals(
+        self,
+        assets: Sequence[Dict[str, Any]],
+        observations_by_photo: Dict[str, Dict[str, Any]],
+        primary_person_id: Optional[str],
+    ) -> List[Dict[str, Any]]:
+        signals: List[Dict[str, Any]] = []
+        if not primary_person_id:
+            return signals
+        for asset in assets:
+            asset_type = str(asset.get("asset_type") or "")
+            if not (
+                asset.get("reference_only")
+                or (asset_type == "screenshot" and not asset.get("media_event_eligible"))
+            ):
+                continue
+            observation = observations_by_photo.get(asset["photo_id"], {})
+            bucket, value = self._summarize_reference_media_signal(asset_type=asset_type, observation=observation)
+            signal = {
+                "signal_id": self._stable_id("reference-signal", asset["photo_id"], bucket),
+                "photo_id": asset["photo_id"],
+                "profile_bucket": bucket,
+                "evidence_text": value,
+                "source_kind": asset["asset_type"],
+                "confidence": 0.55,
+                "original_photo_ids": [asset["original_photo_id"]],
+                "person_id": primary_person_id,
+                "provenance": "reference_media_profile_signal",
+            }
+            signals.append(signal)
+        return signals
+
+    def _summarize_reference_media_signal(
+        self,
+        *,
+        asset_type: str,
+        observation: Dict[str, Any],
+    ) -> Tuple[str, str]:
+        text_pool = self._unique(
+            [
+                str(observation.get("summary") or "").strip(),
+                str(observation.get("scene_hint") or "").strip(),
+                str(observation.get("activity_hint") or "").strip(),
+                str(observation.get("social_hint") or "").strip(),
+                *[str(item).strip() for item in list(observation.get("ocr_hits", []) or [])[:5]],
+                *[str(item).strip() for item in list(observation.get("brands", []) or [])[:3]],
+                *[str(item).strip() for item in list(observation.get("place_candidates", []) or [])[:2]],
+            ]
+        )
+        joined = " ".join(text_pool)
+        normalized = joined.lower()
+
+        if any(token in normalized for token in ("douyin", "tiktok", "抖音", "creator", "主页", "profile page", "video page")):
+            return "interest", "近期关注短视频内容或创作者主页"
+        if any(token in normalized for token in ("video call", "call", "通话", "wechat", "聊天", "message", "messenger", "contact", "聊天记录")):
+            return "interest", "近期关注即时通讯或远程沟通内容"
+        if any(token in normalized for token in ("flight", "hotel", "boarding", "trip", "travel", "机票", "酒店", "登机", "行程", "车票", "演出票")):
+            return "aspiration", "近期关注出行、票务或行程安排"
+        if any(token in normalized for token in ("outfit", "style", "fashion", "look", "穿搭", "风格", "审美")):
+            return "aesthetic_preference", "近期关注穿搭、风格或审美参考"
+        if any(token in normalized for token in ("buy", "shop", "product", "购物", "购买", "种草", "支付", "checkout", "order", "商品")):
+            return "consumption_intent", "近期关注商品、购买或支付相关内容"
+        if any(token in normalized for token in ("ai", "chatgpt", "midjourney", "prompt", "生成", "模型", "comfyui")):
+            return "identity_style", "近期关注 AI 工具或生成内容"
+
+        if observation.get("brands"):
+            brands = self._unique(str(item).strip() for item in list(observation.get("brands", []) or []) if str(item).strip())
+            if brands:
+                return "interest", f"近期保存了与 {', '.join(brands[:2])} 相关的参考内容"
+        if observation.get("ocr_hits"):
+            ocr_hits = self._unique(
+                re.sub(r"\s+", " ", str(item)).strip(" ,.;:：；，。")
+                for item in list(observation.get("ocr_hits", []) or [])
+                if str(item).strip()
+            )
+            if ocr_hits:
+                snippet = ocr_hits[0]
+                if len(snippet) > 32:
+                    snippet = f"{snippet[:29]}..."
+                return "interest", f"近期保存了与“{snippet}”相关的参考内容"
+
+        if asset_type == "screenshot":
+            return "interest", "近期保存了截图类参考内容"
+        if asset_type == "ai_generated_or_reference":
+            return "identity_style", "近期保存了 AI 生成或创意参考内容"
+        return "interest", "近期保存了参考内容"
+
+    def _build_bursts(
+        self,
+        assets: Sequence[Dict[str, Any]],
+        *,
+        observations_by_photo: Dict[str, Dict[str, Any]],
+        appearances: Sequence[Dict[str, Any]],
+    ) -> List[Dict[str, Any]]:
+        ordered = sorted(assets, key=lambda item: item.get("timestamp") or "")
+        live_people_by_photo: Dict[str, List[str]] = defaultdict(list)
+        for item in appearances:
+            if item.get("appearance_mode") != "live_presence":
+                continue
+            photo_id = str(item.get("photo_id") or "")
+            person_id = str(item.get("person_id") or "")
+            if not photo_id or not person_id:
+                continue
+            live_people_by_photo[photo_id].append(person_id)
+        bursts: List[Dict[str, Any]] = []
+        current: Optional[Dict[str, Any]] = None
+        for asset in ordered:
+            photo_id = str(asset.get("photo_id") or "")
+            observation = observations_by_photo.get(photo_id, {})
+            live_person_ids = self._unique(live_people_by_photo.get(photo_id, []))
+            if current is None:
+                current = self._new_burst(asset, observation=observation, live_person_ids=live_person_ids)
+                continue
+            if self._can_extend_burst(current, asset, observation=observation, live_person_ids=live_person_ids):
+                current["photo_ids"].append(asset["photo_id"])
+                current["ended_at"] = asset.get("timestamp") or current["ended_at"]
+                current["place_keys"].append(asset.get("place_key") or "")
+                current["place_candidates"] = self._unique(
+                    [*list(current.get("place_candidates", []) or []), *list(observation.get("place_candidates", []) or [])[:3]]
+                )
+                current["live_person_ids"] = self._unique(
+                    [*list(current.get("live_person_ids", []) or []), *list(live_person_ids or [])]
+                )
+                current["activity_hints"] = self._unique(
+                    [*list(current.get("activity_hints", []) or []), str(observation.get("activity_hint") or "").strip()]
+                )
+                current["scene_hints"] = self._unique(
+                    [*list(current.get("scene_hints", []) or []), str(observation.get("scene_hint") or "").strip()]
+                )
+            else:
+                bursts.append(current)
+                current = self._new_burst(asset, observation=observation, live_person_ids=live_person_ids)
+        if current is not None:
+            bursts.append(current)
+        return bursts
+
+    def _new_burst(
+        self,
+        asset: Dict[str, Any],
+        *,
+        observation: Dict[str, Any],
+        live_person_ids: Sequence[str],
+    ) -> Dict[str, Any]:
+        return {
+            "burst_id": self._stable_id("burst", asset["photo_id"]),
+            "photo_ids": [asset["photo_id"]],
+            "started_at": asset.get("timestamp"),
+            "ended_at": asset.get("timestamp"),
+            "place_keys": [asset.get("place_key") or ""],
+            "place_candidates": self._unique(list(observation.get("place_candidates", []) or [])[:3]),
+            "live_person_ids": self._unique(list(live_person_ids or [])),
+            "activity_hints": self._unique([str(observation.get("activity_hint") or "").strip()]),
+            "scene_hints": self._unique([str(observation.get("scene_hint") or "").strip()]),
+        }
+
+    def _can_extend_burst(
+        self,
+        burst: Dict[str, Any],
+        asset: Dict[str, Any],
+        *,
+        observation: Dict[str, Any],
+        live_person_ids: Sequence[str],
+    ) -> bool:
+        left = self._parse_dt(burst.get("ended_at"))
+        right = self._parse_dt(asset.get("timestamp"))
+        if not left or not right:
+            return False
+        gap = right - left
+        if gap > timedelta(minutes=20):
+            return False
+        last_place = str(burst.get("place_keys", [""])[-1] or "")
+        next_place = str(asset.get("place_key") or "")
+        if last_place and next_place and last_place == next_place:
+            return True
+        place_overlap = self._has_overlap(
+            [last_place, *list(burst.get("place_candidates", []) or [])],
+            [next_place, *list(observation.get("place_candidates", []) or [])[:3]],
+        )
+        live_overlap = self._has_overlap(
+            list(burst.get("live_person_ids", []) or []),
+            list(live_person_ids or []),
+        )
+        activity_overlap = self._has_overlap(
+            list(burst.get("activity_hints", []) or []),
+            [str(observation.get("activity_hint") or "").strip()],
+        )
+        scene_overlap = self._has_overlap(
+            list(burst.get("scene_hints", []) or []),
+            [str(observation.get("scene_hint") or "").strip()],
+        )
+        if gap <= timedelta(minutes=8) and live_overlap and (place_overlap or activity_overlap or scene_overlap):
+            return True
+        if gap <= timedelta(minutes=5) and place_overlap and (activity_overlap or scene_overlap):
+            return True
+        return False
+
+    def _score_boundaries(self, bursts: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        decisions: List[Dict[str, Any]] = []
+        for index in range(len(bursts) - 1):
+            left = bursts[index]
+            right = bursts[index + 1]
+            left_end = self._parse_dt(left.get("ended_at"))
+            right_start = self._parse_dt(right.get("started_at"))
+            gap = (right_start - left_end).total_seconds() if left_end and right_start else 0.0
+            same_place = str(left.get("place_keys", [""])[-1] or "") == str(right.get("place_keys", [""])[0] or "")
+            place_overlap = same_place or self._has_overlap(
+                [*list(left.get("place_keys", []) or []), *list(left.get("place_candidates", []) or [])],
+                [*list(right.get("place_keys", []) or []), *list(right.get("place_candidates", []) or [])],
+            )
+            live_overlap = self._has_overlap(
+                list(left.get("live_person_ids", []) or []),
+                list(right.get("live_person_ids", []) or []),
+            )
+            activity_overlap = self._has_overlap(
+                list(left.get("activity_hints", []) or []),
+                list(right.get("activity_hints", []) or []),
+            )
+            scene_overlap = self._has_overlap(
+                list(left.get("scene_hints", []) or []),
+                list(right.get("scene_hints", []) or []),
+            )
+            decision = "ambiguous"
+            if gap > 3 * 3600:
+                decision = "split"
+            elif gap > 45 * 60 and not place_overlap and not live_overlap:
+                decision = "split"
+            elif place_overlap and gap <= 15 * 60:
+                decision = "continue"
+            elif gap <= 10 * 60 and live_overlap and (activity_overlap or scene_overlap):
+                decision = "continue"
+            elif gap <= 25 * 60 and place_overlap and (live_overlap or activity_overlap):
+                decision = "continue"
+            elif gap > 90 * 60:
+                decision = "split"
+            decisions.append(
+                {
+                    "left_burst_id": left["burst_id"],
+                    "right_burst_id": right["burst_id"],
+                    "gap_seconds": round(gap, 3),
+                    "same_place": same_place,
+                    "place_overlap": place_overlap,
+                    "live_overlap": live_overlap,
+                    "activity_overlap": activity_overlap,
+                    "scene_overlap": scene_overlap,
+                    "decision": decision,
+                    "reason": "time_and_place_scoring",
+                }
+            )
+        return decisions
+
+    def _build_event_windows(self, bursts: Sequence[Dict[str, Any]], boundaries: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        if not bursts:
+            return []
+        boundary_map = {item["right_burst_id"]: item for item in boundaries}
+        windows: List[Dict[str, Any]] = []
+        current = {
+            "window_id": self._stable_id("window", bursts[0]["burst_id"]),
+            "burst_ids": [bursts[0]["burst_id"]],
+            "photo_ids": list(bursts[0]["photo_ids"]),
+            "started_at": bursts[0]["started_at"],
+            "ended_at": bursts[0]["ended_at"],
+            "boundary_reason": "seed",
+        }
+        for burst in bursts[1:]:
+            boundary = boundary_map.get(burst["burst_id"], {})
+            decision = boundary.get("decision", "split")
+            if decision == "continue":
+                current["burst_ids"].append(burst["burst_id"])
+                current["photo_ids"].extend(burst["photo_ids"])
+                current["ended_at"] = burst["ended_at"]
+                continue
+            if decision == "ambiguous":
+                current["boundary_reason"] = "ambiguous_resolved_as_split"
+            windows.append(current)
+            current = {
+                "window_id": self._stable_id("window", burst["burst_id"]),
+                "burst_ids": [burst["burst_id"]],
+                "photo_ids": list(burst["photo_ids"]),
+                "started_at": burst["started_at"],
+                "ended_at": burst["ended_at"],
+                "boundary_reason": decision,
+            }
+        windows.append(current)
+        return windows
+
+    def _call_llm_json_prompt(self, prompt: str) -> Optional[Dict[str, Any]]:
+        caller = getattr(self.llm_processor, "_call_json_prompt", None)
+        if not callable(caller):
+            return None
+        try:
+            return caller(prompt)
+        except Exception:
+            return None
+
+    def _call_llm_markdown_prompt(self, prompt: str) -> Optional[str]:
+        caller = getattr(self.llm_processor, "_call_markdown_prompt", None)
+        if not callable(caller):
+            return None
+        try:
+            response = caller(prompt)
+        except Exception:
+            return None
+        text = str(response or "").strip()
+        return text or None
+
+    def _normalized_signal_set(self, values: Sequence[Any]) -> set[str]:
+        normalized = set()
+        for value in values:
+            text = re.sub(r"\s+", " ", str(value or "")).strip().lower()
+            if text:
+                normalized.add(text)
+        return normalized
+
+    def _has_overlap(self, left: Sequence[Any], right: Sequence[Any]) -> bool:
+        return bool(self._normalized_signal_set(left).intersection(self._normalized_signal_set(right)))
+
+    def _resolve_ambiguous_boundaries(
+        self,
+        *,
+        bursts: Sequence[Dict[str, Any]],
+        boundaries: Sequence[Dict[str, Any]],
+        observations_by_photo: Dict[str, Dict[str, Any]],
+        person_appearances: Sequence[Dict[str, Any]],
+    ) -> List[Dict[str, Any]]:
+        burst_by_id = {burst["burst_id"]: burst for burst in bursts}
+        resolved: List[Dict[str, Any]] = []
+        for boundary in boundaries:
+            if boundary.get("decision") != "ambiguous":
+                resolved.append(dict(boundary))
+                continue
+            left = burst_by_id.get(str(boundary.get("left_burst_id") or ""))
+            right = burst_by_id.get(str(boundary.get("right_burst_id") or ""))
+            if not left or not right:
+                resolved.append(dict(boundary))
+                continue
+            prompt = self._build_boundary_llm_prompt(
+                left=left,
+                right=right,
+                observations_by_photo=observations_by_photo,
+                person_appearances=person_appearances,
+            )
+            payload = self._call_llm_json_prompt(prompt)
+            decision = str((payload or {}).get("decision") or "").strip().lower()
+            if decision not in {"continue", "split"}:
+                resolved.append(dict(boundary))
+                continue
+            self._summary["event_llm_count"] = int(self._summary.get("event_llm_count") or 0) + 1
+            updated = dict(boundary)
+            updated["decision"] = decision
+            updated["reason"] = f"llm_boundary:{str((payload or {}).get('reason') or '').strip() or 'resolved'}"
+            resolved.append(updated)
+        return resolved
+
+    def _build_boundary_llm_prompt(
+        self,
+        *,
+        left: Dict[str, Any],
+        right: Dict[str, Any],
+        observations_by_photo: Dict[str, Dict[str, Any]],
+        person_appearances: Sequence[Dict[str, Any]],
+    ) -> str:
+        left_context = self._build_event_window_prompt_context(
+            {"photo_ids": left.get("photo_ids", []), "started_at": left.get("started_at"), "ended_at": left.get("ended_at")},
+            observations_by_photo=observations_by_photo,
+            appearances=person_appearances,
+        )
+        right_context = self._build_event_window_prompt_context(
+            {"photo_ids": right.get("photo_ids", []), "started_at": right.get("started_at"), "ended_at": right.get("ended_at")},
+            observations_by_photo=observations_by_photo,
+            appearances=person_appearances,
+        )
+        return (
+            "You are an event-boundary judge.\n"
+            "Decide whether two adjacent photo bursts belong to the same real-life event.\n"
+            "Only return JSON with keys decision and reason.\n"
+            "decision must be one of: continue, split.\n"
+            "Prefer split when evidence is weak. Do not hallucinate people or places.\n\n"
+            f"LEFT_BURST={json.dumps(left_context, ensure_ascii=False)}\n"
+            f"RIGHT_BURST={json.dumps(right_context, ensure_ascii=False)}\n"
+        )
+
+    def _build_event_window_prompt_context(
+        self,
+        window: Dict[str, Any],
+        *,
+        observations_by_photo: Dict[str, Dict[str, Any]],
+        appearances: Sequence[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        photo_ids = list(window.get("photo_ids", []) or [])
+        photo_appearances: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+        for item in appearances:
+            if item.get("photo_id") in photo_ids:
+                photo_appearances[str(item["photo_id"])].append(item)
+        photos: List[Dict[str, Any]] = []
+        for photo_id in photo_ids:
+            observation = observations_by_photo.get(photo_id, {})
+            appearance_items = photo_appearances.get(str(photo_id), [])
+            photos.append(
+                {
+                    "photo_id": photo_id,
+                    "original_photo_ids": list(observation.get("original_photo_ids", []) or [photo_id]),
+                    "summary": str(observation.get("summary") or ""),
+                    "scene_hint": str(observation.get("scene_hint") or ""),
+                    "activity_hint": str(observation.get("activity_hint") or ""),
+                    "social_hint": str(observation.get("social_hint") or ""),
+                    "place_candidates": list(observation.get("place_candidates", []) or [])[:3],
+                    "ocr_hits": list(observation.get("ocr_hits", []) or [])[:4],
+                    "brands": list(observation.get("brands", []) or [])[:3],
+                    "object_clues": list(observation.get("object_clues", []) or [])[:4],
+                    "embedded_media_person_ids": list(observation.get("embedded_media_person_ids", []) or [])[:3],
+                    "live_person_ids": self._unique(
+                        item.get("person_id") for item in appearance_items if item.get("appearance_mode") == "live_presence"
+                    ),
+                    "depicted_person_ids": self._unique(
+                        item.get("person_id") for item in appearance_items if item.get("appearance_mode") == "embedded_media"
+                    ),
+                }
+            )
+        return {
+            "started_at": window.get("started_at"),
+            "ended_at": window.get("ended_at"),
+            "photo_count": len(photo_ids),
+            "photos": photos,
+        }
+
+    def _draft_event_window(
+        self,
+        window: Dict[str, Any],
+        observations_by_photo: Dict[str, Dict[str, Any]],
+        appearances: Sequence[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        photo_ids = list(window.get("photo_ids", []))
+        related_appearances = [item for item in appearances if item["photo_id"] in photo_ids]
+        participants = self._unique(
+            item["person_id"]
+            for item in related_appearances
+            if item["appearance_mode"] == "live_presence"
+        )
+        depicted = self._unique(
+            item["person_id"]
+            for item in related_appearances
+            if item["appearance_mode"] == "embedded_media"
+        )
+        place_refs = self._unique(
+            candidate
+            for photo_id in photo_ids
+            for candidate in observations_by_photo.get(photo_id, {}).get("place_candidates", [])[:1]
+        )
+        activity_hints = self._unique(
+            observations_by_photo.get(photo_id, {}).get("activity_hint")
+            for photo_id in photo_ids
+            if observations_by_photo.get(photo_id, {}).get("activity_hint")
+        )
+        title = self._event_title(activity_hints, place_refs)
+        evidence = self._event_evidence_for_window(window, observations_by_photo)
+        draft = {
+            "window_id": window["window_id"],
+            "started_at": window["started_at"],
+            "ended_at": window["ended_at"],
+            "participant_person_ids": participants,
+            "depicted_person_ids": depicted,
+            "place_refs": place_refs,
+            "title": title,
+            "boundary_reason": window.get("boundary_reason") or "window",
+            "original_photo_ids": self._unique(
+                original_photo_id
+                for photo_id in photo_ids
+                for original_photo_id in observations_by_photo.get(photo_id, {}).get("original_photo_ids", [])
+            ),
+            "atomic_evidence": evidence,
+            "confidence": 0.68,
+        }
+        llm_draft = self._draft_event_window_with_llm(
+            window=window,
+            observations_by_photo=observations_by_photo,
+            appearances=appearances,
+            fallback=draft,
+        )
+        if llm_draft:
+            draft = llm_draft
+        if len(window.get("burst_ids", []) or []) > 1 or "ambiguous" in str(window.get("boundary_reason") or ""):
+            finalized = self._finalize_event_draft_with_llm(
+                window=window,
+                observations_by_photo=observations_by_photo,
+                appearances=appearances,
+                draft=draft,
+            )
+            if finalized:
+                draft = finalized
+        return draft
+
+    def _window_requires_event_finalize(self, window: Dict[str, Any]) -> bool:
+        return bool(len(window.get("burst_ids", []) or []) > 1 or "ambiguous" in str(window.get("boundary_reason") or ""))
+
+    def _draft_event_window_with_llm(
+        self,
+        *,
+        window: Dict[str, Any],
+        observations_by_photo: Dict[str, Dict[str, Any]],
+        appearances: Sequence[Dict[str, Any]],
+        fallback: Dict[str, Any],
+    ) -> Optional[Dict[str, Any]]:
+        prompt_context = self._build_event_window_prompt_context(
+            window,
+            observations_by_photo=observations_by_photo,
+            appearances=appearances,
+        )
+        prompt = (
+            "You are a world-class multimodal event extraction system.\n"
+            "Turn the provided photo-window observations into one grounded event draft.\n"
+            "Return JSON only.\n"
+            "Use only the person IDs, places, and evidence explicitly present in the input.\n"
+            "If uncertain, keep confidence low and prefer fewer claims.\n"
+            "Schema:\n"
+            "{\n"
+            '  "title": string,\n'
+            '  "summary": string,\n'
+            '  "participant_person_ids": string[],\n'
+            '  "depicted_person_ids": string[],\n'
+            '  "place_refs": string[],\n'
+            '  "confidence": number,\n'
+            '  "atomic_evidence": [{"evidence_type": string, "value_or_text": string, "photo_ids": string[], "confidence": number, "provenance": string}]\n'
+            "}\n"
+            "Allowed evidence_type values: ocr, brand, place_candidate, object_last_seen, route_transport, "
+            "health_treatment, person_interaction, profile_signal, embedded_media_person_reference, media_action_receipt.\n"
+            f"EVENT_WINDOW={json.dumps(prompt_context, ensure_ascii=False)}\n"
+        )
+        payload = self._call_llm_json_prompt(prompt)
+        if not payload:
+            return None
+        normalized = self._normalize_llm_event_draft(
+            payload=payload,
+            fallback=fallback,
+            observations_by_photo=observations_by_photo,
+            window=window,
+        )
+        if normalized:
+            self._summary["event_llm_count"] = int(self._summary.get("event_llm_count") or 0) + 1
+        return normalized
+
+    def _finalize_event_draft_with_llm(
+        self,
+        *,
+        window: Dict[str, Any],
+        observations_by_photo: Dict[str, Dict[str, Any]],
+        appearances: Sequence[Dict[str, Any]],
+        draft: Dict[str, Any],
+    ) -> Optional[Dict[str, Any]]:
+        prompt_context = self._build_event_window_prompt_context(
+            window,
+            observations_by_photo=observations_by_photo,
+            appearances=appearances,
+        )
+        prompt = (
+            "You are the final event editor.\n"
+            "Refine one event draft after boundary resolution. Remove duplicate evidence, keep only grounded claims, "
+            "and improve the title/summary if needed.\n"
+            "Return JSON with the same schema as the input draft. Do not invent IDs.\n"
+            f"EVENT_WINDOW={json.dumps(prompt_context, ensure_ascii=False)}\n"
+            f"CURRENT_DRAFT={json.dumps(draft, ensure_ascii=False)}\n"
+        )
+        payload = self._call_llm_json_prompt(prompt)
+        if not payload:
+            return None
+        normalized = self._normalize_llm_event_draft(
+            payload=payload,
+            fallback=draft,
+            observations_by_photo=observations_by_photo,
+            window=window,
+        )
+        if normalized:
+            self._summary["event_llm_count"] = int(self._summary.get("event_llm_count") or 0) + 1
+        return normalized
+
+    def _normalize_llm_event_draft(
+        self,
+        *,
+        payload: Dict[str, Any],
+        fallback: Dict[str, Any],
+        observations_by_photo: Dict[str, Dict[str, Any]],
+        window: Dict[str, Any],
+    ) -> Optional[Dict[str, Any]]:
+        photo_ids = list(window.get("photo_ids", []) or [])
+        valid_photo_ids = set(photo_ids)
+        photo_id_to_original = {
+            photo_id: list(observations_by_photo.get(photo_id, {}).get("original_photo_ids", []) or [photo_id])
+            for photo_id in photo_ids
+        }
+        valid_participants = set(fallback.get("participant_person_ids", []) or [])
+        valid_depicted = set(fallback.get("depicted_person_ids", []) or [])
+        valid_places = set(fallback.get("place_refs", []) or [])
+
+        title = str(payload.get("title") or fallback.get("title") or "").strip() or str(fallback.get("title") or "")
+        summary = str(payload.get("summary") or "").strip()
+        participant_person_ids = [
+            person_id
+            for person_id in list(payload.get("participant_person_ids", []) or [])
+            if str(person_id) in valid_participants
+        ] or list(fallback.get("participant_person_ids", []) or [])
+        depicted_person_ids = [
+            person_id
+            for person_id in list(payload.get("depicted_person_ids", []) or [])
+            if str(person_id) in valid_depicted
+        ] or list(fallback.get("depicted_person_ids", []) or [])
+        place_refs = [
+            place
+            for place in list(payload.get("place_refs", []) or [])
+            if str(place) in valid_places
+        ] or list(fallback.get("place_refs", []) or [])
+        confidence = payload.get("confidence")
+        try:
+            confidence_value = float(confidence)
+        except Exception:
+            confidence_value = float(fallback.get("confidence") or 0.68)
+        normalized_evidence: List[Dict[str, Any]] = []
+        for item in list(payload.get("atomic_evidence", []) or [])[:16]:
+            if not isinstance(item, dict):
+                continue
+            evidence_type = str(item.get("evidence_type") or "").strip()
+            value_or_text = str(item.get("value_or_text") or "").strip()
+            candidate_photo_ids = [
+                str(photo_id)
+                for photo_id in list(item.get("photo_ids", []) or [])
+                if str(photo_id) in valid_photo_ids
+            ]
+            if not evidence_type or not value_or_text or not candidate_photo_ids:
+                continue
+            original_photo_ids = self._unique(
+                original_photo_id
+                for photo_id in candidate_photo_ids
+                for original_photo_id in photo_id_to_original.get(photo_id, [photo_id])
+            )
+            normalized_evidence.append(
+                {
+                    "evidence_id": self._stable_id("evidence", evidence_type, "|".join(original_photo_ids), value_or_text),
+                    "evidence_type": evidence_type,
+                    "value_or_text": value_or_text,
+                    "original_photo_ids": original_photo_ids,
+                    "confidence": float(item.get("confidence") or 0.65),
+                    "provenance": str(item.get("provenance") or evidence_type),
+                }
+            )
+        if not normalized_evidence:
+            normalized_evidence = list(fallback.get("atomic_evidence", []) or [])
+        normalized = dict(fallback)
+        normalized.update(
+            {
+                "title": title,
+                "event_summary": summary,
+                "participant_person_ids": self._unique(participant_person_ids),
+                "depicted_person_ids": self._unique(depicted_person_ids),
+                "place_refs": self._unique(place_refs),
+                "confidence": max(0.0, min(1.0, confidence_value)),
+                "atomic_evidence": normalized_evidence,
+            }
+        )
+        return normalized
+
+    def _event_title(self, activity_hints: Sequence[str], place_refs: Sequence[str]) -> str:
+        activity = str(activity_hints[0] if activity_hints else "life event").strip() or "life event"
+        place = str(place_refs[0] if place_refs else "unknown place").strip() or "unknown place"
+        return f"{activity} @ {place}"
+
+    def _event_evidence_for_window(
+        self,
+        window: Dict[str, Any],
+        observations_by_photo: Dict[str, Dict[str, Any]],
+    ) -> List[Dict[str, Any]]:
+        evidence: List[Dict[str, Any]] = []
+        for photo_id in window.get("photo_ids", []):
+            observation = observations_by_photo.get(photo_id, {})
+            original_photo_ids = list(observation.get("original_photo_ids", []) or [photo_id])
+            for text in observation.get("ocr_hits", [])[:3]:
+                evidence.append(self._evidence_record("ocr", original_photo_ids, text))
+            for text in observation.get("brands", [])[:2]:
+                evidence.append(self._evidence_record("brand", original_photo_ids, text))
+            for text in observation.get("place_candidates", [])[:1]:
+                evidence.append(self._evidence_record("place_candidate", original_photo_ids, text))
+            for text in observation.get("embedded_media_person_ids", [])[:2]:
+                evidence.append(self._evidence_record("embedded_media_person_reference", original_photo_ids, text))
+        return evidence
+
+    def _evidence_record(self, evidence_type: str, original_photo_ids: Sequence[str], value: str) -> Dict[str, Any]:
+        photo_key = "|".join(original_photo_ids)
+        return {
+            "evidence_id": self._stable_id("evidence", evidence_type, photo_key, value),
+            "evidence_type": evidence_type,
+            "value_or_text": value,
+            "original_photo_ids": list(original_photo_ids),
+            "confidence": 0.6,
+            "provenance": evidence_type,
+        }
+
+    def _collect_atomic_evidence(self, event_revisions: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        filtered_evidence: List[Dict[str, Any]] = []
+        for event in event_revisions:
+            for item in list(event.get("atomic_evidence", []) or []):
+                payload = dict(item)
+                payload["root_event_revision_id"] = event["event_revision_id"]
+                filtered_evidence.append(payload)
+        return filtered_evidence
+
+    def _resolve_event_drafts(
+        self,
+        drafts: Sequence[Dict[str, Any]],
+    ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]], List[Dict[str, Any]]]:
+        changed_event_revisions: List[Dict[str, Any]] = []
+        previous_root_id: Optional[str] = None
+        for draft in sorted(drafts, key=lambda item: item.get("started_at") or ""):
+            candidates = self.staging.list_candidate_event_revisions(event_started_at=draft.get("started_at") or "", limit=8)
+            decision, prior = self._match_event_draft(draft, candidates)
+            if prior and decision == "merge":
+                root_id = prior["event_root_id"]
+                revision = int(prior.get("revision") or 1) + 1
+                merged = self._merge_event_revision(prior, draft, revision=revision)
+                root_payload = {
+                    "event_root_id": root_id,
+                    "current_revision_id": merged["event_revision_id"],
+                    "sealed_state": "open_frontier",
+                    "pipeline_family": PIPELINE_FAMILY_V0321_2,
+                }
+                self.staging.upsert_event_revision(root_payload, merged)
+                changed_event_revisions.append(merged)
+                current_root_id = root_id
+            else:
+                root_id = self._stable_id("event-root", draft["window_id"])
+                event_revision = {
+                    "event_root_id": root_id,
+                    "event_revision_id": self._stable_id("event-revision", root_id, "1"),
+                    "revision": 1,
+                    "title": draft["title"],
+                    "started_at": draft["started_at"],
+                    "ended_at": draft["ended_at"],
+                    "participant_person_ids": list(draft["participant_person_ids"]),
+                    "depicted_person_ids": list(draft["depicted_person_ids"]),
+                    "place_refs": list(draft["place_refs"]),
+                    "original_photo_ids": list(draft["original_photo_ids"]),
+                    "boundary_reason": draft["boundary_reason"],
+                    "confidence": draft["confidence"],
+                    "status": "active",
+                    "sealed_state": "open_frontier",
+                    "pipeline_family": PIPELINE_FAMILY_V0321_2,
+                    "atomic_evidence": [dict(item) for item in draft["atomic_evidence"]],
+                }
+                root_payload = {
+                    "event_root_id": root_id,
+                    "current_revision_id": event_revision["event_revision_id"],
+                    "sealed_state": "open_frontier",
+                    "pipeline_family": PIPELINE_FAMILY_V0321_2,
+                }
+                self.staging.upsert_event_revision(root_payload, event_revision)
+                changed_event_revisions.append(event_revision)
+                current_root_id = root_id
+            previous_root_id = current_root_id
+            threshold = self._parse_dt(draft.get("started_at"))
+            if threshold:
+                frontier_threshold = threshold - timedelta(hours=3)
+                stale_frontier = [
+                    event
+                    for event in self.staging.list_open_frontier_event_revisions()
+                    if self._parse_dt(event.get("ended_at")) and self._parse_dt(event.get("ended_at")) < frontier_threshold
+                ]
+                sealable_root_ids = [
+                    event["event_root_id"]
+                    for event in stale_frontier
+                    if not self._should_keep_frontier_open(event, draft)
+                ]
+                self.staging.seal_event_roots(sealable_root_ids)
+        current_events = self.staging.list_current_event_revisions()
+        filtered_evidence = self._collect_atomic_evidence(current_events)
+        self._summary["event_revision_count"] = len(current_events)
+        return current_events, filtered_evidence, changed_event_revisions
+
+    def _match_event_draft(self, draft: Dict[str, Any], candidates: Sequence[Dict[str, Any]]) -> Tuple[str, Optional[Dict[str, Any]]]:
+        scored: List[Tuple[float, Dict[str, Any]]] = []
+        for candidate in candidates:
+            if self._event_hard_block(draft, candidate):
+                continue
+            score = 0.0
+            if set(draft.get("participant_person_ids", [])).intersection(candidate.get("participant_person_ids", [])):
+                score += 0.35
+            if set(draft.get("place_refs", [])).intersection(candidate.get("place_refs", [])):
+                score += 0.30
+            gap = self._time_gap_seconds(draft.get("started_at"), candidate.get("ended_at"))
+            if gap is not None and gap <= 1800:
+                score += 0.25
+            elif gap is not None and gap <= 7200:
+                score += 0.10
+            if self._same_day(draft.get("started_at"), candidate.get("started_at")):
+                score += 0.10
+            scored.append((score, candidate))
+        scored.sort(key=lambda item: item[0], reverse=True)
+        if not scored or scored[0][0] < 0.75:
+            return "new", None
+        if len(scored) > 1 and scored[0][0] - scored[1][0] < 0.1:
+            return "new", None
+        return "merge", scored[0][1]
+
+    def _event_hard_block(self, left: Dict[str, Any], right: Dict[str, Any]) -> bool:
+        gap = self._time_gap_seconds(left.get("started_at"), right.get("ended_at"))
+        if gap is not None and gap > 12 * 3600:
+            return True
+        left_places = set(left.get("place_refs", []))
+        right_places = set(right.get("place_refs", []))
+        if left_places and right_places and not left_places.intersection(right_places):
+            if not set(left.get("participant_person_ids", [])).intersection(right.get("participant_person_ids", [])):
+                return True
+        return False
+
+    def _event_signal_tokens(self, event: Dict[str, Any]) -> List[str]:
+        raw_tokens: List[str] = []
+        raw_tokens.extend(str(place).strip() for place in list(event.get("place_refs", []) or []))
+        raw_tokens.extend(
+            token.strip().lower()
+            for token in re.split(r"[^0-9A-Za-z\u4e00-\u9fff]+", str(event.get("title") or ""))
+            if token.strip()
+        )
+        raw_tokens.extend(
+            token.strip().lower()
+            for token in re.split(r"[^0-9A-Za-z\u4e00-\u9fff]+", str(event.get("event_summary") or ""))
+            if token.strip()
+        )
+        return self._unique(token for token in raw_tokens if len(token) >= 2)
+
+    def _should_keep_frontier_open(self, candidate: Dict[str, Any], current_draft: Dict[str, Any]) -> bool:
+        gap = self._time_gap_seconds(current_draft.get("started_at"), candidate.get("ended_at"))
+        if gap is None or gap <= 0:
+            return True
+        if gap > 6 * 3600:
+            return False
+        live_overlap = bool(
+            set(candidate.get("participant_person_ids", []) or []).intersection(current_draft.get("participant_person_ids", []) or [])
+        )
+        place_overlap = bool(
+            set(candidate.get("place_refs", []) or []).intersection(current_draft.get("place_refs", []) or [])
+        )
+        signal_overlap = bool(
+            set(self._event_signal_tokens(candidate)).intersection(self._event_signal_tokens(current_draft))
+        )
+        if live_overlap and place_overlap:
+            return True
+        if live_overlap and signal_overlap and gap <= 4 * 3600:
+            return True
+        if place_overlap and signal_overlap and gap <= 3 * 3600:
+            return True
+        return False
+
+    def _merge_event_revision(self, prior: Dict[str, Any], draft: Dict[str, Any], *, revision: int) -> Dict[str, Any]:
+        merged_evidence = list(prior.get("atomic_evidence", [])) + list(draft.get("atomic_evidence", []))
+        return {
+            "event_root_id": prior["event_root_id"],
+            "event_revision_id": self._stable_id("event-revision", prior["event_root_id"], str(revision)),
+            "revision": revision,
+            "title": prior.get("title") or draft.get("title"),
+            "started_at": min(filter(None, [prior.get("started_at"), draft.get("started_at")])),
+            "ended_at": max(filter(None, [prior.get("ended_at"), draft.get("ended_at")])),
+            "participant_person_ids": self._unique([*prior.get("participant_person_ids", []), *draft.get("participant_person_ids", [])]),
+            "depicted_person_ids": self._unique([*prior.get("depicted_person_ids", []), *draft.get("depicted_person_ids", [])]),
+            "place_refs": self._unique([*prior.get("place_refs", []), *draft.get("place_refs", [])]),
+            "original_photo_ids": self._unique([*prior.get("original_photo_ids", []), *draft.get("original_photo_ids", [])]),
+            "boundary_reason": f"merged:{prior.get('boundary_reason')}|{draft.get('boundary_reason')}",
+            "confidence": max(float(prior.get("confidence") or 0.0), float(draft.get("confidence") or 0.0)),
+            "status": "active",
+            "sealed_state": "open_frontier",
+            "pipeline_family": PIPELINE_FAMILY_V0321_2,
+            "supersedes_event_revision_id": prior.get("event_revision_id"),
+            "atomic_evidence": merged_evidence,
+        }
+
+    def _project_relationships(
+        self,
+        *,
+        primary_person_id: Optional[str],
+        event_revisions: Sequence[Dict[str, Any]],
+        changed_event_revisions: Sequence[Dict[str, Any]],
+        atomic_evidence: Sequence[Dict[str, Any]],
+    ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]], List[Dict[str, Any]]]:
+        if not primary_person_id:
+            return self.staging.list_current_relationship_revisions(), [], []
+        live_by_person: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+        embedded_by_person: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+        for event in event_revisions:
+            if primary_person_id in event.get("participant_person_ids", []):
+                for person_id in event.get("participant_person_ids", []):
+                    if person_id != primary_person_id:
+                        live_by_person[person_id].append(event)
+                for person_id in event.get("depicted_person_ids", []):
+                    if person_id != primary_person_id:
+                        embedded_by_person[person_id].append(event)
+        affected_people = self._unique(
+            person_id
+            for event in changed_event_revisions
+            for person_id in [
+                *list(event.get("participant_person_ids", []) or []),
+                *list(event.get("depicted_person_ids", []) or []),
+            ]
+            if person_id and person_id != primary_person_id
+        )
+        ledgers: List[Dict[str, Any]] = []
+        changed_revisions: List[Dict[str, Any]] = []
+        for person_id in sorted(affected_people):
+            root_id = self._stable_id("relationship-root", self.user_id, person_id)
+            prior = self.staging.get_current_relationship_revision(root_id)
+            live_events = live_by_person.get(person_id, [])
+            embedded_events = embedded_by_person.get(person_id, [])
+            live_count = len(live_events)
+            embedded_count = len(embedded_events)
+            relationship_type = "co_presence_only"
+            label = "共同出现"
+            confidence = 0.35 + min(0.4, 0.08 * live_count)
+            status = "active"
+            if live_count >= 3:
+                relationship_type = "friend"
+                label = "朋友"
+                confidence = min(0.92, 0.55 + 0.1 * live_count)
+            elif live_count == 0 and embedded_count >= 2:
+                relationship_type = "remembered_person"
+                label = "被反复提及的人"
+                confidence = min(0.68, 0.35 + 0.08 * embedded_count)
+            llm_relationship = None
+            if self._relationship_requires_llm(
+                prior=prior,
+                live_count=live_count,
+                embedded_count=embedded_count,
+                relationship_type=relationship_type,
+            ):
+                llm_relationship = self._infer_relationship_with_llm(
+                    primary_person_id=primary_person_id,
+                    target_person_id=person_id,
+                    prior=prior,
+                    live_events=live_events,
+                    embedded_events=embedded_events,
+                )
+            if llm_relationship:
+                relationship_type = str(llm_relationship.get("relationship_type") or relationship_type)
+                label = str(llm_relationship.get("label") or label)
+                try:
+                    confidence = float(llm_relationship.get("confidence") or confidence)
+                except Exception:
+                    confidence = confidence
+            revision = int(prior.get("revision") or 0) + 1 if prior else 1
+            revision_payload = {
+                "relationship_revision_id": self._stable_id("relationship-revision", root_id, str(revision), relationship_type),
+                "relationship_root_id": root_id,
+                "revision": revision,
+                "status": status,
+                "relationship_type": relationship_type,
+                "label": label,
+                "confidence": round(confidence, 4),
+                "window_start": self._window_start(live_events, embedded_events),
+                "window_end": self._window_end(live_events, embedded_events),
+                "live_support_count": live_count,
+                "embedded_support_count": embedded_count,
+                "supporting_event_ids": self._unique(
+                    event["event_revision_id"]
+                    for event in [*live_events, *embedded_events]
+                ),
+                "supporting_photo_count": len(
+                    self._unique(
+                        photo_id
+                        for event in [*live_events, *embedded_events]
+                        for photo_id in event.get("original_photo_ids", [])
+                    )
+                ),
+                "reason_summary": str((llm_relationship or {}).get("reason_summary") or f"{person_id}: live={live_count}, embedded={embedded_count}"),
+                "feature_snapshot": {
+                    "live_support_event_ids": [event["event_revision_id"] for event in live_events],
+                    "embedded_support_event_ids": [event["event_revision_id"] for event in embedded_events],
+                },
+                "score_snapshot": {
+                    "live_score": round(min(0.99, 0.12 * live_count), 4),
+                    "embedded_score": round(min(0.99, 0.08 * embedded_count), 4),
+                },
+                "pipeline_family": PIPELINE_FAMILY_V0321_2,
+                "target_person_id": person_id,
+                "supersedes_relationship_revision_id": prior.get("relationship_revision_id") if prior else None,
+            }
+            root_payload = {
+                "relationship_root_id": root_id,
+                "target_person_id": person_id,
+                "current_revision_id": revision_payload["relationship_revision_id"],
+                "pipeline_family": PIPELINE_FAMILY_V0321_2,
+            }
+            self.staging.upsert_relationship_revision(root_payload, revision_payload)
+            changed_revisions.append(revision_payload)
+            ledgers.append(
+                {
+                    "relationship_revision_id": revision_payload["relationship_revision_id"],
+                    "entries": [
+                        *[
+                            {
+                                "event_revision_id": event["event_revision_id"],
+                                "photo_ids": event.get("original_photo_ids", []),
+                                "appearance_mode": "live_presence",
+                            }
+                            for event in live_events
+                        ],
+                        *[
+                            {
+                                "event_revision_id": event["event_revision_id"],
+                                "photo_ids": event.get("original_photo_ids", []),
+                                "appearance_mode": "embedded_media",
+                            }
+                            for event in embedded_events
+                        ],
+                    ],
+                }
+            )
+        revisions = self.staging.list_current_relationship_revisions()
+        self._summary["relationship_revision_count"] = len(revisions)
+        return revisions, ledgers, changed_revisions
+
+    def _relationship_requires_llm(
+        self,
+        *,
+        prior: Optional[Dict[str, Any]],
+        live_count: int,
+        embedded_count: int,
+        relationship_type: str,
+    ) -> bool:
+        if live_count >= 2:
+            return True
+        if live_count == 0 and embedded_count >= 2:
+            return True
+        if prior and str(prior.get("relationship_type") or "") != relationship_type:
+            return True
+        if prior and float(prior.get("confidence") or 0.0) < 0.55 <= (0.35 + min(0.4, 0.08 * live_count)):
+            return True
+        return False
+
+    def _infer_relationship_with_llm(
+        self,
+        *,
+        primary_person_id: str,
+        target_person_id: str,
+        prior: Optional[Dict[str, Any]],
+        live_events: Sequence[Dict[str, Any]],
+        embedded_events: Sequence[Dict[str, Any]],
+    ) -> Optional[Dict[str, Any]]:
+        prompt = (
+            "You are a relationship analyst. Infer the current relationship between the primary user and the target person.\n"
+            "Return JSON only with keys relationship_type, label, confidence, reason_summary.\n"
+            "Use live_presence evidence as stronger than embedded_media evidence.\n"
+            "Do not treat embedded_media as direct co-presence.\n"
+            "Allowed relationship_type values: co_presence_only, acquaintance, colleague, friend, close_friend, family, remembered_person.\n"
+            f"PRIMARY_PERSON_ID={json.dumps(primary_person_id, ensure_ascii=False)}\n"
+            f"TARGET_PERSON_ID={json.dumps(target_person_id, ensure_ascii=False)}\n"
+            f"PRIOR_RELATIONSHIP={json.dumps(prior or {}, ensure_ascii=False)}\n"
+            f"LIVE_EVENTS={json.dumps([self._relationship_event_context(event) for event in live_events], ensure_ascii=False)}\n"
+            f"EMBEDDED_MEDIA_EVENTS={json.dumps([self._relationship_event_context(event) for event in embedded_events], ensure_ascii=False)}\n"
+        )
+        payload = self._call_llm_json_prompt(prompt)
+        if not payload:
+            return None
+        self._summary["relationship_llm_count"] = int(self._summary.get("relationship_llm_count") or 0) + 1
+        return payload
+
+    def _relationship_event_context(self, event: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "event_revision_id": event.get("event_revision_id"),
+            "title": event.get("title"),
+            "started_at": event.get("started_at"),
+            "ended_at": event.get("ended_at"),
+            "place_refs": list(event.get("place_refs", []) or []),
+            "participant_person_ids": list(event.get("participant_person_ids", []) or []),
+            "depicted_person_ids": list(event.get("depicted_person_ids", []) or []),
+            "original_photo_ids": list(event.get("original_photo_ids", []) or []),
+            "event_summary": str(event.get("event_summary") or ""),
+        }
+
+    def _build_profile_revision(
+        self,
+        *,
+        primary_person_id: Optional[str],
+        event_revisions: Sequence[Dict[str, Any]],
+        atomic_evidence: Sequence[Dict[str, Any]],
+        relationship_revisions: Sequence[Dict[str, Any]],
+        reference_signals: Sequence[Dict[str, Any]],
+        revision_key: str = "1",
+        scope: str = "cumulative",
+    ) -> Tuple[Dict[str, Any], str]:
+        buckets: Dict[str, Dict[str, Any]] = {}
+        has_reference_only = bool(reference_signals)
+        has_event_grounded = False
+        for signal in reference_signals:
+            bucket = signal["profile_bucket"]
+            bucket_payload = buckets.setdefault(
+                bucket,
+                {"values": [], "original_photo_ids": [], "evidence_refs": [], "source_kinds": []},
+            )
+            bucket_payload["values"].append(signal["evidence_text"])
+            bucket_payload["original_photo_ids"].extend(signal["original_photo_ids"])
+            bucket_payload["source_kinds"].append(signal.get("source_kind") or "reference_media")
+            bucket_payload["evidence_refs"].append(
+                {"ref_type": "reference_media", "ref_id": signal["signal_id"]}
+            )
+        for evidence in atomic_evidence:
+            if evidence.get("evidence_type") != "profile_signal":
+                continue
+            has_event_grounded = True
+            bucket_payload = buckets.setdefault(
+                "interest",
+                {"values": [], "original_photo_ids": [], "evidence_refs": [], "source_kinds": []},
+            )
+            bucket_payload["values"].append(str(evidence.get("value_or_text") or ""))
+            bucket_payload["original_photo_ids"].extend(evidence.get("original_photo_ids", []))
+            bucket_payload["source_kinds"].append(evidence.get("provenance") or "event_profile_signal")
+            bucket_payload["evidence_refs"].append(
+                {"ref_type": "evidence", "ref_id": evidence["evidence_id"]}
+            )
+        normalized_buckets = {
+            key: {
+                "values": self._unique(value["values"]),
+                "original_photo_ids": self._unique(value["original_photo_ids"]),
+                "evidence_refs": value["evidence_refs"][:20],
+                "source_kinds": self._unique(value.get("source_kinds", [])),
+            }
+            for key, value in buckets.items()
+        }
+        profile_revision = {
+            "profile_revision_id": self._stable_id("profile-revision", self.user_id, revision_key),
+            "pipeline_family": PIPELINE_FAMILY_V0321_2,
+            "version": 1,
+            "scope": scope,
+            "primary_person_id": primary_person_id,
+            "buckets": normalized_buckets,
+            "original_photo_ids": self._unique(
+                photo_id
+                for bucket in normalized_buckets.values()
+                for photo_id in bucket.get("original_photo_ids", [])
+            ),
+        }
+        llm_markdown = self._generate_profile_markdown_with_llm(
+            primary_person_id=primary_person_id,
+            event_revisions=event_revisions,
+            relationship_revisions=relationship_revisions,
+            reference_signals=reference_signals,
+            scope=scope,
+        )
+        if llm_markdown:
+            self._summary["profile_llm_count"] = int(self._summary.get("profile_llm_count") or 0) + 1
+            return profile_revision, llm_markdown
+        lines = ["# Profile", ""]
+        if not normalized_buckets:
+            lines.append("- 当前任务还没有足够稳定的画像信号。")
+            return profile_revision, "\n".join(lines).strip()
+
+        if has_reference_only and not has_event_grounded:
+            lines.append("- 本轮画像主要来自截图、网图或参考图，只能作为弱画像线索，不代表已经发生的真实经历。")
+            lines.append("- 这些内容更适合用于判断近期关注、审美偏好和潜在兴趣，不适合直接推断真实生活事件。")
+            lines.append("")
+
+        bucket_labels = {
+            "interest": "近期关注内容",
+            "aesthetic_preference": "审美与风格偏好",
+            "consumption_intent": "潜在消费/种草方向",
+            "aspiration": "向往与计划线索",
+            "identity_style": "身份与表达风格",
+        }
+        for bucket, payload in sorted(normalized_buckets.items()):
+            values = [str(item).strip() for item in payload.get("values", []) if str(item).strip()]
+            if not values:
+                continue
+            headline = bucket_labels.get(bucket, bucket)
+            lines.append(f"## {headline}")
+            lines.append(f"- 线索数量：{len(values)}")
+            if payload.get("source_kinds"):
+                lines.append(f"- 来源：{', '.join(payload['source_kinds'][:3])}")
+            lines.append(f"- 代表信号：{self._summarize_profile_values(values)}")
+            lines.append("")
+        return profile_revision, "\n".join(lines).strip()
+
+    def _generate_profile_markdown_with_llm(
+        self,
+        *,
+        primary_person_id: Optional[str],
+        event_revisions: Sequence[Dict[str, Any]],
+        relationship_revisions: Sequence[Dict[str, Any]],
+        reference_signals: Sequence[Dict[str, Any]],
+        scope: str,
+    ) -> Optional[str]:
+        markdown = self._call_llm_markdown_prompt(
+            self._build_profile_llm_prompt(
+                primary_person_id=primary_person_id,
+                event_revisions=event_revisions,
+                relationship_revisions=relationship_revisions,
+                reference_signals=reference_signals,
+                scope=scope,
+            )
+        )
+        return markdown
+
+    def _build_profile_llm_prompt(
+        self,
+        *,
+        primary_person_id: Optional[str],
+        event_revisions: Sequence[Dict[str, Any]],
+        relationship_revisions: Sequence[Dict[str, Any]],
+        reference_signals: Sequence[Dict[str, Any]],
+        scope: str,
+    ) -> str:
+        event_payload = [self._profile_event_context(event) for event in event_revisions[:40]]
+        relationship_payload = [self._profile_relationship_context(item) for item in relationship_revisions[:20]]
+        reference_payload = [
+            {
+                "signal_id": item.get("signal_id"),
+                "profile_bucket": item.get("profile_bucket"),
+                "evidence_text": item.get("evidence_text"),
+                "source_kind": item.get("source_kind"),
+                "original_photo_ids": list(item.get("original_photo_ids", []) or []),
+                "confidence": item.get("confidence"),
+                "provenance": item.get("provenance"),
+            }
+            for item in reference_signals[:20]
+        ]
+        scope_label = "本轮当前任务增量画像" if scope == "current_task" else "累计长期画像"
+        return (
+            "# Role\n"
+            "你是一位世界级的行为分析专家和 FBI 级别的人格画像师，擅长通过行为残迹还原人类灵魂。\n\n"
+            "# Task\n"
+            f"请基于提供的用户事件、社交关系和弱画像线索，生成《用户全维画像分析报告》。当前任务目标是：{scope_label}。\n\n"
+            "# Special Rules\n"
+            "1. reference_media_profile_signal 只能作为弱画像线索，用于兴趣、审美、aspiration、identity_style 的推测，不能直接当作真实经历或真实关系证据。\n"
+            "2. 严禁没有 event_revision_id 或 relationship_revision_id 支撑的强结论。\n"
+            "3. 对模糊结论必须使用“高概率、疑似、待进一步观察”等措辞。\n"
+            "4. 如果当前任务事件过少，必须诚实指出证据不足，而不是硬凑完整人格。\n"
+            "5. 输出必须使用中文 Markdown，并尽量遵守以下结构：推理草稿箱、基础画像、社交关系图谱、深度人格分析。\n\n"
+            "Output Format (尽量遵守)\n"
+            "推理草稿箱 (Reasoning Scratchpad)\n"
+            "1. 时空锚点确认\n"
+            "2. 社交实体挖掘\n"
+            "3. 职业逻辑修正\n\n"
+            "1. 基础画像\n"
+            "1.1 姓名/称呼推测\n"
+            "1.2 估算年龄/生命周期\n"
+            "1.3 核心身份/阶层\n"
+            "1.4 常驻地/通勤模式\n"
+            "1.5 兴趣爱好\n"
+            "1.6 是否单身/伴侣是谁\n\n"
+            "2. 社交关系图谱\n"
+            "2.1 重要关系识别表\n"
+            "2.2 社交性格总结\n\n"
+            "3. 深度人格分析\n"
+            "3.1 性格特征与 MBTI\n"
+            "3.2 价值观与底层驱动力\n"
+            "3.3 审美偏好和对外展示\n"
+            "3.4 底层人格侧写\n\n"
+            f"PRIMARY_PERSON_ID={json.dumps(primary_person_id, ensure_ascii=False)}\n"
+            f"EVENT_REVISIONS={json.dumps(event_payload, ensure_ascii=False)}\n"
+            f"RELATIONSHIP_REVISIONS={json.dumps(relationship_payload, ensure_ascii=False)}\n"
+            f"REFERENCE_MEDIA_WEAK_SIGNALS={json.dumps(reference_payload, ensure_ascii=False)}\n"
+        )
+
+    def _profile_event_context(self, event: Dict[str, Any]) -> Dict[str, Any]:
+        evidence = []
+        for item in list(event.get("atomic_evidence", []) or [])[:8]:
+            evidence.append(
+                {
+                    "evidence_type": item.get("evidence_type"),
+                    "value_or_text": item.get("value_or_text"),
+                    "original_photo_ids": list(item.get("original_photo_ids", []) or []),
+                    "evidence_id": item.get("evidence_id"),
+                }
+            )
+        return {
+            "event_revision_id": event.get("event_revision_id"),
+            "title": event.get("title"),
+            "event_summary": event.get("event_summary"),
+            "started_at": event.get("started_at"),
+            "ended_at": event.get("ended_at"),
+            "participant_person_ids": list(event.get("participant_person_ids", []) or []),
+            "depicted_person_ids": list(event.get("depicted_person_ids", []) or []),
+            "place_refs": list(event.get("place_refs", []) or []),
+            "original_photo_ids": list(event.get("original_photo_ids", []) or []),
+            "atomic_evidence": evidence,
+        }
+
+    def _profile_relationship_context(self, relationship: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "relationship_revision_id": relationship.get("relationship_revision_id"),
+            "target_person_id": relationship.get("target_person_id"),
+            "relationship_type": relationship.get("relationship_type"),
+            "label": relationship.get("label"),
+            "confidence": relationship.get("confidence"),
+            "live_support_count": relationship.get("live_support_count"),
+            "embedded_support_count": relationship.get("embedded_support_count"),
+            "supporting_event_ids": list(relationship.get("supporting_event_ids", []) or []),
+            "reason_summary": relationship.get("reason_summary"),
+        }
+
+    def _summarize_profile_values(self, values: Sequence[str]) -> str:
+        cleaned = self._unique(
+            re.sub(r"\s+", " ", str(value)).strip(" ,.;:：；，。")
+            for value in values
+            if str(value).strip()
+        )
+        if not cleaned:
+            return "暂无可用线索"
+        compact = cleaned[:3]
+        normalized = []
+        for item in compact:
+            if len(item) > 80:
+                normalized.append(f"{item[:77]}...")
+            else:
+                normalized.append(item)
+        return "；".join(normalized)
+
+    def _build_storage_payload(
+        self,
+        *,
+        primary_person_id: Optional[str],
+        face_output: Dict[str, Any],
+        person_appearances: Sequence[Dict[str, Any]],
+        event_revisions: Sequence[Dict[str, Any]],
+        relationship_revisions: Sequence[Dict[str, Any]],
+        relationship_ledgers: Sequence[Dict[str, Any]],
+        profile_revision: Dict[str, Any],
+        reference_signals: Sequence[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        person_ids = self._unique(item["person_id"] for item in person_appearances)
+        persons = []
+        redis_payload: Dict[str, Any] = {
+            "profile_current": {
+                "key": f"{self.family_prefix}:profile_current",
+                **profile_revision,
+            },
+            "profile_revision": {
+                "key": f"{self.family_prefix}:profile_revision:{profile_revision['version']}",
+                **profile_revision,
+            },
+            "reference_media_catalog": {
+                "key": f"{self.family_prefix}:reference_media",
+                "items": list(reference_signals),
+            },
+        }
+        for person_id in person_ids:
+            person_appearance_items = [item for item in person_appearances if item["person_id"] == person_id]
+            original_photo_ids = self._unique(
+                item.get("original_photo_id") or item["photo_id"]
+                for item in person_appearance_items
+            )
+            segments: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+            for item in person_appearance_items:
+                month_key = str(item.get("timestamp") or "")[:7] or "unknown"
+                segments[month_key].append(
+                    {
+                        "photo_id": item["photo_id"],
+                        "original_photo_id": item.get("original_photo_id"),
+                        "appearance_mode": item["appearance_mode"],
+                        "timestamp": item.get("timestamp"),
+                    }
+                )
+            persons.append(
+                {
+                    "person_uuid": person_id,
+                    "labels": ["Person"],
+                    "properties": {
+                        "user_id": self.user_id,
+                        "person_id": person_id,
+                        "pipeline_family": PIPELINE_FAMILY_V0321_2,
+                        "is_primary_candidate": person_id == primary_person_id,
+                        "original_image_ids": self._unique(
+                            item.get("original_photo_id") or item["photo_id"]
+                            for item in person_appearance_items
+                        ),
+                        "photo_count": len(original_photo_ids),
+                    },
+                }
+            )
+            redis_payload[f"person_photo_index_{person_id}"] = {
+                "key": f"{self.family_prefix}:person_photo_index:{person_id}",
+                "person_id": person_id,
+                "photo_count": len(original_photo_ids),
+                "segments": dict(segments),
+            }
+        for ledger in relationship_ledgers:
+            redis_payload[f"relationship_ledger_{ledger['relationship_revision_id']}"] = {
+                "key": f"{self.family_prefix}:relationship_ledger:{ledger['relationship_revision_id']}",
+                **ledger,
+            }
+        event_root_nodes = []
+        event_revision_nodes = []
+        edges: List[Dict[str, Any]] = []
+        for event in event_revisions:
+            root_id = event["event_root_id"]
+            event_root_nodes.append(
+                {
+                    "event_root_id": root_id,
+                    "labels": ["EventRoot"],
+                    "properties": {
+                        "user_id": self.user_id,
+                        "pipeline_family": PIPELINE_FAMILY_V0321_2,
+                        "current_revision_id": event["event_revision_id"],
+                        "sealed_state": event.get("sealed_state") or "sealed",
+                    },
+                }
+            )
+            event_revision_nodes.append(
+                {
+                    "event_revision_id": event["event_revision_id"],
+                    "labels": ["EventRevision"],
+                    "properties": {
+                        **{k: v for k, v in event.items() if k != "atomic_evidence"},
+                        "user_id": self.user_id,
+                    },
+                }
+            )
+            edges.append(
+                {
+                    "edge_id": self._stable_id("edge", root_id, event["event_revision_id"], "HAS_REVISION"),
+                    "from_id": root_id,
+                    "to_id": event["event_revision_id"],
+                    "edge_type": "HAS_REVISION",
+                    "properties": {"pipeline_family": PIPELINE_FAMILY_V0321_2},
+                }
+            )
+            edges.append(
+                {
+                    "edge_id": self._stable_id("edge", root_id, event["event_revision_id"], "CURRENT"),
+                    "from_id": root_id,
+                    "to_id": event["event_revision_id"],
+                    "edge_type": "CURRENT",
+                    "properties": {"pipeline_family": PIPELINE_FAMILY_V0321_2},
+                }
+            )
+            if event.get("supersedes_event_revision_id"):
+                edges.append(
+                    {
+                        "edge_id": self._stable_id("edge", event["event_revision_id"], event["supersedes_event_revision_id"], "SUPERSEDES"),
+                        "from_id": event["event_revision_id"],
+                        "to_id": event["supersedes_event_revision_id"],
+                        "edge_type": "SUPERSEDES",
+                        "properties": {"pipeline_family": PIPELINE_FAMILY_V0321_2},
+                    }
+                )
+        relationship_root_nodes = []
+        relationship_revision_nodes = []
+        for relationship in relationship_revisions:
+            root_id = relationship["relationship_root_id"]
+            relationship_root_nodes.append(
+                {
+                    "relationship_root_id": root_id,
+                    "labels": ["RelationshipRoot"],
+                    "properties": {
+                        "user_id": self.user_id,
+                        "target_person_id": relationship["target_person_id"],
+                        "current_revision_id": relationship["relationship_revision_id"],
+                        "pipeline_family": PIPELINE_FAMILY_V0321_2,
+                    },
+                }
+            )
+            relationship_revision_nodes.append(
+                {
+                    "relationship_revision_id": relationship["relationship_revision_id"],
+                    "labels": ["RelationshipRevision"],
+                    "properties": {
+                        **relationship,
+                        "user_id": self.user_id,
+                    },
+                }
+            )
+            edges.append(
+                {
+                    "edge_id": self._stable_id("edge", root_id, relationship["target_person_id"], "TARGET_PERSON"),
+                    "from_id": root_id,
+                    "to_id": relationship["target_person_id"],
+                    "edge_type": "TARGET_PERSON",
+                    "properties": {"pipeline_family": PIPELINE_FAMILY_V0321_2},
+                }
+            )
+            edges.append(
+                {
+                    "edge_id": self._stable_id("edge", root_id, relationship["relationship_revision_id"], "HAS_REVISION"),
+                    "from_id": root_id,
+                    "to_id": relationship["relationship_revision_id"],
+                    "edge_type": "HAS_REVISION",
+                    "properties": {"pipeline_family": PIPELINE_FAMILY_V0321_2},
+                }
+            )
+            edges.append(
+                {
+                    "edge_id": self._stable_id("edge", root_id, relationship["relationship_revision_id"], "CURRENT"),
+                    "from_id": root_id,
+                    "to_id": relationship["relationship_revision_id"],
+                    "edge_type": "CURRENT",
+                    "properties": {"pipeline_family": PIPELINE_FAMILY_V0321_2},
+                }
+            )
+            if relationship.get("supersedes_relationship_revision_id"):
+                edges.append(
+                    {
+                        "edge_id": self._stable_id(
+                            "edge",
+                            relationship["relationship_revision_id"],
+                            relationship["supersedes_relationship_revision_id"],
+                            "SUPERSEDES",
+                        ),
+                        "from_id": relationship["relationship_revision_id"],
+                        "to_id": relationship["supersedes_relationship_revision_id"],
+                        "edge_type": "SUPERSEDES",
+                        "properties": {"pipeline_family": PIPELINE_FAMILY_V0321_2},
+                    }
+                )
+            for event_id in relationship.get("supporting_event_ids", []) or []:
+                edges.append(
+                    {
+                        "edge_id": self._stable_id("edge", relationship["relationship_revision_id"], event_id, "SUPPORTED_BY_EVENT"),
+                        "from_id": relationship["relationship_revision_id"],
+                        "to_id": event_id,
+                        "edge_type": "SUPPORTED_BY_EVENT",
+                        "properties": {"pipeline_family": PIPELINE_FAMILY_V0321_2},
+                    }
+                )
+
+        ordered_events = sorted(event_revisions, key=lambda item: (item.get("started_at") or "", item.get("event_root_id") or ""))
+        for left, right in zip(ordered_events, ordered_events[1:]):
+            if left.get("event_root_id") == right.get("event_root_id"):
+                continue
+            edges.append(
+                {
+                    "edge_id": self._stable_id("edge", left["event_root_id"], right["event_root_id"], "NEXT_EVENT"),
+                    "from_id": left["event_root_id"],
+                    "to_id": right["event_root_id"],
+                    "edge_type": "NEXT_EVENT",
+                    "properties": {"pipeline_family": PIPELINE_FAMILY_V0321_2},
+                }
+            )
+        neo4j_nodes = {
+            "user": [
+                {
+                    "user_id": self.user_id,
+                    "labels": ["User"],
+                    "properties": {
+                        "pipeline_family": PIPELINE_FAMILY_V0321_2,
+                        "primary_person_id": primary_person_id,
+                    },
+                }
+            ],
+            "persons": persons,
+            "event_roots": event_root_nodes,
+            "event_revisions": event_revision_nodes,
+            "relationship_roots": relationship_root_nodes,
+            "relationship_revisions": relationship_revision_nodes,
+            "period_revisions": [],
+        }
+        return {
+            "redis": redis_payload,
+            "neo4j": {
+                "nodes": neo4j_nodes,
+                "edges": edges,
+            },
+            "milvus": {},
+        }
+
+    def _face_anchors(self, photo: Any) -> List[Dict[str, Any]]:
+        anchors = []
+        for face in list(getattr(photo, "faces", []) or []):
+            anchors.append(
+                {
+                    "person_id": face.get("person_id"),
+                    "normalized_bbox": dict(face.get("bbox_xywh") or {}),
+                    "face_confidence": float(face.get("score") or 0.0),
+                    "identity_confidence": float(face.get("similarity") or 0.0),
+                    "primary_candidate": face.get("person_id") == getattr(photo, "primary_person_id", None),
+                    "visibility_bucket": "clear" if float(face.get("quality_score") or 0.0) >= 0.75 else "medium",
+                }
+            )
+        return anchors
+
+    def _public_url(self, path: Path | str) -> Optional[str]:
+        if self.public_url_builder is None:
+            return None
+        return self.public_url_builder(path)
+
+    def _parse_dt(self, value: Any) -> Optional[datetime]:
+        if isinstance(value, datetime):
+            return value
+        if not value:
+            return None
+        try:
+            return datetime.fromisoformat(str(value))
+        except Exception:
+            return None
+
+    def _time_gap_seconds(self, left: Any, right: Any) -> Optional[float]:
+        left_dt = self._parse_dt(left)
+        right_dt = self._parse_dt(right)
+        if not left_dt or not right_dt:
+            return None
+        return abs((left_dt - right_dt).total_seconds())
+
+    def _same_day(self, left: Any, right: Any) -> bool:
+        left_dt = self._parse_dt(left)
+        right_dt = self._parse_dt(right)
+        if not left_dt or not right_dt:
+            return False
+        return left_dt.date() == right_dt.date()
+
+    def _window_start(self, live_events: Sequence[Dict[str, Any]], embedded_events: Sequence[Dict[str, Any]]) -> str:
+        values = [item.get("started_at") for item in [*live_events, *embedded_events] if item.get("started_at")]
+        return min(values) if values else ""
+
+    def _window_end(self, live_events: Sequence[Dict[str, Any]], embedded_events: Sequence[Dict[str, Any]]) -> str:
+        values = [item.get("ended_at") for item in [*live_events, *embedded_events] if item.get("ended_at")]
+        return max(values) if values else ""
+
+    def _stable_id(self, namespace: str, *parts: Any) -> str:
+        raw = "|".join(str(part or "") for part in (PIPELINE_FAMILY_V0321_2, self.user_id, self.task_id, namespace, *parts))
+        return uuid5(NAMESPACE_URL, raw).hex
+
+    def _original_photo_id(self, photo: Any) -> str:
+        return str(getattr(photo, "source_hash", None) or getattr(photo, "photo_id", "") or "")
+
+    def _unique(self, values: Iterable[Any]) -> List[Any]:
+        items: List[Any] = []
+        seen = set()
+        for value in values:
+            if value in (None, "", []):
+                continue
+            if value in seen:
+                continue
+            seen.add(value)
+            items.append(value)
+        return items
+
+    def _emit_progress(
+        self,
+        callback: Optional[Callable[[str, Dict[str, Any]], None]],
+        stage: str,
+        payload: Dict[str, Any],
+    ) -> None:
+        if callback:
+            callback(stage, payload)

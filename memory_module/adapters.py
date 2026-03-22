@@ -36,10 +36,15 @@ NODE_GROUP_ID_FIELDS = {
     "places": "place_uuid",
     "events": "session_uuid",
     "facts": "event_uuid",
+    "event_roots": "event_root_id",
+    "event_revisions": "event_revision_id",
     "relationship_hypotheses": "relationship_uuid",
+    "relationship_roots": "relationship_root_id",
+    "relationship_revisions": "relationship_revision_id",
     "mood_states": "mood_uuid",
     "primary_person_hypotheses": "primary_person_hypothesis_uuid",
     "period_hypotheses": "period_uuid",
+    "period_revisions": "period_revision_id",
     "concepts": "concept_uuid",
 }
 
@@ -56,9 +61,9 @@ VECTOR_INDEX_SPECS = {
 class MemoryStoragePublisher:
     """Publishes the materialized memory views to configured external sinks."""
 
-    def __init__(self, task_dir: str | Path) -> None:
+    def __init__(self, task_dir: str | Path, *, output_dir: str | Path | None = None) -> None:
         self.task_dir = Path(task_dir)
-        self.output_dir = self.task_dir / "output" / "memory"
+        self.output_dir = Path(output_dir) if output_dir is not None else self.task_dir / "output" / "memory"
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.report_path = self.output_dir / "external_publish_report.json"
 
@@ -162,6 +167,19 @@ class Neo4jStorageAdapter:
                             props=props,
                         )
                         node_index[record[id_field]] = (labels, id_field)
+
+                for group_name in ("event_roots", "relationship_roots"):
+                    id_field = NODE_GROUP_ID_FIELDS.get(group_name)
+                    if not id_field:
+                        continue
+                    for record in nodes.get(group_name, []):
+                        if id_field not in record:
+                            continue
+                        labels = ":".join(self._sanitize_label(label) for label in record.get("labels", [])) or "MemoryNode"
+                        session.run(
+                            f"MATCH (n:{labels} {{{id_field}: $node_id}})-[r:CURRENT]->() DELETE r",
+                            node_id=record[id_field],
+                        )
 
                 edge_count = 0
                 skipped_edges = 0

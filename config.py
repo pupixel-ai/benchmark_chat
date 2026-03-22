@@ -17,8 +17,29 @@ try:
 except Exception:
     load_dotenv = None
 
+
+def _fallback_load_dotenv(dotenv_path: str) -> None:
+    if not os.path.exists(dotenv_path):
+        return
+    with open(dotenv_path, "r", encoding="utf-8") as handle:
+        for raw_line in handle:
+            line = raw_line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            key = key.strip()
+            if not key or key in os.environ:
+                continue
+            value = value.strip()
+            if len(value) >= 2 and value[0] == value[-1] and value[0] in {'"', "'"}:
+                value = value[1:-1]
+            os.environ[key] = value
+
+
 if load_dotenv is not None:
     load_dotenv(os.path.join(PROJECT_ROOT, ".env"))
+else:
+    _fallback_load_dotenv(os.path.join(PROJECT_ROOT, ".env"))
 
 # Demo配置
 MAX_PHOTOS = 50  # Demo阶段最多处理50张照片
@@ -28,11 +49,15 @@ TASK_VERSION_V0312 = "v0312"
 TASK_VERSION_V0315 = "v0315"
 TASK_VERSION_V0317 = "v0317"
 TASK_VERSION_V0317_HEAVY = "v0317-Heavy"
+TASK_VERSION_V0321_2 = "v0321.2"
+TASK_VERSION_V0321_3 = "v0321.3"
 AVAILABLE_TASK_VERSIONS = (
     TASK_VERSION_V0312,
     TASK_VERSION_V0315,
     TASK_VERSION_V0317,
     TASK_VERSION_V0317_HEAVY,
+    TASK_VERSION_V0321_2,
+    TASK_VERSION_V0321_3,
 )
 APP_VERSION = os.getenv("APP_VERSION", TASK_VERSION_V0317).strip() or TASK_VERSION_V0317
 DEFAULT_TASK_VERSION = os.getenv("DEFAULT_TASK_VERSION", TASK_VERSION_V0317).strip() or TASK_VERSION_V0317
@@ -198,6 +223,7 @@ OPENROUTER_LLM_MODEL = (
     os.getenv("OPENROUTER_LLM_MODEL", "google/gemini-3.1-flash-lite-preview").strip()
     or "google/gemini-3.1-flash-lite-preview"
 )
+OPENROUTER_REASONING_EFFORT = os.getenv("OPENROUTER_REASONING_EFFORT", "").strip().lower()
 BEDROCK_REGION = (
     os.getenv("BEDROCK_REGION", AWS_REGION or "ap-southeast-1").strip()
     or "ap-southeast-1"

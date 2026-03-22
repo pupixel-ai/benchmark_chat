@@ -380,7 +380,21 @@ export type MilvusSegment = {
 };
 
 export type MemoryPayload = {
+  pipeline_family?: string;
   summary: MemorySummary;
+  event_revisions?: Array<Record<string, unknown>>;
+  delta_event_revisions?: Array<Record<string, unknown>>;
+  atomic_evidence?: Array<Record<string, unknown>>;
+  delta_atomic_evidence?: Array<Record<string, unknown>>;
+  relationship_revisions?: Array<Record<string, unknown>>;
+  delta_relationship_revisions?: Array<Record<string, unknown>>;
+  period_revisions?: Array<Record<string, unknown>>;
+  profile_revision?: Record<string, unknown>;
+  delta_profile_revision?: Record<string, unknown>;
+  delta_profile_markdown?: string;
+  person_appearances?: Array<Record<string, unknown>>;
+  reference_media_signals?: Array<Record<string, unknown>>;
+  delta_reference_media_signals?: Array<Record<string, unknown>>;
   envelope: Record<string, unknown>;
   storage: {
     identity_maps?: Record<string, unknown>;
@@ -393,6 +407,9 @@ export type MemoryPayload = {
       segments?: MilvusSegment[];
     };
     redis?: {
+      profile_current?: Record<string, unknown>;
+      profile_revision?: Record<string, unknown>;
+      reference_media_catalog?: Record<string, unknown>;
       profile_core?: {
         fields?: Record<string, MemoryProfileField>;
         profile_markdown?: string;
@@ -410,6 +427,7 @@ export type MemoryPayload = {
       };
       profile_meta?: Record<string, unknown>;
       profile_debug_refs?: Record<string, unknown>;
+      [key: string]: unknown;
     };
     materialization_bundle?: Record<string, unknown>;
   };

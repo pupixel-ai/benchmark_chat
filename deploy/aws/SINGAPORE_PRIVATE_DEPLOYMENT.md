@@ -319,7 +319,7 @@ OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
 OPENROUTER_SITE_URL=http://10.60.1.90:3000
 OPENROUTER_APP_NAME=Memory Engineering
 OPENROUTER_VLM_MODEL=google/gemini-3.1-flash-lite-preview
-OPENROUTER_LLM_MODEL=minimax/minimax-m2.5
+OPENROUTER_LLM_MODEL=nvidia/nemotron-3-super-120b-a12b
 AMAP_API_KEY=YOUR_AMAP_KEY
 
 BACKEND_HOST=0.0.0.0

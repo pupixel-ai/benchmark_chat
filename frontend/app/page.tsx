@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { ChangeEvent } from "react";
-import { AlertTriangle, ArrowUp, Ban, MessageSquare, Plus, X } from "lucide-react";
+import type { ChangeEvent, ReactNode } from "react";
+import { AlertTriangle, ArrowUp, Ban, ChevronDown, ChevronRight, LoaderCircle, MessageSquare, Plus, X } from "lucide-react";
 import type {
   AuthResponse,
   AuthUser,
   FaceReport,
+  FaceRecognitionPayload,
   HealthResponse,
   MemoryFocusGraph,
   MemoryQueryHistoryItem,
@@ -78,9 +79,12 @@ const stageLabelMap: Record<string, string> = {
 
 const llmSubstageLabelMap: Record<string, string> = {
   slice_contract: "Fact Aggregation",
+  event_draft: "Event Draft",
   event_merge: "Event Aggregation",
+  event_finalize: "Event Finalization",
   global_merge: "Event Aggregation",
   relationship_inference: "Relationship Inference",
+  relationship_projector: "Relationship Projection",
   profile_materialization: "Profile Materialization",
   completed: "LLM Completed"
 };
@@ -249,18 +253,39 @@ function groupTasksByCreatedAt(tasks: TaskState[]) {
   return Array.from(groups.values());
 }
 
-function taskDisplayLabel(task: TaskState) {
+function sanitizeTaskSummaryTitle(value?: string | null) {
+  if (!value) {
+    return null;
+  }
+  const compact = value.replace(/\s+/g, " ").trim();
+  const withoutStructuredSuffix = compact.replace(/\s*@\s*\{.*$/u, "").trim();
+  const normalized = withoutStructuredSuffix || compact;
+  return normalized.length > 72 ? `${normalized.slice(0, 69)}...` : normalized;
+}
+
+function taskSummaryLabel(task: TaskState) {
   const summaryTitle =
+    (typeof task.result_summary?.title === "string" ? task.result_summary.title : null) ??
     task.result?.summary?.title ??
-    (typeof task.result_summary?.title === "string" ? task.result_summary.title : null);
-  if (summaryTitle) {
-    return summaryTitle;
-  }
-  const factTitle = task.result?.facts?.find((fact) => fact.title)?.title;
-  if (factTitle) {
-    return factTitle;
-  }
-  return task.task_id.slice(0, 8);
+    null;
+  return sanitizeTaskSummaryTitle(summaryTitle);
+}
+
+function taskStableLabel(task: TaskState) {
+  return task.task_id.slice(0, 12);
+}
+
+function taskDisplayLabel(task: TaskState) {
+  return taskSummaryLabel(task) ?? taskStableLabel(task);
+}
+
+function toTaskListEntry(task: TaskState): TaskState {
+  return {
+    ...task,
+    result: null,
+    uploads: task.uploads,
+    progress: task.progress,
+  };
 }
 
 function uploadMeta(upload: UploadItem) {
@@ -619,6 +644,22 @@ function readStageProgress(progress: TaskState["progress"], stage: string) {
   return stagePayload as Record<string, unknown>;
 }
 
+function inferPipelineStageRank(stage: string) {
+  if (FACE_RECOGNITION_STAGES.has(stage) || stage === "preprocess") {
+    return 1;
+  }
+  if (stage === "vlm") {
+    return 2;
+  }
+  if (stage === "llm") {
+    return 3;
+  }
+  if (stage === "memory" || stage === "completed" || stage === "failed") {
+    return 4;
+  }
+  return 0;
+}
+
 function readTaskLogs(progress: TaskState["progress"]) {
   if (!progress || typeof progress !== "object") {
     return [] as TaskProgressLogEntry[];
@@ -655,6 +696,34 @@ function formatProgressLogLine(entry: TaskProgressLogEntry) {
     parts.push(entry.error);
   }
   return parts.filter(Boolean).join(" · ");
+}
+
+function readLatestStageProviderModel(logs: TaskProgressLogEntry[], stage: string) {
+  for (let index = logs.length - 1; index >= 0; index -= 1) {
+    const entry = logs[index];
+    if (entry.stage !== stage) {
+      continue;
+    }
+    if (entry.model || entry.provider) {
+      return {
+        provider: entry.provider ?? "",
+        model: entry.model ?? "",
+      };
+    }
+  }
+  return {
+    provider: "",
+    model: "",
+  };
+}
+
+function formatModelBadgeLabel(model?: string | null, provider?: string | null) {
+  const raw = (model ?? provider ?? "").trim();
+  if (!raw) {
+    return "";
+  }
+  const normalized = raw.includes("/") ? raw.split("/").pop() ?? raw : raw;
+  return normalized;
 }
 
 function TaskLogPanel({ logs }: { logs: TaskProgressLogEntry[] }) {
@@ -749,6 +818,8 @@ function ScrollableJsonPanel({
   emptyText,
   loading = false,
   meta,
+  badge,
+  defaultCollapsed = false,
   loadingLabel = "处理中",
   loadingPercent = null
 }: {
@@ -757,20 +828,37 @@ function ScrollableJsonPanel({
   emptyText: string;
   loading?: boolean;
   meta?: string;
+  badge?: ReactNode;
+  defaultCollapsed?: boolean;
   loadingLabel?: string;
   loadingPercent?: number | null;
 }) {
   const hasValue = hasDisplayValue(value);
+  const [collapsed, setCollapsed] = useState(defaultCollapsed);
   return (
     <div className="rounded-[12px] border border-[#ddcebb] bg-white/70 p-4">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex items-start justify-between gap-3">
         <div className="space-y-1">
-          <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-black/42">{title}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-black/42">{title}</p>
+            {badge}
+          </div>
           {meta ? <p className="text-xs text-black/45">{meta}</p> : null}
         </div>
-        {loading ? <WaitingDots label={loadingLabel} compact muted percent={loadingPercent} /> : null}
+        <div className="flex items-center gap-2">
+          {loading ? <WaitingDots label={loadingLabel} compact muted percent={loadingPercent} /> : null}
+          <button
+            type="button"
+            aria-expanded={!collapsed}
+            aria-label={`${collapsed ? "展开" : "折叠"} ${title}`}
+            onClick={() => setCollapsed((current) => !current)}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#ddcebb] bg-white/85 text-black/52 transition hover:bg-[#f6eee3] hover:text-black focus:outline-none focus:ring-2 focus:ring-[#ccb594] focus:ring-offset-2 focus:ring-offset-white/60"
+          >
+            {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </button>
+        </div>
       </div>
-      {hasValue ? (
+      {collapsed ? null : hasValue ? (
         <pre className="mt-3 max-h-[320px] overflow-auto whitespace-pre-wrap break-all rounded-[10px] bg-[#f6eee3] p-3 text-xs leading-6 text-[#5f4e42]">
           {formatJson(value)}
         </pre>
@@ -781,6 +869,55 @@ function ScrollableJsonPanel({
       ) : (
         <p className="mt-3 text-sm text-black/56">{emptyText}</p>
       )}
+    </div>
+  );
+}
+
+function FoldableStageCard({
+  title,
+  meta,
+  loading = false,
+  loadingLabel = "处理中",
+  loadingPercent = null,
+  badge,
+  defaultCollapsed = false,
+  children,
+}: {
+  title: string;
+  meta?: string;
+  loading?: boolean;
+  loadingLabel?: string;
+  loadingPercent?: number | null;
+  badge?: ReactNode;
+  defaultCollapsed?: boolean;
+  children: ReactNode;
+}) {
+  const [collapsed, setCollapsed] = useState(defaultCollapsed);
+
+  return (
+    <div className="rounded-[12px] border border-[#ddcebb] bg-white/70 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="space-y-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-black/42">{title}</p>
+            {badge}
+          </div>
+          {meta ? <p className="text-xs text-black/45">{meta}</p> : null}
+        </div>
+        <div className="flex items-center gap-2">
+          {loading ? <WaitingDots label={loadingLabel} compact muted percent={loadingPercent} /> : null}
+          <button
+            type="button"
+            aria-expanded={!collapsed}
+            aria-label={`${collapsed ? "展开" : "折叠"} ${title}`}
+            onClick={() => setCollapsed((current) => !current)}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#ddcebb] bg-white/85 text-black/52 transition hover:bg-[#f6eee3] hover:text-black focus:outline-none focus:ring-2 focus:ring-[#ccb594] focus:ring-offset-2 focus:ring-offset-white/60"
+          >
+            {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </button>
+        </div>
+      </div>
+      {collapsed ? null : <div className="mt-3">{children}</div>}
     </div>
   );
 }
@@ -809,7 +946,15 @@ function JsonDetails({
   );
 }
 
-function InferencePipelinePanel({ task }: { task: TaskState }) {
+function InferencePipelinePanel({
+  task,
+  personIndexPanel,
+  personIndexReady,
+}: {
+  task: TaskState;
+  personIndexPanel: ReactNode;
+  personIndexReady: boolean;
+}) {
   const currentStage = (() => {
     if (task.stage === "completed" || task.stage === "failed") {
       return task.stage;
@@ -826,6 +971,7 @@ function InferencePipelinePanel({ task }: { task: TaskState }) {
   const vlmPercent = readNumericValue(vlmStage.percent);
   const llmPercent = readNumericValue(llmStage.percent);
   const memoryPercent = readNumericValue(memoryStage.percent);
+  const stageRank = inferPipelineStageRank(currentStage);
   const faceRuntime = formatRuntimeLabel(faceStage.runtime_seconds);
   const vlmRuntime = formatRuntimeLabel(vlmStage.runtime_seconds ?? task.result?.memory?.transparency?.vlm_stage?.runtime_seconds);
   const llmRuntime = formatRuntimeLabel(llmStage.runtime_seconds ?? task.result?.memory?.transparency?.llm_stage?.runtime_seconds);
@@ -837,8 +983,18 @@ function InferencePipelinePanel({ task }: { task: TaskState }) {
   const llmFilteredCount = readNumericValue(llmStage.filtered_count);
   const llmCandidateCount = readNumericValue(llmStage.candidate_count);
   const llmCurrentPersonId = typeof llmStage.current_person_id === "string" ? llmStage.current_person_id : "";
-  const llmProvider = typeof llmStage.provider === "string" ? llmStage.provider : "";
-  const llmModel = typeof llmStage.model === "string" ? llmStage.model : "";
+  const stageVlmProvider = typeof vlmStage.provider === "string" ? vlmStage.provider : "";
+  const stageVlmModel = typeof vlmStage.model === "string" ? vlmStage.model : "";
+  const stageLlmProvider = typeof llmStage.provider === "string" ? llmStage.provider : "";
+  const stageLlmModel = typeof llmStage.model === "string" ? llmStage.model : "";
+  const latestVlmModelInfo = readLatestStageProviderModel(taskLogs, "vlm");
+  const latestLlmModelInfo = readLatestStageProviderModel(taskLogs, "llm");
+  const vlmProvider = stageVlmProvider || latestVlmModelInfo.provider;
+  const vlmModel = stageVlmModel || latestVlmModelInfo.model;
+  const llmProvider = stageLlmProvider || latestLlmModelInfo.provider;
+  const llmModel = stageLlmModel || latestLlmModelInfo.model;
+  const vlmModelBadge = formatModelBadgeLabel(vlmModel, vlmProvider);
+  const llmModelBadge = formatModelBadgeLabel(llmModel, llmProvider);
   const vlmLoading = task.status === "running" && currentStage === "vlm";
   const llmLoading = task.status === "running" && currentStage === "llm";
   const memoryLoading = task.status === "running" && currentStage === "memory";
@@ -865,10 +1021,26 @@ function InferencePipelinePanel({ task }: { task: TaskState }) {
   const llmValue =
     task.result?.memory_contract ??
     (llmStage.memory_contract_preview as unknown) ??
+    task.result?.memory?.transparency?.llm_stage?.summaries ??
+    (task.result?.memory
+      ? {
+          event_revisions: task.result.memory.delta_event_revisions ?? task.result.memory.event_revisions ?? [],
+          atomic_evidence: task.result.memory.delta_atomic_evidence ?? task.result.memory.atomic_evidence ?? [],
+          relationship_revisions:
+            task.result.memory.delta_relationship_revisions ?? task.result.memory.relationship_revisions ?? [],
+        }
+      : null) ??
     null;
-  const profileValue =
+  const profileReportValue =
+    task.result?.memory?.delta_profile_revision ??
+    task.result?.memory?.profile_revision ??
+    task.result?.memory?.storage?.redis?.profile_current ??
+    null;
+  const profileMarkdownValue =
+    task.result?.memory?.delta_profile_markdown ??
     task.result?.profile_markdown ??
     (llmStage.profile_markdown_preview as unknown) ??
+    task.result?.memory?.storage?.redis?.profile_core?.profile_markdown ??
     null;
   const redisValue =
     task.result?.memory?.storage?.redis ??
@@ -878,6 +1050,25 @@ function InferencePipelinePanel({ task }: { task: TaskState }) {
     task.result?.memory?.storage?.neo4j ??
     (memoryStage.neo4j_preview as unknown) ??
     null;
+  const faceReady = hasDisplayValue(faceValue);
+  const vlmReady = hasDisplayValue(vlmValue);
+  const llmReady = hasDisplayValue(llmValue);
+  const profileReportReady = hasDisplayValue(profileReportValue);
+  const profileMarkdownReady = hasDisplayValue(profileMarkdownValue);
+  const faceVisible = stageRank >= 1 || faceReady;
+  const personIndexVisible = faceVisible;
+  const personIndexLoading =
+    personIndexVisible &&
+    !personIndexReady &&
+    (task.status === "running" || task.status === "queued" || task.status === "uploading");
+  const vlmVisible = stageRank >= 2 || personIndexReady || vlmReady;
+  const llmVisible = stageRank >= 3 || vlmReady || llmReady || profileReportReady || profileMarkdownReady;
+  const profileVisible = stageRank >= 4 || llmReady || profileReportReady || profileMarkdownReady;
+  const memoryVisible = stageRank >= 4 || hasDisplayValue(redisValue) || hasDisplayValue(neo4jValue);
+  const vlmWaiting = task.status === "running" && personIndexReady && !vlmReady;
+  const llmWaiting = task.status === "running" && (vlmReady || currentStage === "llm") && !llmReady;
+  const profileWaiting =
+    task.status === "running" && (llmReady || currentStage === "llm") && !profileReportReady && !profileMarkdownReady;
 
   return (
     <section className="w-full rounded-[12px] border border-[#d8c9b7] bg-[rgba(249,244,237,0.94)] p-6 shadow-card">
@@ -886,7 +1077,7 @@ function InferencePipelinePanel({ task }: { task: TaskState }) {
           <p className="font-mono text-xs uppercase tracking-[0.24em] text-black/40">Inference Timeline</p>
           <h2 className="mt-3 text-2xl font-semibold text-ink">推理生成逐阶段展开</h2>
           <p className="mt-3 max-w-3xl text-sm leading-6 text-black/60">
-            前端会按 `Face → VLM → LLM Contract → Profile → Redis → Neo4j` 顺序展示当前任务的阶段结果，并在运行阶段保留 3 dots 与完成度百分比。
+            前端会按 `Face → 人物索引 → VLM → LLM → Profile → Redis / Neo4j` 顺序展示当前任务的阶段结果，并且只展示已经完成的阶段与当前正在运行的阶段。
           </p>
         </div>
         <div className="rounded-[12px] border border-[#ddcebb] bg-white/70 px-5 py-4">
@@ -895,61 +1086,103 @@ function InferencePipelinePanel({ task }: { task: TaskState }) {
         </div>
       </div>
 
-      <div className="mt-5 grid gap-4 xl:grid-cols-2">
-        <ScrollableJsonPanel
-          title="Face Results"
-          value={faceValue}
-          emptyText="当前还没有可展示的人脸识别结果。"
-          meta={faceRuntime ? `运行时间 ${faceRuntime}` : undefined}
-          loading={task.status === "running" && FACE_RECOGNITION_STAGES.has(currentStage) && !hasDisplayValue(faceValue)}
-          loadingLabel="人脸识别进行中"
-          loadingPercent={facePercent}
-        />
-        <ScrollableJsonPanel
-          title="VLM Results"
-          value={vlmValue}
-          emptyText="VLM 结果尚未产出。"
-          loading={vlmLoading}
-          meta={vlmRuntime ? `运行时间 ${vlmRuntime}` : undefined}
-          loadingLabel="VLM 识别进行中"
-          loadingPercent={vlmPercent}
-        />
-        <ScrollableJsonPanel
-          title="LLM Results"
-          value={llmValue}
-          emptyText="LLM 结果尚未产出。"
-          loading={llmLoading}
-          meta={llmMeta || undefined}
-          loadingLabel={llmSubstageLabel}
-          loadingPercent={llmPercent}
-        />
-        <ScrollableJsonPanel
-          title="Profile Report"
-          value={profileValue}
-          emptyText="用户画像报告尚未产出。"
-          loading={llmLoading && !hasDisplayValue(profileValue)}
-          meta={llmMeta || undefined}
-          loadingLabel={llmSubstageLabel === "Profile Materialization" ? "Profile Materialization" : "Profile Materialization"}
-          loadingPercent={llmPercent}
-        />
-        <ScrollableJsonPanel
-          title="Redis Profile Materialization"
-          value={redisValue}
-          emptyText="Redis 画像数据尚未产出。"
-          loading={memoryLoading && !hasDisplayValue(redisValue)}
-          meta={memoryRuntime ? `运行时间 ${memoryRuntime}` : undefined}
-          loadingLabel="Redis 画像物化中"
-          loadingPercent={memoryPercent}
-        />
-        <ScrollableJsonPanel
-          title="Neo4j Graph Materialization"
-          value={neo4jValue}
-          emptyText="Neo4j graph 数据尚未产出。"
-          loading={memoryLoading && !hasDisplayValue(neo4jValue)}
-          meta={memoryRuntime ? `运行时间 ${memoryRuntime}` : undefined}
-          loadingLabel="Neo4j 图谱物化中"
-          loadingPercent={memoryPercent}
-        />
+      <div className="mt-5 space-y-4">
+        {faceVisible ? (
+          <ScrollableJsonPanel
+            title="Face Results / 人脸结果"
+            value={faceValue}
+            emptyText="当前还没有可展示的人脸识别结果。"
+            meta={faceRuntime ? `运行时间 ${faceRuntime}` : undefined}
+            loading={task.status === "running" && FACE_RECOGNITION_STAGES.has(currentStage) && !hasDisplayValue(faceValue)}
+            loadingLabel="人脸识别进行中"
+            loadingPercent={facePercent}
+          />
+        ) : null}
+
+        {personIndexVisible ? (
+          <FoldableStageCard
+            title="Person Index / 人物索引"
+            meta="Face Results ready 后立即展示，随后才继续展示下一步结果。"
+            loading={personIndexLoading}
+            loadingLabel="人物索引整理中"
+          >
+            {personIndexPanel}
+          </FoldableStageCard>
+        ) : null}
+
+        {vlmVisible ? (
+          <ScrollableJsonPanel
+            title="VLM Results / 视觉分析"
+            value={vlmValue}
+            emptyText="VLM 结果尚未产出。"
+            loading={vlmLoading || vlmWaiting}
+            meta={vlmRuntime ? `运行时间 ${vlmRuntime}` : undefined}
+            badge={vlmModelBadge ? <span className="inline-flex items-center rounded-full bg-[#e5e5e5] px-3 py-1 text-[11px] font-medium leading-none text-black/55">{vlmModelBadge}</span> : null}
+            loadingLabel="VLM 识别进行中"
+            loadingPercent={vlmPercent}
+          />
+        ) : null}
+
+        {llmVisible ? (
+          <ScrollableJsonPanel
+            title="LLM Results / 推理结果"
+            value={llmValue}
+            emptyText="LLM 结果尚未产出。"
+            loading={llmLoading || llmWaiting}
+            meta={llmMeta || undefined}
+            badge={llmModelBadge ? <span className="inline-flex items-center rounded-full bg-[#e5e5e5] px-3 py-1 text-[11px] font-medium leading-none text-black/55">{llmModelBadge}</span> : null}
+            loadingLabel={llmSubstageLabel}
+            loadingPercent={llmPercent}
+          />
+        ) : null}
+
+        {profileVisible ? (
+          <div className="space-y-4">
+            <ScrollableJsonPanel
+              title="Profile Report / 用户画像"
+              value={profileReportValue}
+              emptyText="结构化用户画像尚未产出。"
+              loading={profileWaiting}
+              meta={llmMeta || undefined}
+              badge={llmModelBadge ? <span className="inline-flex items-center rounded-full bg-[#e5e5e5] px-3 py-1 text-[11px] font-medium leading-none text-black/55">{llmModelBadge}</span> : null}
+              defaultCollapsed
+              loadingLabel="Profile Materialization"
+              loadingPercent={llmPercent}
+            />
+            <ScrollableJsonPanel
+              title="Profile Markdown / 画像文本"
+              value={profileMarkdownValue}
+              emptyText="用户画像 Markdown 尚未产出。"
+              loading={profileWaiting}
+              meta={llmMeta || undefined}
+              loadingLabel="Profile Markdown"
+              loadingPercent={llmPercent}
+            />
+          </div>
+        ) : null}
+
+        {memoryVisible ? (
+          <div className="grid gap-4 xl:grid-cols-2">
+            <ScrollableJsonPanel
+              title="Redis Profile Materialization"
+              value={redisValue}
+              emptyText="Redis 画像数据尚未产出。"
+              loading={memoryLoading && !hasDisplayValue(redisValue)}
+              meta={memoryRuntime ? `运行时间 ${memoryRuntime}` : undefined}
+              loadingLabel="Redis 画像物化中"
+              loadingPercent={memoryPercent}
+            />
+            <ScrollableJsonPanel
+              title="Neo4j Graph Materialization"
+              value={neo4jValue}
+              emptyText="Neo4j graph 数据尚未产出。"
+              loading={memoryLoading && !hasDisplayValue(neo4jValue)}
+              meta={memoryRuntime ? `运行时间 ${memoryRuntime}` : undefined}
+              loadingLabel="Neo4j 图谱物化中"
+              loadingPercent={memoryPercent}
+            />
+          </div>
+        ) : null}
       </div>
       <div className="mt-5 grid gap-4 xl:grid-cols-2">
         <TaskLogPanel logs={taskLogs} />
@@ -2010,10 +2243,13 @@ export default function HomePage() {
   const [policyBusy, setPolicyBusy] = useState<Record<string, boolean>>({});
   const [isUploading, setIsUploading] = useState(false);
   const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
+  const [isTaskLoading, setIsTaskLoading] = useState(false);
   const [memoryQueryHistoryByTask, setMemoryQueryHistoryByTask] = useState<Record<string, MemoryQueryHistoryItem[]>>({});
   const [error, setError] = useState<string | null>(null);
 
-  const personGroups = currentTask?.result?.face_recognition?.person_groups ?? [];
+  const currentFaceStage = currentTask ? readStageProgress(currentTask.progress, "face_recognition") : {};
+  const facePreview = (currentFaceStage.face_result_preview as FaceRecognitionPayload | undefined) ?? null;
+  const personGroups = currentTask?.result?.face_recognition?.person_groups ?? facePreview?.person_groups ?? [];
   const faceReport = useMemo(() => normalizeFaceReport(currentTask?.result?.face_report ?? null), [currentTask]);
   const memoryResult = currentTask?.result?.memory ?? null;
   const currentUploads = currentTask?.uploads ?? [];
@@ -2186,7 +2422,7 @@ export default function HomePage() {
       throw new Error("获取任务列表失败");
     }
     const payload = (await response.json()) as TaskListResponse;
-    const orderedTasks = sortTasksByCreatedAt(payload.tasks);
+    const orderedTasks = sortTasksByCreatedAt(payload.tasks.map(toTaskListEntry));
     setTasks(orderedTasks);
 
     if (selectInitial) {
@@ -2213,31 +2449,41 @@ export default function HomePage() {
     }
   }
 
-  async function fetchTask(taskId: string) {
-    const response = await apiFetch(`${API_BASE}/api/tasks/${taskId}`, { cache: "no-store" });
-    if (response.status === 401) {
-      setAuthUser(null);
-      setTasks([]);
-      setCurrentTask(null);
-      setIsDraftView(false);
-      return;
+  async function fetchTask(taskId: string, options?: { showLoading?: boolean }) {
+    const showLoading = options?.showLoading ?? false;
+    if (showLoading) {
+      setIsTaskLoading(true);
     }
-    if (!response.ok) {
-      throw new Error("读取任务详情失败");
-    }
-    const payload = (await response.json()) as TaskState;
-    setCurrentTask(payload);
-    setIsDraftView(false);
-    setTasks((previous) => {
-      const taskIndex = previous.findIndex((task) => task.task_id === payload.task_id);
-      if (taskIndex === -1) {
-        return sortTasksByCreatedAt([...previous, payload]);
+    try {
+      const response = await apiFetch(`${API_BASE}/api/tasks/${taskId}`, { cache: "no-store" });
+      if (response.status === 401) {
+        setAuthUser(null);
+        setTasks([]);
+        setCurrentTask(null);
+        setIsDraftView(false);
+        return;
       }
+      if (!response.ok) {
+        throw new Error("读取任务详情失败");
+      }
+      const payload = (await response.json()) as TaskState;
+      setCurrentTask(payload);
+      setIsDraftView(false);
+      setTasks((previous) => {
+        const taskIndex = previous.findIndex((task) => task.task_id === payload.task_id);
+        if (taskIndex === -1) {
+          return sortTasksByCreatedAt([...previous, toTaskListEntry(payload)]);
+        }
 
-      const next = [...previous];
-      next[taskIndex] = payload;
-      return next;
-    });
+        const next = [...previous];
+        next[taskIndex] = toTaskListEntry(payload);
+        return next;
+      });
+    } finally {
+      if (showLoading) {
+        setIsTaskLoading(false);
+      }
+    }
   }
 
   useEffect(() => {
@@ -2547,6 +2793,36 @@ export default function HomePage() {
   }
 
   const draftSelected = isDraftView && !currentTask;
+  const personIndexPanel =
+    personGroups.length > 0 ? (
+      <PersonGroupsPanel
+        groups={personGroups}
+        commentDrafts={commentDrafts}
+        expandedComments={expandedComments}
+        reviewBusy={reviewBusy}
+        policyBusy={policyBusy}
+        onToggleInaccurate={(image) => void toggleInaccurate(image)}
+        onToggleAbandon={(image) => void toggleAbandon(image)}
+        onToggleComments={(faceId) =>
+          setExpandedComments((previous) => ({
+            ...previous,
+            [faceId]: !previous[faceId]
+          }))
+        }
+        onCommentChange={(faceId, value) =>
+          setCommentDrafts((previous) => ({
+            ...previous,
+            [faceId]: value
+          }))
+        }
+        onCommentCommit={(image) => void commitComment(image)}
+      />
+    ) : currentTask && (currentTask.status === "running" || currentTask.status === "queued" || currentTask.status === "uploading") ? (
+      <WaitingDots label="人物索引整理中" />
+    ) : (
+      <p className="text-sm text-black/58">当前还没有可展示的人物索引。</p>
+    );
+  const personIndexReady = personGroups.length > 0 || Boolean(faceReport) || Boolean(facePreview);
 
   return (
     <main className="min-h-screen px-2 py-6 md:px-4">
@@ -2605,6 +2881,8 @@ export default function HomePage() {
                   {group.tasks.map((task) => {
                     const active = !isDraftView && currentTask?.task_id === task.task_id;
                     const deleting = deletingTaskId === task.task_id;
+                    const stableLabel = taskStableLabel(task);
+                    const summaryLabel = taskSummaryLabel(task);
                     return (
                       <div
                         key={task.task_id}
@@ -2615,10 +2893,15 @@ export default function HomePage() {
                         <div className="flex items-start gap-2">
                           <button
                             type="button"
-                            onClick={() => fetchTask(task.task_id).catch(() => null)}
+                            onClick={() => fetchTask(task.task_id, { showLoading: true }).catch(() => null)}
                             className="min-w-0 flex-1 text-left"
                           >
-                            <p className="truncate text-sm font-medium text-ink">{taskDisplayLabel(task)}</p>
+                            <p className="truncate font-mono text-[12px] font-semibold tracking-[0.12em] text-ink">
+                              {stableLabel}
+                            </p>
+                            {summaryLabel ? (
+                              <p className="mt-1 truncate text-sm font-medium text-ink/88">{summaryLabel}</p>
+                            ) : null}
                             <p className="mt-1 truncate text-xs text-black/45">
                               {formatStatus(task.status)} · {formatTaskTime(task.created_at) || formatStage(task.stage)}
                             </p>
@@ -2649,7 +2932,15 @@ export default function HomePage() {
           </div>
         </aside>
 
-        <section className="min-w-0 flex-1 space-y-6 pb-28 pl-4 md:pl-5">
+        <section className="relative min-w-0 flex-1 space-y-6 pb-28 pl-4 md:pl-5">
+            {isTaskLoading ? (
+              <div className="absolute inset-0 z-10 flex items-center justify-center bg-[rgba(249,244,237,0.72)] backdrop-blur-[1px]">
+                <div className="flex flex-col items-center gap-3 rounded-[16px] border border-[#ddcebb] bg-white/88 px-6 py-5 shadow-card">
+                  <LoaderCircle className="h-8 w-8 animate-spin text-[#8a5637]" />
+                  <p className="text-sm text-black/58">正在拉取任务数据…</p>
+                </div>
+              </div>
+            ) : null}
             {isDraftView ? (
             <>
               <section className="w-full rounded-[12px] border border-[#d8c9b7] bg-[rgba(250,246,239,0.92)] px-6 py-7 shadow-card">
@@ -2858,7 +3149,11 @@ export default function HomePage() {
           ) : null}
 
           {!isDraftView && currentTask ? (
-            <InferencePipelinePanel task={currentTask} />
+            <InferencePipelinePanel
+              task={currentTask}
+              personIndexPanel={personIndexPanel}
+              personIndexReady={personIndexReady}
+            />
           ) : null}
 
           {!isDraftView && currentTask && memoryResult ? (
@@ -2868,42 +3163,6 @@ export default function HomePage() {
               taskVersion={currentTask.version}
               queryHistory={currentQueryHistory}
             />
-          ) : null}
-
-          {!isDraftView && currentTask ? (
-            personGroups.length > 0 ? (
-              <PersonGroupsPanel
-                groups={personGroups}
-                commentDrafts={commentDrafts}
-                expandedComments={expandedComments}
-                reviewBusy={reviewBusy}
-                policyBusy={policyBusy}
-                onToggleInaccurate={(image) => void toggleInaccurate(image)}
-                onToggleAbandon={(image) => void toggleAbandon(image)}
-                onToggleComments={(faceId) =>
-                  setExpandedComments((previous) => ({
-                    ...previous,
-                    [faceId]: !previous[faceId]
-                  }))
-                }
-                onCommentChange={(faceId, value) =>
-                  setCommentDrafts((previous) => ({
-                    ...previous,
-                    [faceId]: value
-                  }))
-                }
-                onCommentCommit={(image) => void commitComment(image)}
-              />
-            ) : currentTask.status === "running" || currentTask.status === "queued" || currentTask.status === "uploading" ? (
-              <WaitingDots label={`当前阶段：${formatStage(currentTask.stage)}`} />
-            ) : (
-              <section className="w-full rounded-[12px] border border-[#d8c9b7] bg-[rgba(249,244,237,0.94)] p-8 shadow-card">
-                <p className="text-lg font-medium">还没有可展示的人脸识别结果</p>
-                <p className="mt-2 text-sm text-black/58">
-                  当前任务尚未产出可用的人物聚合结果。
-                </p>
-              </section>
-            )
           ) : null}
 
           <RecallChatDock

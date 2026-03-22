@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import os
+import tempfile
 import unittest
 from unittest.mock import patch
 
 from services.llm_processor import LLMProcessor
 from services.vlm_analyzer import VLMAnalyzer
+import config
 
 
 class _FakeResponse:
@@ -75,6 +78,17 @@ class _FakeBedrockClient:
 
 
 class OpenRouterProviderTests(unittest.TestCase):
+    def test_fallback_load_dotenv_sets_missing_values(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            dotenv_path = os.path.join(tmpdir, ".env")
+            with open(dotenv_path, "w", encoding="utf-8") as handle:
+                handle.write("OPENROUTER_LLM_MODEL=nvidia/nemotron-3-super-120b-a12b\n")
+                handle.write("LLM_PROVIDER=openrouter\n")
+            with patch.dict(os.environ, {}, clear=True):
+                config._fallback_load_dotenv(dotenv_path)
+                self.assertEqual(os.environ["OPENROUTER_LLM_MODEL"], "nvidia/nemotron-3-super-120b-a12b")
+                self.assertEqual(os.environ["LLM_PROVIDER"], "openrouter")
+
     def test_json_payload_parser_handles_wrappers_and_trailing_text(self) -> None:
         analyzer = VLMAnalyzer.__new__(VLMAnalyzer)
         processor = LLMProcessor.__new__(LLMProcessor)
@@ -178,6 +192,7 @@ class OpenRouterProviderTests(unittest.TestCase):
             OPENROUTER_SITE_URL="http://localhost:8000",
             OPENROUTER_APP_NAME="Memory Engineering Test",
             OPENROUTER_LLM_MODEL="minimax/minimax-m2.5",
+            OPENROUTER_REASONING_EFFORT="minimal",
             GEMINI_API_KEY="",
         ):
             processor = LLMProcessor()
@@ -213,6 +228,8 @@ class OpenRouterProviderTests(unittest.TestCase):
         self.assertEqual(profile_result, "# Markdown Profile\n\nOK")
         self.assertEqual(json_requests.calls[0]["json"]["messages"][0]["content"], "只返回 JSON")
         self.assertEqual(markdown_requests.calls[0]["json"]["messages"][0]["content"], "输出 Markdown")
+        self.assertEqual(json_requests.calls[0]["json"]["reasoning"]["effort"], "minimal")
+        self.assertEqual(markdown_requests.calls[0]["json"]["reasoning"]["effort"], "minimal")
 
     def test_llm_openrouter_retries_premature_response(self) -> None:
         with patch.multiple(

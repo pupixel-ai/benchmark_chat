@@ -47,6 +47,7 @@ from config import (
     OPENROUTER_APP_NAME,
     OPENROUTER_BASE_URL,
     OPENROUTER_LLM_MODEL,
+    OPENROUTER_REASONING_EFFORT,
     OPENROUTER_SITE_URL,
     RELATIONSHIP_FOLLOWS_MAIN_LLM,
     RELATIONSHIP_MAX_CONCURRENCY,
@@ -3635,6 +3636,12 @@ Slice contracts:
             content = message["reasoning"]
         return self._coerce_text_content(content)
 
+    def _apply_openrouter_reasoning(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        effort = OPENROUTER_REASONING_EFFORT
+        if effort:
+            payload["reasoning"] = {"effort": effort}
+        return payload
+
     def _call_llm_via_openrouter(
         self,
         prompt: str,
@@ -3643,12 +3650,12 @@ Slice contracts:
         max_tokens: int = 8192,
         timeout: tuple[int | float, int | float] = (15, 180),
     ) -> dict:
-        payload = {
+        payload = self._apply_openrouter_reasoning({
             "model": model or self.model,
             "messages": [{"role": "user", "content": prompt}],
             "max_tokens": max_tokens,
             "temperature": 0.1,
-        }
+        })
         response_data = self._post_openrouter_chat_completion(payload, timeout=timeout)
         return self._extract_json_payload(self._extract_openrouter_content(response_data))
 
@@ -3715,11 +3722,11 @@ Slice contracts:
         raise Exception(error_msg)
 
     def _call_profile_via_openrouter(self, prompt: str) -> str:
-        payload = {
+        payload = self._apply_openrouter_reasoning({
             "model": self.model,
             "messages": [{"role": "user", "content": prompt}],
             "max_tokens": 8192,
             "temperature": 0.4,
-        }
+        })
         response_data = self._post_openrouter_chat_completion(payload)
         return self._extract_openrouter_content(response_data)
