@@ -357,6 +357,7 @@ class MemoryPipelineService:
                     "claim_count": 0,
                     "profile_delta_count": sum(len(bucket.get("values", [])) for bucket in profile_buckets.values()),
                     "profile_version": int(profile_revision.get("version") or 0),
+                    "profile_generation_mode": memory.get("summary", {}).get("profile_generation_mode") or profile_revision.get("generation_mode"),
                 },
                 "face_recognition": face_payload,
                 "face_report": self._build_face_report(face_payload),

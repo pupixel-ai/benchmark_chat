@@ -747,6 +747,8 @@ class V03213PipelineFamily:
                     len(bucket.get("values", []))
                     for bucket in profile_revision.get("buckets", {}).values()
                 ),
+                "profile_generation_mode": profile_revision.get("generation_mode"),
+                "delta_profile_generation_mode": delta_profile_revision.get("generation_mode"),
                 **pipeline_summary,
             },
             "event_revisions": event_revisions,
@@ -926,6 +928,7 @@ class V03213PipelineFamily:
             "profile_evidence_count": len(reference_signals),
             "observation_count": len(atomic_evidence),
             "profile_delta_count": sum(len((payload or {}).get("values", [])) for payload in (profile_revision.get("buckets") or {}).values()),
+            "profile_generation_mode": profile_revision.get("generation_mode"),
             "profile_input_pack_preview": dict(profile_input_pack_preview or {}),
             "runtime_seconds": round(runtime_seconds, 4),
             "summaries": summaries,
@@ -977,6 +980,7 @@ class V03213PipelineFamily:
             "fact_count": len(event_revisions),
             "relationship_hypothesis_count": len(relationship_revisions),
             "profile_evidence_count": len(reference_signals),
+            "profile_generation_mode": profile_revision.get("generation_mode"),
         }
 
     def _build_neo4j_state(self, storage: Dict[str, Any]) -> Dict[str, Any]:
@@ -3015,7 +3019,9 @@ class V03213PipelineFamily:
         )
         if llm_markdown:
             self._summary["profile_llm_count"] = int(self._summary.get("profile_llm_count") or 0) + 1
+            profile_revision["generation_mode"] = "profile_input_pack_llm"
             return profile_revision, llm_markdown
+        profile_revision["generation_mode"] = "profile_input_pack_fallback"
         lines = ["# Profile", ""]
         if not normalized_buckets:
             lines.append("- 当前任务还没有足够稳定的画像信号。")

@@ -397,6 +397,12 @@ class FakeLLMProcessor:
     def __init__(self, task_version: str = ""):
         self.task_version = task_version
 
+    def _call_json_prompt(self, prompt: str):
+        return None
+
+    def _call_markdown_prompt(self, prompt: str):
+        return "# Profile\n\n- stub profile from profile input pack"
+
     def extract_memory_contract(self, vlm_results, face_db, primary_person_id, progress_callback=None):
         self.last_chunk_artifacts = {
             "photo_fact_count": len(vlm_results),
@@ -863,6 +869,9 @@ class PipelineMemoryTests(unittest.TestCase):
             self.assertIn("social_patterns", final_pack)
             self.assertIn("change_points", final_pack)
             self.assertIn("key_relationship_refs", final_pack)
+            self.assertEqual(result["memory"]["profile_revision"]["generation_mode"], "profile_input_pack_llm")
+            self.assertEqual(result["memory"]["summary"]["profile_generation_mode"], "profile_input_pack_llm")
+            self.assertEqual(result["summary"]["profile_generation_mode"], "profile_input_pack_llm")
             weak_signal_labels = [
                 item["label"]
                 for item in final_pack["reference_media_weak_signals"]["aesthetic_hints"]
@@ -873,6 +882,10 @@ class PipelineMemoryTests(unittest.TestCase):
             self.assertIn(
                 "profile_input_pack_preview",
                 result["memory"]["transparency"]["llm_stage"],
+            )
+            self.assertEqual(
+                result["memory"]["transparency"]["llm_stage"]["profile_generation_mode"],
+                "profile_input_pack_llm",
             )
 
     def test_v0321_3_bootstraps_prior_family_snapshot(self) -> None:
