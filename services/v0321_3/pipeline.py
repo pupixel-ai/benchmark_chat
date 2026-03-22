@@ -1712,10 +1712,45 @@ class V03213PipelineFamily:
         text = str(response or "").strip()
         return text or None
 
+    def _coerce_signal_value(self, value: Any) -> str:
+        if value in (None, "", [], {}):
+            return ""
+        if isinstance(value, str):
+            return re.sub(r"\s+", " ", value).strip()
+        if isinstance(value, (int, float, bool)):
+            return str(value).strip()
+        if isinstance(value, dict):
+            for key in ("person_id", "photo_id", "place_ref", "place", "name", "label", "value", "id", "text", "title"):
+                text = self._coerce_signal_value(value.get(key))
+                if text:
+                    return text
+            try:
+                return json.dumps(value, ensure_ascii=False, sort_keys=True, default=_json_default)
+            except Exception:
+                return str(value).strip()
+        if isinstance(value, (list, tuple, set)):
+            values = list(value)
+            if len(values) == 1:
+                return self._coerce_signal_value(values[0])
+            try:
+                return json.dumps(values, ensure_ascii=False, sort_keys=True, default=_json_default)
+            except Exception:
+                return str(values).strip()
+        return str(value).strip()
+
+    def _signal_fingerprint(self, value: Any) -> str:
+        text = self._coerce_signal_value(value)
+        if text:
+            return text
+        try:
+            return json.dumps(value, ensure_ascii=False, sort_keys=True, default=_json_default)
+        except Exception:
+            return str(value or "")
+
     def _normalized_signal_set(self, values: Sequence[Any]) -> set[str]:
         normalized = set()
         for value in values:
-            text = re.sub(r"\s+", " ", str(value or "")).strip().lower()
+            text = self._coerce_signal_value(value).lower()
             if text:
                 normalized.add(text)
         return normalized
@@ -1995,26 +2030,26 @@ class V03213PipelineFamily:
             photo_id: list(observations_by_photo.get(photo_id, {}).get("original_photo_ids", []) or [photo_id])
             for photo_id in photo_ids
         }
-        valid_participants = set(fallback.get("participant_person_ids", []) or [])
-        valid_depicted = set(fallback.get("depicted_person_ids", []) or [])
-        valid_places = set(fallback.get("place_refs", []) or [])
+        valid_participants = self._normalized_signal_set(fallback.get("participant_person_ids", []) or [])
+        valid_depicted = self._normalized_signal_set(fallback.get("depicted_person_ids", []) or [])
+        valid_places = self._normalized_signal_set(fallback.get("place_refs", []) or [])
 
         title = str(payload.get("title") or fallback.get("title") or "").strip() or str(fallback.get("title") or "")
         summary = str(payload.get("summary") or "").strip()
         participant_person_ids = [
             person_id
-            for person_id in list(payload.get("participant_person_ids", []) or [])
-            if str(person_id) in valid_participants
+            for raw_person_id in list(payload.get("participant_person_ids", []) or [])
+            if (person_id := self._coerce_signal_value(raw_person_id)) and person_id.lower() in valid_participants
         ] or list(fallback.get("participant_person_ids", []) or [])
         depicted_person_ids = [
             person_id
-            for person_id in list(payload.get("depicted_person_ids", []) or [])
-            if str(person_id) in valid_depicted
+            for raw_person_id in list(payload.get("depicted_person_ids", []) or [])
+            if (person_id := self._coerce_signal_value(raw_person_id)) and person_id.lower() in valid_depicted
         ] or list(fallback.get("depicted_person_ids", []) or [])
         place_refs = [
             place
-            for place in list(payload.get("place_refs", []) or [])
-            if str(place) in valid_places
+            for raw_place in list(payload.get("place_refs", []) or [])
+            if (place := self._coerce_signal_value(raw_place)) and place.lower() in valid_places
         ] or list(fallback.get("place_refs", []) or [])
         confidence = payload.get("confidence")
         try:
@@ -2028,9 +2063,9 @@ class V03213PipelineFamily:
             evidence_type = str(item.get("evidence_type") or "").strip()
             value_or_text = str(item.get("value_or_text") or "").strip()
             candidate_photo_ids = [
-                str(photo_id)
-                for photo_id in list(item.get("photo_ids", []) or [])
-                if str(photo_id) in valid_photo_ids
+                photo_id
+                for raw_photo_id in list(item.get("photo_ids", []) or [])
+                if (photo_id := self._coerce_signal_value(raw_photo_id)) in valid_photo_ids
             ]
             if not evidence_type or not value_or_text or not candidate_photo_ids:
                 continue
@@ -2186,9 +2221,9 @@ class V03213PipelineFamily:
             if self._event_hard_block(draft, candidate):
                 continue
             score = 0.0
-            if set(draft.get("participant_person_ids", [])).intersection(candidate.get("participant_person_ids", [])):
+            if self._has_overlap(draft.get("participant_person_ids", []) or [], candidate.get("participant_person_ids", []) or []):
                 score += 0.35
-            if set(draft.get("place_refs", [])).intersection(candidate.get("place_refs", [])):
+            if self._has_overlap(draft.get("place_refs", []) or [], candidate.get("place_refs", []) or []):
                 score += 0.30
             gap = self._time_gap_seconds(draft.get("started_at"), candidate.get("ended_at"))
             if gap is not None and gap <= 1800:
@@ -2209,10 +2244,10 @@ class V03213PipelineFamily:
         gap = self._time_gap_seconds(left.get("started_at"), right.get("ended_at"))
         if gap is not None and gap > 12 * 3600:
             return True
-        left_places = set(left.get("place_refs", []))
-        right_places = set(right.get("place_refs", []))
+        left_places = self._normalized_signal_set(left.get("place_refs", []) or [])
+        right_places = self._normalized_signal_set(right.get("place_refs", []) or [])
         if left_places and right_places and not left_places.intersection(right_places):
-            if not set(left.get("participant_person_ids", [])).intersection(right.get("participant_person_ids", [])):
+            if not self._has_overlap(left.get("participant_person_ids", []) or [], right.get("participant_person_ids", []) or []):
                 return True
         return False
 
@@ -2237,11 +2272,13 @@ class V03213PipelineFamily:
             return True
         if gap > 6 * 3600:
             return False
-        live_overlap = bool(
-            set(candidate.get("participant_person_ids", []) or []).intersection(current_draft.get("participant_person_ids", []) or [])
+        live_overlap = self._has_overlap(
+            candidate.get("participant_person_ids", []) or [],
+            current_draft.get("participant_person_ids", []) or [],
         )
-        place_overlap = bool(
-            set(candidate.get("place_refs", []) or []).intersection(current_draft.get("place_refs", []) or [])
+        place_overlap = self._has_overlap(
+            candidate.get("place_refs", []) or [],
+            current_draft.get("place_refs", []) or [],
         )
         signal_overlap = bool(
             set(self._event_signal_tokens(candidate)).intersection(self._event_signal_tokens(current_draft))
@@ -3572,12 +3609,16 @@ class V03213PipelineFamily:
         items: List[Any] = []
         seen = set()
         for value in values:
-            if value in (None, "", []):
+            fingerprint = self._signal_fingerprint(value)
+            if not fingerprint:
                 continue
-            if value in seen:
+            if fingerprint in seen:
                 continue
-            seen.add(value)
-            items.append(value)
+            seen.add(fingerprint)
+            if isinstance(value, (dict, list, tuple, set)):
+                items.append(self._coerce_signal_value(value))
+            else:
+                items.append(value)
         return items
 
     def _emit_progress(

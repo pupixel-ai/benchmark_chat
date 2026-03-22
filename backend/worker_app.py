@@ -3,6 +3,7 @@ Private worker app used for per-task processing.
 """
 from __future__ import annotations
 
+import logging
 import shutil
 from datetime import datetime
 from pathlib import Path
@@ -35,6 +36,7 @@ from utils import load_json, save_json
 
 
 app = FastAPI(title="Memory Engineering Worker", version="1.0.0")
+logger = logging.getLogger(__name__)
 asset_store = TaskAssetStore()
 worker_root = Path(WORKER_TASK_ROOT)
 STATUS_FILENAME = "worker_status.json"
@@ -138,6 +140,7 @@ def _run_pipeline_task(task_id: str, max_photos: int, use_cache: bool, task_vers
             version=task_version,
         )
     except Exception as exc:
+        logger.exception("Worker pipeline task failed for task_id=%s version=%s", task_id, task_version)
         _update_status(
             task_id,
             status="failed",

@@ -4,6 +4,7 @@ FastAPI backend entrypoint.
 from __future__ import annotations
 
 import copy
+import logging
 import os
 import shutil
 import uuid
@@ -61,6 +62,7 @@ from utils import load_json
 
 
 app = FastAPI(title="Memory Engineering API", version="1.0.0")
+logger = logging.getLogger(__name__)
 task_store = TaskStore()
 asset_store = TaskAssetStore()
 artifact_catalog = ArtifactCatalogStore()
@@ -470,6 +472,7 @@ def _run_pipeline_task(task_id: str, user_id: Optional[str], max_photos: int, us
         if user_id:
             artifact_catalog.replace_task_artifacts(task_id, user_id, manifest)
     except Exception as exc:
+        logger.exception("Pipeline task failed for task_id=%s version=%s", task_id, task_version)
         failed_progress = append_terminal_error(
             progress_state,
             stage="failed",
