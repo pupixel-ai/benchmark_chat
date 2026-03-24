@@ -58,7 +58,9 @@ from config import (
     RELATIONSHIP_PROVIDER,
     RELATIONSHIP_REQUEST_TIMEOUT_SECONDS,
     RETRY_DELAY,
+    TASK_VERSION_V0323,
     TASK_VERSION_V0317_HEAVY,
+    V0323_OPENROUTER_MODEL,
 )
 from models import Event, Relationship
 from services.bedrock_runtime import (
@@ -80,16 +82,22 @@ class LLMProcessor:
     def __init__(self, task_version: str = DEFAULT_TASK_VERSION):
         self.task_version = task_version
         self.use_heavy_pipeline = self.task_version == TASK_VERSION_V0317_HEAVY
-        self.provider = LLM_PROVIDER
+        self.provider = "openrouter" if self.task_version == TASK_VERSION_V0323 else LLM_PROVIDER
         self.relationship_follows_main_llm = RELATIONSHIP_FOLLOWS_MAIN_LLM
-        self.relationship_provider = RELATIONSHIP_PROVIDER if not self.relationship_follows_main_llm else self.provider
+        if self.task_version == TASK_VERSION_V0323:
+            self.relationship_provider = self.provider
+        else:
+            self.relationship_provider = RELATIONSHIP_PROVIDER if not self.relationship_follows_main_llm else self.provider
         self.use_proxy = self.provider == "proxy"
         self.use_openrouter = self.provider == "openrouter"
         self.use_bedrock = self.provider == "bedrock"
         self.relationship_use_proxy = self.relationship_provider == "proxy"
         self.relationship_use_openrouter = self.relationship_provider == "openrouter"
         self.relationship_use_bedrock = self.relationship_provider == "bedrock"
-        self.model = OPENROUTER_LLM_MODEL if self.use_openrouter else LLM_MODEL
+        if self.task_version == TASK_VERSION_V0323:
+            self.model = V0323_OPENROUTER_MODEL
+        else:
+            self.model = OPENROUTER_LLM_MODEL if self.use_openrouter else LLM_MODEL
         self.relationship_model = self.model
         self.requests = None
         self.genai = None
@@ -159,7 +167,7 @@ class LLMProcessor:
             self.openrouter_app_name = OPENROUTER_APP_NAME
 
         if self.relationship_use_openrouter:
-            self.relationship_model = OPENROUTER_LLM_MODEL
+            self.relationship_model = V0323_OPENROUTER_MODEL if self.task_version == TASK_VERSION_V0323 else OPENROUTER_LLM_MODEL
         elif self.relationship_use_bedrock:
             self.relationship_model = BEDROCK_RELATIONSHIP_LLM_MODEL
         else:
@@ -3494,14 +3502,58 @@ Slice contracts:
                 values.append(text)
         return values
 
-    def _call_json_prompt(self, prompt: str) -> Dict[str, Any]:
+    def _call_json_prompt(
+        self,
+        prompt: str,
+        *,
+        max_tokens: Optional[int] = None,
+        response_format: Optional[Dict[str, Any]] = None,
+        timeout: Optional[tuple[int | float, int | float]] = None,
+    ) -> Dict[str, Any]:
         if self.use_proxy:
             return self._call_llm_via_proxy(prompt)
         if self.use_openrouter:
-            return self._call_llm_via_openrouter(prompt)
+            return self._call_llm_via_openrouter(
+                prompt,
+                max_tokens=int(max_tokens or 8192),
+                response_format=response_format,
+                timeout=timeout or (15, 180),
+            )
         if self.use_bedrock:
             return self._call_llm_via_bedrock(prompt)
         return self._call_llm_via_official_api(prompt)
+
+    def _call_json_prompt_raw_text(
+        self,
+        prompt: str,
+        *,
+        max_tokens: Optional[int] = None,
+        response_format: Optional[Dict[str, Any]] = None,
+        timeout: Optional[tuple[int | float, int | float]] = None,
+    ) -> str:
+        if self.use_openrouter:
+            payload = self._apply_openrouter_reasoning(
+                {
+                    "model": self.model,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "max_tokens": int(max_tokens or 8192),
+                    "temperature": 0.1,
+                }
+            )
+            if response_format:
+                payload["response_format"] = deepcopy(response_format)
+            response_data = self._post_openrouter_chat_completion(
+                payload,
+                timeout=timeout or (15, 180),
+            )
+            return self._extract_openrouter_content(response_data)
+        payload = self._call_json_prompt(
+            prompt,
+            max_tokens=max_tokens,
+            response_format=response_format,
+            timeout=timeout,
+        )
+        return json.dumps(payload, ensure_ascii=False, default=str)
 
     def _call_markdown_prompt(self, prompt: str) -> str:
         if self.use_proxy:
@@ -3649,6 +3701,7 @@ Slice contracts:
         model: Optional[str] = None,
         max_tokens: int = 8192,
         timeout: tuple[int | float, int | float] = (15, 180),
+        response_format: Optional[Dict[str, Any]] = None,
     ) -> dict:
         payload = self._apply_openrouter_reasoning({
             "model": model or self.model,
@@ -3656,6 +3709,8 @@ Slice contracts:
             "max_tokens": max_tokens,
             "temperature": 0.1,
         })
+        if response_format:
+            payload["response_format"] = deepcopy(response_format)
         response_data = self._post_openrouter_chat_completion(payload, timeout=timeout)
         return self._extract_json_payload(self._extract_openrouter_content(response_data))
 

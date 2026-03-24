@@ -3,6 +3,7 @@ Independent v0321.3 pipeline family.
 """
 from __future__ import annotations
 
+import ast
 import json
 import re
 import sqlite3
@@ -14,6 +15,14 @@ from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tupl
 from uuid import NAMESPACE_URL, uuid5
 
 from memory_module.adapters import MemoryStoragePublisher
+from services.v0321_3.retrieval_shadow import (
+    MEMORY_EVIDENCE_V2_SCHEMA,
+    MEMORY_UNITS_V2_SCHEMA,
+    PROFILE_TRUTH_V1_SCHEMA,
+    build_memory_evidence_v2,
+    build_memory_units_v2,
+    build_profile_truth_v1,
+)
 from utils import save_json
 
 
@@ -410,6 +419,9 @@ class V03213PipelineFamily:
             "event_llm_count": 0,
             "event_finalize_candidate_count": 0,
             "profile_llm_count": 0,
+            "memory_units_v2_count": 0,
+            "memory_evidence_v2_count": 0,
+            "profile_truth_v1_count": 0,
         }
 
     def run(
@@ -657,6 +669,47 @@ class V03213PipelineFamily:
             revision_key="delta",
             scope="current_task",
         )
+        memory_units_v2 = build_memory_units_v2(
+            user_id=self.user_id,
+            pipeline_family=PIPELINE_FAMILY_V0321_3,
+            event_revisions=event_revisions,
+        )
+        delta_memory_units_v2 = build_memory_units_v2(
+            user_id=self.user_id,
+            pipeline_family=PIPELINE_FAMILY_V0321_3,
+            event_revisions=changed_event_revisions,
+        )
+        memory_evidence_v2 = build_memory_evidence_v2(
+            user_id=self.user_id,
+            pipeline_family=PIPELINE_FAMILY_V0321_3,
+            atomic_evidence=atomic_evidence,
+            event_revisions=event_revisions,
+        )
+        delta_memory_evidence_v2 = build_memory_evidence_v2(
+            user_id=self.user_id,
+            pipeline_family=PIPELINE_FAMILY_V0321_3,
+            atomic_evidence=delta_atomic_evidence,
+            event_revisions=changed_event_revisions,
+        )
+        profile_truth_v1 = build_profile_truth_v1(
+            user_id=self.user_id,
+            pipeline_family=PIPELINE_FAMILY_V0321_3,
+            profile_revision=profile_revision,
+            profile_input_pack=profile_input_pack,
+            relationship_revisions=relationship_revisions,
+            profile_markdown=profile_markdown,
+        )
+        delta_profile_truth_v1 = build_profile_truth_v1(
+            user_id=self.user_id,
+            pipeline_family=PIPELINE_FAMILY_V0321_3,
+            profile_revision=delta_profile_revision,
+            profile_input_pack=delta_profile_input_pack,
+            relationship_revisions=changed_relationship_revisions,
+            profile_markdown=delta_profile_markdown,
+        )
+        self._summary["memory_units_v2_count"] = len(memory_units_v2)
+        self._summary["memory_evidence_v2_count"] = len(memory_evidence_v2)
+        self._summary["profile_truth_v1_count"] = 1 if profile_truth_v1 else 0
         llm_runtime_seconds = perf_counter() - llm_started_at
         storage = self._build_storage_payload(
             primary_person_id=primary_person_id,
@@ -667,6 +720,8 @@ class V03213PipelineFamily:
             relationship_ledgers=relationship_ledgers,
             profile_revision=profile_revision,
             reference_signals=all_reference_signals,
+            memory_units_v2=memory_units_v2,
+            memory_evidence_v2=memory_evidence_v2,
         )
         self._emit_progress(
             progress_callback,
@@ -708,6 +763,7 @@ class V03213PipelineFamily:
 
         paths = {
             "face_anchor_report": self.artifact_dir / "face_anchor_report.json",
+            "photo_observations": self.artifact_dir / "photo_observations.jsonl",
             "person_appearances": self.artifact_dir / "person_appearances.jsonl",
             "asset_triage": self.artifact_dir / "asset_triage.jsonl",
             "burst_manifest": self.artifact_dir / "burst_manifest.json",
@@ -723,9 +779,17 @@ class V03213PipelineFamily:
             "profile_input_pack": self.artifact_dir / "profile_input_pack.json",
             "pipeline_summary": self.artifact_dir / "pipeline_summary.json",
             "reference_media": self.artifact_dir / "reference_media.json",
+            "memory_units_v2": self.artifact_dir / "memory_units_v2.jsonl",
+            "delta_memory_units_v2": self.artifact_dir / "delta_memory_units_v2.jsonl",
+            "memory_evidence_v2": self.artifact_dir / "memory_evidence_v2.jsonl",
+            "delta_memory_evidence_v2": self.artifact_dir / "delta_memory_evidence_v2.jsonl",
+            "profile_truth_v1": self.artifact_dir / "profile_truth_v1.json",
+            "delta_profile_truth_v1": self.artifact_dir / "delta_profile_truth_v1.json",
+            "retrieval_shadow_manifest": self.artifact_dir / "retrieval_shadow_manifest.json",
             "memory_payload": self.artifact_dir / "memory_payload.json",
         }
         save_json({"items": face_anchor_report}, str(paths["face_anchor_report"]))
+        _write_jsonl(paths["photo_observations"], list(observations_by_photo.values()))
         _write_jsonl(paths["person_appearances"], all_person_appearances)
         _write_jsonl(paths["asset_triage"], asset_records)
         save_json({"bursts": bursts}, str(paths["burst_manifest"]))
@@ -741,6 +805,31 @@ class V03213PipelineFamily:
         save_json(profile_input_pack, str(paths["profile_input_pack"]))
         save_json(pipeline_summary, str(paths["pipeline_summary"]))
         save_json({"items": all_reference_signals}, str(paths["reference_media"]))
+        _write_jsonl(paths["memory_units_v2"], memory_units_v2)
+        _write_jsonl(paths["delta_memory_units_v2"], delta_memory_units_v2)
+        _write_jsonl(paths["memory_evidence_v2"], memory_evidence_v2)
+        _write_jsonl(paths["delta_memory_evidence_v2"], delta_memory_evidence_v2)
+        save_json(profile_truth_v1, str(paths["profile_truth_v1"]))
+        save_json(delta_profile_truth_v1, str(paths["delta_profile_truth_v1"]))
+        save_json(
+            {
+                "pipeline_family": PIPELINE_FAMILY_V0321_3,
+                "schemas": {
+                    "memory_units_v2": MEMORY_UNITS_V2_SCHEMA,
+                    "memory_evidence_v2": MEMORY_EVIDENCE_V2_SCHEMA,
+                    "profile_truth_v1": PROFILE_TRUTH_V1_SCHEMA,
+                },
+                "counts": {
+                    "memory_units_v2": len(memory_units_v2),
+                    "delta_memory_units_v2": len(delta_memory_units_v2),
+                    "memory_evidence_v2": len(memory_evidence_v2),
+                    "delta_memory_evidence_v2": len(delta_memory_evidence_v2),
+                    "profile_truth_v1": 1 if profile_truth_v1 else 0,
+                    "delta_profile_truth_v1": 1 if delta_profile_truth_v1 else 0,
+                },
+            },
+            str(paths["retrieval_shadow_manifest"]),
+        )
 
         payload = {
             "pipeline_family": PIPELINE_FAMILY_V0321_3,
@@ -772,7 +861,11 @@ class V03213PipelineFamily:
             "delta_profile_markdown": delta_profile_markdown,
             "profile_input_pack_partial": profile_input_pack_partial,
             "profile_input_pack": profile_input_pack,
+            "delta_profile_input_pack": delta_profile_input_pack,
+            "profile_truth_v1": profile_truth_v1,
+            "delta_profile_truth_v1": delta_profile_truth_v1,
             "person_appearances": all_person_appearances,
+            "vlm_observations": list(observations_by_photo.values()),
             "reference_media_signals": all_reference_signals,
             "delta_reference_media_signals": reference_signals,
             "envelope": {
@@ -817,6 +910,26 @@ class V03213PipelineFamily:
                 for key, path in paths.items()
             },
             "evaluation": {},
+            "retrieval_shadow": {
+                "schemas": {
+                    "memory_units_v2": MEMORY_UNITS_V2_SCHEMA,
+                    "memory_evidence_v2": MEMORY_EVIDENCE_V2_SCHEMA,
+                    "profile_truth_v1": PROFILE_TRUTH_V1_SCHEMA,
+                },
+                "counts": {
+                    "memory_units_v2": len(memory_units_v2),
+                    "delta_memory_units_v2": len(delta_memory_units_v2),
+                    "memory_evidence_v2": len(memory_evidence_v2),
+                    "delta_memory_evidence_v2": len(delta_memory_evidence_v2),
+                    "profile_truth_v1": 1 if profile_truth_v1 else 0,
+                    "delta_profile_truth_v1": 1 if delta_profile_truth_v1 else 0,
+                },
+                "preview": {
+                    "unit_ids": [item.get("unit_id") for item in memory_units_v2[:8]],
+                    "evidence_ids": [item.get("evidence_id") for item in memory_evidence_v2[:12]],
+                    "profile_truth_id": profile_truth_v1.get("profile_truth_id"),
+                },
+            },
         }
         payload["artifacts"].update(
             {
@@ -851,6 +964,8 @@ class V03213PipelineFamily:
                     "ocr_hits": list(observation.get("ocr_hits", [])[:5]),
                     "brands": list(observation.get("brands", [])[:5]),
                     "place_candidates": list(observation.get("place_candidates", [])[:3]),
+                    "story_hints": list(observation.get("story_hints", [])[:2]),
+                    "interaction_clues": list(observation.get("interaction_clues", [])[:3]),
                     "embedded_media_signals": list(observation.get("embedded_media_signals", [])[:3]),
                 }
             )
@@ -917,8 +1032,8 @@ class V03213PipelineFamily:
                     "kind": "relationship_revision",
                     "relationship_revision_id": relationship.get("relationship_revision_id"),
                     "target_person_id": relationship.get("target_person_id"),
-                    "relationship_type": relationship.get("relationship_type"),
-                    "confidence": relationship.get("confidence"),
+                    "semantic_relation": relationship.get("semantic_relation") or relationship.get("label"),
+                    "confidence": relationship.get("semantic_confidence") or relationship.get("confidence"),
                 }
             )
         for bucket, payload in list((profile_revision.get("buckets") or {}).items())[:4]:
@@ -1374,28 +1489,101 @@ class V03213PipelineFamily:
         analysis = dict(item.get("vlm_analysis", {}) or {})
         scene = dict(analysis.get("scene", {}) or {})
         event = dict(analysis.get("event", {}) or {})
-        details = [str(value) for value in analysis.get("details", []) or [] if value]
-        key_objects = [str(value) for value in analysis.get("key_objects", []) or [] if value]
+        people = [dict(value) for value in analysis.get("people", []) or [] if isinstance(value, dict)]
+        relations = [dict(value) for value in analysis.get("relations", []) or [] if isinstance(value, dict)]
+        details = [self._coerce_signal_value(value) for value in analysis.get("details", []) or [] if self._coerce_signal_value(value)]
+        environment_details = [
+            self._coerce_signal_value(value)
+            for value in scene.get("environment_details", []) or []
+            if self._coerce_signal_value(value)
+        ]
+        story_hints = [
+            self._coerce_signal_value(value)
+            for value in event.get("story_hints", []) or []
+            if self._coerce_signal_value(value)
+        ]
+        key_objects = [
+            self._coerce_signal_value(value)
+            for value in analysis.get("key_objects", []) or []
+            if self._coerce_signal_value(value)
+        ]
         summary = str(analysis.get("summary") or "")
-        ocr_hits = [str(value) for value in analysis.get("ocr_hits", []) or [] if value]
+        ocr_hits = [
+            self._coerce_signal_value(value)
+            for value in analysis.get("ocr_hits", []) or []
+            if self._coerce_signal_value(value)
+        ]
         if not ocr_hits:
-            ocr_hits = [detail for detail in details if re.search(r"[A-Za-z0-9]{3,}", detail)]
-        brands = [str(value) for value in analysis.get("brands", []) or [] if value]
-        place_candidates = [str(value) for value in analysis.get("place_candidates", []) or [] if value]
+            ocr_hits = [detail for detail in details if re.search(r"[\u4e00-\u9fffA-Za-z0-9]{3,}", detail)]
+        brands = [
+            self._coerce_signal_value(value)
+            for value in analysis.get("brands", []) or []
+            if self._coerce_signal_value(value)
+        ]
+        place_candidates = [
+            self._coerce_signal_value(value)
+            for value in analysis.get("place_candidates", []) or []
+            if self._coerce_signal_value(value)
+        ]
         if not place_candidates and scene.get("location_detected"):
-            place_candidates = [str(scene.get("location_detected"))]
+            place_candidates = [self._coerce_signal_value(scene.get("location_detected"))]
+        relation_clues = []
+        relation_objects = []
+        for relation in relations:
+            subject = self._coerce_signal_value(relation.get("subject"))
+            predicate = self._coerce_signal_value(relation.get("relation"))
+            obj = self._coerce_signal_value(relation.get("object"))
+            if subject and predicate and obj:
+                relation_clues.append(f"{subject} {predicate} {obj}")
+            for endpoint in (subject, obj):
+                if endpoint and not endpoint.startswith("Person_") and endpoint != "【主角】":
+                    relation_objects.append(endpoint)
+        interaction_clues = []
+        for person in people:
+            person_id = self._coerce_signal_value(person.get("person_id"))
+            interaction = self._coerce_signal_value(person.get("interaction"))
+            contact_type = self._coerce_signal_value(person.get("contact_type"))
+            activity = self._coerce_signal_value(person.get("activity"))
+            if interaction:
+                interaction_clues.append(f"{person_id}: {interaction}")
+            if contact_type and contact_type != "no_contact":
+                interaction_clues.append(f"{person_id}: {contact_type}")
+            if activity:
+                interaction_clues.append(f"{person_id} 正在 {activity}")
         embedded_ids = [str(value) for value in analysis.get("embedded_media_person_ids", []) or [] if value]
         original_photo_id = self._original_photo_id(photo) if photo is not None else str(item.get("photo_id") or "")
+        scene_hint_parts = self._unique(
+            [
+                self._coerce_signal_value(scene.get("environment_description")),
+                self._coerce_signal_value(scene.get("location_detected")),
+                self._coerce_signal_value(scene.get("location_type")),
+                *environment_details[:3],
+            ]
+        )
+        social_hint_parts = self._unique(
+            [
+                self._coerce_signal_value(event.get("social_context")),
+                self._coerce_signal_value(event.get("mood")),
+                *story_hints[:2],
+                *interaction_clues[:3],
+            ]
+        )
+        object_clues = self._unique([*key_objects, *environment_details, *relation_objects, *details[:3]])
         return {
             "photo_id": str(item.get("photo_id") or ""),
             "summary": summary,
-            "scene_hint": str(scene.get("environment_description") or scene.get("location_detected") or ""),
+            "scene_hint": "；".join(scene_hint_parts[:4]),
             "activity_hint": str(event.get("activity") or ""),
-            "social_hint": str(event.get("social_context") or event.get("interaction") or ""),
+            "social_hint": "；".join(social_hint_parts[:4]),
             "ocr_hits": ocr_hits[:10],
             "brands": brands[:10],
             "place_candidates": place_candidates[:5],
-            "object_clues": key_objects[:10],
+            "object_clues": object_clues[:10],
+            "detail_clues": self._unique(details)[:12],
+            "interaction_clues": self._unique(interaction_clues)[:8],
+            "relation_clues": self._unique(relation_clues)[:10],
+            "story_hints": self._unique(story_hints)[:4],
+            "location_type": self._coerce_signal_value(scene.get("location_type")),
             "embedded_media_signals": [summary] if embedded_ids else [],
             "embedded_media_person_ids": embedded_ids,
             "uncertainty": [str(value) for value in analysis.get("uncertainty", []) or [] if value][:5],
@@ -1413,6 +1601,11 @@ class V03213PipelineFamily:
             "brands": [],
             "place_candidates": [str((photo.location or {}).get("name") or "unknown")],
             "object_clues": [],
+            "detail_clues": [],
+            "interaction_clues": [],
+            "relation_clues": [],
+            "story_hints": [],
+            "location_type": "",
             "embedded_media_signals": [],
             "embedded_media_person_ids": [],
             "uncertainty": [],
@@ -1463,6 +1656,9 @@ class V03213PipelineFamily:
                 str(observation.get("scene_hint") or "").strip(),
                 str(observation.get("activity_hint") or "").strip(),
                 str(observation.get("social_hint") or "").strip(),
+                *[str(item).strip() for item in list(observation.get("story_hints", []) or [])[:3]],
+                *[str(item).strip() for item in list(observation.get("detail_clues", []) or [])[:5]],
+                *[str(item).strip() for item in list(observation.get("interaction_clues", []) or [])[:4]],
                 *[str(item).strip() for item in list(observation.get("ocr_hits", []) or [])[:5]],
                 *[str(item).strip() for item in list(observation.get("brands", []) or [])[:3]],
                 *[str(item).strip() for item in list(observation.get("place_candidates", []) or [])[:2]],
@@ -1601,26 +1797,16 @@ class V03213PipelineFamily:
             list(burst.get("scene_hints", []) or []),
             [str(observation.get("scene_hint") or "").strip()],
         )
-        continuity_count = int(continuity["place_overlap"]) + int(continuity["live_overlap"]) + int(continuity["activity_overlap"]) + int(continuity["scene_overlap"])
-        if continuity["same_place"] and gap <= timedelta(minutes=2):
+        tie_breaker_count = int(continuity["live_overlap"]) + int(continuity["activity_overlap"]) + int(continuity["scene_overlap"])
+        if continuity["same_place"] and gap <= timedelta(minutes=15):
             return True
-        if gap <= timedelta(minutes=5) and continuity["live_overlap"] and (
-            continuity["place_overlap"] or continuity["activity_overlap"] or continuity["scene_overlap"]
-        ):
+        if continuity["place_overlap"] and gap <= timedelta(minutes=10) and tie_breaker_count >= 1:
             return True
-        if gap <= timedelta(minutes=6) and continuity["place_overlap"] and (
-            continuity["activity_overlap"] or continuity["scene_overlap"] or continuity["live_overlap"]
-        ):
+        if continuity["place_overlap"] and gap <= timedelta(minutes=6):
             return True
-        if gap <= timedelta(minutes=10) and continuity_count >= 2 and (
-            continuity["place_overlap"] or continuity["live_overlap"]
-        ):
+        if not continuity["place_signal_present"] and gap <= timedelta(minutes=4) and tie_breaker_count >= 2:
             return True
-        if gap <= timedelta(minutes=15) and continuity["same_place"] and continuity_count >= 2:
-            return True
-        if gap <= timedelta(minutes=20) and continuity_count >= 3 and (
-            continuity["place_overlap"] or continuity["live_overlap"]
-        ):
+        if continuity["same_place"] and gap <= timedelta(minutes=8) and tie_breaker_count >= 1:
             return True
         return False
 
@@ -1647,25 +1833,23 @@ class V03213PipelineFamily:
             live_overlap = continuity["live_overlap"]
             activity_overlap = continuity["activity_overlap"]
             scene_overlap = continuity["scene_overlap"]
-            continuity_count = int(place_overlap) + int(live_overlap) + int(activity_overlap) + int(scene_overlap)
+            tie_breaker_count = int(live_overlap) + int(activity_overlap) + int(scene_overlap)
             decision = "ambiguous"
             if gap > 4 * 3600:
                 decision = "split"
-            elif gap > 2 * 3600 and continuity_count <= 1:
+            elif gap > 2 * 3600 and not place_overlap:
                 decision = "split"
-            elif gap > 90 * 60 and not (place_overlap and live_overlap):
+            elif gap > 90 * 60 and not same_place:
                 decision = "split"
-            elif gap <= 6 * 60 and continuity_count >= 2:
+            elif same_place and gap <= 30 * 60:
                 decision = "continue"
-            elif gap <= 15 * 60 and live_overlap and (place_overlap or activity_overlap or scene_overlap):
+            elif place_overlap and gap <= 12 * 60 and tie_breaker_count >= 1:
                 decision = "continue"
-            elif gap <= 20 * 60 and place_overlap and (live_overlap or activity_overlap or scene_overlap):
+            elif place_overlap and gap <= 8 * 60:
                 decision = "continue"
-            elif gap <= 30 * 60 and continuity_count >= 3 and (place_overlap or live_overlap):
+            elif not continuity["place_signal_present"] and gap <= 4 * 60 and tie_breaker_count >= 2:
                 decision = "continue"
-            elif gap <= 45 * 60 and same_place and continuity_count >= 2:
-                decision = "continue"
-            elif gap > 20 * 60 and continuity_count == 0:
+            elif gap > 20 * 60 and not place_overlap:
                 decision = "split"
             decisions.append(
                 {
@@ -1677,6 +1861,7 @@ class V03213PipelineFamily:
                     "live_overlap": live_overlap,
                     "activity_overlap": activity_overlap,
                     "scene_overlap": scene_overlap,
+                    "tie_breaker_count": tie_breaker_count,
                     "decision": decision,
                     "reason": "time_and_place_scoring",
                 }
@@ -1823,6 +2008,7 @@ class V03213PipelineFamily:
         return {
             "same_place": bool(left_place_set and right_place_set and left_place_set.intersection(right_place_set)),
             "place_overlap": bool(left_place_set.intersection(right_place_set)),
+            "place_signal_present": bool(left_place_set or right_place_set),
             "live_overlap": self._has_overlap(left_people, right_people),
             "activity_overlap": self._has_overlap(left_activities, right_activities),
             "scene_overlap": self._has_overlap(left_scenes, right_scenes),
@@ -1921,6 +2107,11 @@ class V03213PipelineFamily:
                     "ocr_hits": list(observation.get("ocr_hits", []) or [])[:4],
                     "brands": list(observation.get("brands", []) or [])[:3],
                     "object_clues": list(observation.get("object_clues", []) or [])[:4],
+                    "detail_clues": list(observation.get("detail_clues", []) or [])[:5],
+                    "interaction_clues": list(observation.get("interaction_clues", []) or [])[:4],
+                    "relation_clues": list(observation.get("relation_clues", []) or [])[:4],
+                    "story_hints": list(observation.get("story_hints", []) or [])[:3],
+                    "location_type": str(observation.get("location_type") or ""),
                     "embedded_media_person_ids": list(observation.get("embedded_media_person_ids", []) or [])[:3],
                     "live_person_ids": self._unique(
                         item.get("person_id") for item in appearance_items if item.get("appearance_mode") == "live_presence"
@@ -2012,12 +2203,21 @@ class V03213PipelineFamily:
         place_count = len(self._normalized_signal_set(window.get("place_candidates", []) or []))
         activity_count = len(self._normalized_signal_set(window.get("activity_hints", []) or []))
         scene_count = len(self._normalized_signal_set(window.get("scene_hints", []) or []))
+        boundary_decisions = list(window.get("boundary_decisions", []) or [])
+        weak_joins = sum(
+            1
+            for boundary in boundary_decisions
+            if (boundary.get("gap_seconds") or 0) > 15 * 60
+            or (not boundary.get("same_place") and not boundary.get("place_overlap"))
+        )
         diversity_score = int(place_count > 1) + int(activity_count > 1) + int(scene_count > 1)
-        if burst_count >= 4:
+        if burst_count >= 6:
             return True
-        if diversity_score >= 2:
+        if weak_joins >= 2:
             return True
-        if burst_count >= 3 and diversity_score >= 1:
+        if place_count > 1 and weak_joins >= 1:
+            return True
+        if diversity_score >= 2 and burst_count >= 3:
             return True
         return False
 
@@ -2205,6 +2405,10 @@ class V03213PipelineFamily:
                 evidence.append(self._evidence_record("brand", original_photo_ids, text))
             for text in observation.get("place_candidates", [])[:1]:
                 evidence.append(self._evidence_record("place_candidate", original_photo_ids, text))
+            for text in observation.get("object_clues", [])[:2]:
+                evidence.append(self._evidence_record("object_last_seen", original_photo_ids, text))
+            for text in observation.get("interaction_clues", [])[:2]:
+                evidence.append(self._evidence_record("person_interaction", original_photo_ids, text))
             for text in observation.get("embedded_media_person_ids", [])[:2]:
                 evidence.append(self._evidence_record("embedded_media_person_reference", original_photo_ids, text))
         return evidence
@@ -2436,24 +2640,27 @@ class V03213PipelineFamily:
             embedded_events = embedded_by_person.get(person_id, [])
             live_count = len(live_events)
             embedded_count = len(embedded_events)
-            relationship_type = "co_presence_only"
-            label = "共同出现"
-            confidence = 0.35 + min(0.4, 0.08 * live_count)
+            pair_context = self._build_relationship_pair_context(
+                primary_person_id=primary_person_id,
+                target_person_id=person_id,
+                live_events=live_events,
+                embedded_events=embedded_events,
+            )
+            semantic_payload = self._normalize_relationship_semantics(
+                payload=None,
+                pair_context=pair_context,
+                live_count=live_count,
+                embedded_count=embedded_count,
+            )
+            relationship_type = semantic_payload["relationship_type"]
+            confidence = float(semantic_payload["semantic_confidence"] or 0.0)
             status = "active"
-            if live_count >= 3:
-                relationship_type = "friend"
-                label = "朋友"
-                confidence = min(0.92, 0.55 + 0.1 * live_count)
-            elif live_count == 0 and embedded_count >= 2:
-                relationship_type = "remembered_person"
-                label = "被反复提及的人"
-                confidence = min(0.68, 0.35 + 0.08 * embedded_count)
             llm_relationship = None
             if self._relationship_requires_llm(
                 prior=prior,
                 live_count=live_count,
                 embedded_count=embedded_count,
-                relationship_type=relationship_type,
+                pair_context=pair_context,
             ):
                 llm_relationship = self._infer_relationship_with_llm(
                     primary_person_id=primary_person_id,
@@ -2461,22 +2668,25 @@ class V03213PipelineFamily:
                     prior=prior,
                     live_events=live_events,
                     embedded_events=embedded_events,
+                    pair_context=pair_context,
                 )
             if llm_relationship:
-                relationship_type = str(llm_relationship.get("relationship_type") or relationship_type)
-                label = str(llm_relationship.get("label") or label)
-                try:
-                    confidence = float(llm_relationship.get("confidence") or confidence)
-                except Exception:
-                    confidence = confidence
+                semantic_payload = self._normalize_relationship_semantics(
+                    payload=llm_relationship,
+                    pair_context=pair_context,
+                    live_count=live_count,
+                    embedded_count=embedded_count,
+                )
+                relationship_type = semantic_payload["relationship_type"]
+                confidence = float(semantic_payload["semantic_confidence"] or confidence)
             revision = int(prior.get("revision") or 0) + 1 if prior else 1
             revision_payload = {
-                "relationship_revision_id": self._stable_id("relationship-revision", root_id, str(revision), relationship_type),
+                "relationship_revision_id": self._stable_id("relationship-revision", root_id, str(revision)),
                 "relationship_root_id": root_id,
                 "revision": revision,
                 "status": status,
                 "relationship_type": relationship_type,
-                "label": label,
+                "label": semantic_payload["semantic_relation"],
                 "confidence": round(confidence, 4),
                 "window_start": self._window_start(live_events, embedded_events),
                 "window_end": self._window_end(live_events, embedded_events),
@@ -2493,15 +2703,18 @@ class V03213PipelineFamily:
                         for photo_id in event.get("original_photo_ids", [])
                     )
                 ),
-                "reason_summary": str((llm_relationship or {}).get("reason_summary") or f"{person_id}: live={live_count}, embedded={embedded_count}"),
+                "semantic_relation": semantic_payload["semantic_relation"],
+                "semantic_confidence": round(float(semantic_payload["semantic_confidence"] or 0.0), 4),
+                "semantic_reason_summary": semantic_payload["semantic_reason_summary"],
+                "uncertainty_note": semantic_payload.get("uncertainty_note") or "",
+                "relation_axes": dict(semantic_payload.get("relation_axes") or {}),
+                "reason_summary": semantic_payload["semantic_reason_summary"],
                 "feature_snapshot": {
                     "live_support_event_ids": [event["event_revision_id"] for event in live_events],
                     "embedded_support_event_ids": [event["event_revision_id"] for event in embedded_events],
+                    "pair_context": pair_context,
                 },
-                "score_snapshot": {
-                    "live_score": round(min(0.99, 0.12 * live_count), 4),
-                    "embedded_score": round(min(0.99, 0.08 * embedded_count), 4),
-                },
+                "score_snapshot": dict(semantic_payload.get("relation_axes") or {}),
                 "pipeline_family": PIPELINE_FAMILY_V0321_3,
                 "target_person_id": person_id,
                 "supersedes_relationship_revision_id": prior.get("relationship_revision_id") if prior else None,
@@ -2547,15 +2760,15 @@ class V03213PipelineFamily:
         prior: Optional[Dict[str, Any]],
         live_count: int,
         embedded_count: int,
-        relationship_type: str,
+        pair_context: Dict[str, Any],
     ) -> bool:
-        if live_count >= 2:
+        if live_count >= 1:
             return True
         if live_count == 0 and embedded_count >= 2:
             return True
-        if prior and str(prior.get("relationship_type") or "") != relationship_type:
+        if prior and float(prior.get("semantic_confidence") or prior.get("confidence") or 0.0) < 0.6:
             return True
-        if prior and float(prior.get("confidence") or 0.0) < 0.55 <= (0.35 + min(0.4, 0.08 * live_count)):
+        if prior and pair_context.get("pair_recurrence", {}).get("distinct_days", 0) >= 2:
             return True
         return False
 
@@ -2567,16 +2780,23 @@ class V03213PipelineFamily:
         prior: Optional[Dict[str, Any]],
         live_events: Sequence[Dict[str, Any]],
         embedded_events: Sequence[Dict[str, Any]],
+        pair_context: Dict[str, Any],
     ) -> Optional[Dict[str, Any]]:
         prompt = (
-            "You are a relationship analyst. Infer the current relationship between the primary user and the target person.\n"
-            "Return JSON only with keys relationship_type, label, confidence, reason_summary.\n"
-            "Use live_presence evidence as stronger than embedded_media evidence.\n"
+            "You are a relationship analyst.\n"
+            "Infer the current relationship between the primary user and the target person.\n"
+            "Do not choose from a fixed label list. Describe the relationship in natural Chinese.\n"
+            "Return JSON only with keys semantic_relation, semantic_confidence, semantic_reason_summary, relation_axes, uncertainty_note.\n"
+            "relation_axes must contain these numeric keys between 0 and 1: intimacy, exclusivity, familyness, schoolness, workness, caregiving, continuity, groupness, conflict.\n"
+            "Use live_presence evidence as much stronger than embedded_media evidence.\n"
             "Do not treat embedded_media as direct co-presence.\n"
-            "Allowed relationship_type values: co_presence_only, acquaintance, colleague, friend, close_friend, family, remembered_person.\n"
+            "If the evidence clearly supports a romantic relationship, say 伴侣/情侣关系 directly.\n"
+            "If evidence is strong but not fully certain, you may say things like 高概率伴侣 / 疑似恋爱关系 / 更像父母辈家庭关系 / 学校中的稳定同辈关系.\n"
+            "Do not lazily collapse everything into 朋友. If the pair repeatedly appears as a stable two-person unit across selfies, meals, travel, or intimate-looking daily scenes, say so clearly, and do not weaken a real couple into 模糊亲密关系 or 明显超出普通朋友.\n"
             f"PRIMARY_PERSON_ID={json.dumps(primary_person_id, ensure_ascii=False)}\n"
             f"TARGET_PERSON_ID={json.dumps(target_person_id, ensure_ascii=False)}\n"
             f"PRIOR_RELATIONSHIP={json.dumps(prior or {}, ensure_ascii=False)}\n"
+            f"PAIR_CONTEXT={json.dumps(pair_context, ensure_ascii=False)}\n"
             f"LIVE_EVENTS={json.dumps([self._relationship_event_context(event) for event in live_events], ensure_ascii=False)}\n"
             f"EMBEDDED_MEDIA_EVENTS={json.dumps([self._relationship_event_context(event) for event in embedded_events], ensure_ascii=False)}\n"
         )
@@ -2587,6 +2807,11 @@ class V03213PipelineFamily:
         return payload
 
     def _relationship_event_context(self, event: Dict[str, Any]) -> Dict[str, Any]:
+        interaction_evidence = [
+            str(item.get("value_or_text") or "").strip()
+            for item in list(event.get("atomic_evidence", []) or [])
+            if str(item.get("evidence_type") or "") == "person_interaction" and str(item.get("value_or_text") or "").strip()
+        ]
         return {
             "event_revision_id": event.get("event_revision_id"),
             "title": event.get("title"),
@@ -2597,6 +2822,340 @@ class V03213PipelineFamily:
             "depicted_person_ids": list(event.get("depicted_person_ids", []) or []),
             "original_photo_ids": list(event.get("original_photo_ids", []) or []),
             "event_summary": str(event.get("event_summary") or ""),
+            "interaction_evidence": interaction_evidence[:5],
+        }
+
+    def _build_relationship_pair_context(
+        self,
+        *,
+        primary_person_id: str,
+        target_person_id: str,
+        live_events: Sequence[Dict[str, Any]],
+        embedded_events: Sequence[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        all_events = list(live_events) + list(embedded_events)
+        live_event_dates = self._unique(
+            str((self._parse_dt(event.get("started_at")) or self._parse_dt(event.get("ended_at")) or datetime.min).date())
+            for event in live_events
+            if self._parse_dt(event.get("started_at")) or self._parse_dt(event.get("ended_at"))
+        )
+        started_points = [
+            self._parse_dt(event.get("started_at")) or self._parse_dt(event.get("ended_at"))
+            for event in all_events
+        ]
+        valid_points = [item for item in started_points if item]
+        time_span_days = 0
+        if len(valid_points) >= 2:
+            time_span_days = max(0, (max(valid_points) - min(valid_points)).days)
+
+        pair_only_event_count = 0
+        third_person_event_count = 0
+        total_live_group_size = 0
+        scene_counts = defaultdict(int)
+        intimacy_counts = defaultdict(int)
+        counter_counts = defaultdict(int)
+        for event in live_events:
+            participants = self._unique(list(event.get("participant_person_ids", []) or []))
+            live_group_size = len(participants)
+            total_live_group_size += live_group_size
+            if set(participants) == {primary_person_id, target_person_id}:
+                pair_only_event_count += 1
+            if live_group_size > 2:
+                third_person_event_count += 1
+            scene_tags = self._relationship_scene_tags(event)
+            for tag in scene_tags:
+                scene_counts[tag] += 1
+            if "selfie" in scene_tags:
+                intimacy_counts["shared_selfie_count"] += 1
+            if "dining" in scene_tags:
+                intimacy_counts["shared_meal_count"] += 1
+            if "travel" in scene_tags:
+                intimacy_counts["shared_travel_count"] += 1
+            if "home_like" in scene_tags:
+                intimacy_counts["home_like_count"] += 1
+            if "public_issue" in scene_tags:
+                counter_counts["public_issue_count"] += 1
+            if "work" in scene_tags:
+                counter_counts["work_scene_count"] += 1
+            if "school" in scene_tags:
+                counter_counts["school_scene_count"] += 1
+            interaction_text = " ".join(
+                str(item.get("value_or_text") or "").strip()
+                for item in list(event.get("atomic_evidence", []) or [])
+                if str(item.get("evidence_type") or "") == "person_interaction"
+            ).lower()
+            if any(token in interaction_text for token in ("kiss", "hug", "holding_hands", "arm_in_arm", "selfie_together", "shoulder_lean", "sitting_close")):
+                intimacy_counts["contact_or_close_pose_count"] += 1
+
+        live_count = len(live_events)
+        avg_live_group_size = round(total_live_group_size / live_count, 4) if live_count else 0.0
+        pair_only_ratio = round(pair_only_event_count / live_count, 4) if live_count else 0.0
+        third_person_density = round(third_person_event_count / live_count, 4) if live_count else 0.0
+
+        return {
+            "pair_recurrence": {
+                "live_event_count": live_count,
+                "embedded_event_count": len(embedded_events),
+                "distinct_days": len(live_event_dates),
+                "time_span_days": time_span_days,
+            },
+            "pair_structure": {
+                "pair_only_event_count": pair_only_event_count,
+                "pair_only_ratio": pair_only_ratio,
+                "average_live_group_size": avg_live_group_size,
+                "third_person_density": third_person_density,
+            },
+            "scene_distribution": dict(scene_counts),
+            "intimacy_indicators": {
+                **dict(intimacy_counts),
+                "pair_only_event_count": pair_only_event_count,
+            },
+            "counter_indicators": dict(counter_counts),
+        }
+
+    def _relationship_scene_tags(self, event: Dict[str, Any]) -> List[str]:
+        text = self._event_text_blob(event)
+        tags: List[str] = []
+        if any(token in text for token in ("selfie", "自拍", "合影", "镜面自拍", "portrait")):
+            tags.append("selfie")
+        if any(token in text for token in ("meal", "dining", "breakfast", "lunch", "dinner", "coffee", "restaurant", "用餐", "吃饭", "咖啡", "酒吧", "茶饮")):
+            tags.append("dining")
+        if any(token in text for token in ("trip", "travel", "station", "airport", "hotel", "flight", "候车", "车站", "出行", "酒店", "行程")):
+            tags.append("travel")
+        if any(token in text for token in ("home", "bedroom", "living room", "卧室", "客厅", "居家", "室内")):
+            tags.append("home_like")
+        if any(token in text for token in ("school", "campus", "class", "course", "student", "大学", "学校", "校园", "课程", "学生")):
+            tags.append("school")
+        if any(token in text for token in ("office", "company", "meeting", "work", "colleague", "办公室", "公司", "会议", "工作")):
+            tags.append("work")
+        if any(token in text for token in ("维权", "投诉", "police", "court", "petition", "维权投诉", "群体事件", "公开活动")):
+            tags.append("public_issue")
+        return self._unique(tags)
+
+    def _default_relation_axes(self) -> Dict[str, float]:
+        return {
+            "intimacy": 0.0,
+            "exclusivity": 0.0,
+            "familyness": 0.0,
+            "schoolness": 0.0,
+            "workness": 0.0,
+            "caregiving": 0.0,
+            "continuity": 0.0,
+            "groupness": 0.0,
+            "conflict": 0.0,
+        }
+
+    def _clamp_axis(self, value: Any) -> float:
+        try:
+            numeric = float(value)
+        except Exception:
+            return 0.0
+        return round(max(0.0, min(1.0, numeric)), 4)
+
+    def _fallback_relation_axes(
+        self,
+        *,
+        pair_context: Dict[str, Any],
+        live_count: int,
+        embedded_count: int,
+    ) -> Dict[str, float]:
+        recurrence = dict(pair_context.get("pair_recurrence") or {})
+        structure = dict(pair_context.get("pair_structure") or {})
+        scenes = dict(pair_context.get("scene_distribution") or {})
+        intimacy_indicators = dict(pair_context.get("intimacy_indicators") or {})
+        counter_indicators = dict(pair_context.get("counter_indicators") or {})
+
+        distinct_days = int(recurrence.get("distinct_days") or 0)
+        time_span_days = int(recurrence.get("time_span_days") or 0)
+        pair_only_ratio = float(structure.get("pair_only_ratio") or 0.0)
+        third_person_density = float(structure.get("third_person_density") or 0.0)
+        avg_group_size = float(structure.get("average_live_group_size") or 0.0)
+        live_divisor = max(1, live_count)
+
+        selfie_ratio = float(intimacy_indicators.get("shared_selfie_count") or 0) / live_divisor
+        dining_ratio = float(intimacy_indicators.get("shared_meal_count") or 0) / live_divisor
+        travel_ratio = float(intimacy_indicators.get("shared_travel_count") or 0) / live_divisor
+        home_ratio = float(intimacy_indicators.get("home_like_count") or 0) / live_divisor
+        school_ratio = float(scenes.get("school") or 0) / live_divisor
+        work_ratio = float(scenes.get("work") or 0) / live_divisor
+        public_ratio = float(counter_indicators.get("public_issue_count") or 0) / live_divisor
+
+        continuity = 0.5 * min(1.0, distinct_days / 4.0) + 0.3 * min(1.0, live_count / 6.0) + 0.2 * min(1.0, time_span_days / 30.0)
+        exclusivity = 0.7 * pair_only_ratio + 0.2 * max(0.0, min(1.0, (3.0 - avg_group_size) / 2.0)) + 0.1 * continuity
+        groupness = 0.65 * third_person_density + 0.2 * public_ratio + 0.15 * max(0.0, min(1.0, (avg_group_size - 2.0) / 3.0))
+        intimacy = max(
+            0.0,
+            0.28 * selfie_ratio
+            + 0.2 * dining_ratio
+            + 0.18 * travel_ratio
+            + 0.12 * home_ratio
+            + 0.12 * pair_only_ratio
+            + 0.1 * continuity
+            - 0.14 * groupness,
+        )
+        familyness = min(1.0, 0.45 * home_ratio + 0.15 * continuity + 0.1 * pair_only_ratio)
+        caregiving = min(1.0, 0.5 * home_ratio + 0.2 * continuity)
+        schoolness = min(1.0, 0.8 * school_ratio + 0.2 * continuity)
+        workness = min(1.0, 0.8 * work_ratio + 0.2 * continuity)
+        conflict = min(1.0, 0.85 * public_ratio)
+        if live_count == 0 and embedded_count >= 1:
+            continuity = max(continuity, min(0.5, 0.18 * embedded_count))
+
+        return {
+            "intimacy": self._clamp_axis(intimacy),
+            "exclusivity": self._clamp_axis(exclusivity),
+            "familyness": self._clamp_axis(familyness),
+            "schoolness": self._clamp_axis(schoolness),
+            "workness": self._clamp_axis(workness),
+            "caregiving": self._clamp_axis(caregiving),
+            "continuity": self._clamp_axis(continuity),
+            "groupness": self._clamp_axis(groupness),
+            "conflict": self._clamp_axis(conflict),
+        }
+
+    def _normalize_relation_axes(
+        self,
+        payload_axes: Any,
+        *,
+        fallback_axes: Dict[str, float],
+    ) -> Dict[str, float]:
+        normalized = dict(fallback_axes)
+        if not isinstance(payload_axes, dict):
+            return normalized
+        for key in fallback_axes.keys():
+            if key in payload_axes:
+                normalized[key] = self._clamp_axis(payload_axes.get(key))
+        return normalized
+
+    def _fallback_semantic_relation(
+        self,
+        *,
+        pair_context: Dict[str, Any],
+        relation_axes: Dict[str, float],
+        live_count: int,
+        embedded_count: int,
+    ) -> str:
+        if live_count == 0 and embedded_count >= 1:
+            return "被反复提及但缺少现场共处证据的关系对象"
+        if (
+            relation_axes.get("intimacy", 0.0) >= 0.82
+            and relation_axes.get("exclusivity", 0.0) >= 0.72
+            and relation_axes.get("continuity", 0.0) >= 0.58
+            and relation_axes.get("groupness", 0.0) < 0.35
+        ):
+            return "伴侣/情侣关系"
+        if (
+            relation_axes.get("intimacy", 0.0) >= 0.72
+            and relation_axes.get("exclusivity", 0.0) >= 0.62
+            and relation_axes.get("continuity", 0.0) >= 0.5
+            and relation_axes.get("groupness", 0.0) < 0.42
+        ):
+            return "高概率伴侣"
+        if relation_axes.get("familyness", 0.0) >= 0.7:
+            return "更像家庭支持关系"
+        if relation_axes.get("schoolness", 0.0) >= 0.68 and relation_axes.get("continuity", 0.0) >= 0.4:
+            return "学校中的稳定同辈关系"
+        if relation_axes.get("workness", 0.0) >= 0.68 and relation_axes.get("continuity", 0.0) >= 0.4:
+            return "工作中的稳定关系"
+        if live_count <= 1 and relation_axes.get("groupness", 0.0) >= 0.58:
+            return "以同场出现为主的弱关系"
+        if relation_axes.get("intimacy", 0.0) >= 0.48 and relation_axes.get("continuity", 0.0) >= 0.38:
+            return "关系较近的熟人/朋友"
+        return "当前关系仍需更多证据判断"
+
+    def _derive_relationship_type(
+        self,
+        *,
+        live_count: int,
+        embedded_count: int,
+        relation_axes: Dict[str, float],
+    ) -> str:
+        if live_count == 0 and embedded_count >= 1:
+            return "remembered_person"
+        if relation_axes.get("groupness", 0.0) >= 0.62 and relation_axes.get("intimacy", 0.0) < 0.42:
+            return "co_presence_only"
+        return "semantic_relation"
+
+    def _normalize_relationship_semantics(
+        self,
+        *,
+        payload: Optional[Dict[str, Any]],
+        pair_context: Dict[str, Any],
+        live_count: int,
+        embedded_count: int,
+    ) -> Dict[str, Any]:
+        fallback_axes = self._fallback_relation_axes(
+            pair_context=pair_context,
+            live_count=live_count,
+            embedded_count=embedded_count,
+        )
+        relation_axes = self._normalize_relation_axes(
+            payload.get("relation_axes") if isinstance(payload, dict) else None,
+            fallback_axes=fallback_axes,
+        )
+        semantic_relation = str((payload or {}).get("semantic_relation") or "").strip()
+        if not semantic_relation:
+            semantic_relation = self._fallback_semantic_relation(
+                pair_context=pair_context,
+                relation_axes=relation_axes,
+                live_count=live_count,
+                embedded_count=embedded_count,
+            )
+        intimacy = relation_axes.get("intimacy", 0.0)
+        exclusivity = relation_axes.get("exclusivity", 0.0)
+        continuity = relation_axes.get("continuity", 0.0)
+        groupness = relation_axes.get("groupness", 0.0)
+        if (
+            intimacy >= 0.82
+            and exclusivity >= 0.72
+            and continuity >= 0.58
+            and groupness < 0.35
+        ):
+            semantic_relation = "伴侣/情侣关系"
+        elif (
+            intimacy >= 0.72
+            and exclusivity >= 0.62
+            and continuity >= 0.5
+            and groupness < 0.42
+            and "伴侣" not in semantic_relation
+            and "情侣" not in semantic_relation
+        ):
+            semantic_relation = "高概率伴侣"
+        try:
+            semantic_confidence = float((payload or {}).get("semantic_confidence"))
+        except Exception:
+            semantic_confidence = max(
+                relation_axes.get("intimacy", 0.0),
+                relation_axes.get("familyness", 0.0),
+                relation_axes.get("schoolness", 0.0),
+                relation_axes.get("workness", 0.0),
+                min(0.72, 0.22 + 0.08 * live_count + 0.04 * embedded_count),
+            )
+        semantic_reason_summary = str((payload or {}).get("semantic_reason_summary") or "").strip()
+        if not semantic_reason_summary:
+            recurrence = dict(pair_context.get("pair_recurrence") or {})
+            structure = dict(pair_context.get("pair_structure") or {})
+            scene_distribution = dict(pair_context.get("scene_distribution") or {})
+            scene_text = "、".join(
+                f"{name}:{count}"
+                for name, count in sorted(scene_distribution.items(), key=lambda item: (-int(item[1]), item[0]))[:4]
+            ) or "无显著场景"
+            semantic_reason_summary = (
+                f"共现 {int(recurrence.get('live_event_count') or 0)} 次，跨 {int(recurrence.get('distinct_days') or 0)} 天，"
+                f"双人独占比例 {float(structure.get('pair_only_ratio') or 0.0):.2f}，场景分布 {scene_text}。"
+            )
+        uncertainty_note = str((payload or {}).get("uncertainty_note") or "").strip()
+        return {
+            "relationship_type": self._derive_relationship_type(
+                live_count=live_count,
+                embedded_count=embedded_count,
+                relation_axes=relation_axes,
+            ),
+            "semantic_relation": semantic_relation,
+            "semantic_confidence": self._clamp_axis(semantic_confidence),
+            "semantic_reason_summary": semantic_reason_summary,
+            "uncertainty_note": uncertainty_note,
+            "relation_axes": relation_axes,
         }
 
     def _build_profile_input_pack_partial(
@@ -2617,6 +3176,20 @@ class V03213PipelineFamily:
             "baseline_rhythm": self._build_baseline_rhythm(event_revisions),
             "place_patterns": self._build_place_patterns(event_revisions),
             "activity_patterns": self._build_activity_patterns(event_revisions),
+            "identity_signals": self._build_identity_signals(
+                primary_person_id=primary_person_id,
+                event_revisions=event_revisions,
+                atomic_evidence=atomic_evidence,
+                reference_signals=reference_signals,
+            ),
+            "lifestyle_consumption_signals": self._build_lifestyle_consumption_signals(
+                event_revisions=event_revisions,
+                reference_signals=reference_signals,
+            ),
+            "event_persona_clues": self._build_event_persona_clues(
+                event_revisions=event_revisions,
+                atomic_evidence=atomic_evidence,
+            ),
             "event_grounded_signals": self._build_event_grounded_signals(
                 event_revisions=event_revisions,
                 atomic_evidence=atomic_evidence,
@@ -2640,6 +3213,7 @@ class V03213PipelineFamily:
             len(relationship_revisions),
         )
         pack["social_patterns"] = self._build_social_patterns(relationship_revisions)
+        pack["social_clues"] = self._build_social_clues(relationship_revisions)
         pack["change_points"] = self._build_change_points(
             profile_input_pack_partial=profile_input_pack_partial,
             relationship_revisions=relationship_revisions,
@@ -2691,7 +3265,7 @@ class V03213PipelineFamily:
                 place_type_counts["unknown"] += 1
                 continue
             for place_ref in place_refs:
-                place_text = str(place_ref).strip()
+                place_text = self._normalized_place_ref_text(place_ref)
                 if not place_text:
                     continue
                 place_ref_counts[place_text] += 1
@@ -2739,6 +3313,318 @@ class V03213PipelineFamily:
             "social_like_events": social_like_events,
             "unclear_events": unclear_events,
             "repeated_small_patterns": repeated_small_patterns,
+        }
+
+    def _build_identity_signals(
+        self,
+        *,
+        primary_person_id: Optional[str],
+        event_revisions: Sequence[Dict[str, Any]],
+        atomic_evidence: Sequence[Dict[str, Any]],
+        reference_signals: Sequence[Dict[str, Any]],
+    ) -> Dict[str, List[Dict[str, Any]]]:
+        grouped: Dict[str, Dict[str, Dict[str, Any]]] = {
+            "name_hints": {},
+            "age_range_hints": {},
+            "education_hints": {},
+            "role_hints": {},
+            "career_direction_hints": {},
+            "gender_presentation_hints": {},
+        }
+        event_lookup = {
+            str(event.get("event_revision_id") or ""): event
+            for event in event_revisions
+            if str(event.get("event_revision_id") or "")
+        }
+
+        for event in event_revisions:
+            event_id = str(event.get("event_revision_id") or "")
+            text = self._event_text_blob(event)
+            for label in self._extract_name_hints(text):
+                self._accumulate_structured_hint(
+                    grouped["name_hints"],
+                    label=label,
+                    confidence=0.78,
+                    evidence_level="event_grounded",
+                    supporting_event_id=event_id,
+                )
+            if self._text_has_student_signal(text):
+                self._accumulate_structured_hint(
+                    grouped["age_range_hints"],
+                    label="18-24岁（学生/培训阶段线索）",
+                    confidence=0.62,
+                    evidence_level="event_grounded",
+                    supporting_event_id=event_id,
+                )
+                self._accumulate_structured_hint(
+                    grouped["education_hints"],
+                    label="存在学校/课程/学号线索，可能处于高等教育或职业培训阶段",
+                    confidence=0.7,
+                    evidence_level="event_grounded",
+                    supporting_event_id=event_id,
+                )
+                self._accumulate_structured_hint(
+                    grouped["role_hints"],
+                    label="学生或培训阶段个体",
+                    confidence=0.66,
+                    evidence_level="event_grounded",
+                    supporting_event_id=event_id,
+                )
+            if self._text_has_early_career_signal(text):
+                self._accumulate_structured_hint(
+                    grouped["age_range_hints"],
+                    label="20-29岁（早期职业阶段线索）",
+                    confidence=0.54,
+                    evidence_level="event_grounded",
+                    supporting_event_id=event_id,
+                )
+                self._accumulate_structured_hint(
+                    grouped["role_hints"],
+                    label="处于求职、试岗或职业过渡阶段",
+                    confidence=0.58,
+                    evidence_level="event_grounded",
+                    supporting_event_id=event_id,
+                )
+            for label, confidence in self._career_direction_hints_from_text(text):
+                self._accumulate_structured_hint(
+                    grouped["career_direction_hints"],
+                    label=label,
+                    confidence=confidence,
+                    evidence_level="event_grounded",
+                    supporting_event_id=event_id,
+                )
+            if any(token in text for token in ("工作", "学习", "课程", "实验", "作业", "练习", "study", "work")):
+                self._accumulate_structured_hint(
+                    grouped["role_hints"],
+                    label="学习/工作导向较强",
+                    confidence=0.52,
+                    evidence_level="event_grounded",
+                    supporting_event_id=event_id,
+                )
+            explicit_gender_hint = self._explicit_gender_presentation_hint(text)
+            if explicit_gender_hint:
+                self._accumulate_structured_hint(
+                    grouped["gender_presentation_hints"],
+                    label=explicit_gender_hint,
+                    confidence=0.46,
+                    evidence_level="event_grounded",
+                    supporting_event_id=event_id,
+                )
+
+        for evidence in atomic_evidence:
+            evidence_text = str(evidence.get("value_or_text") or "").strip()
+            if not evidence_text:
+                continue
+            event_id = str(evidence.get("root_event_revision_id") or "")
+            if evidence.get("evidence_type") == "ocr":
+                for label in self._extract_name_hints(evidence_text):
+                    self._accumulate_structured_hint(
+                        grouped["name_hints"],
+                        label=label,
+                        confidence=0.86,
+                        evidence_level="event_grounded",
+                        supporting_event_id=event_id if event_id in event_lookup else None,
+                    )
+
+        for signal in reference_signals:
+            signal_text = str(signal.get("evidence_text") or "").strip()
+            signal_id = str(signal.get("signal_id") or "")
+            if not signal_text:
+                continue
+            if self._text_has_student_signal(signal_text):
+                self._accumulate_structured_hint(
+                    grouped["age_range_hints"],
+                    label="18-24岁（学生/培训阶段弱线索）",
+                    confidence=0.45,
+                    evidence_level="weak_reference",
+                    supporting_signal_id=signal_id,
+                )
+                self._accumulate_structured_hint(
+                    grouped["education_hints"],
+                    label="存在学生证、学号或校园相关弱线索",
+                    confidence=0.5,
+                    evidence_level="weak_reference",
+                    supporting_signal_id=signal_id,
+                )
+            for label in self._extract_name_hints(signal_text):
+                self._accumulate_structured_hint(
+                    grouped["name_hints"],
+                    label=label,
+                    confidence=0.55,
+                    evidence_level="weak_reference",
+                    supporting_signal_id=signal_id,
+                )
+            if any(token in signal_text.lower() for token in ("ai", "chatgpt", "豆包", "midjourney", "comfyui")):
+                self._accumulate_structured_hint(
+                    grouped["role_hints"],
+                    label="近期有较强的 AI 工具接触或试用倾向",
+                    confidence=0.42,
+                    evidence_level="weak_reference",
+                    supporting_signal_id=signal_id,
+                )
+
+        return {
+            key: self._finalize_structured_hints(value, limit=6)
+            for key, value in grouped.items()
+        }
+
+    def _build_lifestyle_consumption_signals(
+        self,
+        *,
+        event_revisions: Sequence[Dict[str, Any]],
+        reference_signals: Sequence[Dict[str, Any]],
+    ) -> Dict[str, List[Dict[str, Any]]]:
+        grouped: Dict[str, Dict[str, Dict[str, Any]]] = {
+            "living_pattern_hints": {},
+            "mobility_hints": {},
+            "diet_hints": {},
+            "consumption_hints": {},
+            "self_presentation_hints": {},
+            "digital_life_hints": {},
+        }
+        activity_counts: Dict[str, int] = defaultdict(int)
+        activity_event_ids: Dict[str, List[str]] = defaultdict(list)
+        place_type_counts: Dict[str, int] = defaultdict(int)
+        place_type_event_ids: Dict[str, List[str]] = defaultdict(list)
+
+        for event in event_revisions:
+            event_id = str(event.get("event_revision_id") or "")
+            activity_label = self._activity_label_for_event(event)
+            activity_counts[activity_label] += 1
+            if event_id:
+                activity_event_ids[activity_label].append(event_id)
+            place_refs = list(event.get("place_refs", []) or [])
+            normalized_place_refs = [self._normalized_place_ref_text(place_ref) for place_ref in place_refs]
+            if not normalized_place_refs:
+                place_type_counts["unknown"] += 1
+                if event_id:
+                    place_type_event_ids["unknown"].append(event_id)
+            for place_ref in normalized_place_refs:
+                if not place_ref:
+                    continue
+                place_type = self._place_type_for_ref(place_ref)
+                place_type_counts[place_type] += 1
+                if event_id:
+                    place_type_event_ids[place_type].append(event_id)
+
+        for activity_label, count in activity_counts.items():
+            supporting_ids = self._unique(activity_event_ids.get(activity_label, []))[:6]
+            if activity_label == "用餐/轻社交" and count >= 1:
+                self._accumulate_structured_hint(
+                    grouped["diet_hints"],
+                    label="用餐与轻社交场景反复出现",
+                    confidence=0.56 if count < 3 else 0.66,
+                    evidence_level="event_grounded",
+                    supporting_event_ids=supporting_ids,
+                )
+            if activity_label == "购物/展览" and count >= 1:
+                self._accumulate_structured_hint(
+                    grouped["consumption_hints"],
+                    label="线下购物、逛展或品牌接触场景持续出现",
+                    confidence=0.58 if count < 3 else 0.68,
+                    evidence_level="event_grounded",
+                    supporting_event_ids=supporting_ids,
+                )
+            if activity_label == "自拍/自我展示" and count >= 1:
+                self._accumulate_structured_hint(
+                    grouped["self_presentation_hints"],
+                    label="自拍与外在表达频率较高",
+                    confidence=0.6 if count < 3 else 0.72,
+                    evidence_level="event_grounded",
+                    supporting_event_ids=supporting_ids,
+                )
+            if activity_label == "出行/移动" and count >= 1:
+                self._accumulate_structured_hint(
+                    grouped["mobility_hints"],
+                    label="存在明显的跨地点出行或移动场景",
+                    confidence=0.6 if count < 3 else 0.7,
+                    evidence_level="event_grounded",
+                    supporting_event_ids=supporting_ids,
+                )
+            if activity_label == "宠物陪伴" and count >= 1:
+                self._accumulate_structured_hint(
+                    grouped["living_pattern_hints"],
+                    label="宠物陪伴场景反复出现",
+                    confidence=0.62 if count < 3 else 0.74,
+                    evidence_level="event_grounded",
+                    supporting_event_ids=supporting_ids,
+                )
+            if activity_label == "工作/学习" and count >= 1:
+                self._accumulate_structured_hint(
+                    grouped["living_pattern_hints"],
+                    label="学习或工作节律持续出现",
+                    confidence=0.58 if count < 3 else 0.68,
+                    evidence_level="event_grounded",
+                    supporting_event_ids=supporting_ids,
+                )
+
+        if int(place_type_counts.get("indoor_home_like") or 0) >= 2:
+            self._accumulate_structured_hint(
+                grouped["living_pattern_hints"],
+                label="室内/居家场景占比较高",
+                confidence=0.66,
+                evidence_level="event_grounded",
+                supporting_event_ids=self._unique(place_type_event_ids.get("indoor_home_like", []))[:6],
+            )
+        if int(place_type_counts.get("restaurant_cafe") or 0) >= 2:
+            self._accumulate_structured_hint(
+                grouped["diet_hints"],
+                label="餐饮与咖啡场景重复出现",
+                confidence=0.62,
+                evidence_level="event_grounded",
+                supporting_event_ids=self._unique(place_type_event_ids.get("restaurant_cafe", []))[:6],
+            )
+        if int(place_type_counts.get("work_or_study") or 0) >= 2:
+            self._accumulate_structured_hint(
+                grouped["living_pattern_hints"],
+                label="工作/学习场所出现频率较高",
+                confidence=0.64,
+                evidence_level="event_grounded",
+                supporting_event_ids=self._unique(place_type_event_ids.get("work_or_study", []))[:6],
+            )
+        if int(place_type_counts.get("travel_transit") or 0) >= 2:
+            self._accumulate_structured_hint(
+                grouped["mobility_hints"],
+                label="出行、交通或临时停留场景较多",
+                confidence=0.67,
+                evidence_level="event_grounded",
+                supporting_event_ids=self._unique(place_type_event_ids.get("travel_transit", []))[:6],
+            )
+
+        for signal in reference_signals:
+            signal_id = str(signal.get("signal_id") or "")
+            bucket = str(signal.get("profile_bucket") or "")
+            text = str(signal.get("evidence_text") or "").strip()
+            if not text:
+                continue
+            if bucket == "consumption_intent":
+                self._accumulate_structured_hint(
+                    grouped["consumption_hints"],
+                    label=text,
+                    confidence=0.42,
+                    evidence_level="weak_reference",
+                    supporting_signal_id=signal_id,
+                )
+            elif bucket == "aesthetic_preference":
+                self._accumulate_structured_hint(
+                    grouped["self_presentation_hints"],
+                    label=text,
+                    confidence=0.4,
+                    evidence_level="weak_reference",
+                    supporting_signal_id=signal_id,
+                )
+            elif bucket == "interest":
+                self._accumulate_structured_hint(
+                    grouped["digital_life_hints"],
+                    label=text,
+                    confidence=0.4,
+                    evidence_level="weak_reference",
+                    supporting_signal_id=signal_id,
+                )
+
+        return {
+            key: self._finalize_structured_hints(value, limit=6)
+            for key, value in grouped.items()
         }
 
     def _build_event_grounded_signals(
@@ -2802,6 +3688,91 @@ class V03213PipelineFamily:
             for key, value in grouped.items()
         }
 
+    def _build_event_persona_clues(
+        self,
+        *,
+        event_revisions: Sequence[Dict[str, Any]],
+        atomic_evidence: Sequence[Dict[str, Any]],
+    ) -> Dict[str, List[Dict[str, Any]]]:
+        grouped: Dict[str, Dict[str, Dict[str, Any]]] = {
+            "self_presentation_clues": {},
+            "caregiving_clues": {},
+            "routine_lifestyle_clues": {},
+            "mobility_clues": {},
+            "consumption_style_clues": {},
+            "aesthetic_expression_clues": {},
+        }
+        for event in event_revisions:
+            event_id = str(event.get("event_revision_id") or "")
+            text = self._event_text_blob(event)
+            activity_label = self._activity_label_for_event(event)
+            if activity_label == "自拍/自我展示":
+                self._accumulate_structured_hint(
+                    grouped["self_presentation_clues"],
+                    label="持续通过自拍和人物主体照片进行自我记录与表达",
+                    confidence=0.72,
+                    evidence_level="event_grounded",
+                    supporting_event_id=event_id,
+                )
+            if any(token in text for token in ("cat", "dog", "pet", "猫", "狗", "宠物", "照顾", "陪伴", "喂食", "治疗", "复诊")):
+                self._accumulate_structured_hint(
+                    grouped["caregiving_clues"],
+                    label="存在持续照料、陪伴或照护式行为",
+                    confidence=0.68,
+                    evidence_level="event_grounded",
+                    supporting_event_id=event_id,
+                )
+            if any(token in text for token in ("meal", "coffee", "用餐", "吃饭", "咖啡", "home", "室内", "study", "work", "学习", "工作")):
+                self._accumulate_structured_hint(
+                    grouped["routine_lifestyle_clues"],
+                    label="日常生活节律具有重复性，围绕室内、用餐、学习或工作展开",
+                    confidence=0.64,
+                    evidence_level="event_grounded",
+                    supporting_event_id=event_id,
+                )
+            if any(token in text for token in ("trip", "travel", "station", "airport", "hotel", "候车", "车站", "出行", "酒店", "行程")):
+                self._accumulate_structured_hint(
+                    grouped["mobility_clues"],
+                    label="跨地点移动与出行场景较明显",
+                    confidence=0.67,
+                    evidence_level="event_grounded",
+                    supporting_event_id=event_id,
+                )
+            if any(token in text for token in ("shopping", "mall", "museum", "exhibition", "商场", "购物", "展览", "jewelry", "brand")):
+                self._accumulate_structured_hint(
+                    grouped["consumption_style_clues"],
+                    label="在线下消费、逛展或品牌接触场景中有持续出现",
+                    confidence=0.63,
+                    evidence_level="event_grounded",
+                    supporting_event_id=event_id,
+                )
+            if any(token in text for token in ("cute", "hello kitty", "娃娃", "可爱", "口罩", "穿搭", "style", "fashion", "风格", "审美")):
+                self._accumulate_structured_hint(
+                    grouped["aesthetic_expression_clues"],
+                    label="在线下事件中持续呈现风格化、可爱感或强表达欲的视觉线索",
+                    confidence=0.66,
+                    evidence_level="event_grounded",
+                    supporting_event_id=event_id,
+                )
+
+        for evidence in atomic_evidence:
+            evidence_type = str(evidence.get("evidence_type") or "")
+            text = str(evidence.get("value_or_text") or "").lower()
+            event_id = str(evidence.get("root_event_revision_id") or "")
+            if evidence_type == "profile_signal" and any(token in text for token in ("style", "fashion", "审美", "风格")):
+                self._accumulate_structured_hint(
+                    grouped["aesthetic_expression_clues"],
+                    label=str(evidence.get("value_or_text") or "").strip(),
+                    confidence=0.58,
+                    evidence_level="event_grounded",
+                    supporting_event_id=event_id,
+                )
+
+        return {
+            key: self._finalize_structured_hints(value, limit=6)
+            for key, value in grouped.items()
+        }
+
     def _build_reference_media_weak_signals(
         self,
         reference_signals: Sequence[Dict[str, Any]],
@@ -2845,6 +3816,67 @@ class V03213PipelineFamily:
             ]
             for key, value in grouped.items()
         }
+
+    def _accumulate_structured_hint(
+        self,
+        target_group: Dict[str, Dict[str, Any]],
+        *,
+        label: str,
+        confidence: float,
+        evidence_level: str,
+        supporting_event_id: Optional[str] = None,
+        supporting_signal_id: Optional[str] = None,
+        supporting_event_ids: Optional[Sequence[str]] = None,
+        supporting_signal_ids: Optional[Sequence[str]] = None,
+    ) -> None:
+        cleaned_label = re.sub(r"\s+", " ", str(label or "")).strip(" ,.;:：；，。")
+        if not cleaned_label:
+            return
+        payload = target_group.setdefault(
+            cleaned_label,
+            {
+                "count": 0,
+                "confidence": 0.0,
+                "supporting_event_ids": [],
+                "supporting_signal_ids": [],
+                "evidence_levels": [],
+            },
+        )
+        payload["count"] += 1
+        payload["confidence"] = max(float(payload.get("confidence") or 0.0), float(confidence or 0.0))
+        payload["evidence_levels"].append(evidence_level)
+        if supporting_event_id:
+            payload["supporting_event_ids"].append(str(supporting_event_id))
+        if supporting_signal_id:
+            payload["supporting_signal_ids"].append(str(supporting_signal_id))
+        for item in list(supporting_event_ids or []):
+            if item:
+                payload["supporting_event_ids"].append(str(item))
+        for item in list(supporting_signal_ids or []):
+            if item:
+                payload["supporting_signal_ids"].append(str(item))
+
+    def _finalize_structured_hints(
+        self,
+        grouped: Dict[str, Dict[str, Any]],
+        *,
+        limit: int,
+    ) -> List[Dict[str, Any]]:
+        items: List[Dict[str, Any]] = []
+        for label, payload in sorted(grouped.items(), key=lambda item: (-int(item[1].get("count") or 0), -float(item[1].get("confidence") or 0.0), item[0]))[:limit]:
+            evidence_levels = self._unique(payload.get("evidence_levels", []))
+            evidence_level = "mixed" if len(evidence_levels) > 1 else (evidence_levels[0] if evidence_levels else "event_grounded")
+            items.append(
+                {
+                    "label": label,
+                    "count": int(payload.get("count") or 0),
+                    "confidence": round(float(payload.get("confidence") or 0.0), 2),
+                    "evidence_level": evidence_level,
+                    "supporting_event_ids": self._unique(payload.get("supporting_event_ids", []))[:8],
+                    "supporting_signal_ids": self._unique(payload.get("supporting_signal_ids", []))[:8],
+                }
+            )
+        return items
 
     def _select_key_event_refs(self, event_revisions: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
         scored: List[Tuple[float, Dict[str, Any], str]] = []
@@ -2891,46 +3923,62 @@ class V03213PipelineFamily:
         }
 
     def _build_social_patterns(self, relationship_revisions: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
-        close_relationship_count = 0
-        co_presence_only_count = 0
-        one_on_one_score = 0.0
+        high_intimacy_count = 0
+        high_exclusivity_count = 0
+        high_familyness_count = 0
+        high_schoolness_count = 0
+        high_workness_count = 0
+        high_groupness_count = 0
+        intimacy_score = 0.0
+        exclusivity_score = 0.0
         group_score = 0.0
+        continuity_score = 0.0
         top_relationships = []
         for relationship in sorted(
             relationship_revisions,
             key=lambda item: (
-                -float(item.get("confidence") or 0.0),
+                -float(item.get("semantic_confidence") or item.get("confidence") or 0.0),
+                -float((item.get("relation_axes") or {}).get("intimacy") or 0.0),
+                -float((item.get("relation_axes") or {}).get("continuity") or 0.0),
                 -int(item.get("live_support_count") or 0),
                 str(item.get("target_person_id") or ""),
             ),
         ):
-            relationship_type = str(relationship.get("relationship_type") or "")
-            if relationship_type in {"friend", "close_friend", "family"}:
-                close_relationship_count += 1
-            if relationship_type == "co_presence_only":
-                co_presence_only_count += 1
+            relation_axes = dict(relationship.get("relation_axes") or {})
+            if float(relation_axes.get("intimacy") or 0.0) >= 0.65:
+                high_intimacy_count += 1
+            if float(relation_axes.get("exclusivity") or 0.0) >= 0.6:
+                high_exclusivity_count += 1
+            if float(relation_axes.get("familyness") or 0.0) >= 0.6:
+                high_familyness_count += 1
+            if float(relation_axes.get("schoolness") or 0.0) >= 0.6:
+                high_schoolness_count += 1
+            if float(relation_axes.get("workness") or 0.0) >= 0.6:
+                high_workness_count += 1
+            if float(relation_axes.get("groupness") or 0.0) >= 0.6:
+                high_groupness_count += 1
             live_support_count = int(relationship.get("live_support_count") or 0)
             embedded_support_count = int(relationship.get("embedded_support_count") or 0)
-            if live_support_count >= 2:
-                one_on_one_score += live_support_count
-            else:
-                group_score += max(1, live_support_count + embedded_support_count)
+            intimacy_score += float(relation_axes.get("intimacy") or 0.0)
+            exclusivity_score += float(relation_axes.get("exclusivity") or 0.0)
+            continuity_score += float(relation_axes.get("continuity") or 0.0)
+            group_score += float(relation_axes.get("groupness") or 0.0)
             top_relationships.append(
                 {
                     "relationship_revision_id": relationship.get("relationship_revision_id"),
                     "target_person_id": relationship.get("target_person_id"),
-                    "relationship_type": relationship_type,
-                    "label": relationship.get("label"),
-                    "confidence": relationship.get("confidence"),
+                    "relationship_type": relationship.get("relationship_type"),
+                    "semantic_relation": relationship.get("semantic_relation") or relationship.get("label"),
+                    "semantic_confidence": relationship.get("semantic_confidence") or relationship.get("confidence"),
+                    "semantic_reason_summary": relationship.get("semantic_reason_summary") or relationship.get("reason_summary"),
+                    "relation_axes": relation_axes,
                     "live_support_count": live_support_count,
                     "embedded_support_count": embedded_support_count,
                     "status": relationship.get("status"),
                     "supporting_event_ids": list(relationship.get("supporting_event_ids", []) or [])[:6],
                 }
             )
-        total_bias = one_on_one_score + group_score
-        one_on_one_bias = round(one_on_one_score / total_bias, 4) if total_bias else 0.0
-        group_bias = round(group_score / total_bias, 4) if total_bias else 0.0
+        total_relationships = max(1, len(relationship_revisions))
         active_count = sum(1 for item in relationship_revisions if str(item.get("status") or "") == "active")
         stability = "low"
         if active_count >= 3:
@@ -2940,16 +3988,57 @@ class V03213PipelineFamily:
         return {
             "top_relationships": top_relationships[:8],
             "relationship_summary": {
-                "close_relationship_count": close_relationship_count,
-                "co_presence_only_count": co_presence_only_count,
+                "high_intimacy_count": high_intimacy_count,
+                "high_exclusivity_count": high_exclusivity_count,
+                "high_familyness_count": high_familyness_count,
+                "high_schoolness_count": high_schoolness_count,
+                "high_workness_count": high_workness_count,
+                "high_groupness_count": high_groupness_count,
                 "active_relationship_count": active_count,
             },
             "social_style_hints": {
-                "one_on_one_bias": one_on_one_bias,
-                "group_bias": group_bias,
+                "one_on_one_bias": round(exclusivity_score / total_relationships, 4),
+                "group_bias": round(group_score / total_relationships, 4),
+                "average_intimacy": round(intimacy_score / total_relationships, 4),
+                "average_continuity": round(continuity_score / total_relationships, 4),
                 "relationship_stability": stability,
             },
         }
+
+    def _build_social_clues(self, relationship_revisions: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        clues: List[Dict[str, Any]] = []
+        ranked = sorted(
+            relationship_revisions,
+            key=lambda item: (
+                -float(item.get("semantic_confidence") or item.get("confidence") or 0.0),
+                -float((item.get("relation_axes") or {}).get("intimacy") or 0.0),
+                -float((item.get("relation_axes") or {}).get("continuity") or 0.0),
+            ),
+        )
+        for relationship in ranked[:3]:
+            relation_axes = dict(relationship.get("relation_axes") or {})
+            implication = "这段关系对人物画像中的社交结构判断很关键。"
+            if float(relation_axes.get("intimacy") or 0.0) >= 0.72 and float(relation_axes.get("exclusivity") or 0.0) >= 0.62:
+                implication = "这段关系直接影响情感状态与亲密关系判断。"
+            elif float(relation_axes.get("familyness") or 0.0) >= 0.65:
+                implication = "这段关系更像家庭支持结构，对生活阶段判断很关键。"
+            elif float(relation_axes.get("schoolness") or 0.0) >= 0.65:
+                implication = "这段关系对学校/学习阶段判断很关键。"
+            elif float(relation_axes.get("workness") or 0.0) >= 0.65:
+                implication = "这段关系对工作环境与职业阶段判断很关键。"
+            clues.append(
+                {
+                    "relationship_revision_id": relationship.get("relationship_revision_id"),
+                    "target_person_id": relationship.get("target_person_id"),
+                    "semantic_relation": relationship.get("semantic_relation") or relationship.get("label"),
+                    "semantic_confidence": relationship.get("semantic_confidence") or relationship.get("confidence"),
+                    "relation_axes": relation_axes,
+                    "why_important": relationship.get("semantic_reason_summary") or relationship.get("reason_summary"),
+                    "profile_implication": implication,
+                    "supporting_event_ids": list(relationship.get("supporting_event_ids", []) or [])[:6],
+                }
+            )
+        return clues
 
     def _build_change_points(
         self,
@@ -2973,14 +4062,18 @@ class V03213PipelineFamily:
             )
         for relationship in sorted(
             relationship_revisions,
-            key=lambda item: (-int(item.get("live_support_count") or 0), -float(item.get("confidence") or 0.0)),
+            key=lambda item: (
+                -float((item.get("relation_axes") or {}).get("continuity") or 0.0),
+                -float(item.get("semantic_confidence") or item.get("confidence") or 0.0),
+                -int(item.get("live_support_count") or 0),
+            ),
         ):
-            if int(relationship.get("live_support_count") or 0) < 2:
+            if float((relationship.get("relation_axes") or {}).get("continuity") or 0.0) < 0.32:
                 continue
             change_points.append(
                 {
                     "change_type": "new_person_prominence",
-                    "description": f"{relationship.get('target_person_id')} 在当前关系网络中开始变得更显著",
+                    "description": f"{relationship.get('target_person_id')} 开始成为更显著的关系对象：{relationship.get('semantic_relation') or relationship.get('label')}",
                     "supporting_relationship_ids": [relationship.get("relationship_revision_id")],
                     "supporting_event_ids": list(relationship.get("supporting_event_ids", []) or [])[:4],
                 }
@@ -2992,7 +4085,8 @@ class V03213PipelineFamily:
         scored = sorted(
             relationship_revisions,
             key=lambda item: (
-                -float(item.get("confidence") or 0.0),
+                -float(item.get("semantic_confidence") or item.get("confidence") or 0.0),
+                -float((item.get("relation_axes") or {}).get("intimacy") or 0.0),
                 -int(item.get("live_support_count") or 0),
                 str(item.get("target_person_id") or ""),
             ),
@@ -3001,7 +4095,9 @@ class V03213PipelineFamily:
             {
                 "relationship_revision_id": item.get("relationship_revision_id"),
                 "target_person_id": item.get("target_person_id"),
-                "why_selected": "最高置信且支持事件较多的关系样本",
+                "semantic_relation": item.get("semantic_relation") or item.get("label"),
+                "relation_axes": dict(item.get("relation_axes") or {}),
+                "why_selected": "当前最强或最有代表性的关系样本",
                 "supporting_event_ids": list(item.get("supporting_event_ids", []) or [])[:6],
             }
             for item in scored[:8]
@@ -3012,6 +4108,9 @@ class V03213PipelineFamily:
             return {}
         activity_patterns = dict(profile_input_pack.get("activity_patterns") or {})
         social_patterns = dict(profile_input_pack.get("social_patterns") or {})
+        identity_signals = dict(profile_input_pack.get("identity_signals") or {})
+        lifestyle_signals = dict(profile_input_pack.get("lifestyle_consumption_signals") or {})
+        event_persona_clues = dict(profile_input_pack.get("event_persona_clues") or {})
         return {
             "scope": profile_input_pack.get("scope"),
             "key_event_ref_count": len(list(profile_input_pack.get("key_event_refs", []) or [])),
@@ -3020,10 +4119,13 @@ class V03213PipelineFamily:
             "top_relationships": [
                 {
                     "target_person_id": item.get("target_person_id"),
-                    "relationship_type": item.get("relationship_type"),
+                    "semantic_relation": item.get("semantic_relation") or item.get("relationship_type"),
                 }
                 for item in list(social_patterns.get("top_relationships", []) or [])[:3]
             ],
+            "identity_hint_count": sum(len(list(value or [])) for value in identity_signals.values()),
+            "lifestyle_hint_count": sum(len(list(value or [])) for value in lifestyle_signals.values()),
+            "event_persona_clue_count": sum(len(list(value or [])) for value in event_persona_clues.values()),
             "weak_signal_count": sum(len(list(value or [])) for value in dict(profile_input_pack.get("reference_media_weak_signals") or {}).values()),
         }
 
@@ -3174,6 +4276,10 @@ class V03213PipelineFamily:
         social_patterns = dict(profile_input_pack.get("social_patterns") or {})
         top_relationships = list(social_patterns.get("top_relationships", []) or [])
         event_grounded_signals = dict(profile_input_pack.get("event_grounded_signals") or {})
+        identity_signals = dict(profile_input_pack.get("identity_signals") or {})
+        lifestyle_signals = dict(profile_input_pack.get("lifestyle_consumption_signals") or {})
+        event_persona_clues = dict(profile_input_pack.get("event_persona_clues") or {})
+        social_clues = list(profile_input_pack.get("social_clues", []) or [])
         person_centered_event_count = 0
         primary_person_event_count = 0
         for event in event_revisions:
@@ -3188,7 +4294,16 @@ class V03213PipelineFamily:
             len(list(value or []))
             for value in dict(profile_input_pack.get("reference_media_weak_signals") or {}).values()
         )
-        relationship_ready = bool(top_relationships) and len(relationship_revisions) > 0
+        identity_signal_count = sum(len(list(value or [])) for value in identity_signals.values())
+        lifestyle_signal_count = sum(len(list(value or [])) for value in lifestyle_signals.values())
+        persona_clue_count = sum(len(list(value or [])) for value in event_persona_clues.values())
+        strongest_relationship = top_relationships[0] if top_relationships else {}
+        strongest_relationship_confidence = float(
+            strongest_relationship.get("semantic_confidence")
+            or strongest_relationship.get("confidence")
+            or 0.0
+        )
+        relationship_ready = bool(top_relationships) and len(relationship_revisions) > 0 and strongest_relationship_confidence >= 0.5
         identity_ready = bool(primary_person_id) and (primary_person_event_count >= 2 or person_centered_event_count >= 4)
         if identity_ready and relationship_ready:
             profile_mode = "subject_profile"
@@ -3206,7 +4321,13 @@ class V03213PipelineFamily:
             "relationship_count": len(relationship_revisions),
             "top_relationship_count": len(top_relationships),
             "event_grounded_signal_count": event_grounded_signal_count,
+            "identity_signal_count": identity_signal_count,
+            "lifestyle_signal_count": lifestyle_signal_count,
+            "persona_clue_count": persona_clue_count,
             "weak_signal_count": weak_signal_count,
+            "strongest_relationship_confidence": strongest_relationship_confidence,
+            "strongest_relationship_semantic": strongest_relationship.get("semantic_relation") or "",
+            "social_clue_count": len(social_clues),
         }
 
     def _build_profile_llm_prompt(
@@ -3261,37 +4382,35 @@ class V03213PipelineFamily:
             "# Task\n"
             f"请基于提供的结构化人物档案、关键事件样本和关键关系样本，生成《用户全维画像分析报告》。当前任务目标是：{scope_label}。\n\n"
             "# Special Rules\n"
-            "1. 只能把 PROFILE_INPUT_PACK 当作主输入，不要回头假设还有未提供的全量事件。\n"
-            "2. 没有 supporting_event_ids 或 supporting_relationship_ids 的强结论禁止出现。\n"
-            "3. reference_media_weak_signals 只能进入“补充观察/弱线索”，不能直接当成真实经历、真实关系、真实职业或真实消费能力。\n"
-            "4. MBTI、伴侣判断、职业判断、阶层判断、心理状态判断如果证据不够，必须显式写“待进一步观察”或“证据不足”。\n"
-            "5. 如果 PROFILE_EVIDENCE_STATUS.profile_mode == \"album_observation\"，说明当前没有足够证据锁定单一主角。此时必须把结果写成“相册观察摘要”：\n"
-            "   - 1.2、1.3、1.6、2.1、2.2、3.1 必须优先写“待进一步观察”或“证据不足”。\n"
-            "   - 不得使用“她/他就是…”、“这是一个…的人”这类强人物定性句式。\n"
-            "   - 只能总结时间、地点、活动、重复线索与可观察到的模式。\n"
-            "6. 如果 PROFILE_EVIDENCE_STATUS.profile_mode == \"subject_profile_limited_social\"，可以写基础画像，但社交关系图谱必须先说明“关系证据不足，以下仅为弱观察”。\n"
-            "7. 当 primary_person_id 缺失、top_relationship_count == 0、或 person_centered_event_count 很低时，禁止输出 MBTI、具体职业、阶层、伴侣判断、心理状态判断。\n"
-            "8. 输出必须使用中文 Markdown，并尽量遵守以下结构：推理草稿箱、基础画像、社交关系图谱、深度人格分析。\n\n"
-            "Output Format (尽量遵守)\n"
-            "推理草稿箱 (Reasoning Scratchpad)\n"
+            "1. 只能把 PROFILE_INPUT_PACK 当作主输入，不要假设还有未提供的隐藏上下文。\n"
+            "2. 整份报告必须分成两层：第一层写强结论；第二层写高概率推断。强结论只能写有稳定事件/关系支撑的内容，高概率推断必须明确标注“高概率/疑似/待进一步观察”。\n"
+            "3. 没有 supporting_event_ids 或 supporting_relationship_ids 的强结论禁止出现。\n"
+            "4. 优先使用 identity_signals、event_persona_clues、social_clues、lifestyle_consumption_signals 来写人物画像，不要只复述 activity 统计。\n"
+            "5. reference_media_weak_signals 只能进入“补充观察/弱线索”，不能直接写成真实经历、真实关系、真实职业、真实消费能力。\n"
+            "6. 如果 PROFILE_EVIDENCE_STATUS.profile_mode == \"album_observation\"，只能写相册观察摘要，禁止输出 MBTI、伴侣、职业、阶层等强人物结论。\n"
+            "7. 如果 PROFILE_EVIDENCE_STATUS.profile_mode == \"subject_profile_limited_social\"，可以写人物画像，但社交部分必须先说明“社交证据仍有限”。\n"
+            "8. 如果 identity_signals.age_range_hints 非空，可以写保守年龄段；如果多条独立弱信号共同指向同一年龄段，也允许在“高概率推断”里写更明确年龄范围。\n"
+            "9. 如果最强关系的 semantic_relation 或 relation_axes 已明显指向亲密关系，禁止再写“可能单身”。如果证据已足够强，应直接写“伴侣/情侣关系”；只有证据还差一点时，才写“高概率伴侣”或“疑似恋爱关系”。\n"
+            "10. 如果最强关系明显像家庭支持关系、学校同辈关系、工作中的稳定关系，要把它写进身份阶段与社交结构，不要略过。\n"
+            "11. MBTI、阶层、心理状态可以写，但只能放在“高概率推断”，证据不足时必须降级。\n"
+            "12. 输出使用中文 Markdown，结构固定为：推理草稿箱、强结论、高概率推断、社交关系图谱、综合画像摘要。\n\n"
+            "Output Format\n"
+            "推理草稿箱\n"
             "1. 时空锚点确认\n"
-            "2. 社交实体挖掘\n"
-            "3. 职业逻辑修正\n\n"
-            "1. 基础画像\n"
-            "1.1 姓名/称呼推测\n"
-            "1.2 估算年龄/生命周期\n"
-            "1.3 核心身份/阶层\n"
-            "1.4 常驻地/通勤模式\n"
-            "1.5 兴趣爱好\n"
-            "1.6 是否单身/伴侣是谁\n\n"
-            "2. 社交关系图谱\n"
-            "2.1 重要关系识别表\n"
-            "2.2 社交性格总结\n\n"
-            "3. 深度人格分析\n"
-            "3.1 性格特征与 MBTI\n"
-            "3.2 价值观与底层驱动力\n"
-            "3.3 审美偏好和对外展示\n"
-            "3.4 底层人格侧写\n\n"
+            "2. 最重要关系对象\n"
+            "3. 身份阶段判断依据\n\n"
+            "一、强结论\n"
+            "1. 时间与空间分布\n"
+            "2. 明显生活方式与行为模式\n"
+            "3. 最重要关系对象\n"
+            "4. 明显的学习/工作方向\n\n"
+            "二、高概率推断\n"
+            "1. 年龄与生命周期\n"
+            "2. 身份阶段与职业走向\n"
+            "3. 情感状态与关键关系判断\n"
+            "4. 性格、价值观、MBTI 的高概率判断\n\n"
+            "三、社交关系图谱\n"
+            "四、综合画像摘要\n\n"
             f"PRIMARY_PERSON_ID={json.dumps(primary_person_id, ensure_ascii=False)}\n"
             f"PROFILE_EVIDENCE_STATUS={json.dumps(evidence_status, ensure_ascii=False)}\n"
             f"PROFILE_INPUT_PACK={json.dumps(profile_input_pack, ensure_ascii=False)}\n"
@@ -3309,7 +4428,7 @@ class V03213PipelineFamily:
         return "late_night"
 
     def _place_type_for_ref(self, place_ref: str) -> str:
-        normalized = str(place_ref or "").lower()
+        normalized = self._normalized_place_ref_text(place_ref).lower()
         if any(token in normalized for token in ("home", "居家", "卧室", "客厅", "室内")):
             return "indoor_home_like"
         if any(token in normalized for token in ("cafe", "coffee", "restaurant", "餐", "咖啡", "食堂")):
@@ -3333,11 +4452,82 @@ class V03213PipelineFamily:
             for part in [
                 event.get("title"),
                 event.get("event_summary"),
-                " ".join(str(place) for place in list(event.get("place_refs", []) or [])),
+                " ".join(self._normalized_place_ref_text(place) for place in list(event.get("place_refs", []) or [])),
                 " ".join(evidence_values),
             ]
             if part
         )
+
+    def _normalized_place_ref_text(self, place_ref: Any) -> str:
+        if isinstance(place_ref, dict):
+            for key in ("name", "label", "value", "text"):
+                value = str(place_ref.get(key) or "").strip()
+                if value:
+                    return value
+            return ""
+        raw = str(place_ref or "").strip()
+        if not raw:
+            return ""
+        if raw.startswith("{") and raw.endswith("}"):
+            try:
+                parsed = ast.literal_eval(raw)
+            except Exception:
+                parsed = None
+            if isinstance(parsed, dict):
+                for key in ("name", "label", "value", "text"):
+                    value = str(parsed.get(key) or "").strip()
+                    if value:
+                        return value
+        return raw
+
+    def _extract_name_hints(self, text: str) -> List[str]:
+        normalized = str(text or "")
+        hints: List[str] = []
+        patterns = [
+            r"姓名[:：\s]*([\u4e00-\u9fa5·]{2,4})",
+            r"name[:：\s]*([A-Za-z][A-Za-z\s]{1,30})",
+        ]
+        for pattern in patterns:
+            for match in re.findall(pattern, normalized, flags=re.IGNORECASE):
+                candidate = re.sub(r"\s+", " ", str(match)).strip(" ,.;:：；，。")
+                if not candidate:
+                    continue
+                if len(candidate) < 2:
+                    continue
+                hints.append(candidate)
+        return self._unique(hints)
+
+    def _text_has_student_signal(self, text: str) -> bool:
+        normalized = str(text or "").lower()
+        tokens = (
+            "学生证", "学号", "校园", "学校", "大学", "学院", "课程", "考试", "作业", "实验", "军训",
+            "student id", "campus", "school", "college", "university", "class", "course",
+        )
+        return any(token in normalized for token in tokens)
+
+    def _text_has_early_career_signal(self, text: str) -> bool:
+        normalized = str(text or "").lower()
+        tokens = ("实习", "试岗", "面试", "招聘", "兼职", "入职", "转正", "intern", "interview", "job", "recruit")
+        return any(token in normalized for token in tokens)
+
+    def _career_direction_hints_from_text(self, text: str) -> List[Tuple[str, float]]:
+        normalized = str(text or "").lower()
+        hints: List[Tuple[str, float]] = []
+        if any(token in normalized for token in ("plc", "cpu1211c", "接线", "电气", "自动化", "控制柜", "vac", "rly")):
+            hints.append(("自动化/电气控制方向", 0.76))
+        if any(token in normalized for token in ("cad", "ps", "photoshop", "illustrator", "设计", "图纸", "制图", "展陈", "视觉")):
+            hints.append(("设计/视觉软件方向", 0.7))
+        if any(token in normalized for token in ("茶饮", "奶茶", "咖啡", "cup sleeve", "straw", "取餐")):
+            hints.append(("餐饮服务或门店运营接触较多", 0.5))
+        return hints
+
+    def _explicit_gender_presentation_hint(self, text: str) -> Optional[str]:
+        normalized = str(text or "").lower()
+        if any(token in normalized for token in ("女性", "女生", "女孩", "female", "woman")):
+            return "存在偏女性化外在呈现的直接文本线索"
+        if any(token in normalized for token in ("男性", "男生", "男孩", "male", "man")):
+            return "存在偏男性化外在呈现的直接文本线索"
+        return None
 
     def _activity_label_for_event(self, event: Dict[str, Any]) -> str:
         text = self._event_text_blob(event)
@@ -3430,12 +4620,14 @@ class V03213PipelineFamily:
             "relationship_revision_id": relationship.get("relationship_revision_id"),
             "target_person_id": relationship.get("target_person_id"),
             "relationship_type": relationship.get("relationship_type"),
-            "label": relationship.get("label"),
-            "confidence": relationship.get("confidence"),
+            "semantic_relation": relationship.get("semantic_relation") or relationship.get("label"),
+            "semantic_confidence": relationship.get("semantic_confidence") or relationship.get("confidence"),
+            "semantic_reason_summary": relationship.get("semantic_reason_summary") or relationship.get("reason_summary"),
+            "relation_axes": dict(relationship.get("relation_axes") or {}),
             "live_support_count": relationship.get("live_support_count"),
             "embedded_support_count": relationship.get("embedded_support_count"),
             "supporting_event_ids": list(relationship.get("supporting_event_ids", []) or []),
-            "reason_summary": relationship.get("reason_summary"),
+            "reason_summary": relationship.get("semantic_reason_summary") or relationship.get("reason_summary"),
         }
 
     def _summarize_profile_values(self, values: Sequence[str]) -> str:
@@ -3466,6 +4658,8 @@ class V03213PipelineFamily:
         relationship_ledgers: Sequence[Dict[str, Any]],
         profile_revision: Dict[str, Any],
         reference_signals: Sequence[Dict[str, Any]],
+        memory_units_v2: Sequence[Dict[str, Any]],
+        memory_evidence_v2: Sequence[Dict[str, Any]],
     ) -> Dict[str, Any]:
         person_ids = self._unique(item["person_id"] for item in person_appearances)
         persons = []
@@ -3699,7 +4893,10 @@ class V03213PipelineFamily:
                 "nodes": neo4j_nodes,
                 "edges": edges,
             },
-            "milvus": {},
+            "milvus": {
+                "memory_units_v2": list(memory_units_v2),
+                "memory_evidence_v2": list(memory_evidence_v2),
+            },
         }
 
     def _face_anchors(self, photo: Any) -> List[Dict[str, Any]]:

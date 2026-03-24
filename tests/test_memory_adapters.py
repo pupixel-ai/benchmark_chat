@@ -77,7 +77,73 @@ class MemoryAdapterTests(unittest.TestCase):
 
             self.assertEqual(report["status"], "published")
             self.assertEqual(report["mode"], "local-db")
-            self.assertEqual(report["segment_count"], 1)
+            self.assertEqual(report["record_count"], 1)
+            self.assertEqual(report["collections"][0]["collection"], "memory_segments_test")
+            self.assertTrue(db_path.exists())
+
+    def test_milvus_adapter_publishes_units_and_evidence_to_dual_collections(self) -> None:
+        try:
+            import milvus_lite  # noqa: F401
+        except Exception:
+            self.skipTest("milvus-lite is not installed")
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            adapter = MilvusStorageAdapter(user_id="user_alpha")
+            db_path = Path(tmpdir) / "memory_dual.db"
+            payload = {
+                "memory_units_v2": [
+                    {
+                        "unit_id": "unit-1",
+                        "pipeline_family": "v0321_3",
+                        "source_type": "event_revision",
+                        "event_root_id": "event-root-1",
+                        "event_revision_id": "event-rev-1",
+                        "title": "Concert Night",
+                        "summary": "Live concert with friends",
+                        "retrieval_text": "Concert Night\nLive concert with friends",
+                        "started_at": "2026-03-20T20:00:00",
+                        "ended_at": "2026-03-20T22:00:00",
+                        "original_photo_ids": ["orig-1"],
+                        "participant_person_ids": ["Person_001"],
+                        "place_refs": ["Shanghai"],
+                        "evidence_ids": ["ev-1"],
+                        "confidence": 0.88,
+                    }
+                ],
+                "memory_evidence_v2": [
+                    {
+                        "evidence_id": "ev-1",
+                        "pipeline_family": "v0321_3",
+                        "source_type": "atomic_evidence",
+                        "parent_unit_id": "event-rev-1",
+                        "event_root_id": "event-root-1",
+                        "event_revision_id": "event-rev-1",
+                        "event_title": "Concert Night",
+                        "evidence_type": "brand",
+                        "value_or_text": "MOET",
+                        "provenance": "brand",
+                        "retrieval_text": "brand: MOET",
+                        "original_photo_ids": ["orig-1"],
+                        "participant_person_ids": ["Person_001"],
+                        "place_refs": ["Shanghai"],
+                        "confidence": 0.77,
+                    }
+                ],
+            }
+
+            with (
+                patch("memory_module.adapters.MEMORY_MILVUS_URI", str(db_path)),
+                patch("memory_module.adapters.MEMORY_MILVUS_UNITS_COLLECTION", "memory_units_v2_test"),
+                patch("memory_module.adapters.MEMORY_MILVUS_EVIDENCE_COLLECTION", "memory_evidence_v2_test"),
+                patch("memory_module.adapters.MEMORY_MILVUS_VECTOR_DIM", 8),
+            ):
+                report = adapter.publish(payload)
+
+            self.assertEqual(report["status"], "published")
+            self.assertEqual(report["record_count"], 2)
+            self.assertEqual(len(report["collections"]), 2)
+            collection_names = {item["collection"] for item in report["collections"]}
+            self.assertEqual(collection_names, {"memory_units_v2_test", "memory_evidence_v2_test"})
             self.assertTrue(db_path.exists())
 
     def test_neo4j_adapter_flattens_nested_properties(self) -> None:

@@ -265,6 +265,95 @@ class FakeFaceRecognition:
         }
 
 
+class FakeNoPrimaryFaceRecognition(FakeFaceRecognition):
+    def __init__(self, **kwargs):
+        self.output_path = kwargs["output_path"]
+        self._images = []
+        self._persons = {
+            "Person_001": Person(person_id="Person_001", name="Person 1", photo_count=1),
+            "Person_002": Person(person_id="Person_002", name="Person 2", photo_count=1),
+        }
+        self.primary_person_id = None
+        self.state = {"primary_person_id": None}
+
+    def process_photo(self, photo: Photo):
+        person_id = "Person_002" if "student" in photo.filename.lower() else "Person_001"
+        faces = [
+            {
+                "face_id": f"face-{photo.photo_id}-1",
+                "person_id": person_id,
+                "score": 0.99,
+                "similarity": 0.88,
+                "faiss_id": 1 if person_id == "Person_001" else 2,
+                "bbox": [10, 20, 60, 70],
+                "bbox_xywh": {"x": 10, "y": 20, "w": 50, "h": 50},
+                "quality_score": 0.92,
+                "quality_flags": ["clear_face"],
+                "match_decision": "strong_match",
+                "match_reason": "stub",
+                "pose_yaw": 0.0,
+                "pose_pitch": 0.0,
+                "pose_roll": 0.0,
+                "pose_bucket": "frontal",
+                "eye_visibility_ratio": 1.0,
+                "landmark_detected": True,
+                "landmark_source": "stub",
+            }
+        ]
+        photo.faces = faces
+        self._images.append(
+            {
+                "image_hash": f"img-{photo.photo_id}",
+                "photo_id": photo.photo_id,
+                "filename": photo.filename,
+                "path": photo.path,
+                "source_hash": photo.source_hash,
+                "timestamp": photo.timestamp.isoformat(),
+                "location": photo.location,
+                "width": 100,
+                "height": 100,
+                "faces": faces,
+                "detection_seconds": 0.1,
+                "embedding_seconds": 0.05,
+            }
+        )
+        return faces
+
+    def reorder_protagonist(self, photos):
+        self.primary_person_id = None
+        self.state["primary_person_id"] = None
+        return {"cluster_merges": []}
+
+    def get_primary_person_id(self):
+        return self.primary_person_id
+
+    def save(self):
+        return None
+
+    def get_face_output(self):
+        return {
+            "primary_person_id": self.primary_person_id,
+            "metrics": {
+                "total_images": len(self._images),
+                "total_faces": sum(len(image["faces"]) for image in self._images),
+                "total_persons": len(self._persons),
+            },
+            "images": list(self._images),
+            "persons": [
+                {
+                    "person_id": person.person_id,
+                    "photo_count": person.photo_count,
+                    "face_count": person.photo_count,
+                    "avg_score": 0.98,
+                    "avg_quality": 0.9,
+                    "high_quality_face_count": person.photo_count,
+                }
+                for person in self._persons.values()
+            ],
+            "engine": {"model_name": "stub", "providers": ["stub"]},
+        }
+
+
 class FakeVLMAnalyzer:
     def __init__(self, cache_path: str, task_version: str = ""):
         self.cache_path = cache_path
@@ -353,6 +442,22 @@ class FakeV03213VLMAnalyzer(FakeV03212VLMAnalyzer):
     pass
 
 
+class FakeIdentityDocumentVLMAnalyzer(FakeV03213VLMAnalyzer):
+    def analyze_photo(self, photo, face_db, primary_person_id):
+        filename = (photo.filename or "").lower()
+        if "student" in filename:
+            return {
+                "summary": "学生证证件照，展示学生头像、姓名和学号信息",
+                "people": [],
+                "scene": {"location_detected": "", "environment_description": "student id card"},
+                "event": {"activity": "identity verification", "social_context": "", "interaction": "", "mood": ""},
+                "details": ["学生证", "证件照", "头像", "姓名", "学号"],
+                "key_objects": ["student id card", "portrait photo"],
+                "ocr_hits": ["学生证", "学号 20261234", "姓名 测试同学"],
+            }
+        return super().analyze_photo(photo, face_db, primary_person_id)
+
+
 class ScaleReplayFakeVLMAnalyzer(FakeVLMAnalyzer):
     def analyze_photo(self, photo, face_db, primary_person_id):
         filename = (photo.filename or "").lower()
@@ -391,6 +496,26 @@ class SlowOutOfOrderFakeVLMAnalyzer(FakeVLMAnalyzer):
         time.sleep(delays.get(photo.photo_id, 0.0))
         result = self.analyze_photo(photo, face_db, primary_person_id)
         return result, {"retry_count": 0, "runtime_seconds": delays.get(photo.photo_id, 0.0) + 0.01}
+
+
+class FailureArtifactFakeVLMAnalyzer(FakeVLMAnalyzer):
+    def analyze_photo_with_metadata(self, photo, face_db, primary_person_id):
+        if photo.photo_id == "photo_002":
+            photo.processing_errors["vlm"] = "OpenRouter VLM JSON 解析失败: Unterminated string"
+            return None, {
+                "provider": "openrouter",
+                "model": "google/gemini-3.1-pro-preview",
+                "retry_count": 1,
+                "runtime_seconds": 0.12,
+                "mime_type": "image/jpeg",
+                "prompt_char_count": 4321,
+                "error": photo.processing_errors["vlm"],
+                "error_type": "VLMCallError",
+                "raw_response_preview": "{\"summary\": \"broken json",
+                "response_status_code": 200,
+                "parse_error_type": "JSONDecodeError",
+            }
+        return super().analyze_photo_with_metadata(photo, face_db, primary_person_id)
 
 
 class FakeLLMProcessor:
@@ -672,6 +797,52 @@ class PipelineMemoryTests(unittest.TestCase):
             self.assertIn("in_flight", final_vlm_payload)
             self.assertIn("avg_latency_seconds", final_vlm_payload)
 
+    def test_vlm_failure_artifact_is_persisted_and_exposed(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            task_dir = Path(tmpdir)
+            uploads_dir = task_dir / "uploads"
+            uploads_dir.mkdir(parents=True, exist_ok=True)
+            for name in ("a.jpg", "b.jpg", "c.jpg"):
+                (uploads_dir / name).write_bytes(b"stub")
+
+            progress_events = []
+
+            with patch("services.pipeline_service.ImageProcessor", FakeImageProcessor), patch(
+                "services.pipeline_service.FaceRecognition", FakeFaceRecognition
+            ), patch("services.pipeline_service.VLMAnalyzer", FailureArtifactFakeVLMAnalyzer), patch(
+                "services.pipeline_service.LLMProcessor", FakeLLMProcessor
+            ):
+                from services.pipeline_service import MemoryPipelineService
+
+                service = MemoryPipelineService(
+                    task_id="task_pipeline_vlm_failure_artifact",
+                    task_dir=str(task_dir),
+                    asset_store=FakeAssetStore(),
+                    user_id="user_pipeline",
+                    face_review_store=FakeFaceReviewStore(),
+                    task_version="v0317",
+                )
+                result = service.run(
+                    max_photos=3,
+                    use_cache=False,
+                    progress_callback=lambda stage, payload: progress_events.append((stage, dict(payload))),
+                )
+
+            failure_path = task_dir / "cache" / "vlm_failures.jsonl"
+            self.assertTrue(failure_path.exists())
+            failure_records = [json.loads(line) for line in failure_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+            self.assertEqual(len(failure_records), 1)
+            self.assertEqual(failure_records[0]["photo_id"], "photo_002")
+            self.assertEqual(failure_records[0]["parse_error_type"], "JSONDecodeError")
+            self.assertIn("broken json", failure_records[0]["raw_response_preview"])
+
+            self.assertTrue(result["artifacts"]["vlm_failures_url"].endswith("/cache/vlm_failures.jsonl"))
+
+            final_vlm_payload = [payload for stage, payload in progress_events if stage == "vlm"][-1]
+            self.assertEqual(final_vlm_payload["failed_count"], 1)
+            self.assertTrue(final_vlm_payload["vlm_failures_url"].endswith("/cache/vlm_failures.jsonl"))
+            self.assertEqual(result["summary"]["vlm_processed_images"], 2)
+
     def test_pre_v0317_pipeline_stops_after_face_recognition(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             task_dir = Path(tmpdir)
@@ -839,9 +1010,20 @@ class PipelineMemoryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             task_dir = Path(tmpdir)
             uploads_dir = task_dir / "uploads"
+            output_dir = task_dir / "output"
             uploads_dir.mkdir(parents=True, exist_ok=True)
+            output_dir.mkdir(parents=True, exist_ok=True)
             for name in ("camera_a.jpg", "camera_b.jpg", "saved_ai_reference.png"):
                 (uploads_dir / name).write_bytes(b"stub")
+            (output_dir / "memory_contract.json").write_text("{}", encoding="utf-8")
+            (output_dir / "llm_chunks.json").write_text("{}", encoding="utf-8")
+            (output_dir / "slice_contracts.jsonl").write_text("{}", encoding="utf-8")
+            (output_dir / "event_merges.jsonl").write_text("{}", encoding="utf-8")
+            (output_dir / "pre_relationship_contract.json").write_text("{}", encoding="utf-8")
+            (output_dir / "user_profile_report.md").write_text("# stale", encoding="utf-8")
+            legacy_memory_dir = output_dir / "memory"
+            legacy_memory_dir.mkdir(parents=True, exist_ok=True)
+            (legacy_memory_dir / "memory_envelope.json").write_text("{}", encoding="utf-8")
 
             with patch("services.pipeline_service.ImageProcessor", FakeImageProcessor), patch(
                 "services.pipeline_service.FaceRecognition", FakeFaceRecognition
@@ -869,6 +1051,8 @@ class PipelineMemoryTests(unittest.TestCase):
             self.assertIn("baseline_rhythm", partial_pack)
             self.assertIn("place_patterns", partial_pack)
             self.assertIn("activity_patterns", partial_pack)
+            self.assertIn("identity_signals", partial_pack)
+            self.assertIn("lifestyle_consumption_signals", partial_pack)
             self.assertIn("event_grounded_signals", partial_pack)
             self.assertIn("reference_media_weak_signals", partial_pack)
             self.assertIn("social_patterns", final_pack)
@@ -877,6 +1061,19 @@ class PipelineMemoryTests(unittest.TestCase):
             self.assertEqual(result["memory"]["profile_revision"]["generation_mode"], "profile_input_pack_llm")
             self.assertEqual(result["memory"]["summary"]["profile_generation_mode"], "profile_input_pack_llm")
             self.assertEqual(result["summary"]["profile_generation_mode"], "profile_input_pack_llm")
+            self.assertIn("retrieval_shadow", result["memory"])
+            self.assertEqual(
+                result["memory"]["retrieval_shadow"]["counts"]["memory_units_v2"],
+                len(result["memory"]["event_revisions"]),
+            )
+            self.assertEqual(
+                result["memory"]["retrieval_shadow"]["counts"]["memory_evidence_v2"],
+                len(result["memory"]["atomic_evidence"]),
+            )
+            self.assertEqual(
+                result["memory"]["retrieval_shadow"]["counts"]["profile_truth_v1"],
+                1,
+            )
             weak_signal_labels = [
                 item["label"]
                 for item in final_pack["reference_media_weak_signals"]["aesthetic_hints"]
@@ -884,6 +1081,18 @@ class PipelineMemoryTests(unittest.TestCase):
             self.assertTrue(weak_signal_labels)
             self.assertTrue((task_dir / "v0321_3" / "profile_input_pack_partial.json").exists())
             self.assertTrue((task_dir / "v0321_3" / "profile_input_pack.json").exists())
+            self.assertTrue((task_dir / "v0321_3" / "memory_units_v2.jsonl").exists())
+            self.assertTrue((task_dir / "v0321_3" / "memory_evidence_v2.jsonl").exists())
+            self.assertTrue((task_dir / "v0321_3" / "profile_truth_v1.json").exists())
+            self.assertTrue((task_dir / "v0321_3" / "delta_profile_truth_v1.json").exists())
+            self.assertTrue((task_dir / "v0321_3" / "retrieval_shadow_manifest.json").exists())
+            self.assertFalse((task_dir / "output" / "memory_contract.json").exists())
+            self.assertFalse((task_dir / "output" / "llm_chunks.json").exists())
+            self.assertFalse((task_dir / "output" / "slice_contracts.jsonl").exists())
+            self.assertFalse((task_dir / "output" / "event_merges.jsonl").exists())
+            self.assertFalse((task_dir / "output" / "pre_relationship_contract.json").exists())
+            self.assertFalse((task_dir / "output" / "user_profile_report.md").exists())
+            self.assertFalse((task_dir / "output" / "memory").exists())
             self.assertIn(
                 "profile_input_pack_preview",
                 result["memory"]["transparency"]["llm_stage"],
@@ -976,6 +1185,37 @@ class PipelineMemoryTests(unittest.TestCase):
             self.assertNotIn("EVENT_REVISIONS=", prompt)
             self.assertNotIn("RELATIONSHIP_REVISIONS=", prompt)
             self.assertNotIn("REFERENCE_MEDIA_WEAK_SIGNALS=", prompt)
+
+    def test_primary_person_falls_back_to_identity_document_face_when_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            task_dir = Path(tmpdir)
+            uploads_dir = task_dir / "uploads"
+            uploads_dir.mkdir(parents=True, exist_ok=True)
+            for name in ("student_id.jpg", "random_scene.jpg"):
+                (uploads_dir / name).write_bytes(b"stub")
+
+            with patch("services.pipeline_service.ImageProcessor", FakeImageProcessor), patch(
+                "services.pipeline_service.FaceRecognition", FakeNoPrimaryFaceRecognition
+            ), patch("services.pipeline_service.VLMAnalyzer", FakeIdentityDocumentVLMAnalyzer), patch(
+                "services.pipeline_service.LLMProcessor", FakeLLMProcessor
+            ):
+                from services.pipeline_service import MemoryPipelineService
+
+                result = MemoryPipelineService(
+                    task_id="task_primary_from_id_doc",
+                    task_dir=str(task_dir),
+                    asset_store=FakeAssetStore(),
+                    user_id="user_pipeline",
+                    face_review_store=FakeFaceReviewStore(),
+                    task_version="v0321.3",
+                ).run(max_photos=2, use_cache=False)
+
+            self.assertEqual(result["summary"]["primary_person_id"], "Person_002")
+            self.assertEqual(result["face_recognition"]["primary_person_id"], "Person_002")
+            self.assertIn(
+                "未能从人脸频次稳定识别主角，已使用证件照中的单人脸作为主角回填。",
+                [warning.get("message") for warning in result["warnings"]],
+            )
 
     def test_v0321_3_invalid_json_like_profile_response_falls_back(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

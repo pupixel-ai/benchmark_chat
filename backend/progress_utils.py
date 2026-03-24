@@ -64,6 +64,21 @@ def _build_log_entry(stage: str, payload: Dict[str, Any], *, level: str) -> Dict
     current_person_id = payload.get("current_person_id")
     if isinstance(current_person_id, str) and current_person_id.strip():
         entry["current_person_id"] = current_person_id.strip()
+    current_candidate_index = _coerce_number(payload.get("current_candidate_index"))
+    if current_candidate_index is not None:
+        entry["current_candidate_index"] = current_candidate_index
+    last_completed_person_id = payload.get("last_completed_person_id")
+    if isinstance(last_completed_person_id, str) and last_completed_person_id.strip():
+        entry["last_completed_person_id"] = last_completed_person_id.strip()
+    call_started_at = payload.get("call_started_at")
+    if isinstance(call_started_at, str) and call_started_at.strip():
+        entry["call_started_at"] = call_started_at.strip()
+    call_finished_at = payload.get("call_finished_at")
+    if isinstance(call_finished_at, str) and call_finished_at.strip():
+        entry["call_finished_at"] = call_finished_at.strip()
+    call_timeout_seconds = _coerce_number(payload.get("call_timeout_seconds"))
+    if call_timeout_seconds is not None:
+        entry["call_timeout_seconds"] = call_timeout_seconds
     error = payload.get("error")
     if isinstance(error, str) and error.strip():
         entry["error"] = error.strip()
@@ -82,6 +97,11 @@ def _log_signature(entry: Dict[str, Any]) -> tuple[Any, ...]:
         entry.get("provider"),
         entry.get("model"),
         entry.get("current_person_id"),
+        entry.get("current_candidate_index"),
+        entry.get("last_completed_person_id"),
+        entry.get("call_started_at"),
+        entry.get("call_finished_at"),
+        entry.get("call_timeout_seconds"),
         entry.get("error"),
     )
 
@@ -130,4 +150,3 @@ def append_terminal_info(existing: Dict[str, Any] | None, *, stage: str, message
     base["current_stage"] = stage
     base["updated_at"] = _iso_now()
     return base
-

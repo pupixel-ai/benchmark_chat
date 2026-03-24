@@ -14,9 +14,11 @@ from config import (
     MEMORY_EXTERNAL_SINKS_ENABLED,
     MEMORY_MILVUS_COLLECTION,
     MEMORY_MILVUS_DB_NAME,
+    MEMORY_MILVUS_EVIDENCE_COLLECTION,
     MEMORY_MILVUS_PASSWORD,
     MEMORY_MILVUS_TOKEN,
     MEMORY_MILVUS_URI,
+    MEMORY_MILVUS_UNITS_COLLECTION,
     MEMORY_MILVUS_USER,
     MEMORY_MILVUS_VECTOR_DIM,
     MEMORY_NEO4J_DATABASE,
@@ -330,9 +332,11 @@ class MilvusStorageAdapter:
         if not MEMORY_MILVUS_URI:
             return {"status": "skipped", "reason": "MEMORY_MILVUS_URI not configured"}
 
-        segments = payload.get("segments", [])
-        if not segments:
-            return {"status": "skipped", "reason": "no segments to publish"}
+        units = list(payload.get("memory_units_v2", []) or [])
+        evidence = list(payload.get("memory_evidence_v2", []) or [])
+        segments = list(payload.get("segments", []) or [])
+        if not units and not evidence and not segments:
+            return {"status": "skipped", "reason": "no Milvus payload to publish"}
 
         client = None
         local_server = None
@@ -340,41 +344,47 @@ class MilvusStorageAdapter:
             from pymilvus import DataType, MilvusClient
 
             client, local_server = self._open_client(MilvusClient)
-            if not client.has_collection(MEMORY_MILVUS_COLLECTION):
-                schema = MilvusClient.create_schema(auto_id=False, enable_dynamic_field=True)
-                schema.add_field("segment_uuid", DataType.VARCHAR, is_primary=True, max_length=64)
-                schema.add_field("user_id", DataType.VARCHAR, max_length=128)
-                schema.add_field("photo_uuid", DataType.VARCHAR, max_length=64)
-                schema.add_field("event_uuid", DataType.VARCHAR, max_length=64)
-                schema.add_field("person_uuid", DataType.VARCHAR, max_length=64)
-                schema.add_field("session_uuid", DataType.VARCHAR, max_length=64)
-                schema.add_field("relationship_uuid", DataType.VARCHAR, max_length=64)
-                schema.add_field("concept_uuid", DataType.VARCHAR, max_length=64)
-                schema.add_field("started_at", DataType.VARCHAR, max_length=64)
-                schema.add_field("ended_at", DataType.VARCHAR, max_length=64)
-                schema.add_field("place_uuid", DataType.VARCHAR, max_length=64)
-                schema.add_field("location_hint", DataType.VARCHAR, max_length=512)
-                schema.add_field("segment_type", DataType.VARCHAR, max_length=64)
-                schema.add_field("text", DataType.VARCHAR, max_length=8192)
-                schema.add_field("sparse_terms", DataType.VARCHAR, max_length=2048)
-                schema.add_field("embedding_source", DataType.VARCHAR, max_length=128)
-                schema.add_field("importance_score", DataType.FLOAT)
-                schema.add_field("evidence_refs_json", DataType.VARCHAR, max_length=8192)
-                schema.add_field("vector", DataType.FLOAT_VECTOR, dim=MEMORY_MILVUS_VECTOR_DIM)
-                index_params = MilvusClient.prepare_index_params()
-                index_params.add_index(field_name="vector", index_type="AUTOINDEX", metric_type="COSINE")
-                client.create_collection(
-                    collection_name=MEMORY_MILVUS_COLLECTION,
-                    schema=schema,
-                    index_params=index_params,
+            published_collections: List[Dict[str, Any]] = []
+
+            if units:
+                self._ensure_units_collection(client, MilvusClient, MEMORY_MILVUS_UNITS_COLLECTION)
+                unit_rows = [self._unit_row(unit) for unit in units]
+                client.upsert(collection_name=MEMORY_MILVUS_UNITS_COLLECTION, data=unit_rows)
+                published_collections.append(
+                    {
+                        "collection": MEMORY_MILVUS_UNITS_COLLECTION,
+                        "record_type": "memory_units_v2",
+                        "record_count": len(unit_rows),
+                    }
                 )
 
-            rows = [self._segment_row(segment) for segment in segments]
-            client.upsert(collection_name=MEMORY_MILVUS_COLLECTION, data=rows)
+            if evidence:
+                self._ensure_evidence_collection(client, MilvusClient, MEMORY_MILVUS_EVIDENCE_COLLECTION)
+                evidence_rows = [self._evidence_row(item) for item in evidence]
+                client.upsert(collection_name=MEMORY_MILVUS_EVIDENCE_COLLECTION, data=evidence_rows)
+                published_collections.append(
+                    {
+                        "collection": MEMORY_MILVUS_EVIDENCE_COLLECTION,
+                        "record_type": "memory_evidence_v2",
+                        "record_count": len(evidence_rows),
+                    }
+                )
+
+            if segments:
+                self._ensure_segments_collection(client, MilvusClient, MEMORY_MILVUS_COLLECTION)
+                segment_rows = [self._segment_row(segment) for segment in segments]
+                client.upsert(collection_name=MEMORY_MILVUS_COLLECTION, data=segment_rows)
+                published_collections.append(
+                    {
+                        "collection": MEMORY_MILVUS_COLLECTION,
+                        "record_type": "segments",
+                        "record_count": len(segment_rows),
+                    }
+                )
             return {
                 "status": "published",
-                "collection": MEMORY_MILVUS_COLLECTION,
-                "segment_count": len(rows),
+                "collections": published_collections,
+                "record_count": sum(item["record_count"] for item in published_collections),
                 "vector_dim": MEMORY_MILVUS_VECTOR_DIM,
                 "mode": "local-db" if local_server is not None else "remote",
             }
@@ -424,6 +434,89 @@ class MilvusStorageAdapter:
             sock.listen(1)
             return int(sock.getsockname()[1])
 
+    def _ensure_units_collection(self, client: Any, milvus_cls: Any, collection_name: str) -> None:
+        if client.has_collection(collection_name):
+            return
+        from pymilvus import DataType
+
+        schema = milvus_cls.create_schema(auto_id=False, enable_dynamic_field=True)
+        schema.add_field("unit_id", DataType.VARCHAR, is_primary=True, max_length=128)
+        schema.add_field("user_id", DataType.VARCHAR, max_length=128)
+        schema.add_field("pipeline_family", DataType.VARCHAR, max_length=64)
+        schema.add_field("source_type", DataType.VARCHAR, max_length=64)
+        schema.add_field("event_root_id", DataType.VARCHAR, max_length=128)
+        schema.add_field("event_revision_id", DataType.VARCHAR, max_length=128)
+        schema.add_field("title", DataType.VARCHAR, max_length=2048)
+        schema.add_field("summary", DataType.VARCHAR, max_length=8192)
+        schema.add_field("retrieval_text", DataType.VARCHAR, max_length=8192)
+        schema.add_field("started_at", DataType.VARCHAR, max_length=64)
+        schema.add_field("ended_at", DataType.VARCHAR, max_length=64)
+        schema.add_field("original_photo_ids_json", DataType.VARCHAR, max_length=8192)
+        schema.add_field("participant_person_ids_json", DataType.VARCHAR, max_length=4096)
+        schema.add_field("place_refs_json", DataType.VARCHAR, max_length=4096)
+        schema.add_field("evidence_ids_json", DataType.VARCHAR, max_length=8192)
+        schema.add_field("confidence", DataType.FLOAT)
+        schema.add_field("vector", DataType.FLOAT_VECTOR, dim=MEMORY_MILVUS_VECTOR_DIM)
+        index_params = milvus_cls.prepare_index_params()
+        index_params.add_index(field_name="vector", index_type="AUTOINDEX", metric_type="COSINE")
+        client.create_collection(collection_name=collection_name, schema=schema, index_params=index_params)
+
+    def _ensure_evidence_collection(self, client: Any, milvus_cls: Any, collection_name: str) -> None:
+        if client.has_collection(collection_name):
+            return
+        from pymilvus import DataType
+
+        schema = milvus_cls.create_schema(auto_id=False, enable_dynamic_field=True)
+        schema.add_field("evidence_id", DataType.VARCHAR, is_primary=True, max_length=128)
+        schema.add_field("user_id", DataType.VARCHAR, max_length=128)
+        schema.add_field("pipeline_family", DataType.VARCHAR, max_length=64)
+        schema.add_field("source_type", DataType.VARCHAR, max_length=64)
+        schema.add_field("parent_unit_id", DataType.VARCHAR, max_length=128)
+        schema.add_field("event_root_id", DataType.VARCHAR, max_length=128)
+        schema.add_field("event_revision_id", DataType.VARCHAR, max_length=128)
+        schema.add_field("event_title", DataType.VARCHAR, max_length=2048)
+        schema.add_field("evidence_type", DataType.VARCHAR, max_length=256)
+        schema.add_field("value_or_text", DataType.VARCHAR, max_length=8192)
+        schema.add_field("provenance", DataType.VARCHAR, max_length=256)
+        schema.add_field("retrieval_text", DataType.VARCHAR, max_length=8192)
+        schema.add_field("original_photo_ids_json", DataType.VARCHAR, max_length=8192)
+        schema.add_field("participant_person_ids_json", DataType.VARCHAR, max_length=4096)
+        schema.add_field("place_refs_json", DataType.VARCHAR, max_length=4096)
+        schema.add_field("confidence", DataType.FLOAT)
+        schema.add_field("vector", DataType.FLOAT_VECTOR, dim=MEMORY_MILVUS_VECTOR_DIM)
+        index_params = milvus_cls.prepare_index_params()
+        index_params.add_index(field_name="vector", index_type="AUTOINDEX", metric_type="COSINE")
+        client.create_collection(collection_name=collection_name, schema=schema, index_params=index_params)
+
+    def _ensure_segments_collection(self, client: Any, milvus_cls: Any, collection_name: str) -> None:
+        if client.has_collection(collection_name):
+            return
+        from pymilvus import DataType
+
+        schema = milvus_cls.create_schema(auto_id=False, enable_dynamic_field=True)
+        schema.add_field("segment_uuid", DataType.VARCHAR, is_primary=True, max_length=64)
+        schema.add_field("user_id", DataType.VARCHAR, max_length=128)
+        schema.add_field("photo_uuid", DataType.VARCHAR, max_length=64)
+        schema.add_field("event_uuid", DataType.VARCHAR, max_length=64)
+        schema.add_field("person_uuid", DataType.VARCHAR, max_length=64)
+        schema.add_field("session_uuid", DataType.VARCHAR, max_length=64)
+        schema.add_field("relationship_uuid", DataType.VARCHAR, max_length=64)
+        schema.add_field("concept_uuid", DataType.VARCHAR, max_length=64)
+        schema.add_field("started_at", DataType.VARCHAR, max_length=64)
+        schema.add_field("ended_at", DataType.VARCHAR, max_length=64)
+        schema.add_field("place_uuid", DataType.VARCHAR, max_length=64)
+        schema.add_field("location_hint", DataType.VARCHAR, max_length=512)
+        schema.add_field("segment_type", DataType.VARCHAR, max_length=64)
+        schema.add_field("text", DataType.VARCHAR, max_length=8192)
+        schema.add_field("sparse_terms", DataType.VARCHAR, max_length=2048)
+        schema.add_field("embedding_source", DataType.VARCHAR, max_length=128)
+        schema.add_field("importance_score", DataType.FLOAT)
+        schema.add_field("evidence_refs_json", DataType.VARCHAR, max_length=8192)
+        schema.add_field("vector", DataType.FLOAT_VECTOR, dim=MEMORY_MILVUS_VECTOR_DIM)
+        index_params = milvus_cls.prepare_index_params()
+        index_params.add_index(field_name="vector", index_type="AUTOINDEX", metric_type="COSINE")
+        client.create_collection(collection_name=collection_name, schema=schema, index_params=index_params)
+
     def _segment_row(self, segment: Dict[str, Any]) -> Dict[str, Any]:
         text = str(segment.get("text") or "")
         sparse_terms = ",".join(segment.get("sparse_terms", [])[:64])
@@ -448,5 +541,53 @@ class MilvusStorageAdapter:
             "embedding_source": str(segment.get("embedding_source") or embedding_source),
             "importance_score": float(segment.get("importance_score") or 0.0),
             "evidence_refs_json": evidence_refs_json[:8192],
+            "vector": embedding,
+        }
+
+    def _unit_row(self, unit: Dict[str, Any]) -> Dict[str, Any]:
+        retrieval_text = str(unit.get("retrieval_text") or unit.get("summary") or unit.get("title") or "")
+        embedding, embedding_source, _ = self.embedder.embed_text(retrieval_text, task_type="document")
+        return {
+            "unit_id": str(unit.get("unit_id") or ""),
+            "user_id": self.user_id,
+            "pipeline_family": str(unit.get("pipeline_family") or ""),
+            "source_type": str(unit.get("source_type") or ""),
+            "event_root_id": str(unit.get("event_root_id") or ""),
+            "event_revision_id": str(unit.get("event_revision_id") or ""),
+            "title": str(unit.get("title") or "")[:2048],
+            "summary": str(unit.get("summary") or "")[:8192],
+            "retrieval_text": retrieval_text[:8192],
+            "started_at": str(unit.get("started_at") or ""),
+            "ended_at": str(unit.get("ended_at") or ""),
+            "original_photo_ids_json": json.dumps(unit.get("original_photo_ids", []), ensure_ascii=False)[:8192],
+            "participant_person_ids_json": json.dumps(unit.get("participant_person_ids", []), ensure_ascii=False)[:4096],
+            "place_refs_json": json.dumps(unit.get("place_refs", []), ensure_ascii=False)[:4096],
+            "evidence_ids_json": json.dumps(unit.get("evidence_ids", []), ensure_ascii=False)[:8192],
+            "confidence": float(unit.get("confidence") or 0.0),
+            "embedding_source": str(unit.get("embedding_source") or embedding_source),
+            "vector": embedding,
+        }
+
+    def _evidence_row(self, evidence: Dict[str, Any]) -> Dict[str, Any]:
+        retrieval_text = str(evidence.get("retrieval_text") or evidence.get("value_or_text") or "")
+        embedding, embedding_source, _ = self.embedder.embed_text(retrieval_text, task_type="document")
+        return {
+            "evidence_id": str(evidence.get("evidence_id") or ""),
+            "user_id": self.user_id,
+            "pipeline_family": str(evidence.get("pipeline_family") or ""),
+            "source_type": str(evidence.get("source_type") or ""),
+            "parent_unit_id": str(evidence.get("parent_unit_id") or ""),
+            "event_root_id": str(evidence.get("event_root_id") or ""),
+            "event_revision_id": str(evidence.get("event_revision_id") or ""),
+            "event_title": str(evidence.get("event_title") or "")[:2048],
+            "evidence_type": str(evidence.get("evidence_type") or "")[:256],
+            "value_or_text": str(evidence.get("value_or_text") or "")[:8192],
+            "provenance": str(evidence.get("provenance") or "")[:256],
+            "retrieval_text": retrieval_text[:8192],
+            "original_photo_ids_json": json.dumps(evidence.get("original_photo_ids", []), ensure_ascii=False)[:8192],
+            "participant_person_ids_json": json.dumps(evidence.get("participant_person_ids", []), ensure_ascii=False)[:4096],
+            "place_refs_json": json.dumps(evidence.get("place_refs", []), ensure_ascii=False)[:4096],
+            "confidence": float(evidence.get("confidence") or 0.0),
+            "embedding_source": str(evidence.get("embedding_source") or embedding_source),
             "vector": embedding,
         }

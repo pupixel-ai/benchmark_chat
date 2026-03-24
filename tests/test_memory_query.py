@@ -11,35 +11,159 @@ from models import Event, Photo, Relationship
 
 
 class MemoryQueryTests(unittest.TestCase):
+    def test_query_service_answers_revision_first_memory_with_new_structure(self) -> None:
+        query_service = MemoryQueryService(now=datetime(2026, 3, 23, 12, 0))
+        memory_payload = {
+            "memory": {
+                "pipeline_family": "v0321_3",
+                "envelope": {"scope": {"user_id": "user_001"}},
+                "event_revisions": [
+                    {
+                        "event_root_id": "event_root_001",
+                        "event_revision_id": "event_rev_001",
+                        "revision": 1,
+                        "title": "Concert Night",
+                        "event_summary": "Live concert with a close friend.",
+                        "started_at": "2026-03-20T20:00:00",
+                        "ended_at": "2026-03-20T22:00:00",
+                        "participant_person_ids": ["Person_001", "Person_002"],
+                        "depicted_person_ids": ["Person_001", "Person_002"],
+                        "place_refs": ["Shanghai"],
+                        "original_photo_ids": ["hash-001"],
+                        "confidence": 0.9,
+                        "status": "active",
+                        "sealed_state": "sealed",
+                        "atomic_evidence": [
+                            {
+                                "evidence_id": "evidence_001",
+                                "root_event_revision_id": "event_rev_001",
+                                "evidence_type": "brand",
+                                "value_or_text": "MOET",
+                                "provenance": "brand",
+                                "original_photo_ids": ["hash-001"],
+                                "confidence": 0.8,
+                            }
+                        ],
+                    }
+                ],
+                "atomic_evidence": [
+                    {
+                        "evidence_id": "evidence_001",
+                        "root_event_revision_id": "event_rev_001",
+                        "evidence_type": "brand",
+                        "value_or_text": "MOET",
+                        "provenance": "brand",
+                        "original_photo_ids": ["hash-001"],
+                        "confidence": 0.8,
+                    }
+                ],
+                "relationship_revisions": [
+                    {
+                        "relationship_root_id": "rel_root_001",
+                        "relationship_revision_id": "rel_rev_001",
+                        "target_person_id": "Person_002",
+                        "relationship_type": "friend",
+                        "label": "close friend",
+                        "confidence": 0.85,
+                        "supporting_event_ids": ["event_rev_001"],
+                    }
+                ],
+                "profile_revision": {
+                    "profile_revision_id": "profile_rev_001",
+                    "primary_person_id": "Person_001",
+                    "scope": "cumulative",
+                    "generation_mode": "profile_input_pack_llm",
+                    "original_photo_ids": ["hash-001"],
+                },
+                "profile_markdown": "# Profile\n\nConcert-heavy social life.",
+                "profile_input_pack": {
+                    "profile_input_pack_id": "profile_pack_001",
+                    "time_range": {"start": "2026-03-20T20:00:00", "end": "2026-03-20T22:00:00"},
+                    "baseline_rhythm": {"dominant_activity_window": "evening"},
+                    "place_patterns": {"top_place_refs": [{"place_ref": "Shanghai", "count": 1}]},
+                    "activity_patterns": {"top_activities": [{"activity_type": "concert", "count": 1}]},
+                    "identity_signals": {},
+                    "lifestyle_consumption_signals": {},
+                    "event_grounded_signals": {
+                        "interest_signals": [
+                            {"label": "concert", "count": 1, "supporting_event_ids": ["event_rev_001"]}
+                        ]
+                    },
+                    "reference_media_weak_signals": {},
+                    "social_patterns": {
+                        "top_relationships": [
+                            {
+                                "relationship_revision_id": "rel_rev_001",
+                                "target_person_id": "Person_002",
+                                "relationship_type": "friend",
+                                "confidence": 0.85,
+                            }
+                        ],
+                        "relationship_summary": {"close_relationship_count": 1},
+                        "social_style_hints": {"one_on_one_bias": 0.7},
+                    },
+                    "change_points": [],
+                    "key_event_refs": [{"event_revision_id": "event_rev_001", "title": "Concert Night"}],
+                    "key_relationship_refs": [{"relationship_revision_id": "rel_rev_001"}],
+                    "evidence_guardrails": {},
+                },
+            }
+        }
+
+        event_response = query_service.answer(memory_payload, "我过去3个月去过的演唱会")
+        self.assertEqual(event_response["query_plan"]["plan_type"], "hybrid")
+        self.assertEqual(event_response["answer"]["answer_type"], "event_search")
+        self.assertEqual(event_response["answer"]["original_photo_ids"], ["hash-001"])
+        self.assertGreaterEqual(len(event_response["supporting_units"]), 1)
+        self.assertGreaterEqual(len(event_response["supporting_evidence"]), 1)
+
+        food_response = query_service.answer(memory_payload, "我最近吃过什么")
+        self.assertEqual(food_response["answer"]["answer_type"], "event_search")
+        self.assertGreaterEqual(len(food_response["supporting_units"]), 1)
+        self.assertEqual(food_response["answer"]["original_photo_ids"], ["hash-001"])
+
+        profile_response = query_service.answer(memory_payload, "给我用户画像")
+        self.assertEqual(profile_response["query_plan"]["plan_type"], "graph_first_exact")
+        self.assertEqual(profile_response["answer"]["answer_type"], "profile_lookup")
+        self.assertIn("profile_truth", profile_response["answer"])
+        self.assertIn("report_markdown", profile_response["answer"])
+
+        overview_response = query_service.answer(memory_payload, "请总结这个任务里的主要事件、人物关系和用户画像")
+        self.assertEqual(overview_response["query_plan"]["plan_type"], "hybrid")
+        self.assertEqual(overview_response["answer"]["answer_type"], "task_overview")
+        self.assertGreaterEqual(len(overview_response["supporting_units"]), 1)
+        self.assertGreaterEqual(len(overview_response["supporting_graph_entities"]), 1)
+        self.assertGreaterEqual(len(overview_response["supporting_evidence"]), 1)
+        self.assertIn("主要事件", overview_response["answer"]["summary"])
+        self.assertNotIn("推理草稿箱", overview_response["answer"]["summary"])
+        self.assertNotIn("1. 时空锚点确认", overview_response["answer"]["summary"])
+
     def test_query_service_answers_time_relationship_and_mood_questions(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             task_dir = Path(tmpdir)
             memory_payload = self._materialized_memory(task_dir)
             query_service = MemoryQueryService(now=datetime(2026, 3, 17, 12, 0))
 
-            concert_answer = query_service.answer(memory_payload, "我过去3个月去过的演唱会")["answer"]
+            concert_response = query_service.answer(memory_payload, "我过去3个月去过的演唱会")
+            concert_answer = concert_response["answer"]
             self.assertEqual(concert_answer["answer_type"], "event_search")
             self.assertIn("concert", concert_answer["resolved_concepts"])
-            self.assertGreaterEqual(len(concert_answer["supporting_events"]), 1)
+            self.assertGreaterEqual(len(concert_response["supporting_units"]), 1)
             self.assertIn("吴嘉轩相关演出活动", concert_answer["summary"])
 
             recent_live_answer = query_service.answer(memory_payload, "最近去过哪些 live")["answer"]
             self.assertEqual(recent_live_answer["answer_type"], "event_search")
             self.assertIn("concert", recent_live_answer["resolved_concepts"])
-            self.assertGreaterEqual(len(recent_live_answer["supporting_events"]), 1)
 
             recent_show_answer = query_service.answer(memory_payload, "最近去过哪些 live/show")["answer"]
             self.assertEqual(recent_show_answer["answer_type"], "event_search")
             self.assertIn("concert", recent_show_answer["resolved_concepts"])
-            self.assertGreaterEqual(len(recent_show_answer["supporting_events"]), 1)
 
-            relationship_answer = query_service.answer(memory_payload, "帮我探索一下用户和父亲的关系")["answer"]
+            relationship_response = query_service.answer(memory_payload, "帮我探索一下用户和父亲的关系")
+            relationship_answer = relationship_response["answer"]
             self.assertEqual(relationship_answer["answer_type"], "relationship_explore")
-            self.assertGreaterEqual(len(relationship_answer["supporting_relationships"]), 1)
-            self.assertEqual(
-                relationship_answer["supporting_relationships"][0]["target_face_person_id"],
-                "Person_002",
-            )
+            self.assertGreaterEqual(len(relationship_response["supporting_graph_entities"]), 1)
+            self.assertEqual(relationship_response["supporting_graph_entities"][0]["target_face_person_id"], "Person_002")
 
             mood_answer = query_service.answer(memory_payload, "帮我找到用户最近的心情")["answer"]
             self.assertEqual(mood_answer["answer_type"], "mood_lookup")
@@ -114,15 +238,17 @@ class MemoryQueryTests(unittest.TestCase):
             )
             query_service = MemoryQueryService(now=datetime(2026, 3, 17, 12, 0))
 
-            concert_answer = query_service.answer(memory_payload, "我过去3个月去过的演唱会")["answer"]
-            self.assertEqual(len(concert_answer["supporting_events"]), 1)
-            self.assertEqual(concert_answer["supporting_facts"][0]["title"], "吴嘉轩相关演出活动")
+            concert_response = query_service.answer(memory_payload, "我过去3个月去过的演唱会")
+            concert_answer = concert_response["answer"]
+            self.assertEqual(len(concert_response["supporting_units"]), 1)
+            self.assertEqual(concert_response["supporting_units"][0]["title"], "吴嘉轩相关演出活动")
 
-            conflict_answer = query_service.answer(memory_payload, "请帮我寻找一下用户最近的几次冲突")["answer"]
+            conflict_response = query_service.answer(memory_payload, "请帮我寻找一下用户最近的几次冲突")
+            conflict_answer = conflict_response["answer"]
             self.assertEqual(conflict_answer["answer_type"], "event_search")
             self.assertIn("derived_from_relationship_fallback", conflict_answer["uncertainty_flags"])
-            self.assertGreaterEqual(len(conflict_answer["supporting_relationships"]), 1)
-            self.assertGreaterEqual(len(conflict_answer["evidence_segment_ids"]), 1)
+            self.assertGreaterEqual(len(conflict_response["supporting_graph_entities"]), 1)
+            self.assertGreaterEqual(len(conflict_response["supporting_evidence"]), 1)
 
     def test_query_service_routes_profile_and_evidence_queries_by_source_order(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -159,14 +285,14 @@ class MemoryQueryTests(unittest.TestCase):
             query_service = MemoryQueryService(now=datetime(2026, 3, 17, 12, 0))
 
             profile_response = query_service.answer(memory_payload, "我最喜欢喝什么饮料")
-            self.assertEqual(profile_response["source_order"][0], "redis_first")
+            self.assertEqual(profile_response["query_plan"]["plan_type"], "graph_first_exact")
             self.assertEqual(profile_response["answer"]["answer_type"], "profile_lookup")
-            self.assertGreaterEqual(len(profile_response["supporting_redis_profiles"]), 1)
+            self.assertIn("original_photo_ids", profile_response["answer"])
 
             evidence_response = query_service.answer(memory_payload, "这个饮料是什么产品")
-            self.assertEqual(evidence_response["source_order"][0], "milvus_first")
+            self.assertEqual(evidence_response["query_plan"]["plan_type"], "milvus_first_fuzzy")
             self.assertEqual(evidence_response["answer"]["answer_type"], "evidence_lookup")
-            self.assertGreaterEqual(len(evidence_response["supporting_segments"]), 1)
+            self.assertGreaterEqual(len(evidence_response["supporting_evidence"]), 1)
 
     def _materialized_memory(
         self,

@@ -20,6 +20,11 @@ from memory_module.dto import (
 )
 from memory_module.embeddings import EmbeddingProvider, cosine_similarity
 from memory_module.ontology import canonical_concept_names, concept_metadata, expand_concepts, normalize_concept
+from services.v0321_3.retrieval_shadow import (
+    build_memory_evidence_v2,
+    build_memory_units_v2,
+    build_profile_truth_v1,
+)
 
 
 NODE_GROUP_ID_FIELDS = {
@@ -60,6 +65,24 @@ class MemoryQueryService:
         answer_shape_hint: Optional[str] = None,
     ) -> Dict[str, Any]:
         memory = memory_payload.get("memory", memory_payload)
+        if self._is_lp_snapshot_memory(memory):
+            return self._answer_lp_snapshot(
+                memory,
+                question,
+                user_id=user_id,
+                context_hints=context_hints,
+                time_hint=time_hint,
+                answer_shape_hint=answer_shape_hint,
+            )
+        if self._is_revision_first_memory(memory):
+            return self._answer_revision_first(
+                memory,
+                question,
+                user_id=user_id,
+                context_hints=context_hints,
+                time_hint=time_hint,
+                answer_shape_hint=answer_shape_hint,
+            )
         storage = memory.get("storage", {})
         storage_graph = storage.get("neo4j", {})
         redis_payload = storage.get("redis", {})
@@ -89,17 +112,394 @@ class MemoryQueryService:
                 "source_path": execution_details["source_path"],
             },
         )
+        return self._format_legacy_response(
+            request=request,
+            query_plan=query_plan,
+            answer=answer,
+            execution_details=execution_details,
+            debug_trace=trace,
+        )
+
+    def _is_revision_first_memory(self, memory: Dict[str, Any]) -> bool:
+        return bool(memory.get("event_revisions") or memory.get("relationship_revisions") or memory.get("profile_revision"))
+
+    def _is_lp_snapshot_memory(self, memory: Dict[str, Any]) -> bool:
+        if self._is_revision_first_memory(memory):
+            return False
+        return bool(
+            memory.get("pipeline_family") == "v0323"
+            or memory.get("lp1_events")
+            or memory.get("lp2_relationships")
+            or memory.get("lp3_profile")
+        )
+
+    def _answer_lp_snapshot(
+        self,
+        memory: Dict[str, Any],
+        question: str,
+        *,
+        user_id: Optional[str],
+        context_hints: Optional[Dict[str, Any]],
+        time_hint: Optional[str],
+        answer_shape_hint: Optional[str],
+    ) -> Dict[str, Any]:
+        adapted = self._adapt_lp_snapshot_memory(memory, user_id=user_id)
+        return self._answer_revision_first(
+            adapted,
+            question,
+            user_id=user_id,
+            context_hints=context_hints,
+            time_hint=time_hint,
+            answer_shape_hint=answer_shape_hint,
+        )
+
+    def _adapt_lp_snapshot_memory(self, memory: Dict[str, Any], *, user_id: Optional[str]) -> Dict[str, Any]:
+        pipeline_family = str(memory.get("pipeline_family") or "v0323")
+        resolved_user_id = str(user_id or memory.get("user_id") or memory.get("envelope", {}).get("scope", {}).get("user_id") or "")
+        vp1_index = {
+            str(item.get("photo_id") or "").strip(): dict(item)
+            for item in list(memory.get("vp1_observations", []) or [])
+            if isinstance(item, dict) and str(item.get("photo_id") or "").strip()
+        }
+        event_revisions = self._lp_snapshot_event_revisions(memory=memory, vp1_index=vp1_index)
+        atomic_evidence = [
+            evidence
+            for event in event_revisions
+            for evidence in list(event.get("atomic_evidence", []) or [])
+            if isinstance(evidence, dict)
+        ]
+        relationship_revisions = self._lp_snapshot_relationship_revisions(memory=memory)
+        memory_units = build_memory_units_v2(
+            user_id=resolved_user_id,
+            pipeline_family=pipeline_family,
+            event_revisions=event_revisions,
+        )
+        memory_evidence = build_memory_evidence_v2(
+            user_id=resolved_user_id,
+            pipeline_family=pipeline_family,
+            atomic_evidence=atomic_evidence,
+            event_revisions=event_revisions,
+        )
+        lp3_profile = dict(memory.get("lp3_profile") or {})
+        return {
+            "pipeline_family": pipeline_family,
+            "event_revisions": event_revisions,
+            "relationship_revisions": relationship_revisions,
+            "memory_units_v2": memory_units,
+            "memory_evidence_v2": memory_evidence,
+            "profile_markdown": str(lp3_profile.get("report_markdown") or ""),
+            "profile_truth_v1": {},
+        }
+
+    def _lp_snapshot_event_revisions(
+        self,
+        *,
+        memory: Dict[str, Any],
+        vp1_index: Dict[str, Dict[str, Any]],
+    ) -> List[Dict[str, Any]]:
+        revisions: List[Dict[str, Any]] = []
+        for event in list(memory.get("lp1_events", []) or []):
+            if not isinstance(event, dict):
+                continue
+            event_id = str(event.get("event_id") or "").strip()
+            if not event_id:
+                continue
+            supporting_photo_ids = self._unique(str(item) for item in list(event.get("supporting_photo_ids", []) or []) if str(item).strip())
+            atomic_evidence: List[Dict[str, Any]] = []
+            for photo_id in supporting_photo_ids:
+                observation = vp1_index.get(photo_id, {})
+                analysis = dict(observation.get("vlm_analysis") or {})
+                summary_text = str(analysis.get("summary") or "").strip()
+                if summary_text:
+                    atomic_evidence.append(
+                        {
+                            "evidence_id": f"{event_id}:photo_summary:{photo_id}",
+                            "root_event_revision_id": event_id,
+                            "evidence_type": "photo_summary",
+                            "value_or_text": summary_text,
+                            "provenance": photo_id,
+                            "original_photo_ids": [photo_id],
+                            "confidence": event.get("confidence"),
+                        }
+                    )
+                scene = dict(analysis.get("scene") or {})
+                scene_text = str(scene.get("location_detected") or scene.get("environment_description") or "").strip()
+                if scene_text:
+                    atomic_evidence.append(
+                        {
+                            "evidence_id": f"{event_id}:scene:{photo_id}",
+                            "root_event_revision_id": event_id,
+                            "evidence_type": "scene_hint",
+                            "value_or_text": scene_text,
+                            "provenance": photo_id,
+                            "original_photo_ids": [photo_id],
+                            "confidence": event.get("confidence"),
+                        }
+                    )
+            persona_evidence = dict(event.get("persona_evidence") or {})
+            for bucket in ("behavioral", "aesthetic", "socioeconomic"):
+                for index, value in enumerate(list(persona_evidence.get(bucket, []) or []), start=1):
+                    text = str(value or "").strip()
+                    if not text:
+                        continue
+                    atomic_evidence.append(
+                        {
+                            "evidence_id": f"{event_id}:persona:{bucket}:{index}",
+                            "root_event_revision_id": event_id,
+                            "evidence_type": f"persona_{bucket}",
+                            "value_or_text": text,
+                            "provenance": "lp1_persona_evidence",
+                            "original_photo_ids": list(supporting_photo_ids[:8]),
+                            "confidence": event.get("confidence"),
+                        }
+                    )
+            tags = [str(item).strip() for item in list(event.get("tags", []) or []) if str(item).strip()]
+            if tags:
+                atomic_evidence.append(
+                    {
+                        "evidence_id": f"{event_id}:tags",
+                        "root_event_revision_id": event_id,
+                        "evidence_type": "event_tags",
+                        "value_or_text": ", ".join(tags),
+                        "provenance": "lp1_tags",
+                        "original_photo_ids": list(supporting_photo_ids[:8]),
+                        "confidence": event.get("confidence"),
+                    }
+                )
+            revisions.append(
+                {
+                    "event_root_id": f"{event_id}:root",
+                    "event_revision_id": event_id,
+                    "revision": 1,
+                    "title": str(event.get("title") or ""),
+                    "event_summary": str(event.get("narrative_synthesis") or event.get("title") or ""),
+                    "started_at": event.get("started_at"),
+                    "ended_at": event.get("ended_at"),
+                    "place_refs": list(event.get("place_refs", []) or []),
+                    "participant_person_ids": list(event.get("participant_person_ids", []) or []),
+                    "depicted_person_ids": list(event.get("depicted_person_ids", []) or []),
+                    "original_photo_ids": supporting_photo_ids,
+                    "confidence": event.get("confidence"),
+                    "status": "active",
+                    "sealed_state": "sealed",
+                    "atomic_evidence": atomic_evidence,
+                }
+            )
+        return revisions
+
+    def _lp_snapshot_relationship_revisions(self, *, memory: Dict[str, Any]) -> List[Dict[str, Any]]:
+        revisions: List[Dict[str, Any]] = []
+        for relationship in list(memory.get("lp2_relationships", []) or []):
+            if not isinstance(relationship, dict):
+                continue
+            person_id = str(relationship.get("person_id") or "").strip()
+            if not person_id:
+                continue
+            relationship_id = str(relationship.get("relationship_id") or f"REL_{person_id}")
+            revisions.append(
+                {
+                    "relationship_root_id": f"{relationship_id}:root",
+                    "relationship_revision_id": relationship_id,
+                    "target_person_id": person_id,
+                    "relationship_type": str(relationship.get("relationship_type") or ""),
+                    "semantic_relation": str(relationship.get("relationship_type") or ""),
+                    "label": f"{relationship.get('relationship_type') or 'unknown'}:{relationship.get('status') or 'stable'}",
+                    "semantic_confidence": relationship.get("confidence"),
+                    "confidence": relationship.get("confidence"),
+                    "semantic_reason_summary": str(relationship.get("reason") or ""),
+                    "reason_summary": str(relationship.get("reason") or ""),
+                    "supporting_event_ids": list(relationship.get("supporting_event_ids", []) or []),
+                    "supporting_photo_ids": list(relationship.get("supporting_photo_ids", []) or []),
+                    "relation_axes": {
+                        "status": relationship.get("status"),
+                    },
+                }
+            )
+        return revisions
+
+    def _answer_revision_first(
+        self,
+        memory: Dict[str, Any],
+        question: str,
+        *,
+        user_id: Optional[str],
+        context_hints: Optional[Dict[str, Any]],
+        time_hint: Optional[str],
+        answer_shape_hint: Optional[str],
+    ) -> Dict[str, Any]:
+        pipeline_family = str(memory.get("pipeline_family") or memory.get("envelope", {}).get("scope", {}).get("pipeline_family") or "v0321_3")
+        resolved_user_id = str(user_id or memory.get("envelope", {}).get("scope", {}).get("user_id") or "")
+        event_revisions = list(memory.get("event_revisions", []) or [])
+        atomic_evidence = list(memory.get("atomic_evidence", []) or [])
+        relationship_revisions = list(memory.get("relationship_revisions", []) or [])
+        profile_revision = dict(memory.get("profile_revision") or {})
+        profile_input_pack = dict(memory.get("profile_input_pack") or {})
+        profile_markdown = str(memory.get("profile_markdown") or "")
+
+        memory_units = list(memory.get("memory_units_v2") or [])
+        if not memory_units:
+            memory_units = build_memory_units_v2(
+                user_id=resolved_user_id,
+                pipeline_family=pipeline_family,
+                event_revisions=event_revisions,
+            )
+        memory_evidence = list(memory.get("memory_evidence_v2") or [])
+        if not memory_evidence:
+            memory_evidence = build_memory_evidence_v2(
+                user_id=resolved_user_id,
+                pipeline_family=pipeline_family,
+                atomic_evidence=atomic_evidence,
+                event_revisions=event_revisions,
+            )
+        profile_truth = dict(memory.get("profile_truth_v1") or {})
+        if not profile_truth and profile_revision and profile_input_pack:
+            profile_truth = build_profile_truth_v1(
+                user_id=resolved_user_id,
+                pipeline_family=pipeline_family,
+                profile_revision=profile_revision,
+                profile_input_pack=profile_input_pack,
+                relationship_revisions=relationship_revisions,
+                profile_markdown=profile_markdown,
+            )
+
+        indexes = self._build_revision_first_indexes(
+            event_revisions=event_revisions,
+            relationship_revisions=relationship_revisions,
+            memory_units=memory_units,
+            memory_evidence=memory_evidence,
+            profile_truth=profile_truth,
+        )
+        time_scope = self._resolve_time_scope(question, {"nodes_by_group": {"period_hypotheses": []}}, hint=time_hint)
+        plan_type = self._revision_first_plan_type(question)
+        answer_type = self._revision_first_answer_type(question)
+        operator_plan = {
+            "intent": answer_type,
+            "time_scope": self._serialize(time_scope),
+            "operators": self._infer_operators(str(question or "").lower()),
+            "target_concepts": self._extract_target_concepts(question),
+        }
+        query_plan = {
+            "plan_type": plan_type,
+            "answer_type": answer_type,
+            "time_scope": self._serialize(time_scope),
+            "target_spec": {
+                "raw_question": question,
+                "target_concepts": self._extract_target_concepts(question),
+                "context_hints": dict(context_hints or {}),
+                "window_semantics": "window_as_session_seed",
+            },
+            "operators": self._infer_operators(str(question or "").lower()),
+            "answer_schema": {
+                "shape": answer_shape_hint or "summary",
+                "primary_sources": ["memory_units_v2", "memory_evidence_v2", "graph_revision_truth"],
+            },
+        }
+        query_vector = self.embedder.embed_query(question)
+
+        if answer_type == "task_overview":
+            answer_payload, supporting_units, supporting_evidence, supporting_graph_entities = self._query_revision_first_task_overview(
+                question=question,
+                query_vector=query_vector,
+                time_scope=time_scope,
+                indexes=indexes,
+                profile_truth=profile_truth,
+                profile_markdown=profile_markdown,
+            )
+        elif answer_type == "profile_lookup":
+            answer_payload, supporting_units, supporting_evidence, supporting_graph_entities = self._query_revision_first_profile(
+                question=question,
+                query_vector=query_vector,
+                time_scope=time_scope,
+                indexes=indexes,
+                profile_truth=profile_truth,
+                profile_markdown=profile_markdown,
+            )
+        elif answer_type in {"relationship_explore", "relationship_rank_query"}:
+            answer_payload, supporting_units, supporting_evidence, supporting_graph_entities = self._query_revision_first_relationships(
+                question=question,
+                query_vector=query_vector,
+                time_scope=time_scope,
+                indexes=indexes,
+            )
+        elif answer_type == "evidence_lookup":
+            answer_payload, supporting_units, supporting_evidence, supporting_graph_entities = self._query_revision_first_evidence(
+                question=question,
+                query_vector=query_vector,
+                time_scope=time_scope,
+                indexes=indexes,
+            )
+        else:
+            answer_payload, supporting_units, supporting_evidence, supporting_graph_entities = self._query_revision_first_events(
+                question=question,
+                query_vector=query_vector,
+                time_scope=time_scope,
+                indexes=indexes,
+            )
+
+        abstain_reason = ""
+        if not supporting_units and not supporting_evidence and not supporting_graph_entities:
+            abstain_reason = answer_payload["summary"]
+
+        trace = {
+            "operator_plan": operator_plan,
+            "recall_candidates": [],
+            "dsl": {
+                "plan_type": plan_type,
+                "answer_type": answer_type,
+                "time_scope": self._serialize(time_scope),
+            },
+            "executed_cypher": "revision_first_shadow_query",
+            "evidence_fill": {
+                "supporting_unit_count": len(supporting_units),
+                "supporting_evidence_count": len(supporting_evidence),
+                "supporting_graph_entity_count": len(supporting_graph_entities),
+            },
+        }
+        return {
+            "query_plan": query_plan,
+            "answer": answer_payload,
+            "supporting_units": supporting_units,
+            "supporting_evidence": supporting_evidence,
+            "supporting_graph_entities": supporting_graph_entities,
+            "abstain_reason": abstain_reason,
+            "debug_trace": trace,
+        }
+
+    def _format_legacy_response(
+        self,
+        *,
+        request: AgentMemoryQueryRequestDTO,
+        query_plan: QueryPlanDTO,
+        answer: AnswerDTO,
+        execution_details: Dict[str, Any],
+        debug_trace: GraphDebugTraceDTO,
+    ) -> Dict[str, Any]:
+        supporting_units = self._legacy_supporting_units(answer)
+        supporting_evidence = list(execution_details["supporting_segments"])
+        answer_payload = self._serialize(answer)
+        answer_payload["original_photo_ids"] = self._unique(
+            list(answer.representative_photo_ids)
+            + [
+                photo_id
+                for unit in supporting_units
+                for photo_id in list(unit.get("original_photo_ids", []) or [])
+            ]
+        )
         return {
             "request": self._serialize(request),
-            "query_plan": self._serialize(query_plan),
-            "source_order": list(query_plan.source_order),
-            "answer": self._serialize(answer),
-            "structured_answer": self._serialize(answer),
-            "supporting_redis_profiles": execution_details["supporting_redis_profiles"],
+            "query_plan": {
+                "plan_type": self._plan_type_from_source_order(query_plan.source_order),
+                "target_spec": self._serialize(query_plan.target_spec),
+                "operators": list(query_plan.operators),
+                "constraints": self._serialize(query_plan.constraints),
+                "answer_schema": self._serialize(query_plan.answer_schema),
+            },
+            "answer": answer_payload,
+            "supporting_units": supporting_units,
+            "supporting_evidence": supporting_evidence,
             "supporting_graph_entities": execution_details["supporting_graph_entities"],
-            "supporting_segments": execution_details["supporting_segments"],
             "abstain_reason": execution_details["abstain_reason"],
-            "debug_trace": self._serialize(trace),
+            "debug_trace": self._serialize(debug_trace),
         }
 
     def _build_query_plan(
@@ -326,6 +726,695 @@ class MemoryQueryService:
         else:
             requirements.extend(["graph_entities", "supporting_segments"])
         return requirements
+
+    def _plan_type_from_source_order(self, source_order: List[str]) -> str:
+        head = str(source_order[0] if source_order else "").lower()
+        if "milvus" in head:
+            return "milvus_first_fuzzy"
+        if "redis" in head or "neo4j" in head:
+            return "graph_first_exact"
+        return "hybrid"
+
+    def _legacy_supporting_units(self, answer: AnswerDTO) -> List[Dict[str, Any]]:
+        units: List[Dict[str, Any]] = []
+        for fact in list(answer.supporting_facts or []):
+            units.append(
+                {
+                    "unit_id": fact.get("event_uuid") or fact.get("fact_id"),
+                    "source_type": "legacy_fact",
+                    "title": fact.get("title"),
+                    "summary": fact.get("title"),
+                    "started_at": fact.get("started_at"),
+                    "ended_at": fact.get("ended_at"),
+                    "original_photo_ids": list(fact.get("representative_photo_ids", []) or []),
+                    "confidence": fact.get("confidence"),
+                }
+            )
+        if units:
+            return units
+        for event in list(answer.supporting_events or []):
+            units.append(
+                {
+                    "unit_id": event.get("event_uuid") or event.get("event_id"),
+                    "source_type": "legacy_event",
+                    "title": event.get("title"),
+                    "summary": event.get("title"),
+                    "started_at": event.get("started_at"),
+                    "ended_at": event.get("ended_at"),
+                    "original_photo_ids": list(event.get("representative_photo_ids", []) or []),
+                    "confidence": event.get("confidence"),
+                }
+            )
+        return units
+
+    def _revision_first_answer_type(self, question: str) -> str:
+        normalized = str(question or "").lower()
+        summary_tokens = ("总结", "概括", "总览", "概览", "整体", "全量")
+        overview_tokens = ("任务", "task", "事件", "关系", "画像", "profile")
+        relationship_tokens = ("关系", "friend", "父亲", "爸爸", "母亲", "伴侣", "同事", "亲密", "好友")
+        profile_tokens = ("画像", "profile", "喜欢", "偏好", "爱好", "审美", "风格", "职业", "身份", "单身", "mbti", "人格")
+        evidence_tokens = ("品牌", "产品", "ocr", "票据", "饮料", "红酒", "药", "治疗", "路线", "价格", "菜", "物品", "是什么")
+        if any(token in normalized for token in summary_tokens):
+            overview_hit_count = sum(1 for token in overview_tokens if token in normalized)
+            if "任务" in normalized or "task" in normalized or overview_hit_count >= 3:
+                return "task_overview"
+        if any(token in normalized for token in relationship_tokens):
+            return "relationship_explore"
+        if any(token in normalized for token in profile_tokens):
+            return "profile_lookup"
+        if any(token in normalized for token in evidence_tokens):
+            return "evidence_lookup"
+        return "event_search"
+
+    def _revision_first_plan_type(self, question: str) -> str:
+        answer_type = self._revision_first_answer_type(question)
+        if answer_type == "task_overview":
+            return "hybrid"
+        if answer_type == "evidence_lookup":
+            return "milvus_first_fuzzy"
+        if answer_type in {"profile_lookup", "relationship_explore", "relationship_rank_query"}:
+            return "graph_first_exact"
+        return "hybrid"
+
+    def _build_revision_first_indexes(
+        self,
+        *,
+        event_revisions: Sequence[Dict[str, Any]],
+        relationship_revisions: Sequence[Dict[str, Any]],
+        memory_units: Sequence[Dict[str, Any]],
+        memory_evidence: Sequence[Dict[str, Any]],
+        profile_truth: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        unit_index = {
+            str(item.get("unit_id") or ""): dict(item)
+            for item in memory_units
+            if str(item.get("unit_id") or "").strip()
+        }
+        evidence_index = {
+            str(item.get("evidence_id") or ""): dict(item)
+            for item in memory_evidence
+            if str(item.get("evidence_id") or "").strip()
+        }
+        event_index = {
+            str(item.get("event_revision_id") or ""): dict(item)
+            for item in event_revisions
+            if str(item.get("event_revision_id") or "").strip()
+        }
+        evidence_by_unit: Dict[str, List[Dict[str, Any]]] = {}
+        for item in memory_evidence:
+            parent_unit_id = str(item.get("parent_unit_id") or "")
+            if not parent_unit_id:
+                continue
+            evidence_by_unit.setdefault(parent_unit_id, []).append(dict(item))
+        relationship_index = {
+            str(item.get("relationship_revision_id") or item.get("relationship_root_id") or ""): dict(item)
+            for item in relationship_revisions
+            if str(item.get("relationship_revision_id") or item.get("relationship_root_id") or "").strip()
+        }
+        return {
+            "units": [dict(item) for item in memory_units],
+            "evidence": [dict(item) for item in memory_evidence],
+            "relationships": [dict(item) for item in relationship_revisions],
+            "profile_truth": dict(profile_truth or {}),
+            "unit_index": unit_index,
+            "evidence_index": evidence_index,
+            "event_index": event_index,
+            "relationship_index": relationship_index,
+            "evidence_by_unit": evidence_by_unit,
+        }
+
+    def _query_revision_first_events(
+        self,
+        *,
+        question: str,
+        query_vector: List[float],
+        time_scope: TimeScopeDTO,
+        indexes: Dict[str, Any],
+    ) -> tuple[Dict[str, Any], List[Dict[str, Any]], List[Dict[str, Any]], List[Dict[str, Any]]]:
+        scored_units: List[Dict[str, Any]] = []
+        for unit in indexes["units"]:
+            if not self._revision_first_unit_in_time_scope(unit, time_scope):
+                continue
+            score = self._text_or_embedding_score(question, unit.get("retrieval_text") or unit.get("summary") or "", query_vector)
+            score += self._revision_first_concept_bonus(question, unit.get("retrieval_text") or unit.get("summary") or "")
+            score += self._revision_first_unit_bonus(question, unit)
+            score += self._revision_first_unit_evidence_bonus(question, unit=unit, indexes=indexes)
+            if score < 0.22:
+                continue
+            payload = dict(unit)
+            payload["match_score"] = round(score, 4)
+            scored_units.append(payload)
+        scored_units.sort(key=lambda item: (float(item["match_score"]), float(item.get("confidence") or 0.0)), reverse=True)
+        supporting_units = scored_units[:6]
+        supporting_unit_ids = [str(item.get("unit_id") or "") for item in supporting_units]
+        supporting_evidence = self._top_evidence_for_units(
+            question=question,
+            query_vector=query_vector,
+            unit_ids=supporting_unit_ids,
+            indexes=indexes,
+            limit=8,
+        )
+        summary = "没有找到符合条件的事件。"
+        confidence = 0.0
+        uncertainty_flags = ["not_answerable_from_memory"]
+        if supporting_units:
+            summary = "；".join(
+                f"{item.get('display_title') or item.get('title')} ({item.get('started_at') or 'unknown'})"
+                for item in supporting_units[:3]
+            )
+            confidence = round(
+                sum(float(item.get("match_score") or 0.0) for item in supporting_units) / len(supporting_units),
+                4,
+            )
+            uncertainty_flags = []
+        answer_payload = {
+            "answer_type": "event_search",
+            "summary": summary,
+            "confidence": confidence,
+            "resolved_concepts": self._extract_target_concepts(question),
+            "original_photo_ids": self._collect_original_photo_ids(supporting_units, supporting_evidence),
+            "supporting_unit_ids": supporting_unit_ids,
+            "supporting_evidence_ids": [item.get("evidence_id") for item in supporting_evidence if item.get("evidence_id")],
+            "uncertainty_flags": uncertainty_flags,
+        }
+        return answer_payload, supporting_units, supporting_evidence, []
+
+    def _query_revision_first_evidence(
+        self,
+        *,
+        question: str,
+        query_vector: List[float],
+        time_scope: TimeScopeDTO,
+        indexes: Dict[str, Any],
+    ) -> tuple[Dict[str, Any], List[Dict[str, Any]], List[Dict[str, Any]], List[Dict[str, Any]]]:
+        scored_evidence: List[Dict[str, Any]] = []
+        for evidence in indexes["evidence"]:
+            parent = indexes["unit_index"].get(str(evidence.get("parent_unit_id") or ""))
+            if parent and not self._revision_first_unit_in_time_scope(parent, time_scope):
+                continue
+            score = self._text_or_embedding_score(question, evidence.get("retrieval_text") or evidence.get("value_or_text") or "", query_vector)
+            score += self._revision_first_concept_bonus(question, evidence.get("retrieval_text") or evidence.get("value_or_text") or "")
+            pseudo_segment = {"segment_type": evidence.get("evidence_type"), "text": evidence.get("retrieval_text") or evidence.get("value_or_text")}
+            score += self._segment_candidate_bonus(question, pseudo_segment)
+            if score < 0.22:
+                continue
+            payload = dict(evidence)
+            payload["match_score"] = round(score, 4)
+            scored_evidence.append(payload)
+        scored_evidence.sort(key=lambda item: (float(item["match_score"]), float(item.get("confidence") or 0.0)), reverse=True)
+        supporting_evidence = scored_evidence[:8]
+        supporting_units = self._units_from_ids(
+            [item.get("parent_unit_id") for item in supporting_evidence if item.get("parent_unit_id")],
+            indexes=indexes,
+        )
+        summary = "没有找到相关证据。"
+        confidence = 0.0
+        uncertainty_flags = ["not_answerable_from_memory"]
+        if supporting_evidence:
+            summary = "；".join(
+                f"{item.get('evidence_type')}: {str(item.get('value_or_text') or '')[:64]}"
+                for item in supporting_evidence[:3]
+            )
+            confidence = round(
+                sum(float(item.get("match_score") or 0.0) for item in supporting_evidence) / len(supporting_evidence),
+                4,
+            )
+            uncertainty_flags = []
+        answer_payload = {
+            "answer_type": "evidence_lookup",
+            "summary": summary,
+            "confidence": confidence,
+            "resolved_concepts": self._extract_target_concepts(question),
+            "original_photo_ids": self._collect_original_photo_ids(supporting_units, supporting_evidence),
+            "supporting_unit_ids": [item.get("unit_id") for item in supporting_units if item.get("unit_id")],
+            "supporting_evidence_ids": [item.get("evidence_id") for item in supporting_evidence if item.get("evidence_id")],
+            "uncertainty_flags": uncertainty_flags,
+        }
+        return answer_payload, supporting_units, supporting_evidence, []
+
+    def _query_revision_first_relationships(
+        self,
+        *,
+        question: str,
+        query_vector: List[float],
+        time_scope: TimeScopeDTO,
+        indexes: Dict[str, Any],
+    ) -> tuple[Dict[str, Any], List[Dict[str, Any]], List[Dict[str, Any]], List[Dict[str, Any]]]:
+        scored_relationships: List[Dict[str, Any]] = []
+        for relationship in indexes["relationships"]:
+            supporting_unit_ids = list(relationship.get("supporting_event_ids", []) or [])
+            supporting_units = self._units_from_ids(supporting_unit_ids, indexes=indexes)
+            if time_scope.start_at and supporting_units:
+                if not any(self._revision_first_unit_in_time_scope(unit, time_scope) for unit in supporting_units):
+                    continue
+            relation_axes = dict(relationship.get("relation_axes") or {})
+            relationship_text = " ".join(
+                [
+                    str(relationship.get("target_person_id") or ""),
+                    str(relationship.get("semantic_relation") or ""),
+                    str(relationship.get("semantic_reason_summary") or relationship.get("reason_summary") or ""),
+                    str(relationship.get("relationship_type") or ""),
+                    " ".join(f"{key}:{value}" for key, value in relation_axes.items() if value),
+                    " ".join(str(unit.get("title") or "") for unit in supporting_units[:3]),
+                ]
+            )
+            score = self._text_or_embedding_score(question, relationship_text, query_vector)
+            score += self._revision_first_concept_bonus(question, relationship_text)
+            score += min(
+                0.25,
+                float(relationship.get("semantic_confidence") or relationship.get("confidence") or 0.0) * 0.2,
+            )
+            if score < 0.18:
+                continue
+            payload = dict(relationship)
+            payload["match_score"] = round(score, 4)
+            scored_relationships.append(payload)
+        scored_relationships.sort(key=lambda item: (float(item["match_score"]), float(item.get("confidence") or 0.0)), reverse=True)
+        supporting_graph_entities = scored_relationships[:5]
+        supporting_units = self._units_from_ids(
+            [
+                event_id
+                for relationship in supporting_graph_entities
+                for event_id in list(relationship.get("supporting_event_ids", []) or [])
+            ],
+            indexes=indexes,
+        )
+        supporting_evidence = self._top_evidence_for_units(
+            question=question,
+            query_vector=query_vector,
+            unit_ids=[item.get("unit_id") for item in supporting_units if item.get("unit_id")],
+            indexes=indexes,
+            limit=8,
+        )
+        summary = "没有找到相关关系。"
+        confidence = 0.0
+        uncertainty_flags = ["not_answerable_from_memory"]
+        if supporting_graph_entities:
+            top = supporting_graph_entities[0]
+            summary = f"{top.get('target_person_id') or 'unknown'} 当前更像 {top.get('semantic_relation') or top.get('label') or top.get('relationship_type')}。"
+            confidence = round(
+                sum(float(item.get("semantic_confidence") or item.get("confidence") or 0.0) for item in supporting_graph_entities)
+                / len(supporting_graph_entities),
+                4,
+            )
+            uncertainty_flags = []
+        answer_payload = {
+            "answer_type": "relationship_explore",
+            "summary": summary,
+            "confidence": confidence,
+            "resolved_concepts": self._extract_target_concepts(question),
+            "original_photo_ids": self._collect_original_photo_ids(supporting_units, supporting_evidence),
+            "supporting_relationship_ids": [
+                item.get("relationship_revision_id") or item.get("relationship_root_id")
+                for item in supporting_graph_entities
+                if item.get("relationship_revision_id") or item.get("relationship_root_id")
+            ],
+            "supporting_unit_ids": [item.get("unit_id") for item in supporting_units if item.get("unit_id")],
+            "supporting_evidence_ids": [item.get("evidence_id") for item in supporting_evidence if item.get("evidence_id")],
+            "uncertainty_flags": uncertainty_flags,
+        }
+        return answer_payload, supporting_units, supporting_evidence, supporting_graph_entities
+
+    def _query_revision_first_profile(
+        self,
+        *,
+        question: str,
+        query_vector: List[float],
+        time_scope: TimeScopeDTO,
+        indexes: Dict[str, Any],
+        profile_truth: Dict[str, Any],
+        profile_markdown: str,
+    ) -> tuple[Dict[str, Any], List[Dict[str, Any]], List[Dict[str, Any]], List[Dict[str, Any]]]:
+        key_event_refs = list(profile_truth.get("key_event_refs", []) or [])
+        supporting_units = self._units_from_ids(
+            [item.get("event_revision_id") for item in key_event_refs if isinstance(item, dict)],
+            indexes=indexes,
+        )
+        if time_scope.start_at:
+            supporting_units = [item for item in supporting_units if self._revision_first_unit_in_time_scope(item, time_scope)]
+        if not supporting_units:
+            supporting_units = self._query_revision_first_events(
+                question=question,
+                query_vector=query_vector,
+                time_scope=time_scope,
+                indexes=indexes,
+            )[1][:4]
+        supporting_evidence = self._top_evidence_for_units(
+            question=question,
+            query_vector=query_vector,
+            unit_ids=[item.get("unit_id") for item in supporting_units if item.get("unit_id")],
+            indexes=indexes,
+            limit=6,
+        )
+        relationship_truth = dict(profile_truth.get("truth_layers", {}).get("relationship_truth") or {})
+        supporting_graph_entities = list(relationship_truth.get("top_relationships", []) or [])
+        summary = self._profile_truth_summary(profile_truth=profile_truth, profile_markdown=profile_markdown)
+        confidence = 0.55 if summary else 0.0
+        uncertainty_flags = [] if summary else ["not_answerable_from_memory"]
+        answer_payload = {
+            "answer_type": "profile_lookup",
+            "summary": summary or "当前没有足够的画像真相。",
+            "confidence": confidence,
+            "resolved_concepts": self._extract_target_concepts(question),
+            "original_photo_ids": self._collect_original_photo_ids(supporting_units, supporting_evidence, extra_photo_ids=profile_truth.get("original_photo_ids", [])),
+            "supporting_unit_ids": [item.get("unit_id") for item in supporting_units if item.get("unit_id")],
+            "supporting_evidence_ids": [item.get("evidence_id") for item in supporting_evidence if item.get("evidence_id")],
+            "supporting_relationship_ids": [
+                item.get("relationship_revision_id")
+                for item in supporting_graph_entities
+                if isinstance(item, dict) and item.get("relationship_revision_id")
+            ],
+            "profile_truth": profile_truth,
+            "report_markdown": profile_markdown,
+            "uncertainty_flags": uncertainty_flags,
+        }
+        return answer_payload, supporting_units, supporting_evidence, supporting_graph_entities
+
+    def _query_revision_first_task_overview(
+        self,
+        *,
+        question: str,
+        query_vector: List[float],
+        time_scope: TimeScopeDTO,
+        indexes: Dict[str, Any],
+        profile_truth: Dict[str, Any],
+        profile_markdown: str,
+    ) -> tuple[Dict[str, Any], List[Dict[str, Any]], List[Dict[str, Any]], List[Dict[str, Any]]]:
+        supporting_units: List[Dict[str, Any]] = []
+        for unit in indexes["units"]:
+            if not self._revision_first_unit_in_time_scope(unit, time_scope):
+                continue
+            payload = dict(unit)
+            payload["_overview_score"] = (
+                float(unit.get("confidence") or 0.0),
+                str(unit.get("started_at") or ""),
+            )
+            supporting_units.append(payload)
+        supporting_units.sort(
+            key=lambda item: (
+                float(item.get("confidence") or 0.0),
+                str(item.get("started_at") or ""),
+            ),
+            reverse=True,
+        )
+        supporting_units = supporting_units[:6]
+
+        supporting_graph_entities = sorted(
+            [dict(item) for item in indexes["relationships"]],
+            key=lambda item: (
+                float(item.get("semantic_confidence") or item.get("confidence") or 0.0),
+                len(list(item.get("supporting_event_ids", []) or [])),
+            ),
+            reverse=True,
+        )[:5]
+
+        supporting_evidence = self._top_evidence_for_units(
+            question=question,
+            query_vector=query_vector,
+            unit_ids=[item.get("unit_id") for item in supporting_units if item.get("unit_id")],
+            indexes=indexes,
+            limit=8,
+        )
+        if not supporting_evidence:
+            supporting_evidence = self._fallback_evidence_for_units(
+                unit_ids=[item.get("unit_id") for item in supporting_units if item.get("unit_id")],
+                indexes=indexes,
+                limit=8,
+            )
+
+        event_titles = [
+            str(item.get("display_title") or item.get("title") or "").strip()
+            for item in supporting_units[:3]
+            if str(item.get("display_title") or item.get("title") or "").strip()
+        ]
+        relationship_bits = []
+        for item in supporting_graph_entities[:3]:
+            target = str(item.get("target_person_id") or "unknown").strip()
+            relation = str(item.get("semantic_relation") or item.get("label") or item.get("relationship_type") or "").strip()
+            if target and relation:
+                relationship_bits.append(f"{target}:{relation}")
+        profile_summary = self._profile_truth_summary(profile_truth=profile_truth, profile_markdown=profile_markdown)
+
+        summary_parts: List[str] = []
+        if event_titles:
+            summary_parts.append(f"主要事件：{'；'.join(event_titles)}。")
+        if relationship_bits:
+            summary_parts.append(f"主要关系：{'；'.join(relationship_bits)}。")
+        if profile_summary:
+            summary_parts.append(f"用户画像：{profile_summary}")
+        summary = "".join(summary_parts) or "当前没有足够的任务总览信息。"
+
+        confidence_sources = [
+            *[float(item.get("confidence") or 0.0) for item in supporting_units],
+            *[float(item.get("semantic_confidence") or item.get("confidence") or 0.0) for item in supporting_graph_entities],
+        ]
+        confidence = round(sum(confidence_sources) / len(confidence_sources), 4) if confidence_sources else 0.0
+        answer_payload = {
+            "answer_type": "task_overview",
+            "summary": summary,
+            "confidence": confidence,
+            "resolved_concepts": self._extract_target_concepts(question),
+            "original_photo_ids": self._collect_original_photo_ids(
+                supporting_units,
+                supporting_evidence,
+                extra_photo_ids=profile_truth.get("original_photo_ids", []),
+            ),
+            "supporting_unit_ids": [item.get("unit_id") for item in supporting_units if item.get("unit_id")],
+            "supporting_evidence_ids": [item.get("evidence_id") for item in supporting_evidence if item.get("evidence_id")],
+            "supporting_relationship_ids": [
+                item.get("relationship_revision_id")
+                for item in supporting_graph_entities
+                if item.get("relationship_revision_id")
+            ],
+            "profile_truth": profile_truth,
+            "report_markdown": profile_markdown,
+            "uncertainty_flags": [] if summary_parts else ["not_answerable_from_memory"],
+        }
+        return answer_payload, supporting_units, supporting_evidence, supporting_graph_entities
+
+    def _revision_first_unit_in_time_scope(self, unit: Dict[str, Any], time_scope: TimeScopeDTO) -> bool:
+        return self._overlaps_time_scope(
+            unit.get("started_at"),
+            unit.get("ended_at") or unit.get("started_at"),
+            time_scope,
+        )
+
+    def _top_evidence_for_units(
+        self,
+        *,
+        question: str,
+        query_vector: List[float],
+        unit_ids: List[Any],
+        indexes: Dict[str, Any],
+        limit: int,
+    ) -> List[Dict[str, Any]]:
+        scored: List[Dict[str, Any]] = []
+        for unit_id in self._unique(str(item) for item in unit_ids if item):
+            for evidence in list(indexes["evidence_by_unit"].get(unit_id, []) or []):
+                score = self._text_or_embedding_score(
+                    question,
+                    evidence.get("retrieval_text") or evidence.get("value_or_text") or "",
+                    query_vector,
+                )
+                score += self._revision_first_concept_bonus(
+                    question,
+                    evidence.get("retrieval_text") or evidence.get("value_or_text") or "",
+                )
+                score += self._segment_candidate_bonus(
+                    question,
+                    {
+                        "segment_type": evidence.get("evidence_type"),
+                        "text": evidence.get("retrieval_text") or evidence.get("value_or_text"),
+                    },
+                )
+                if score < 0.16:
+                    continue
+                payload = dict(evidence)
+                payload["match_score"] = round(score, 4)
+                scored.append(payload)
+        scored.sort(key=lambda item: (float(item["match_score"]), float(item.get("confidence") or 0.0)), reverse=True)
+        return scored[:limit]
+
+    def _fallback_evidence_for_units(
+        self,
+        *,
+        unit_ids: List[Any],
+        indexes: Dict[str, Any],
+        limit: int,
+    ) -> List[Dict[str, Any]]:
+        fallback: List[Dict[str, Any]] = []
+        seen = set()
+        for unit_id in self._unique(str(item) for item in unit_ids if item):
+            for evidence in list(indexes["evidence_by_unit"].get(unit_id, []) or []):
+                evidence_id = str(evidence.get("evidence_id") or "").strip()
+                if not evidence_id or evidence_id in seen:
+                    continue
+                seen.add(evidence_id)
+                payload = dict(evidence)
+                payload["match_score"] = round(float(payload.get("confidence") or 0.0), 4)
+                fallback.append(payload)
+        fallback.sort(
+            key=lambda item: (
+                float(item.get("confidence") or 0.0),
+                str(item.get("evidence_type") or ""),
+            ),
+            reverse=True,
+        )
+        return fallback[:limit]
+
+    def _units_from_ids(self, unit_ids: Iterable[Any], *, indexes: Dict[str, Any]) -> List[Dict[str, Any]]:
+        seen = set()
+        units: List[Dict[str, Any]] = []
+        for unit_id in unit_ids:
+            normalized = str(unit_id or "").strip()
+            if not normalized or normalized in seen:
+                continue
+            payload = indexes["unit_index"].get(normalized)
+            if not payload:
+                continue
+            seen.add(normalized)
+            units.append(dict(payload))
+        return units
+
+    def _collect_original_photo_ids(
+        self,
+        supporting_units: Sequence[Dict[str, Any]],
+        supporting_evidence: Sequence[Dict[str, Any]],
+        *,
+        extra_photo_ids: Optional[Sequence[Any]] = None,
+    ) -> List[str]:
+        return self._unique(
+            str(photo_id)
+            for photo_id in [
+                *[item for unit in supporting_units for item in list(unit.get("original_photo_ids", []) or [])],
+                *[item for evidence in supporting_evidence for item in list(evidence.get("original_photo_ids", []) or [])],
+                *list(extra_photo_ids or []),
+            ]
+            if str(photo_id).strip()
+        )
+
+    def _revision_first_concept_bonus(self, question: str, candidate_text: str) -> float:
+        normalized_candidate = str(candidate_text or "").lower()
+        if not normalized_candidate:
+            return 0.0
+        bonus = 0.0
+        for concept_name in self._extract_target_concepts(question):
+            meta = concept_metadata(concept_name)
+            aliases = [concept_name, *[str(item) for item in meta.get("aliases", [])]]
+            if any(str(alias).lower() in normalized_candidate for alias in aliases if str(alias).strip()):
+                bonus += 0.28
+        return round(min(bonus, 0.56), 4)
+
+    def _revision_first_unit_bonus(self, question: str, unit: Dict[str, Any]) -> float:
+        normalized_question = str(question or "").lower()
+        haystack = " ".join(
+            [
+                str(unit.get("title") or ""),
+                str(unit.get("summary") or ""),
+                str(unit.get("retrieval_text") or ""),
+            ]
+        ).lower()
+        bonus = 0.0
+        food_tokens = ("吃", "喝", "饮料", "早餐", "午餐", "晚餐", "咖啡", "酒", "红酒", "甜品", "用餐")
+        food_markers = ("meal", "food", "drink", "breakfast", "lunch", "dinner", "coffee", "cafe", "wine", "dessert")
+        if any(token in normalized_question for token in food_tokens) and any(marker in haystack for marker in food_markers):
+            bonus += 0.32
+        travel_tokens = ("旅行", "旅游", "去了哪", "景点", "出行")
+        travel_markers = ("travel", "trip", "tour", "flight", "hotel", "station", "airport", "scenic")
+        if any(token in normalized_question for token in travel_tokens) and any(marker in haystack for marker in travel_markers):
+            bonus += 0.28
+        social_tokens = ("和谁", "见了谁", "一起", "朋友", "聚会", "约会")
+        if any(token in normalized_question for token in social_tokens) and len(list(unit.get("participant_person_ids", []) or [])) >= 2:
+            bonus += 0.22
+        return round(min(bonus, 0.48), 4)
+
+    def _revision_first_unit_evidence_bonus(
+        self,
+        question: str,
+        *,
+        unit: Dict[str, Any],
+        indexes: Dict[str, Any],
+    ) -> float:
+        normalized_question = str(question or "").lower()
+        linked_evidence = list(indexes.get("evidence_by_unit", {}).get(str(unit.get("unit_id") or ""), []) or [])
+        if not linked_evidence:
+            return 0.0
+
+        evidence_haystack = " ".join(
+            " ".join(
+                [
+                    str(item.get("evidence_type") or ""),
+                    str(item.get("value_or_text") or ""),
+                    str(item.get("retrieval_text") or ""),
+                ]
+            )
+            for item in linked_evidence
+            if isinstance(item, dict)
+        ).lower()
+        if not evidence_haystack:
+            return 0.0
+
+        bonus = 0.0
+        food_tokens = ("吃", "喝", "饮料", "早餐", "午餐", "晚餐", "咖啡", "酒", "红酒", "甜品", "用餐")
+        food_markers = ("meal", "food", "drink", "breakfast", "lunch", "dinner", "coffee", "cafe", "wine", "dessert", "brand")
+        if any(token in normalized_question for token in food_tokens) and any(marker in evidence_haystack for marker in food_markers):
+            bonus += 0.26
+
+        travel_tokens = ("旅行", "旅游", "景点", "出行", "住过", "酒店")
+        travel_markers = ("flight", "hotel", "boarding", "ticket", "route", "transport", "station", "airport")
+        if any(token in normalized_question for token in travel_tokens) and any(marker in evidence_haystack for marker in travel_markers):
+            bonus += 0.22
+
+        return round(min(bonus, 0.34), 4)
+
+    def _profile_truth_summary(self, *, profile_truth: Dict[str, Any], profile_markdown: str) -> str:
+        if profile_markdown.strip():
+            lines = [
+                line.strip()
+                for line in profile_markdown.splitlines()
+                if line.strip() and not line.strip().startswith("#")
+            ]
+            if lines:
+                for line in lines:
+                    normalized = (
+                        line.replace("*", "")
+                        .replace("：", ":")
+                        .strip()
+                        .lower()
+                    )
+                    if normalized in {"推理草稿箱", "reasoning scratchpad"}:
+                        continue
+                    if normalized.startswith("推理草稿箱:") or normalized.startswith("reasoning scratchpad:"):
+                        continue
+                    if re.match(r"^\d+\.\s*", normalized):
+                        continue
+                    return line
+        truth_layers = dict(profile_truth.get("truth_layers") or {})
+        relationship_truth = dict(truth_layers.get("relationship_truth") or {})
+        event_grounded = dict(truth_layers.get("event_grounded_signals") or {})
+        weak_reference = dict(truth_layers.get("weak_reference_signals") or {})
+        top_relationships = list(relationship_truth.get("top_relationships", []) or [])
+        if top_relationships:
+            first_relationship = top_relationships[0]
+            semantic_relation = str(first_relationship.get("semantic_relation") or "")
+            if semantic_relation:
+                return f"当前最重要的关系对象更像：{semantic_relation}。"
+        top_event_signal = next(iter(event_grounded.values()), [])
+        if isinstance(top_event_signal, list) and top_event_signal:
+            first = top_event_signal[0]
+            if isinstance(first, dict):
+                label = str(first.get("label") or "")
+                count = first.get("count")
+                if label:
+                    return f"高概率关注 {label}，当前事件证据数 {count or 1}。"
+        first_weak_bucket = next(iter(weak_reference.values()), [])
+        if isinstance(first_weak_bucket, list) and first_weak_bucket:
+            first = first_weak_bucket[0]
+            if isinstance(first, dict):
+                label = str(first.get("label") or "")
+                if label:
+                    return f"存在弱画像线索：{label}。"
+        return ""
 
     def _extract_ordinal(self, normalized_question: str) -> Optional[int]:
         for marker in ("第", "top "):
@@ -1187,6 +2276,11 @@ class MemoryQueryService:
         segment_type = str(segment.get("segment_type") or "").lower()
         segment_text = str(segment.get("text") or "").lower()
         bonus = 0.0
+        if any(token in normalized_question for token in ("吃", "喝", "早餐", "午餐", "晚餐", "饭", "用餐", "红酒", "咖啡", "甜品")):
+            if any(token in segment_type for token in ("brand", "dish", "observation", "claim", "ocr", "place_candidate")):
+                bonus += 0.2
+            if any(token in segment_text for token in ("meal", "food", "drink", "breakfast", "lunch", "dinner", "coffee", "wine", "dessert", "cafe")):
+                bonus += 0.25
         if any(token in normalized_question for token in ("饮料", "喝什么", "产品", "品牌")):
             if any(token in segment_type for token in ("brand", "dish", "price", "observation", "claim")):
                 bonus += 0.2

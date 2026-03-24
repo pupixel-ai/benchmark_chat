@@ -6,7 +6,7 @@ import unittest
 from unittest.mock import patch
 
 from services.llm_processor import LLMProcessor
-from services.vlm_analyzer import VLMAnalyzer
+from services.vlm_analyzer import VLMAnalyzer, VLMCallError
 import config
 
 
@@ -105,6 +105,48 @@ class OpenRouterProviderTests(unittest.TestCase):
         self.assertEqual(llm_payload["facts"], [])
         self.assertEqual(llm_payload["relationship_hypotheses"], [])
 
+    def test_vlm_normalize_result_supports_new_visual_archive_schema(self) -> None:
+        analyzer = VLMAnalyzer.__new__(VLMAnalyzer)
+        payload = {
+            "summary": "2026-03-23 傍晚，【主角】在校园咖啡店靠窗座位与 Person_002 自拍合影，桌面摆有两杯饮品。",
+            "people": [
+                {
+                    "person_id": "Person_002",
+                    "appearance": "青年女性，长发",
+                    "clothing": "灰色连帽卫衣",
+                    "activity": "坐在窗边合影",
+                    "interaction": "与【主角】并肩自拍",
+                    "contact_type": "selfie_together",
+                    "expression": "微笑",
+                }
+            ],
+            "relations": [
+                {"subject": "Person_002", "relation": "holding", "object": "奶茶杯"},
+                {"subject": "奶茶杯", "relation": "placed_on", "object": "木质桌子"},
+            ],
+            "scene": {
+                "environment_details": ["木质桌子", "落地窗", "暖色灯光"],
+                "location_detected": "校园咖啡店",
+                "location_type": "室内",
+            },
+            "event": {
+                "activity": "喝咖啡",
+                "social_context": "和朋友",
+                "mood": "轻松",
+                "story_hints": ["可能是课间短暂休息"],
+            },
+            "details": ["学生证 学号 20261234", "WPS AI"],
+        }
+
+        normalized = analyzer._normalize_result(payload)
+
+        self.assertEqual(normalized["people"][0]["contact_type"], "selfie_together")
+        self.assertEqual(normalized["scene"]["location_type"], "室内")
+        self.assertEqual(normalized["event"]["story_hints"], ["可能是课间短暂休息"])
+        self.assertIn("校园咖啡店", normalized["place_candidates"])
+        self.assertIn("木质桌子", normalized["key_objects"])
+        self.assertIn("学生证 学号 20261234", normalized["ocr_hits"])
+
     def test_bedrock_vlm_request_uses_converse_image_blocks(self) -> None:
         with patch.multiple(
             "services.vlm_analyzer",
@@ -183,6 +225,44 @@ class OpenRouterProviderTests(unittest.TestCase):
         self.assertEqual(content[1]["type"], "image_url")
         self.assertTrue(content[1]["image_url"]["url"].startswith("data:image/jpeg;base64,"))
 
+    def test_vlm_openrouter_parse_failure_preserves_raw_preview(self) -> None:
+        with patch.multiple(
+            "services.vlm_analyzer",
+            VLM_PROVIDER="openrouter",
+            OPENROUTER_API_KEY="test-openrouter-key",
+            OPENROUTER_BASE_URL="https://openrouter.ai/api/v1",
+            OPENROUTER_SITE_URL="http://localhost:8000",
+            OPENROUTER_APP_NAME="Memory Engineering Test",
+            OPENROUTER_VLM_MODEL="google/gemini-3.1-flash-lite-preview",
+            GEMINI_API_KEY="",
+        ):
+            analyzer = VLMAnalyzer(cache_path="cache/test_openrouter_vlm.json")
+            fake_requests = _FakeRequests(
+                {
+                    "choices": [
+                        {
+                            "message": {
+                                "content": "{\"summary\": \"broken json"
+                            }
+                        }
+                    ]
+                }
+            )
+            analyzer.requests = fake_requests
+            analyzer.http_session = fake_requests
+
+            with self.assertRaises(VLMCallError) as ctx:
+                analyzer._analyze_via_openrouter(
+                    "只返回 JSON",
+                    b"image-bytes",
+                    "image/jpeg",
+                )
+
+        self.assertEqual(ctx.exception.details["response_provider"], "openrouter")
+        self.assertEqual(ctx.exception.details["response_status_code"], 200)
+        self.assertEqual(ctx.exception.details["parse_error_type"], "JSONDecodeError")
+        self.assertIn("\"summary\": \"broken json", ctx.exception.details["raw_response_preview"])
+
     def test_llm_openrouter_json_and_markdown_calls(self) -> None:
         with patch.multiple(
             "services.llm_processor",
@@ -230,6 +310,42 @@ class OpenRouterProviderTests(unittest.TestCase):
         self.assertEqual(markdown_requests.calls[0]["json"]["messages"][0]["content"], "输出 Markdown")
         self.assertEqual(json_requests.calls[0]["json"]["reasoning"]["effort"], "minimal")
         self.assertEqual(markdown_requests.calls[0]["json"]["reasoning"]["effort"], "minimal")
+
+    def test_llm_openrouter_json_call_accepts_response_format_and_max_tokens(self) -> None:
+        with patch.multiple(
+            "services.llm_processor",
+            LLM_PROVIDER="openrouter",
+            OPENROUTER_API_KEY="test-openrouter-key",
+            OPENROUTER_BASE_URL="https://openrouter.ai/api/v1",
+            OPENROUTER_SITE_URL="http://localhost:8000",
+            OPENROUTER_APP_NAME="Memory Engineering Test",
+            OPENROUTER_LLM_MODEL="minimax/minimax-m2.5",
+            GEMINI_API_KEY="",
+        ):
+            processor = LLMProcessor()
+            requests = _FakeRequests(
+                {
+                    "choices": [
+                        {
+                            "message": {
+                                "content": "{\"facts\": [], \"relationship_hypotheses\": []}"
+                            }
+                        }
+                    ]
+                }
+            )
+            processor.requests = requests
+
+            result = processor._call_json_prompt(
+                "只返回 JSON",
+                max_tokens=24576,
+                response_format={"type": "json_object"},
+            )
+
+        self.assertEqual(result["facts"], [])
+        payload = requests.calls[0]["json"]
+        self.assertEqual(payload["max_tokens"], 24576)
+        self.assertEqual(payload["response_format"], {"type": "json_object"})
 
     def test_llm_openrouter_retries_premature_response(self) -> None:
         with patch.multiple(

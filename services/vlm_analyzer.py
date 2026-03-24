@@ -6,6 +6,7 @@ from __future__ import annotations
 import base64
 import json
 import mimetypes
+import re
 import time
 from typing import Any, Dict, List, Optional
 
@@ -26,8 +27,10 @@ from config import (
     OPENROUTER_BASE_URL,
     OPENROUTER_SITE_URL,
     OPENROUTER_VLM_MODEL,
+    TASK_VERSION_V0323,
     RETRY_DELAY,
     TASK_VERSION_V0317_HEAVY,
+    V0323_OPENROUTER_MODEL,
     VLM_PROVIDER,
     VLM_CACHE_PATH,
     VLM_MODEL,
@@ -44,15 +47,36 @@ from services.bedrock_runtime import (
 from utils import load_json, save_json
 
 
+class VLMCallError(RuntimeError):
+    def __init__(self, message: str, *, details: Optional[Dict[str, Any]] = None) -> None:
+        super().__init__(message)
+        self.details = dict(details or {})
+
+
 class VLMAnalyzer:
     """VLM analyzer with Bedrock, Gemini proxy, and OpenRouter support."""
 
+    _CONTACT_TYPE_ENUM = {
+        "kiss",
+        "hug",
+        "holding_hands",
+        "arm_in_arm",
+        "selfie_together",
+        "shoulder_lean",
+        "sitting_close",
+        "standing_near",
+        "no_contact",
+    }
+
     def __init__(self, cache_path: str = VLM_CACHE_PATH, task_version: str = ""):
-        self.provider = VLM_PROVIDER
+        self.provider = "openrouter" if task_version == TASK_VERSION_V0323 else VLM_PROVIDER
         self.use_proxy = self.provider == "proxy"
         self.use_openrouter = self.provider == "openrouter"
         self.use_bedrock = self.provider == "bedrock"
-        self.model = OPENROUTER_VLM_MODEL if self.use_openrouter else VLM_MODEL
+        if task_version == TASK_VERSION_V0323:
+            self.model = V0323_OPENROUTER_MODEL
+        else:
+            self.model = OPENROUTER_VLM_MODEL if self.use_openrouter else VLM_MODEL
         self.cache_path = cache_path
         self.task_version = task_version
         self.use_heavy_prompt = self.task_version == TASK_VERSION_V0317_HEAVY
@@ -148,6 +172,12 @@ class VLMAnalyzer:
                 return text.strip()
         raise ValueError(f"无法从内容中提取文本: {type(content).__name__}")
 
+    def _truncate_preview(self, value: Any, *, limit: int = 600) -> str:
+        text = str(value or "").strip()
+        if len(text) <= limit:
+            return text
+        return text[: max(0, limit - 3)] + "..."
+
     def _extract_json_payload(self, raw_text: str) -> Dict[str, Any]:
         text = str(raw_text or "").strip()
         text = text.replace("<|begin_of_box|>", "").replace("<|end_of_box|>", "").strip()
@@ -216,13 +246,251 @@ class VLMAnalyzer:
         normalized.setdefault("object_last_seen_clues", [])
         normalized.setdefault("raw_structured_observations", [])
         normalized.setdefault("uncertainty", [])
-        if not isinstance(normalized.get("event"), dict):
-            normalized["event"] = {}
-        normalized["event"].setdefault("story_hints", [])
         if not isinstance(normalized.get("scene"), dict):
             normalized["scene"] = {}
-        normalized["scene"].setdefault("location_type", "")
+        if not isinstance(normalized.get("event"), dict):
+            normalized["event"] = {}
+        normalized["details"] = self._normalize_text_list(normalized.get("details"))
+        normalized["people"] = self._normalize_people_block(normalized.get("people"))
+        normalized["people_details"] = [dict(item) for item in normalized["people"]]
+        normalized["relations"] = self._normalize_relations_block(normalized.get("relations"))
+        normalized["scene"] = self._normalize_scene_block(
+            normalized.get("scene"),
+            normalized["details"],
+            normalized["relations"],
+        )
+        normalized["event"] = self._normalize_event_block(
+            normalized.get("event"),
+            normalized["people"],
+            normalized["relations"],
+        )
+        normalized["key_objects"] = self._derive_key_objects(normalized)
+        normalized["ocr_hits"] = self._derive_ocr_hits(normalized)
+        normalized["brands"] = self._normalize_text_list(normalized.get("brands"))
+        if not normalized["brands"]:
+            normalized["brands"] = self._derive_brands(normalized)
+        normalized["place_candidates"] = self._derive_place_candidates(normalized)
+        normalized["route_plan_clues"] = self._normalize_text_list(normalized.get("route_plan_clues"))
+        normalized["transport_clues"] = self._normalize_text_list(normalized.get("transport_clues"))
+        normalized["health_treatment_clues"] = self._normalize_text_list(normalized.get("health_treatment_clues"))
+        normalized["object_last_seen_clues"] = self._normalize_text_list(normalized.get("object_last_seen_clues"))
+        normalized["raw_structured_observations"] = list(normalized.get("raw_structured_observations") or [])
+        normalized["uncertainty"] = list(normalized.get("uncertainty") or [])
         return normalized
+
+    def _coerce_value_text(
+        self,
+        value: Any,
+        *,
+        preferred_keys: tuple[str, ...] = ("name", "label", "value", "text", "title", "person_id", "id"),
+    ) -> str:
+        if value in (None, "", [], {}):
+            return ""
+        if isinstance(value, str):
+            return value.strip()
+        if isinstance(value, (int, float, bool)):
+            return str(value).strip()
+        if isinstance(value, dict):
+            for key in preferred_keys:
+                text = self._coerce_value_text(value.get(key))
+                if text:
+                    return text
+            return ""
+        if isinstance(value, (list, tuple, set)):
+            texts = [
+                self._coerce_value_text(item, preferred_keys=preferred_keys)
+                for item in value
+            ]
+            texts = [item for item in texts if item]
+            return " / ".join(texts)
+        return str(value).strip()
+
+    def _normalize_text_list(self, values: Any) -> List[str]:
+        if values in (None, "", [], {}):
+            return []
+        if not isinstance(values, list):
+            values = [values]
+        normalized: List[str] = []
+        seen = set()
+        for value in values:
+            text = self._coerce_value_text(value)
+            if not text or text in seen:
+                continue
+            seen.add(text)
+            normalized.append(text)
+        return normalized
+
+    def _normalize_people_block(self, people: Any) -> List[Dict[str, Any]]:
+        if not isinstance(people, list):
+            return []
+        normalized_people: List[Dict[str, Any]] = []
+        for item in people:
+            if not isinstance(item, dict):
+                continue
+            person_id = self._coerce_value_text(item.get("person_id"))
+            if not person_id:
+                continue
+            contact_type = str(item.get("contact_type") or "").strip()
+            if contact_type not in self._CONTACT_TYPE_ENUM:
+                contact_type = "no_contact"
+            try:
+                confidence = float(item.get("confidence") or 0.0)
+            except Exception:
+                confidence = 0.0
+            normalized_people.append(
+                {
+                    "person_id": person_id,
+                    "appearance": self._coerce_value_text(item.get("appearance")),
+                    "clothing": self._coerce_value_text(item.get("clothing")),
+                    "activity": self._coerce_value_text(item.get("activity")),
+                    "interaction": self._coerce_value_text(item.get("interaction")),
+                    "contact_type": contact_type,
+                    "expression": self._coerce_value_text(item.get("expression")),
+                    "confidence": max(0.0, min(1.0, confidence)),
+                }
+            )
+        return normalized_people
+
+    def _normalize_relations_block(self, relations: Any) -> List[Dict[str, Any]]:
+        if not isinstance(relations, list):
+            return []
+        normalized_relations: List[Dict[str, Any]] = []
+        for item in relations:
+            if not isinstance(item, dict):
+                continue
+            subject = self._coerce_value_text(item.get("subject"))
+            relation = self._coerce_value_text(item.get("relation"))
+            obj = self._coerce_value_text(item.get("object"))
+            if not subject or not relation or not obj:
+                continue
+            try:
+                confidence = float(item.get("confidence") or 0.0)
+            except Exception:
+                confidence = 0.0
+            normalized_relations.append(
+                {
+                    "subject": subject,
+                    "relation": relation,
+                    "object": obj,
+                    "confidence": max(0.0, min(1.0, confidence)),
+                }
+            )
+        return normalized_relations
+
+    def _normalize_scene_block(
+        self,
+        scene: Any,
+        details: List[str],
+        relations: List[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        raw_scene = dict(scene or {}) if isinstance(scene, dict) else {}
+        environment_details = self._normalize_text_list(raw_scene.get("environment_details"))
+        location_detected = self._coerce_value_text(raw_scene.get("location_detected"))
+        location_type = self._coerce_value_text(raw_scene.get("location_type")) or "未知"
+        environment_description = self._coerce_value_text(raw_scene.get("environment_description"))
+        if not environment_description:
+            environment_description = "，".join(environment_details[:3]) or location_detected or location_type
+        visual_clues = self._normalize_text_list(raw_scene.get("visual_clues"))
+        if not visual_clues:
+            visual_clues = environment_details[:4]
+        relation_objects = [
+            endpoint
+            for relation in relations
+            for endpoint in (relation.get("subject"), relation.get("object"))
+            if endpoint and not str(endpoint).startswith("Person_") and endpoint != "【主角】"
+        ]
+        if not environment_details:
+            environment_details = self._normalize_text_list([*relation_objects, *details[:4]])
+        layout = dict(raw_scene.get("layout") or {}) if isinstance(raw_scene.get("layout"), dict) else {}
+        return {
+            "environment_description": environment_description,
+            "environment_details": environment_details,
+            "location_detected": location_detected,
+            "location_type": location_type,
+            "visual_clues": visual_clues,
+            "weather": self._coerce_value_text(raw_scene.get("weather")),
+            "lighting": self._coerce_value_text(raw_scene.get("lighting")),
+            "layout": {
+                "foreground": self._coerce_value_text(layout.get("foreground")),
+                "midground": self._coerce_value_text(layout.get("midground")),
+                "background": self._coerce_value_text(layout.get("background")),
+            },
+        }
+
+    def _normalize_event_block(
+        self,
+        event: Any,
+        people: List[Dict[str, Any]],
+        relations: List[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        raw_event = dict(event or {}) if isinstance(event, dict) else {}
+        interaction = self._coerce_value_text(raw_event.get("interaction"))
+        if not interaction:
+            interaction_clauses: List[str] = []
+            for person in people[:4]:
+                person_id = str(person.get("person_id") or "").strip()
+                if person.get("interaction"):
+                    interaction_clauses.append(f"{person_id}:{person['interaction']}")
+                contact_type = str(person.get("contact_type") or "").strip()
+                if contact_type and contact_type != "no_contact":
+                    interaction_clauses.append(f"{person_id}:{contact_type}")
+            for relation in relations[:3]:
+                subject = str(relation.get("subject") or "").strip()
+                obj = str(relation.get("object") or "").strip()
+                if subject.startswith("Person_") or obj.startswith("Person_") or subject == "【主角】" or obj == "【主角】":
+                    interaction_clauses.append(f"{subject} {relation.get('relation')} {obj}")
+            interaction = "；".join(interaction_clauses[:4])
+        return {
+            "activity": self._coerce_value_text(raw_event.get("activity")),
+            "social_context": self._coerce_value_text(raw_event.get("social_context")),
+            "interaction": interaction,
+            "mood": self._coerce_value_text(raw_event.get("mood")),
+            "story_hints": self._normalize_text_list(raw_event.get("story_hints")),
+        }
+
+    def _derive_key_objects(self, normalized: Dict[str, Any]) -> List[str]:
+        scene = dict(normalized.get("scene") or {})
+        values: List[str] = []
+        values.extend(self._normalize_text_list(normalized.get("key_objects")))
+        values.extend(self._normalize_text_list(scene.get("environment_details")))
+        for relation in list(normalized.get("relations", []) or []):
+            for endpoint in (relation.get("subject"), relation.get("object")):
+                text = self._coerce_value_text(endpoint)
+                if text and not text.startswith("Person_") and text != "【主角】":
+                    values.append(text)
+        return self._normalize_text_list(values)[:12]
+
+    def _derive_ocr_hits(self, normalized: Dict[str, Any]) -> List[str]:
+        explicit_hits = self._normalize_text_list(normalized.get("ocr_hits"))
+        if explicit_hits:
+            return explicit_hits[:12]
+        derived_hits = [
+            detail
+            for detail in self._normalize_text_list(normalized.get("details"))
+            if re.search(r"[\u4e00-\u9fffA-Za-z0-9]{3,}", detail)
+        ]
+        return derived_hits[:12]
+
+    def _derive_brands(self, normalized: Dict[str, Any]) -> List[str]:
+        details = self._normalize_text_list(normalized.get("details"))
+        derived = [
+            detail
+            for detail in details
+            if len(detail) <= 24
+            and (
+                re.search(r"[A-Z][A-Za-z0-9&+._-]{1,}", detail)
+                or any(token in detail for token in ("品牌", "Logo", "logo", "App", "APP", "界面"))
+            )
+        ]
+        return derived[:8]
+
+    def _derive_place_candidates(self, normalized: Dict[str, Any]) -> List[str]:
+        candidates = self._normalize_text_list(normalized.get("place_candidates"))
+        if candidates:
+            return candidates[:5]
+        scene = dict(normalized.get("scene") or {})
+        location_detected = self._coerce_value_text(scene.get("location_detected"))
+        return [location_detected] if location_detected else []
 
     def _infer_reliable_primary_person_id(self, face_db: Dict) -> str | None:
         if not face_db:
@@ -264,6 +532,7 @@ class VLMAnalyzer:
         started_at = time.perf_counter()
         metadata: Dict[str, Any] = {
             "photo_id": photo.photo_id,
+            "filename": photo.filename,
             "retry_count": 0,
             "runtime_seconds": 0.0,
             "provider": self.provider,
@@ -283,6 +552,9 @@ class VLMAnalyzer:
             with open(image_path, "rb") as file_obj:
                 image_data = file_obj.read()
             mime_type = self._guess_mime_type(image_path)
+            metadata["image_path"] = str(image_path)
+            metadata["mime_type"] = mime_type
+            metadata["prompt_char_count"] = len(prompt)
 
             result = None
             for attempt in range(MAX_RETRIES):
@@ -316,6 +588,16 @@ class VLMAnalyzer:
             metadata["runtime_seconds"] = round(time.perf_counter() - started_at, 4)
             metadata["model"] = self.model
             metadata["error"] = str(exc)
+            metadata["error_type"] = type(exc).__name__
+            details = dict(getattr(exc, "details", {}) or {})
+            for key in (
+                "raw_response_preview",
+                "response_status_code",
+                "parse_error_type",
+                "response_provider",
+            ):
+                if key in details and details.get(key) not in (None, ""):
+                    metadata[key] = details.get(key)
             return None, metadata
 
     def _guess_mime_type(self, image_path: str) -> str:
@@ -336,7 +618,18 @@ class VLMAnalyzer:
             ],
             config=self.genai.types.GenerateContentConfig(response_mime_type="application/json"),
         )
-        return self._extract_json_payload(response.text)
+        raw_text = response.text
+        try:
+            return self._extract_json_payload(raw_text)
+        except Exception as exc:
+            raise VLMCallError(
+                f"官方 Gemini JSON 解析失败: {exc}",
+                details={
+                    "raw_response_preview": self._truncate_preview(raw_text),
+                    "parse_error_type": type(exc).__name__,
+                    "response_provider": "official",
+                },
+            ) from exc
 
     def _analyze_via_bedrock(self, prompt: str, image_data: bytes, mime_type: str) -> Dict[str, Any]:
         candidates = self.bedrock_model_candidates or [self.model]
@@ -352,7 +645,18 @@ class VLMAnalyzer:
                     ),
                 )
                 self.model = model_id
-                return self._extract_json_payload(extract_text_from_converse_response(response))
+                raw_text = extract_text_from_converse_response(response)
+                try:
+                    return self._extract_json_payload(raw_text)
+                except Exception as exc:
+                    raise VLMCallError(
+                        f"Bedrock VLM JSON 解析失败: {exc}",
+                        details={
+                            "raw_response_preview": self._truncate_preview(raw_text),
+                            "parse_error_type": type(exc).__name__,
+                            "response_provider": "bedrock",
+                        },
+                    ) from exc
             except Exception as exc:
                 last_error = exc
                 if index < len(candidates) - 1 and should_try_next_bedrock_model(exc):
@@ -394,7 +698,19 @@ class VLMAnalyzer:
                 if "content" in candidate and "parts" in candidate["content"]:
                     for part in candidate["content"]["parts"]:
                         if "text" in part:
-                            return self._extract_json_payload(part["text"])
+                            raw_text = part["text"]
+                            try:
+                                return self._extract_json_payload(raw_text)
+                            except Exception as exc:
+                                raise VLMCallError(
+                                    f"代理 VLM JSON 解析失败: {exc}",
+                                    details={
+                                        "raw_response_preview": self._truncate_preview(raw_text),
+                                        "parse_error_type": type(exc).__name__,
+                                        "response_status_code": response.status_code,
+                                        "response_provider": "proxy",
+                                    },
+                                ) from exc
             return {}
 
         error_msg = f"代理 API 返回状态码 {response.status_code}"
@@ -456,7 +772,19 @@ class VLMAnalyzer:
 
         if response.status_code == 200:
             response_data = response.json()
-            return self._extract_json_payload(self._extract_openrouter_content(response_data))
+            raw_text = self._extract_openrouter_content(response_data)
+            try:
+                return self._extract_json_payload(raw_text)
+            except Exception as exc:
+                raise VLMCallError(
+                    f"OpenRouter VLM JSON 解析失败: {exc}",
+                    details={
+                        "raw_response_preview": self._truncate_preview(raw_text),
+                        "parse_error_type": type(exc).__name__,
+                        "response_status_code": response.status_code,
+                        "response_provider": "openrouter",
+                    },
+                ) from exc
 
         error_msg = f"OpenRouter 返回状态码 {response.status_code}"
         if response.text:
@@ -487,7 +815,65 @@ class VLMAnalyzer:
             return self._create_heavy_prompt(photo, face_db, primary_person_id)
         return self._create_default_prompt(photo, face_db, primary_person_id)
 
-    def _create_default_prompt(self, photo: Photo, face_db: Dict, primary_person_id: Optional[str]) -> str:
+    def _protagonist_photo_count(self, face_db: Dict, primary_person_id: Optional[str]) -> int:
+        if not primary_person_id or not isinstance(face_db, dict):
+            return 0
+        person = face_db.get(primary_person_id)
+        if person is None:
+            return 0
+        if isinstance(person, dict):
+            return int(person.get("photo_count") or 0)
+        return int(getattr(person, "photo_count", 0) or 0)
+
+    def _build_people_instruction_block(self, photo: Photo, face_db: Dict, primary_person_id: Optional[str]) -> str:
+        visible_person_ids = [
+            str(face.get("person_id"))
+            for face in list(photo.faces or [])
+            if face.get("person_id")
+        ]
+        protagonist_count = self._protagonist_photo_count(face_db, primary_person_id)
+        people_list_text = "、".join(visible_person_ids) if visible_person_ids else "无"
+        if primary_person_id and primary_person_id in visible_person_ids:
+            return (
+                "A. 主角在照片中：\n"
+                "     **人物说明**（照片中每个人脸用彩色框标注，标签位于人物上方）：\n"
+                f"     - {primary_person_id}（红色框）是【主角】，出现在{protagonist_count}张照片中\n"
+                "     - 其他人物（蓝色框）用 Person_002、Person_003... 表示\n"
+                f"     - 当前照片中所有 person_id：{people_list_text}\n"
+                "     **分析原则**：\n"
+                '     - summary 中使用"【主角】"指代主角\n'
+                "     - people 数组中使用具体的 person_id"
+            )
+        if primary_person_id and visible_person_ids:
+            return (
+                "B. 主角已识别，但不在照片中：\n"
+                "     **人物说明**：\n"
+                f"     - 照片中的人物：{people_list_text}\n"
+                "     - 【主角】不在照片中，是拍摄者\n"
+                f"     - {primary_person_id} 通常是【主角】，出现在{protagonist_count}张照片中\n"
+                "     **分析原则**：\n"
+                '     - summary 中使用"【主角】"指代拍摄者（主角）\n'
+                '     - 描述从【主角】的拍摄视角观察到的场景\n'
+                "     - people 数组中使用照片中具体的 person_id"
+            )
+        if visible_person_ids:
+            return (
+                "C. 主角未稳定识别出，但照片里有人脸：\n"
+                "     **人物说明**：\n"
+                f"     - 照片中的人物：{people_list_text}\n"
+                "     - 当前无法从人脸层稳定识别出【主角】，统一按【主角】是拍摄者处理\n"
+                "     **分析原则**：\n"
+                '     - summary 中使用"【主角】"指代拍摄者（用户本人）\n'
+                '     - 描述从【主角】的拍摄视角观察到的场景\n'
+                "     - people 数组中使用照片中具体的 person_id"
+            )
+        return (
+            "D. 无人脸：\n"
+            "     **人物说明**：照片中未检测到人脸，这是【主角】的拍摄视角。\n"
+            '     **分析原则**：从【主角】的拍摄视角描述场景和事件，summary 中直接使用"【主角】"。'
+        )
+
+    def _create_visual_archive_prompt(self, photo: Photo, face_db: Dict, primary_person_id: Optional[str]) -> str:
         time_str = photo.timestamp.strftime("%Y-%m-%d %H:%M")
         if photo.location and photo.location.get("name"):
             location_str = str(photo.location["name"])
@@ -495,218 +881,101 @@ class VLMAnalyzer:
             location_str = f"GPS: {photo.location['lat']:.4f}, {photo.location['lng']:.4f}"
         else:
             location_str = "未知"
+        people_instruction = self._build_people_instruction_block(photo, face_db, primary_person_id)
+        return f"""## Role
+你是一位精通视觉人类学与社会空间重构的专家。你的任务是针对【主角】的相册，建立一套"高度复原、可供画像分析"的客观视觉档案。
 
-        visible_people = []
-        for face in photo.faces:
-            person_id = face.get("person_id")
-            if not person_id:
-                continue
-            if person_id == primary_person_id:
-                visible_people.append(f"{person_id}（候选主用户脸）")
-            else:
-                visible_people.append(person_id)
-        people_hint = "、".join(visible_people) if visible_people else "未检测到可靠可见人脸"
-        primary_hint = primary_person_id or "无稳定主用户脸锚点"
+### Context & Priorities
+- **核心任务**: 以【主角】为圆心，还原每一张照片的物理现场、人物身份与社会学线索。
+- **描述准则**: 拒绝模糊词汇（如：肤色白皙），追求物理参数（如：冷白皮、重磅棉、30度斜射光、具体手指动作）。
 
-        return f"""你是一个高召回视觉记忆抽取器。你的任务不是写优美描述，而是为后续 LLM 和记忆系统提取尽可能完整、可检索、可回溯的结构化观察。
+[动态注入: 人物说明 —— 根据人脸识别结果，分四种情况：
+{people_instruction}]
 
-照片上下文：
-- 时间: {time_str}
-- EXIF 地点: {location_str}
-- 可见人脸 person_id: {people_hint}
-- 候选主用户脸锚点: {primary_hint}
+### EXIF信息
+- 时间：{time_str}
+- 地点：{location_str}
 
-要求：
-1. 输出必须是严格 JSON。
-2. 高召回提取以下信息，宁可保留 uncertainty，也不要胡乱补全。
-3. 必须显式记录 OCR、品牌、菜品、价格、服装/材质、地点候选、路线/计划线索、交通线索、健康/治疗线索、物体最后出现线索。
-4. 如果信息不存在，返回空数组或空对象，不要编造。
-5. 如果人物只出现在海报、屏幕、广告牌、包装或反射中，必须写入 uncertainty 或 raw_structured_observations，不要当成现场实体人物。
-6. summary 只做客观一句话概括，不做身份结论。
-7. 所有字符串内部如果需要出现双引号，必须转义为 \\\"，不要输出坏 JSON。
-8. 在 summary / appearance / clothing / activity / interaction / expression / reason 这类长文本字段中，禁止直接出现 ASCII 双引号 `"`；引用 OCR 或原文时改用《》或「」。
+---
 
-输出 JSON schema:
+### Task: 结构化识别要求 (Output Schema)
+
+请针对每张照片输出以下严格的 JSON 格式（严禁包含主观推测）：
+
+1. **summary** (String, 必须):
+   - 完整叙事句，包含：[精确时刻/天气] + [具体地理/室内场景] + [【主角】的行为状态] + [核心事件进度]
+
+2. **people** (List，无人脸时可为空数组):
+   - **person_id** (String): 必须与人脸标注一致（Person_001、Person_002...）
+   - **appearance** (String): 性别、年龄段、发型细节、脸型特征、体型、修饰痕迹
+   - **clothing** (String): 衣物材质（重磅棉/尼龙/真丝等）、版型、品牌Logo、配饰
+   - **activity** (String): 人物当前动作/姿态
+   - **interaction** (String): 与【主角】的物理距离（亲密/社交/公共）、具体互动动作
+   - **contact_type** (String): 身体接触类型，从以下枚举中选择：kiss/hug/holding_hands/arm_in_arm/selfie_together/shoulder_lean/sitting_close/standing_near/no_contact
+   - **expression** (String): 面部表情和情绪状态
+
+3. **relations** (List): 画面中可观测到的实体关系三元组：
+   - **subject** (String): 主体（person_id 或物品名）
+   - **relation** (String): 关系动作（如 sitting_at, holding, interacting_with, placed_on, looking_at, standing_near）
+   - **object** (String): 客体（person_id、物品名或场景元素）
+
+4. **scene** (Object):
+   - **environment_details** (List): 环境细节列表（木质桌子、绿色植物、暖色调灯光等），如有可见天气信息也写入此处
+   - **location_detected** (String): 具体位置识别（如望京漫咖啡、星巴克XX店）
+   - **location_type** (String): "室内" 或 "室外"
+
+5. **event** (Object):
+   - **activity** (String): 具体活动类型（喝咖啡/吃饭/工作/运动/旅行/购物/学习/其他）
+   - **social_context** (String): 社交背景（和朋友/独自/和家人/和同事/和伴侣）
+   - **mood** (String): 整体氛围（轻松、愉快、温馨、专注、忙碌...）
+   - **story_hints** (List): 1-2条基于视觉证据的社交故事推断（如"可能是生日聚会"、"工作日加班"）
+
+6. **details** (List): 画面中值得关注的硬核线索（品牌Logo、App界面、证件、账单、书籍标题、屏幕内容等）
+
+---
+
+### ⚠️ 输出要求 (Constraints)
+- **拒绝模板**: 严禁多人描述雷同，必须捕捉细微差别
+- **硬核线索**: 必须扫描并记录所有可见的品牌、文字、屏幕内容
+- **JSON Only**: 仅输出结构化 JSON，不要任何开头语或解释
+
+输出JSON格式：
 {{
-  "summary": "一句话客观概括",
+  "summary": "String",
   "people": [
     {{
-      "person_id": "Person_001",
-      "appearance": "可见外貌线索",
-      "clothing": "服装/材质/配饰",
-      "activity": "动作",
-      "interaction": "与他人/拍摄者的互动",
-      "contact_type": "接触类型或 no_contact",
-      "expression": "表情",
-      "confidence": 0.0
+      "person_id": "String",
+      "appearance": "String",
+      "clothing": "String",
+      "activity": "String",
+      "interaction": "String",
+      "contact_type": "String",
+      "expression": "String"
     }}
   ],
   "relations": [
-    {{
-      "subject": "person_001",
-      "relation": "looking_at",
-      "object": "scene_or_person",
-      "confidence": 0.0
-    }}
+    {{"subject": "Person_001", "relation": "String", "object": "String"}}
   ],
   "scene": {{
-    "environment_description": "宏观场景",
-    "environment_details": ["细节"],
-    "location_detected": "地点候选",
-    "visual_clues": ["视觉线索"],
-    "weather": "天气或空字符串",
-    "lighting": "光线描述",
-    "layout": {{
-      "foreground": "",
-      "midground": "",
-      "background": ""
-    }}
+    "environment_details": ["String"],
+    "location_detected": "String",
+    "location_type": "String"
   }},
   "event": {{
-    "activity": "活动候选",
-    "social_context": "社交上下文",
-    "interaction": "互动动作",
-    "mood": "氛围",
-    "story_hints": ["基于视觉证据的情境线索"]
+    "activity": "String",
+    "social_context": "String",
+    "mood": "String",
+    "story_hints": ["String"]
   }},
-  "details": ["值得保留的硬线索"],
-  "key_objects": ["关键物体"],
-  "ocr_hits": ["OCR 命中"],
-  "brands": ["品牌/媒体/IP/商家名"],
-  "place_candidates": [
-    {{"name": "地点候选", "confidence": 0.0, "reason": "为什么"}}
-  ],
-  "route_plan_clues": ["路线/计划/景点线索"],
-  "transport_clues": ["交通/通勤/车内线索"],
-  "health_treatment_clues": ["症状/药品/治疗线索"],
-  "object_last_seen_clues": ["物品最后出现线索"],
-  "raw_structured_observations": [
-    {{
-      "observation_type": "ocr_observation",
-      "field": "restaurant_name",
-      "value": "识别值",
-      "confidence": 0.0
-    }}
-  ],
-  "uncertainty": [
-    {{
-      "field": "exact_city",
-      "status": "unknown",
-      "reason": "原因"
-    }}
-  ]
+  "details": ["String"]
 }}
 """
 
+    def _create_default_prompt(self, photo: Photo, face_db: Dict, primary_person_id: Optional[str]) -> str:
+        return self._create_visual_archive_prompt(photo, face_db, primary_person_id)
+
     def _create_heavy_prompt(self, photo: Photo, face_db: Dict, primary_person_id: Optional[str]) -> str:
-        time_str = photo.timestamp.strftime("%Y-%m-%d %H:%M")
-        if photo.location and photo.location.get("name"):
-            location_str = str(photo.location["name"])
-        elif photo.location and photo.location.get("lat") is not None and photo.location.get("lng") is not None:
-            location_str = f"GPS: {photo.location['lat']:.4f}, {photo.location['lng']:.4f}"
-        else:
-            location_str = "未知"
-
-        visible_people = []
-        for face in photo.faces:
-            person_id = face.get("person_id")
-            if not person_id:
-                continue
-            if person_id == primary_person_id:
-                visible_people.append(f"{person_id}（候选主用户脸）")
-            else:
-                visible_people.append(person_id)
-        people_hint = "、".join(visible_people) if visible_people else "未检测到可靠可见人脸"
-        primary_hint = primary_person_id or "无稳定主用户脸锚点"
-
-        return f"""你是一位精通视觉人类学与社会空间重构的专家。你的任务是针对【主角】的相册，建立一套高度复原、可供画像分析的客观视觉档案。
-
-照片上下文：
-- 时间: {time_str}
-- EXIF 地点: {location_str}
-- 可见人脸 person_id: {people_hint}
-- 候选主用户脸锚点: {primary_hint}
-
-输出要求：
-1. 只输出严格 JSON，不要解释。
-2. 高召回提取人物、关系、场景、事件、OCR、品牌、价格、菜品、服装材质、地点候选、路线/计划、交通、健康治疗、物体最后出现线索。
-3. 如果画面人物来自海报、屏幕、包装、广告牌或反射，不能当作现场人物，必须写入 details / raw_structured_observations / uncertainty。
-4. 允许 story_hints，但必须基于视觉证据。
-5. contact_type 只能从以下枚举里选：kiss/hug/holding_hands/arm_in_arm/selfie_together/shoulder_lean/sitting_close/standing_near/no_contact
-6. 所有字符串内部如果需要出现双引号，必须转义为 \\\"，不要输出坏 JSON。
-7. 在 summary / people.* / scene.* / event.* / raw_structured_observations.reason 这类长文本字段中，禁止直接出现 ASCII 双引号 `"`；引用 OCR 或原文时统一改用《》或「」。
-
-输出 JSON schema:
-{{
-  "summary": "完整叙事句，包含时间/地点/主角状态/核心场景",
-  "people": [
-    {{
-      "person_id": "person_0",
-      "appearance": "年龄段、发型、体态、外貌特征",
-      "clothing": "材质、版型、品牌Logo、配饰",
-      "activity": "动作/姿态",
-      "interaction": "与主角或他人的互动",
-      "contact_type": "kiss|hug|holding_hands|arm_in_arm|selfie_together|shoulder_lean|sitting_close|standing_near|no_contact",
-      "expression": "表情和情绪状态",
-      "confidence": 0.0
-    }}
-  ],
-  "relations": [
-    {{
-      "subject": "person_0",
-      "relation": "looking_at|standing_near|holding|sitting_at|placed_on|interacting_with",
-      "object": "person_1 或物体或场景元素",
-      "confidence": 0.0
-    }}
-  ],
-  "scene": {{
-    "environment_description": "宏观场景",
-    "environment_details": ["场景细节"],
-    "location_detected": "地点候选",
-    "location_type": "室内/室外/未知",
-    "visual_clues": ["视觉线索"],
-    "weather": "天气或空字符串",
-    "lighting": "光线描述",
-    "layout": {{
-      "foreground": "",
-      "midground": "",
-      "background": ""
-    }}
-  }},
-  "event": {{
-    "activity": "喝咖啡/吃饭/工作/运动/旅行/购物/学习/其他",
-    "social_context": "和朋友/独自/和家人/和同事/和伴侣/未知",
-    "interaction": "互动动作",
-    "mood": "氛围",
-    "story_hints": ["1-2 条基于视觉证据的故事线索"]
-  }},
-  "details": ["硬核线索"],
-  "key_objects": ["关键物体"],
-  "ocr_hits": ["OCR 命中"],
-  "brands": ["品牌/媒体/IP/商家名"],
-  "place_candidates": [
-    {{"name": "地点候选", "confidence": 0.0, "reason": "为什么"}}
-  ],
-  "route_plan_clues": ["路线/计划/景点线索"],
-  "transport_clues": ["交通/通勤/车内线索"],
-  "health_treatment_clues": ["症状/药品/治疗线索"],
-  "object_last_seen_clues": ["物体最后出现线索"],
-  "raw_structured_observations": [
-    {{
-      "observation_type": "ocr_observation|brand_observation|dish_observation|price_observation|clothing_observation|transport_observation|health_observation|route_plan_observation|object_last_seen",
-      "field": "字段名",
-      "value": "值",
-      "confidence": 0.0
-    }}
-  ],
-  "uncertainty": [
-    {{
-      "field": "exact_city",
-      "status": "unknown|insufficient_evidence|ambiguous",
-      "reason": "原因"
-    }}
-  ]
-}}"""
+        return self._create_visual_archive_prompt(photo, face_db, primary_person_id)
 
     def save_cache(self) -> None:
         data = {
