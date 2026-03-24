@@ -29,6 +29,8 @@ const API_BASE = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "").replace(/\/$/, "")
 const DEFAULT_MAX_UPLOADS = 5000;
 const MAX_BATCH_FILES = 50;
 const MAX_BATCH_BYTES = 64 * 1024 * 1024;
+const UPLOAD_BATCH_RETRY_LIMIT = 3;
+const UPLOAD_RETRY_BASE_DELAY_MS = 1200;
 const GALLERY_PREVIEW_LIMIT = 120;
 const FACE_RECOGNITION_STAGES = new Set(["queued", "starting", "loading", "converting", "face_recognition"]);
 const FALLBACK_TASK_VERSIONS = ["v0317-Heavy", "v0317", "v0315", "v0312"];
@@ -165,6 +167,10 @@ function formatTaskTime(value?: string) {
   } catch {
     return value;
   }
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
 function formatTaskDate(value?: string) {
@@ -2051,6 +2057,16 @@ export default function HomePage() {
   const [reviewBusy, setReviewBusy] = useState<Record<string, boolean>>({});
   const [policyBusy, setPolicyBusy] = useState<Record<string, boolean>>({});
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{
+    taskId: string;
+    totalFiles: number;
+    uploadedFiles: number;
+    failedFiles: number;
+    totalBatches: number;
+    completedBatches: number;
+    retryAttempt: number;
+    lastError?: string | null;
+  } | null>(null);
   const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
   const [isTaskLoading, setIsTaskLoading] = useState(false);
   const [memoryQueryHistoryByTask, setMemoryQueryHistoryByTask] = useState<Record<string, MemoryQueryHistoryItem[]>>({});
@@ -2078,6 +2094,24 @@ export default function HomePage() {
   const currentStatusLabel = currentTask ? formatStatus(currentTask.status) : "";
   const currentStageLabel = currentTask ? formatStage(currentTask.stage) : "";
   const showCurrentStageLabel = Boolean(currentTask && currentStageLabel !== currentStatusLabel);
+  const currentTaskSource = currentTask?.options?.creation_source ?? "manual";
+  const uploadProgressForCurrentTask =
+    currentTask && uploadProgress?.taskId === currentTask.task_id ? uploadProgress : null;
+  const persistedUploadTotalCount = Number(currentTask?.options?.expected_upload_count ?? 0);
+  const uploadTotalCount = uploadProgressForCurrentTask?.totalFiles ?? persistedUploadTotalCount;
+  const uploadUploadedCount = Math.max(
+    Number(currentTask?.upload_count ?? 0),
+    uploadProgressForCurrentTask?.uploadedFiles ?? 0
+  );
+  const uploadFailedCount = uploadProgressForCurrentTask?.failedFiles ?? 0;
+  const uploadRemainingCount = uploadProgressForCurrentTask
+    ? Math.max(uploadTotalCount - uploadUploadedCount - uploadFailedCount, 0)
+    : Math.max(uploadTotalCount - uploadUploadedCount, 0);
+  const uploadTotalBatches = uploadProgressForCurrentTask?.totalBatches ?? 0;
+  const uploadCompletedBatches = uploadProgressForCurrentTask?.completedBatches ?? 0;
+  const uploadActiveBatch = uploadTotalBatches > 0 ? Math.min(uploadCompletedBatches + 1, uploadTotalBatches) : 0;
+  const uploadRetryAttempt = uploadProgressForCurrentTask?.retryAttempt ?? 0;
+  const uploadLastError = uploadProgressForCurrentTask?.lastError ?? null;
 
   useEffect(() => {
     return () => {
@@ -2222,6 +2256,7 @@ export default function HomePage() {
       setFullMemoryLoadingByTask({});
       setMemoryStepsByTask({});
       setMemoryStepsLoadingByTask({});
+      setUploadProgress(null);
       setPendingUploads((previous) => {
         revokePendingUploads(previous);
         return [];
@@ -2326,6 +2361,7 @@ export default function HomePage() {
         next[taskIndex] = toTaskListEntry(payload);
         return next;
       });
+      return payload;
     } finally {
       if (showLoading) {
         setIsTaskLoading(false);
@@ -2446,6 +2482,7 @@ export default function HomePage() {
     setIsUploading(true);
     setError(null);
     let createdTaskId: string | null = null;
+    let completedSuccessfully = false;
 
     try {
       const response = await apiFetch(`${API_BASE}/api/tasks`, {
@@ -2453,6 +2490,10 @@ export default function HomePage() {
         body: JSON.stringify({
           version: selectedTaskVersion,
           normalize_live_photos: normalizeLivePhotos,
+          creation_source: "manual",
+          expected_upload_count: files.length,
+          requested_max_photos: Math.min(files.length, maxUploadPhotos),
+          auto_start_on_upload_complete: true,
         })
       });
 
@@ -2467,45 +2508,113 @@ export default function HomePage() {
 
       const payload = (await response.json()) as { task_id: string };
       createdTaskId = payload.task_id;
+      const batches = buildUploadBatches(files);
+      let accumulatedFailedCount = 0;
+      setUploadProgress({
+        taskId: payload.task_id,
+        totalFiles: files.length,
+        uploadedFiles: 0,
+        failedFiles: 0,
+        totalBatches: batches.length,
+        completedBatches: 0,
+        retryAttempt: 0,
+        lastError: null,
+      });
       setIsDraftView(false);
       await fetchTask(payload.task_id);
 
-      const batches = buildUploadBatches(files);
-      let cursor = 0;
-      const uploadWorker = async () => {
-        while (cursor < batches.length) {
-          const batch = batches[cursor];
-          cursor += 1;
-          const formData = new FormData();
-          batch.forEach((file) => formData.append("files", file));
-          const batchResponse = await apiFetch(`${API_BASE}/api/tasks/${payload.task_id}/upload-batches`, {
-            method: "POST",
-            body: formData
-          });
-          if (!batchResponse.ok) {
-            const batchPayload = await batchResponse.json().catch(() => null);
-            throw new Error(batchPayload?.detail ?? "上传图片分片失败");
+      const uploadSingleBatch = async (batch: File[], batchIndex: number) => {
+        for (let attempt = 1; attempt <= UPLOAD_BATCH_RETRY_LIMIT; attempt += 1) {
+          setUploadProgress((previous) =>
+            previous && previous.taskId === payload.task_id
+              ? {
+                  ...previous,
+                  retryAttempt: attempt,
+                  lastError: null,
+                }
+              : previous
+          );
+
+          try {
+            const formData = new FormData();
+            formData.append("creation_source", "manual");
+            formData.append("expected_upload_count", String(files.length));
+            formData.append("requested_max_photos", String(Math.min(files.length, maxUploadPhotos)));
+            formData.append("auto_start_on_upload_complete", "true");
+            batch.forEach((file) => formData.append("files", file));
+
+            const batchResponse = await apiFetch(`${API_BASE}/api/tasks/${payload.task_id}/upload-batches`, {
+              method: "POST",
+              body: formData,
+            });
+            if (!batchResponse.ok) {
+              const batchPayload = await batchResponse.json().catch(() => null);
+              throw new Error(batchPayload?.detail ?? `第 ${batchIndex + 1} 批上传失败`);
+            }
+
+            const batchPayload = (await batchResponse.json()) as {
+              upload_count?: number;
+              failed_count?: number;
+              status?: TaskState["status"];
+              stage?: string;
+            };
+            accumulatedFailedCount += Number(batchPayload.failed_count ?? 0);
+            setUploadProgress((previous) =>
+              previous && previous.taskId === payload.task_id
+                ? {
+                    ...previous,
+                    uploadedFiles: Math.max(previous.uploadedFiles, Number(batchPayload.upload_count ?? previous.uploadedFiles)),
+                    failedFiles: previous.failedFiles + Number(batchPayload.failed_count ?? 0),
+                    completedBatches: Math.max(previous.completedBatches, batchIndex + 1),
+                    retryAttempt: 0,
+                    lastError: null,
+                  }
+                : previous
+            );
+            setCurrentTask((previous) =>
+              previous && previous.task_id === payload.task_id
+                ? {
+                    ...previous,
+                    status: batchPayload.status ?? "uploading",
+                    stage: batchPayload.stage ?? "uploading",
+                    upload_count: Number(batchPayload.upload_count ?? previous.upload_count ?? 0),
+                  }
+                : previous
+            );
+            return;
+          } catch (batchError) {
+            const message = batchError instanceof Error ? batchError.message : `第 ${batchIndex + 1} 批上传失败`;
+            setUploadProgress((previous) =>
+              previous && previous.taskId === payload.task_id
+                ? {
+                    ...previous,
+                    lastError: `第 ${batchIndex + 1}/${batches.length} 批失败：${message}`,
+                  }
+                : previous
+            );
+            if (attempt >= UPLOAD_BATCH_RETRY_LIMIT) {
+              throw new Error(`上传在第 ${batchIndex + 1}/${batches.length} 批中断：${message}`);
+            }
+            await sleep(UPLOAD_RETRY_BASE_DELAY_MS * attempt);
           }
         }
       };
-      await Promise.all(Array.from({ length: Math.min(2, batches.length) }, () => uploadWorker()));
 
-      const startResponse = await apiFetch(`${API_BASE}/api/tasks/${payload.task_id}/start`, {
-        method: "POST",
-        body: JSON.stringify({
-          max_photos: Math.min(files.length, maxUploadPhotos),
-          use_cache: false,
-          normalize_live_photos: normalizeLivePhotos,
-        })
-      });
-      if (!startResponse.ok) {
-        const startPayload = await startResponse.json().catch(() => null);
-        throw new Error(startPayload?.detail ?? "启动任务失败");
+      for (let index = 0; index < batches.length; index += 1) {
+        await uploadSingleBatch(batches[index], index);
+      }
+
+      const latestTask = await fetchTask(payload.task_id);
+      const latestUploadCount = Number(latestTask?.upload_count ?? 0);
+      const accountedFileCount = latestUploadCount + accumulatedFailedCount;
+      if (accountedFileCount < files.length) {
+        throw new Error(`上传未完成：服务端仅确认 ${accountedFileCount} / ${files.length} 张，请稍后重试剩余分片`);
       }
 
       await fetchTasks();
-      await fetchTask(payload.task_id);
+      setUploadProgress(null);
       setPendingUploads([]);
+      completedSuccessfully = true;
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "创建任务失败");
       if (createdTaskId) {
@@ -2513,9 +2622,11 @@ export default function HomePage() {
       }
     } finally {
       setIsUploading(false);
-      setSelectedFiles([]);
-      if (createdTaskId && fileInputRef.current) {
-        fileInputRef.current.value = "";
+      if (completedSuccessfully) {
+        setSelectedFiles([]);
+        if (createdTaskId && fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
       }
     }
   }
@@ -2691,6 +2802,7 @@ export default function HomePage() {
     setPolicyBusy({});
     setFullMemoryLoadingByTask({});
     setMemoryStepsLoadingByTask({});
+    setUploadProgress(null);
     setPendingUploads((previous) => {
       revokePendingUploads(previous);
       return [];
@@ -2756,6 +2868,8 @@ export default function HomePage() {
       />
     ) : currentTask && (currentTask.status === "running" || currentTask.status === "queued" || currentTask.status === "uploading") ? (
       <WaitingDots label="人物索引整理中" />
+    ) : faceReport?.total_persons === 0 ? (
+      <p className="text-sm text-black/58">静态帧未检测到人脸，因此没有人物索引。</p>
     ) : (
       <p className="text-sm text-black/58">当前还没有可展示的人物索引。</p>
     );
@@ -2842,7 +2956,14 @@ export default function HomePage() {
                             <p className="mt-1 truncate text-xs text-black/45">
                               {formatStatus(task.status)} · {formatTaskTime(task.created_at) || formatStage(task.stage)}
                             </p>
-                            <p className="mt-1 truncate text-xs text-black/45">任务版本 {task.version ?? defaultTaskVersion}</p>
+                            <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-black/45">
+                              <span className="truncate">任务版本 {task.version ?? defaultTaskVersion}</span>
+                              {task.options?.creation_source === "api" ? (
+                                <span className="rounded-full border border-[#d7c3a8] bg-[#f6eee3] px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.14em] text-[#7a5a37]">
+                                  API
+                                </span>
+                              ) : null}
+                            </div>
                           </button>
                           <button
                             type="button"
@@ -2967,6 +3088,11 @@ export default function HomePage() {
                   <p className="mt-4 max-w-3xl text-base leading-7 text-black/62">
                     这条链路现在会把 Face to VLM to Segmentation to LLM to Memory 全部跑完。任务完成后既能看人物聚合，也能直接回看画像、关系、Event / Fact 和底层 trace。
                   </p>
+                  {currentTaskSource === "api" ? (
+                    <div className="mt-4 inline-flex items-center rounded-full border border-[#d7c3a8] bg-[#f6eee3] px-3 py-1 font-mono text-[11px] uppercase tracking-[0.16em] text-[#7a5a37]">
+                      API
+                    </div>
+                  ) : null}
                 </div>
 
                 <div className="flex flex-col items-start gap-3 lg:items-end">
@@ -2990,6 +3116,29 @@ export default function HomePage() {
                     <p className="mt-2 text-xl font-semibold">{currentStatusLabel}</p>
                     {showCurrentStageLabel ? <p className="mt-1 text-sm text-black/56">{currentStageLabel}</p> : null}
                   </div>
+
+                  {currentTask.status === "uploading" && uploadTotalCount > 0 ? (
+                    <div className="rounded-[12px] border border-[#ddcebb] bg-white/70 px-5 py-4">
+                      <p className="font-mono text-xs uppercase tracking-[0.2em] text-black/42">上传进度</p>
+                      <p className="mt-2 text-xl font-semibold">
+                        已上传 {uploadUploadedCount} / {uploadTotalCount}
+                      </p>
+                      <p className="mt-1 text-sm text-black/56">
+                        剩余 {uploadRemainingCount}
+                        {uploadFailedCount > 0 ? ` · 失败 ${uploadFailedCount}` : ""}
+                      </p>
+                      {uploadTotalBatches > 0 ? (
+                        <p className="mt-1 text-xs text-black/45">
+                          分片 {Math.min(uploadCompletedBatches, uploadTotalBatches)} / {uploadTotalBatches}
+                          {uploadActiveBatch > uploadCompletedBatches && uploadCompletedBatches < uploadTotalBatches
+                            ? ` · 当前批次 ${uploadActiveBatch}`
+                            : ""}
+                          {uploadRetryAttempt > 1 ? ` · 重试 ${uploadRetryAttempt}/${UPLOAD_BATCH_RETRY_LIMIT}` : ""}
+                        </p>
+                      ) : null}
+                      {uploadLastError ? <p className="mt-2 text-xs text-[#8a5637]">{uploadLastError}</p> : null}
+                    </div>
+                  ) : null}
 
                   {currentTask.status === "completed" && currentAnalysisBundle ? (
                     <a

@@ -67,6 +67,22 @@ class VLMAnalyzer:
         "standing_near",
         "no_contact",
     }
+    _SOURCE_TYPE_ALIASES = {
+        "camera_photo": "camera_photo",
+        "live_photo": "camera_photo",
+        "photo": "camera_photo",
+        "screenshot": "screenshot",
+        "screen_capture": "screenshot",
+        "document": "document",
+        "id_document": "document",
+        "ai_generated_image": "ai_generated_image",
+        "ai_generated_or_reference": "ai_generated_image",
+        "generated_image": "ai_generated_image",
+        "embedded_media": "embedded_media",
+        "scanned_or_embedded_media": "embedded_media",
+        "reference_media": "reference_media",
+        "saved_web_image": "reference_media",
+    }
 
     def __init__(self, cache_path: str = VLM_CACHE_PATH, task_version: str = ""):
         self.provider = "openrouter" if task_version == TASK_VERSION_V0323 else VLM_PROVIDER
@@ -276,7 +292,113 @@ class VLMAnalyzer:
         normalized["object_last_seen_clues"] = self._normalize_text_list(normalized.get("object_last_seen_clues"))
         normalized["raw_structured_observations"] = list(normalized.get("raw_structured_observations") or [])
         normalized["uncertainty"] = list(normalized.get("uncertainty") or [])
+        normalized["source_type"] = self._normalize_source_type(normalized.get("source_type"))
         return normalized
+
+    def _normalize_source_type(self, value: Any) -> str:
+        normalized = str(value or "").strip().lower().replace("-", "_").replace(" ", "_")
+        return self._SOURCE_TYPE_ALIASES.get(normalized, "")
+
+    def _derive_source_type(self, normalized: Dict[str, Any], *, filename: str = "") -> str:
+        explicit = self._normalize_source_type(normalized.get("source_type"))
+        if explicit:
+            return explicit
+
+        filename_text = str(filename or "").strip().lower()
+        scene = dict(normalized.get("scene") or {})
+        event = dict(normalized.get("event") or {})
+        text_pool = " ".join(
+            part
+            for part in [
+                filename_text,
+                str(normalized.get("summary") or ""),
+                " ".join(str(item) for item in list(normalized.get("details", []) or [])),
+                " ".join(str(item) for item in list(normalized.get("ocr_hits", []) or [])),
+                " ".join(str(item) for item in list(normalized.get("uncertainty", []) or [])),
+                str(scene.get("location_detected") or ""),
+                str(scene.get("environment_description") or ""),
+                " ".join(str(item) for item in list(scene.get("environment_details", []) or [])),
+                str(event.get("activity") or ""),
+                str(event.get("social_context") or ""),
+            ]
+            if part
+        ).lower()
+
+        if any(token in filename_text for token in ("screenshot", "screen shot", "截屏", "截图", "screen_capture")):
+            return "screenshot"
+        if any(
+            token in text_pool
+            for token in (
+                "screen capture",
+                "screen shot",
+                "screenshot",
+                "chat screenshot",
+                "屏幕截图",
+                "截屏",
+                "截图",
+            )
+        ):
+            return "screenshot"
+        if any(token in text_pool for token in ("student id", "id card", "passport", "学生证", "身份证", "证件照")):
+            return "document"
+        if any(
+            token in text_pool
+            for token in (
+                "midjourney",
+                "dall-e",
+                "dalle",
+                "stable diffusion",
+                "sdxl",
+                "comfyui",
+                "flux",
+                "ai generated image",
+                "ai-generated image",
+                "generated illustration",
+                "generated portrait",
+                "rendered illustration",
+                "rendered portrait",
+                "digital illustration",
+                "ai生成",
+                "生成图",
+                "ai图",
+                "ai 图",
+                "ai绘画",
+                "数字插画",
+                "合成图",
+            )
+        ):
+            return "ai_generated_image"
+        if any(
+            token in text_pool
+            for token in (
+                "polaroid",
+                "instant photo",
+                "printed photo",
+                "photo of a photo",
+                "screen within screen",
+                "photo on screen",
+                "相纸",
+                "照片中的照片",
+                "屏幕中的照片",
+            )
+        ):
+            return "embedded_media"
+        if "reference-only" in text_pool or any(
+            token in text_pool
+            for token in (
+                "reference media",
+                "inspiration board",
+                "lookbook",
+                "poster",
+                "wallpaper",
+                "meme",
+                "网图",
+                "海报",
+                "参考图",
+            )
+        ):
+            return "reference_media"
+        return "camera_photo"
 
     def _coerce_value_text(
         self,
@@ -797,11 +919,14 @@ class VLMAnalyzer:
 
     def build_result_entry(self, photo: Photo, vlm_result: Dict[str, Any]) -> Dict[str, Any]:
         normalized = self._normalize_result(vlm_result)
+        source_type = self._derive_source_type(normalized, filename=photo.filename)
+        normalized["source_type"] = source_type
         return {
             "photo_id": photo.photo_id,
             "filename": photo.filename,
             "timestamp": photo.timestamp.isoformat(),
             "location": photo.location,
+            "source_type": source_type,
             "face_person_ids": [face["person_id"] for face in photo.faces if face.get("person_id")],
             "vlm_analysis": normalized,
         }
@@ -1011,8 +1136,11 @@ class VLMAnalyzer:
             for item in data["photos"]:
                 vlm_analysis = self._normalize_result(item.get("vlm_analysis"))
                 normalized_item = dict(item)
+                source_type = self._derive_source_type(vlm_analysis, filename=str(item.get("filename") or ""))
+                vlm_analysis["source_type"] = source_type
                 normalized_item["vlm_analysis"] = vlm_analysis
                 normalized_item.setdefault("face_person_ids", [])
+                normalized_item["source_type"] = source_type
                 normalized_results.append(normalized_item)
 
             self.results = normalized_results

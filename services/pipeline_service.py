@@ -1608,6 +1608,7 @@ class MemoryPipelineService:
                 {
                     "photo_id": item.get("photo_id"),
                     "filename": item.get("filename"),
+                    "source_type": item.get("source_type") or dict(item.get("vlm_analysis") or {}).get("source_type"),
                     "original_image_ids": [item.get("photo_id")] if item.get("photo_id") else [],
                     "summary": analysis.get("summary"),
                     "ocr_hits": list(analysis.get("ocr_hits", [])[:10]),

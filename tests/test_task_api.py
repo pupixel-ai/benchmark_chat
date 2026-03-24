@@ -3,6 +3,8 @@ from __future__ import annotations
 import io
 import json
 import shutil
+import threading
+import time
 import unittest
 import uuid
 import zipfile
@@ -14,7 +16,7 @@ from fastapi.testclient import TestClient
 from PIL import Image
 from sqlalchemy import delete
 
-from backend.app import app, task_store
+from backend.app import _task_upload_lock, app, task_store
 from backend.db import SessionLocal
 from config import APP_VERSION, AVAILABLE_TASK_VERSIONS, DEFAULT_NORMALIZE_LIVE_PHOTOS, DEFAULT_TASK_VERSION
 from backend.models import (
@@ -68,6 +70,7 @@ class TaskApiTests(unittest.TestCase):
             create_response.json()["options"]["normalize_live_photos"],
             DEFAULT_NORMALIZE_LIVE_PHOTOS,
         )
+        self.assertEqual(create_response.json()["options"]["creation_source"], "manual")
 
         batch_response = self.client.post(
             f"/api/tasks/{task_id}/upload-batches",
@@ -86,6 +89,7 @@ class TaskApiTests(unittest.TestCase):
         assert task is not None
         self.assertEqual(task["version"], DEFAULT_TASK_VERSION)
         self.assertEqual(task["options"]["normalize_live_photos"], DEFAULT_NORMALIZE_LIVE_PHOTOS)
+        self.assertEqual(task["options"]["creation_source"], "manual")
         self.assertEqual(len(task.get("uploads") or []), 2)
         self.assertTrue((task_store.task_dir(task_id) / "uploads").exists())
         self.assertTrue(all(upload.get("source_hash") for upload in task["uploads"]))
@@ -103,31 +107,107 @@ class TaskApiTests(unittest.TestCase):
             start_response.json()["options"]["normalize_live_photos"],
             DEFAULT_NORMALIZE_LIVE_PHOTOS,
         )
+        self.assertEqual(start_response.json()["options"]["creation_source"], "manual")
         run_pipeline.assert_called_once_with(
             task_id,
             self.user_id,
             2,
             False,
             DEFAULT_TASK_VERSION,
-            {"normalize_live_photos": DEFAULT_NORMALIZE_LIVE_PHOTOS},
+            {
+                "normalize_live_photos": DEFAULT_NORMALIZE_LIVE_PHOTOS,
+                "creation_source": "manual",
+                "expected_upload_count": None,
+                "requested_max_photos": None,
+                "auto_start_on_upload_complete": False,
+            },
         )
+
+    def test_ingest_endpoint_creates_uploads_and_starts_task(self) -> None:
+        with patch("backend.app._run_pipeline_task") as run_pipeline:
+            response = self.client.post(
+                "/api/tasks/ingest",
+                data={
+                    "version": "v0323",
+                    "max_photos": "2",
+                    "use_cache": "false",
+                    "normalize_live_photos": "true",
+                },
+                files=[
+                    ("files", ("one.png", self._image_bytes("red"), "image/png")),
+                    ("files", ("two.png", self._image_bytes("blue"), "image/png")),
+                ],
+            )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        task_id = payload["task_id"]
+        self.task_ids.append(task_id)
+        self.assertEqual(payload["status"], "queued")
+        self.assertEqual(payload["stage"], "queued")
+        self.assertEqual(payload["version"], "v0323")
+        self.assertEqual(payload["accepted_count"], 2)
+        self.assertEqual(payload["failed_count"], 0)
+        self.assertEqual(payload["upload_count"], 2)
+        self.assertEqual(payload["max_photos"], 2)
+        self.assertTrue(payload["options"]["normalize_live_photos"])
+        self.assertEqual(payload["options"]["creation_source"], "api")
+
+        task = task_store.get_task(task_id, user_id=self.user_id)
+        self.assertIsNotNone(task)
+        assert task is not None
+        self.assertEqual(task["version"], "v0323")
+        self.assertEqual(task["status"], "queued")
+        self.assertEqual(task["stage"], "queued")
+        self.assertEqual(task["upload_count"], 2)
+        self.assertEqual(task["options"]["creation_source"], "api")
+        self.assertEqual(len(task.get("uploads") or []), 2)
+        self.assertTrue((task_store.task_dir(task_id) / "uploads").exists())
+
+        run_pipeline.assert_called_once_with(
+            task_id,
+            self.user_id,
+            2,
+            False,
+            "v0323",
+            {
+                "normalize_live_photos": True,
+                "creation_source": "api",
+                "expected_upload_count": 2,
+                "requested_max_photos": 2,
+                "auto_start_on_upload_complete": False,
+            },
+        )
+
+    def test_ingest_endpoint_rejects_invalid_version(self) -> None:
+        response = self.client.post(
+            "/api/tasks/ingest",
+            data={"version": "v9999"},
+            files=[
+                ("files", ("one.png", self._image_bytes("red"), "image/png")),
+            ],
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("不支持的任务版本", response.json()["detail"])
 
     def test_create_task_accepts_explicit_version_and_rejects_invalid_values(self) -> None:
         create_response = self.client.post(
             "/api/tasks",
-            json={"version": "v0312", "normalize_live_photos": False},
+            json={"version": "v0312", "normalize_live_photos": False, "creation_source": "api"},
         )
         self.assertEqual(create_response.status_code, 200)
         payload = create_response.json()
         self.task_ids.append(payload["task_id"])
         self.assertEqual(payload["version"], "v0312")
         self.assertFalse(payload["options"]["normalize_live_photos"])
+        self.assertEqual(payload["options"]["creation_source"], "api")
 
         task = task_store.get_task(payload["task_id"], user_id=self.user_id)
         self.assertIsNotNone(task)
         assert task is not None
         self.assertEqual(task["version"], "v0312")
         self.assertFalse(task["options"]["normalize_live_photos"])
+        self.assertEqual(task["options"]["creation_source"], "api")
 
         invalid_response = self.client.post("/api/tasks", json={"version": "v9999"})
         self.assertEqual(invalid_response.status_code, 400)
@@ -157,6 +237,155 @@ class TaskApiTests(unittest.TestCase):
         self.assertTrue(bool(uploads[0].get("is_live_photo_candidate")))
         self.assertEqual(uploads[0].get("stored_filename"), "001_sample.livp")
         self.assertTrue((task_store.task_dir(task_id) / "uploads" / "001_sample.livp").exists())
+
+    def test_upload_batches_auto_start_after_expected_upload_count(self) -> None:
+        create_response = self.client.post(
+            "/api/tasks",
+            json={
+                "version": "v0323",
+                "normalize_live_photos": True,
+                "expected_upload_count": 2,
+                "requested_max_photos": 2,
+                "auto_start_on_upload_complete": True,
+            },
+        )
+        self.assertEqual(create_response.status_code, 200)
+        task_id = create_response.json()["task_id"]
+        self.task_ids.append(task_id)
+
+        with patch("backend.app._run_pipeline_task") as run_pipeline:
+            batch_response = self.client.post(
+                f"/api/tasks/{task_id}/upload-batches",
+                files=[
+                    ("files", ("one.png", self._image_bytes("red"), "image/png")),
+                    ("files", ("two.png", self._image_bytes("blue"), "image/png")),
+                ],
+            )
+
+        self.assertEqual(batch_response.status_code, 200)
+        payload = batch_response.json()
+        self.assertTrue(payload["auto_started"])
+        self.assertEqual(payload["status"], "queued")
+        self.assertEqual(payload["stage"], "queued")
+
+        task = task_store.get_task(task_id, user_id=self.user_id)
+        self.assertIsNotNone(task)
+        assert task is not None
+        self.assertEqual(task["status"], "queued")
+        self.assertEqual(task["stage"], "queued")
+        self.assertEqual(task["upload_count"], 2)
+        self.assertEqual(task["options"]["creation_source"], "manual")
+        self.assertEqual(task["options"]["expected_upload_count"], 2)
+        self.assertEqual(task["options"]["requested_max_photos"], 2)
+        self.assertTrue(task["options"]["auto_start_on_upload_complete"])
+
+        run_pipeline.assert_called_once_with(
+            task_id,
+            self.user_id,
+            2,
+            False,
+            "v0323",
+            {
+                "normalize_live_photos": True,
+                "creation_source": "manual",
+                "expected_upload_count": 2,
+                "requested_max_photos": 2,
+                "auto_start_on_upload_complete": True,
+            },
+        )
+
+    def test_create_task_defaults_manual_auto_start_when_expected_count_is_known(self) -> None:
+        create_response = self.client.post(
+            "/api/tasks",
+            json={
+                "version": "v0323",
+                "normalize_live_photos": True,
+                "expected_upload_count": 769,
+                "requested_max_photos": 769,
+            },
+        )
+        self.assertEqual(create_response.status_code, 200)
+        payload = create_response.json()
+        self.task_ids.append(payload["task_id"])
+        self.assertEqual(payload["options"]["creation_source"], "manual")
+        self.assertEqual(payload["options"]["expected_upload_count"], 769)
+        self.assertEqual(payload["options"]["requested_max_photos"], 769)
+        self.assertTrue(payload["options"]["auto_start_on_upload_complete"])
+
+    def test_upload_batches_can_backfill_auto_start_metadata_for_legacy_manual_task(self) -> None:
+        create_response = self.client.post("/api/tasks", json={"version": "v0323"})
+        self.assertEqual(create_response.status_code, 200)
+        task_id = create_response.json()["task_id"]
+        self.task_ids.append(task_id)
+
+        with patch("backend.app._run_pipeline_task") as run_pipeline:
+            batch_response = self.client.post(
+                f"/api/tasks/{task_id}/upload-batches",
+                data={
+                    "creation_source": "manual",
+                    "expected_upload_count": "2",
+                    "requested_max_photos": "2",
+                    "auto_start_on_upload_complete": "true",
+                },
+                files=[
+                    ("files", ("one.png", self._image_bytes("red"), "image/png")),
+                    ("files", ("two.png", self._image_bytes("blue"), "image/png")),
+                ],
+            )
+
+        self.assertEqual(batch_response.status_code, 200)
+        payload = batch_response.json()
+        self.assertTrue(payload["auto_started"])
+        self.assertEqual(payload["status"], "queued")
+        task = task_store.get_task(task_id, user_id=self.user_id)
+        self.assertIsNotNone(task)
+        assert task is not None
+        self.assertEqual(task["options"]["creation_source"], "manual")
+        self.assertEqual(task["options"]["expected_upload_count"], 2)
+        self.assertEqual(task["options"]["requested_max_photos"], 2)
+        self.assertTrue(task["options"]["auto_start_on_upload_complete"])
+        run_pipeline.assert_called_once()
+
+    def test_task_upload_lock_serializes_same_task_requests(self) -> None:
+        create_response = self.client.post("/api/tasks")
+        self.assertEqual(create_response.status_code, 200)
+        task_id = create_response.json()["task_id"]
+        self.task_ids.append(task_id)
+
+        release_first = threading.Event()
+        second_acquired = threading.Event()
+        order: list[str] = []
+
+        def first_worker() -> None:
+            with _task_upload_lock(task_id):
+                order.append("first_acquired")
+                release_first.wait(timeout=2)
+                order.append("first_releasing")
+
+        def second_worker() -> None:
+            with _task_upload_lock(task_id):
+                order.append("second_acquired")
+                second_acquired.set()
+                order.append("second_releasing")
+
+        first = threading.Thread(target=first_worker)
+        second = threading.Thread(target=second_worker)
+        first.start()
+        time.sleep(0.1)
+        second.start()
+        time.sleep(0.2)
+
+        self.assertFalse(second_acquired.is_set())
+
+        release_first.set()
+        first.join(timeout=2)
+        second.join(timeout=2)
+
+        self.assertTrue(second_acquired.is_set())
+        self.assertEqual(
+            order,
+            ["first_acquired", "first_releasing", "second_acquired", "second_releasing"],
+        )
 
     def test_health_reports_available_task_versions(self) -> None:
         response = self.client.get("/api/health")

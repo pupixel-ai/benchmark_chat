@@ -104,6 +104,10 @@ export type UploadItem = {
 
 export type TaskOptions = {
   normalize_live_photos: boolean;
+  creation_source?: "manual" | "api";
+  expected_upload_count?: number | null;
+  requested_max_photos?: number | null;
+  auto_start_on_upload_complete?: boolean;
 };
 
 export type FaceRecognitionPayload = {

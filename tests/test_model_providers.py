@@ -3,8 +3,10 @@ from __future__ import annotations
 import os
 import tempfile
 import unittest
+from datetime import datetime
 from unittest.mock import patch
 
+from models import Photo
 from services.llm_processor import LLMProcessor
 from services.vlm_analyzer import VLMAnalyzer, VLMCallError
 import config
@@ -146,6 +148,47 @@ class OpenRouterProviderTests(unittest.TestCase):
         self.assertIn("校园咖啡店", normalized["place_candidates"])
         self.assertIn("木质桌子", normalized["key_objects"])
         self.assertIn("学生证 学号 20261234", normalized["ocr_hits"])
+
+    def test_vlm_build_result_entry_derives_source_type(self) -> None:
+        analyzer = VLMAnalyzer.__new__(VLMAnalyzer)
+        screenshot_photo = Photo(
+            photo_id="photo_001",
+            filename="Screenshot 2026-03-25 at 18.12.11.png",
+            path="/tmp/photo_001.png",
+            timestamp=datetime(2026, 3, 25, 18, 12, 11),
+            location={},
+        )
+        ai_photo = Photo(
+            photo_id="photo_002",
+            filename="midjourney_cake_reference.jpg",
+            path="/tmp/photo_002.jpg",
+            timestamp=datetime(2026, 3, 25, 18, 12, 11),
+            location={},
+        )
+
+        screenshot_entry = analyzer.build_result_entry(
+            screenshot_photo,
+            {
+                "summary": "聊天截图，包含蛋糕图片和聊天记录",
+                "scene": {},
+                "event": {},
+                "details": ["screen capture"],
+            },
+        )
+        ai_entry = analyzer.build_result_entry(
+            ai_photo,
+            {
+                "summary": "AI generated image of a decorated cake",
+                "scene": {},
+                "event": {},
+                "details": ["midjourney concept art"],
+            },
+        )
+
+        self.assertEqual(screenshot_entry["source_type"], "screenshot")
+        self.assertEqual(screenshot_entry["vlm_analysis"]["source_type"], "screenshot")
+        self.assertEqual(ai_entry["source_type"], "ai_generated_image")
+        self.assertEqual(ai_entry["vlm_analysis"]["source_type"], "ai_generated_image")
 
     def test_bedrock_vlm_request_uses_converse_image_blocks(self) -> None:
         with patch.multiple(

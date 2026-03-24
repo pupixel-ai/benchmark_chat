@@ -292,7 +292,10 @@ class V0323PipelineFamily:
             timestamp = str(item.get("timestamp") or getattr(photo, "timestamp", "") or "").strip()
             location = dict(item.get("location") or getattr(photo, "location", {}) or {})
             analysis = dict(item.get("vlm_analysis") or {})
-            media_kind = self._detect_media_kind(photo=photo, analysis=analysis)
+            source_type = str(item.get("source_type") or analysis.get("source_type") or "").strip()
+            if not source_type:
+                source_type = self._detect_source_type(photo=photo, analysis=analysis)
+            media_kind = self._detect_media_kind(photo=photo, analysis=analysis, source_type=source_type)
             raw_face_person_ids = list(item.get("face_person_ids", []) or [])
             if not raw_face_person_ids and photo is not None:
                 raw_face_person_ids = [
@@ -308,6 +311,7 @@ class V0323PipelineFamily:
                     "location": location,
                     "face_person_ids": _unique_strings(raw_face_person_ids),
                     "sequence_hint": _safe_int(getattr(photo, "sequence_index", 0)),
+                    "source_type": source_type,
                     "media_kind": media_kind,
                     "is_reference_like": media_kind in {"reference_media", "screenshot", "embedded_media"},
                     "vlm_analysis": analysis,
@@ -340,6 +344,7 @@ class V0323PipelineFamily:
                 "timestamp": item["timestamp"],
                 "location": item["location"],
                 "face_person_ids": _unique_strings(face_person_ids),
+                "source_type": item["source_type"],
                 "media_kind": item["media_kind"],
                 "is_reference_like": bool(item["is_reference_like"]),
                 "vlm_analysis": analysis,
@@ -347,17 +352,73 @@ class V0323PipelineFamily:
             observations.append(observation)
         return observations
 
-    def _detect_media_kind(self, *, photo: Any, analysis: Dict[str, Any]) -> str:
+    def _detect_source_type(self, *, photo: Any, analysis: Dict[str, Any]) -> str:
         filename = str(getattr(photo, "filename", "") or "").lower()
         uncertainty = " ".join(str(item).lower() for item in list(analysis.get("uncertainty", []) or []))
         ocr_hits = " ".join(str(item).lower() for item in list(analysis.get("ocr_hits", []) or []))
-        summary = str(analysis.get("summary") or "").lower()
+        summary = " ".join(
+            part
+            for part in [
+                str(analysis.get("summary") or ""),
+                " ".join(str(item) for item in list(analysis.get("details", []) or [])),
+                str(dict(analysis.get("scene") or {}).get("environment_description") or ""),
+                str(dict(analysis.get("event") or {}).get("activity") or ""),
+            ]
+            if part
+        ).lower()
         if any(token in filename for token in ("screenshot", "screen shot", "截屏", "截图")):
             return "screenshot"
-        if "reference-only" in uncertainty or "reference media" in summary:
-            return "reference_media"
         if any(token in ocr_hits for token in ("student id", "id card", "passport", "学生证", "身份证")):
             return "document"
+        if any(
+            token in " ".join([filename, summary, uncertainty])
+            for token in (
+                "midjourney",
+                "dall-e",
+                "dalle",
+                "stable diffusion",
+                "sdxl",
+                "comfyui",
+                "flux",
+                "ai生成",
+                "生成图",
+                "ai图",
+                "ai 图",
+                "ai绘画",
+                "generated illustration",
+                "generated portrait",
+                "ai generated image",
+            )
+        ):
+            return "ai_generated_image"
+        if any(
+            token in summary
+            for token in (
+                "polaroid",
+                "instant photo",
+                "printed photo",
+                "相纸",
+                "照片中的照片",
+                "屏幕中的照片",
+            )
+        ):
+            return "embedded_media"
+        if "reference-only" in uncertainty or any(
+            token in summary for token in ("reference media", "poster", "wallpaper", "meme", "海报", "网图", "参考图")
+        ):
+            return "reference_media"
+        return "camera_photo"
+
+    def _detect_media_kind(self, *, photo: Any, analysis: Dict[str, Any], source_type: str = "") -> str:
+        normalized_source_type = str(source_type or "").strip().lower()
+        if normalized_source_type == "screenshot":
+            return "screenshot"
+        if normalized_source_type == "document":
+            return "document"
+        if normalized_source_type in {"reference_media", "ai_generated_image"}:
+            return "reference_media"
+        if normalized_source_type == "embedded_media":
+            return "embedded_media"
         return "live_photo"
 
     def _run_lp1_batches(
@@ -698,6 +759,7 @@ class V0323PipelineFamily:
             f"【照片 {payload['photo_id']}】",
             f"时间: {payload['timestamp']}",
             f"地点: {payload['location_name'] or '未知'}",
+            f"来源类型: {payload['source_type']}",
             f"媒体类型: {payload['media_kind']}",
             f"人物ID: {', '.join(payload['face_person_ids']) if payload['face_person_ids'] else '无'}",
             f"VLM描述: {payload['summary'] or ''}",
@@ -760,6 +822,7 @@ class V0323PipelineFamily:
             "photo_id": observation["photo_id"],
             "sequence_index": observation["sequence_index"],
             "timestamp": observation["timestamp"],
+            "source_type": observation.get("source_type"),
             "media_kind": observation.get("media_kind"),
             "location_name": scene_location or location_name,
             "face_person_ids": list(observation.get("face_person_ids", []) or []),

@@ -466,6 +466,63 @@ class V0323PipelineTests(unittest.TestCase):
             self.assertEqual(analysis_calls[0]["kwargs"]["max_tokens"], V0323_LP1_MAX_OUTPUT_TOKENS)
             self.assertFalse(convert_calls)
 
+    def test_v0323_builds_reference_like_observations_from_source_type(self) -> None:
+        photos = [
+            Photo(
+                photo_id="photo_001",
+                filename="Screenshot 2026-03-25 at 18.12.11.png",
+                path="/tmp/photo_001.png",
+                timestamp=datetime(2026, 3, 25, 18, 12, 11),
+                location={},
+            ),
+            Photo(
+                photo_id="photo_002",
+                filename="cake_reference.jpg",
+                path="/tmp/photo_002.jpg",
+                timestamp=datetime(2026, 3, 25, 18, 15, 0),
+                location={},
+            ),
+        ]
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            family = V0323PipelineFamily(
+                task_id="task_v0323_source_type",
+                task_dir=Path(tmp_dir),
+                user_id="user_1",
+                asset_store=None,
+                llm_processor=StubV0323LLM(),
+                public_url_builder=self._public_url,
+            )
+            observations = family._build_vp1_observations(
+                photos,
+                [
+                    {
+                        "photo_id": "photo_001",
+                        "filename": photos[0].filename,
+                        "timestamp": photos[0].timestamp.isoformat(),
+                        "location": {},
+                        "face_person_ids": [],
+                        "source_type": "screenshot",
+                        "vlm_analysis": {"summary": "聊天记录截图", "source_type": "screenshot"},
+                    },
+                    {
+                        "photo_id": "photo_002",
+                        "filename": photos[1].filename,
+                        "timestamp": photos[1].timestamp.isoformat(),
+                        "location": {},
+                        "face_person_ids": [],
+                        "source_type": "ai_generated_image",
+                        "vlm_analysis": {"summary": "AI generated image of a cake", "source_type": "ai_generated_image"},
+                    },
+                ],
+            )
+
+        self.assertEqual(observations[0]["source_type"], "screenshot")
+        self.assertEqual(observations[0]["media_kind"], "screenshot")
+        self.assertTrue(observations[0]["is_reference_like"])
+        self.assertEqual(observations[1]["source_type"], "ai_generated_image")
+        self.assertEqual(observations[1]["media_kind"], "reference_media")
+        self.assertTrue(observations[1]["is_reference_like"])
+
     def test_v0323_pipeline_lp1_full_retry_persists_raw_preview(self) -> None:
         photos: list[Photo] = []
         vlm_results: list[dict] = []

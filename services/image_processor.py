@@ -2,6 +2,7 @@
 图片预处理模块
 """
 import os
+import re
 import tempfile
 from datetime import datetime
 from typing import Dict, List, Tuple, Optional
@@ -20,6 +21,12 @@ register_heif_opener()
 DEDUP_BURST_WINDOW_SECONDS = 5
 DEDUP_HASH_SIZE = 8
 DEDUP_MAX_DISTANCE = 4
+FILENAME_DATETIME_PATTERNS = (
+    re.compile(r"(?<!\d)(20\d{2})(\d{2})(\d{2})[_-]?(\d{2})(\d{2})(\d{2})(?:\d{3})?(?!\d)"),
+    re.compile(
+        r"(?<!\d)(20\d{2})[-_.](\d{2})[-_.](\d{2})(?:[ T_:-]+|[ _-]at[ _-])(\d{2})[-_.:](\d{2})[-_.:](\d{2})(?!\d)"
+    ),
+)
 
 
 class ImageProcessor:
@@ -401,12 +408,11 @@ class ImageProcessor:
                 tags = exifread.process_file(f, details=False)
 
                 # 读取时间
-                datetime_str = str(tags.get('Image DateTime', ''))
-                if datetime_str:
-                    try:
-                        exif_data["datetime"] = datetime.strptime(datetime_str, "%Y:%m:%d %H:%M:%S")
-                    except:
-                        pass
+                for tag_name in ("EXIF DateTimeOriginal", "EXIF DateTimeDigitized", "Image DateTime"):
+                    parsed_datetime = self._parse_exif_datetime_value(tags.get(tag_name))
+                    if parsed_datetime is not None:
+                        exif_data["datetime"] = parsed_datetime
+                        break
 
                 # 读取GPS信息
                 lat_tag = tags.get('GPS GPSLatitude')
@@ -432,6 +438,12 @@ class ImageProcessor:
         if "datetime" not in exif_data or "location" not in exif_data:
             self._read_exif_with_pillow(image_path, exif_data)
 
+        # 很多截图/AI图没有 EXIF，但文件名里仍包含原始拍摄或导出时间
+        if "datetime" not in exif_data:
+            filename_datetime = self._parse_datetime_from_filename(os.path.basename(image_path))
+            if filename_datetime is not None:
+                exif_data["datetime"] = filename_datetime
+
         # 如果EXIF中没有时间，使用文件修改时间
         if "datetime" not in exif_data:
             try:
@@ -455,12 +467,13 @@ class ImageProcessor:
                 }
 
                 if "datetime" not in exif_data:
-                    datetime_str = mapped.get("DateTimeOriginal") or mapped.get("DateTime")
-                    if datetime_str:
-                        try:
-                            exif_data["datetime"] = datetime.strptime(str(datetime_str), "%Y:%m:%d %H:%M:%S")
-                        except Exception:
-                            pass
+                    parsed_datetime = (
+                        self._parse_exif_datetime_value(mapped.get("DateTimeOriginal"))
+                        or self._parse_exif_datetime_value(mapped.get("DateTimeDigitized"))
+                        or self._parse_exif_datetime_value(mapped.get("DateTime"))
+                    )
+                    if parsed_datetime is not None:
+                        exif_data["datetime"] = parsed_datetime
 
                 if "location" not in exif_data:
                     gps_info = mapped.get("GPSInfo")
@@ -482,6 +495,34 @@ class ImageProcessor:
                             exif_data["location"] = {"lat": lat, "lng": lon, "name": address}
         except Exception:
             pass
+
+    def _parse_exif_datetime_value(self, raw_value: object) -> Optional[datetime]:
+        text = str(raw_value or "").strip().replace("\x00", "")
+        if not text:
+            return None
+        for fmt in ("%Y:%m:%d %H:%M:%S", "%Y-%m-%d %H:%M:%S"):
+            try:
+                return datetime.strptime(text[:19], fmt)
+            except Exception:
+                continue
+        return None
+
+    def _parse_datetime_from_filename(self, filename: str) -> Optional[datetime]:
+        stem = os.path.splitext(os.path.basename(filename or ""))[0]
+        if not stem:
+            return None
+
+        for pattern in FILENAME_DATETIME_PATTERNS:
+            match = pattern.search(stem)
+            if not match:
+                continue
+            try:
+                year, month, day, hour, minute, second = [int(part) for part in match.groups()]
+                return datetime(year, month, day, hour, minute, second)
+            except ValueError:
+                continue
+
+        return None
 
     def _reverse_geocode(self, lng: float, lat: float) -> str:
         """

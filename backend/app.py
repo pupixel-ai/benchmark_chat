@@ -8,11 +8,13 @@ import logging
 import os
 import shutil
 import uuid
+from contextlib import contextmanager
 from datetime import datetime
+import fcntl
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from fastapi import BackgroundTasks, Cookie, Depends, FastAPI, File, HTTPException, Response, UploadFile
+from fastapi import BackgroundTasks, Cookie, Depends, FastAPI, File, Form, HTTPException, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -103,6 +105,10 @@ class TaskStartPayload(BaseModel):
 class TaskCreatePayload(BaseModel):
     version: Optional[str] = None
     normalize_live_photos: bool = DEFAULT_NORMALIZE_LIVE_PHOTOS
+    creation_source: Optional[str] = None
+    expected_upload_count: Optional[int] = None
+    requested_max_photos: Optional[int] = None
+    auto_start_on_upload_complete: Optional[bool] = None
 
 
 class FaceReviewPayload(BaseModel):
@@ -536,6 +542,276 @@ def _run_pipeline_task(
         )
 
 
+def _resolve_task_version_and_options(
+    version: str | None,
+    normalize_live_photos: bool = DEFAULT_NORMALIZE_LIVE_PHOTOS,
+) -> tuple[str, dict]:
+    try:
+        task_version = normalize_task_version(version)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    task_options = normalize_task_options({"normalize_live_photos": normalize_live_photos})
+    return task_version, task_options
+
+
+def _create_task_record(
+    user_id: str,
+    version: str | None,
+    normalize_live_photos: bool,
+    *,
+    creation_source: str,
+    expected_upload_count: int | None = None,
+    requested_max_photos: int | None = None,
+    auto_start_on_upload_complete: bool | None = None,
+) -> dict:
+    task_version, task_options = _resolve_task_version_and_options(version, normalize_live_photos)
+    option_payload = {
+        "normalize_live_photos": bool(task_options.get("normalize_live_photos", normalize_live_photos)),
+        "creation_source": creation_source,
+        "expected_upload_count": expected_upload_count,
+        "requested_max_photos": requested_max_photos,
+    }
+    if auto_start_on_upload_complete is not None:
+        option_payload["auto_start_on_upload_complete"] = auto_start_on_upload_complete
+    task_options = normalize_task_options(option_payload)
+    task_id = uuid.uuid4().hex
+    task_store.create_task(
+        task_id,
+        upload_count=0,
+        user_id=user_id,
+        version=task_version,
+        options=task_options,
+        status="draft",
+        stage="draft",
+    )
+    return {
+        "task_id": task_id,
+        "version": task_version,
+        "options": task_options,
+        "status": "draft",
+        "stage": "draft",
+        "upload_count": 0,
+        "task_url": f"/api/tasks/{task_id}",
+    }
+
+
+def _save_upload_collection(task_id: str, task_dir: Path, files: List[UploadFile]) -> tuple[List[dict], List[dict]]:
+    saved_files: List[dict] = []
+    upload_failures: List[dict] = []
+    start_index = 1
+    for offset in range(0, len(files), UPLOAD_BATCH_MAX_FILES):
+        batch = files[offset: offset + UPLOAD_BATCH_MAX_FILES]
+        batch_saved, batch_failures, _ = _save_upload_batch(task_id, task_dir, batch, start_index)
+        saved_files.extend(batch_saved)
+        upload_failures.extend(batch_failures)
+        start_index += len(batch)
+    return saved_files, upload_failures
+
+
+def _merge_upload_task_options(
+    current_options: dict | None,
+    *,
+    creation_source: str | None = None,
+    expected_upload_count: int | None = None,
+    requested_max_photos: int | None = None,
+    auto_start_on_upload_complete: bool | None = None,
+) -> dict:
+    merged = dict(current_options or {})
+    if creation_source:
+        merged["creation_source"] = creation_source
+    if expected_upload_count is not None:
+        merged["expected_upload_count"] = expected_upload_count
+    if requested_max_photos is not None:
+        merged["requested_max_photos"] = requested_max_photos
+
+    effective_creation_source = str(merged.get("creation_source") or "manual").strip().lower()
+    effective_expected_upload_count = merged.get("expected_upload_count")
+    if auto_start_on_upload_complete is not None:
+        merged["auto_start_on_upload_complete"] = auto_start_on_upload_complete
+    elif (
+        effective_creation_source == "manual"
+        and effective_expected_upload_count is not None
+        and not bool(merged.get("auto_start_on_upload_complete"))
+    ):
+        merged["auto_start_on_upload_complete"] = True
+
+    return normalize_task_options(merged)
+
+
+@contextmanager
+def _task_upload_lock(task_id: str):
+    task_dir = task_store.task_dir(task_id)
+    task_dir.mkdir(parents=True, exist_ok=True)
+    lock_path = task_dir / ".upload-batches.lock"
+    with lock_path.open("a+") as lock_file:
+        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+        try:
+            yield task_dir
+        finally:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+
+
+def _maybe_auto_start_after_upload(
+    task_id: str,
+    user_id: str,
+    updated_task: dict,
+    *,
+    task_dir: Path,
+    background_tasks: BackgroundTasks,
+) -> dict | None:
+    options = normalize_task_options(updated_task.get("options"))
+    expected_upload_count = options.get("expected_upload_count")
+    should_auto_start = bool(options.get("auto_start_on_upload_complete"))
+    if not should_auto_start or not expected_upload_count:
+        return None
+    successful_upload_count = int(updated_task.get("upload_count") or 0)
+    failed_upload_count = len(_existing_upload_failures(task_dir))
+    attempted_upload_count = successful_upload_count + failed_upload_count
+    if attempted_upload_count < int(expected_upload_count):
+        return None
+    if successful_upload_count <= 0:
+        task_store.update_task(task_id, status="failed", stage="failed", error="照片全部上传失败，无法启动任务")
+        raise HTTPException(status_code=400, detail="照片全部上传失败，无法启动任务")
+
+    return _start_task_impl(
+        task_id,
+        user_id,
+        max_photos=options.get("requested_max_photos"),
+        use_cache=False,
+        normalize_live_photos=bool(options.get("normalize_live_photos", DEFAULT_NORMALIZE_LIVE_PHOTOS)),
+        background_tasks=background_tasks,
+    )
+
+
+def _start_task_impl(
+    task_id: str,
+    user_id: str,
+    *,
+    max_photos: Optional[int],
+    use_cache: bool,
+    normalize_live_photos: bool,
+    background_tasks: BackgroundTasks,
+) -> dict:
+    task = task_store.get_task(task_id, user_id=user_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="任务不存在")
+    if task["status"] in {"queued", "running", "completed"}:
+        raise HTTPException(status_code=409, detail="当前任务已开始或已完成")
+
+    uploads = _task_uploads(task)
+    if not uploads:
+        raise HTTPException(status_code=400, detail="请先上传图片，再开始处理")
+
+    requested_max = max_photos or len(uploads)
+    if requested_max < 1 or requested_max > MAX_UPLOAD_PHOTOS:
+        raise HTTPException(status_code=400, detail=f"max_photos 必须在 1 到 {MAX_UPLOAD_PHOTOS} 之间")
+    effective_max_photos = min(requested_max, len(uploads), MAX_UPLOAD_PHOTOS)
+    task_version = task.get("version") or DEFAULT_TASK_VERSION
+    task_options = normalize_task_options(
+        {
+            **(task.get("options") or {}),
+            "normalize_live_photos": normalize_live_photos,
+        }
+    )
+    task_store.update_task(task_id, options=task_options)
+
+    if _remote_worker_mode_enabled():
+        launched_worker = None
+        try:
+            active_entries, skipped_uploads = _remote_upload_entries(task, user_id)
+            if not active_entries:
+                raise HTTPException(status_code=400, detail="当前任务没有可处理的图片，可能都已被标记为 abandon")
+
+            launched_worker = worker_manager.launch_worker(task_id)
+            ready_worker = worker_manager.wait_until_ready(launched_worker.instance_id)
+            ready_worker.expires_at = launched_worker.expires_at
+            task_store.attach_worker(
+                task_id,
+                ready_worker.instance_id,
+                ready_worker.private_ip,
+                ready_worker.expires_at,
+                worker_status=ready_worker.state,
+            )
+            if not ready_worker.private_ip:
+                raise RuntimeError("worker 未返回私网地址")
+
+            worker_client.wait_for_health(ready_worker.private_ip)
+            for batch in _chunk_remote_upload_entries(active_entries):
+                worker_client.upload_batch(
+                    ready_worker.private_ip,
+                    task_id,
+                    [
+                        {
+                            "filename": item["filename"],
+                            "content_type": item["content_type"],
+                            "payload": item["local_path"].read_bytes(),
+                        }
+                        for item in batch
+                    ],
+                    version=task_version,
+                )
+            start_payload = worker_client.start_task(
+                ready_worker.private_ip,
+                task_id,
+                max_photos=effective_max_photos,
+                use_cache=use_cache,
+                version=task_version,
+                options=task_options,
+            )
+            task_store.update_worker_state(
+                task_id,
+                worker_status=start_payload.get("worker_status", ready_worker.state),
+                version=start_payload.get("version", task_version),
+                options=start_payload.get("options", task_options),
+                status=start_payload.get("status", "queued"),
+                stage=start_payload.get("stage", "queued"),
+                progress=start_payload.get("progress"),
+                error=None,
+            )
+            return {
+                "task_id": task_id,
+                "status": start_payload.get("status", "queued"),
+                "stage": start_payload.get("stage", "queued"),
+                "version": start_payload.get("version", task_version),
+                "options": start_payload.get("options", task_options),
+                "upload_count": len(uploads),
+                "skipped_uploads": skipped_uploads,
+                "max_photos": effective_max_photos,
+                "task_url": f"/api/tasks/{task_id}",
+            }
+        except HTTPException as exc:
+            if launched_worker is not None:
+                worker_manager.terminate_worker(launched_worker.instance_id)
+            task_store.update_task(task_id, status="failed", stage="failed", error=str(exc.detail))
+            raise
+        except Exception as exc:
+            if launched_worker is not None:
+                worker_manager.terminate_worker(launched_worker.instance_id)
+            task_store.update_task(task_id, status="failed", stage="failed", error=f"创建 worker 任务失败: {exc}")
+            raise HTTPException(status_code=502, detail=f"创建 worker 任务失败: {exc}") from exc
+
+    task_store.update_task(task_id, status="queued", stage="queued", progress=None, error=None)
+    background_tasks.add_task(
+        _run_pipeline_task,
+        task_id,
+        user_id,
+        effective_max_photos,
+        use_cache,
+        task_version,
+        task_options,
+    )
+    return {
+        "task_id": task_id,
+        "version": task_version,
+        "options": task_options,
+        "status": "queued",
+        "stage": "queued",
+        "upload_count": len(uploads),
+        "max_photos": effective_max_photos,
+        "task_url": f"/api/tasks/{task_id}",
+    }
+
+
 @app.get("/api/health")
 def healthcheck(response: Response):
     _apply_no_store_headers(response)
@@ -599,6 +875,7 @@ def root():
         "role": APP_ROLE,
         "healthcheck": "/api/health",
         "tasks_endpoint": "/api/tasks",
+        "photo_collection_ingest_endpoint": "/api/tasks/ingest",
         "assets_prefix": ASSET_URL_PREFIX,
         "auth_me": "/api/auth/me",
     }
@@ -611,39 +888,94 @@ def create_task(
     current_user: dict = Depends(get_current_user),
 ):
     _apply_no_store_headers(response)
-    try:
-        task_version = normalize_task_version(payload.version if payload else None)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    task_options = normalize_task_options(
-        {"normalize_live_photos": payload.normalize_live_photos} if payload else None
+    task_payload = _create_task_record(
+        current_user["user_id"],
+        payload.version if payload else None,
+        payload.normalize_live_photos if payload else DEFAULT_NORMALIZE_LIVE_PHOTOS,
+        creation_source=(payload.creation_source if payload and payload.creation_source else "manual"),
+        expected_upload_count=payload.expected_upload_count if payload else None,
+        requested_max_photos=payload.requested_max_photos if payload else None,
+        auto_start_on_upload_complete=payload.auto_start_on_upload_complete if payload else None,
     )
-    task_id = uuid.uuid4().hex
-    task_store.create_task(
+    return task_payload
+
+
+@app.post("/api/tasks/ingest")
+async def ingest_photo_collection(
+    response: Response,
+    background_tasks: BackgroundTasks,
+    files: List[UploadFile] = File(...),
+    version: Optional[str] = Form(default=None),
+    max_photos: Optional[int] = Form(default=None),
+    use_cache: bool = Form(default=False),
+    normalize_live_photos: bool = Form(default=DEFAULT_NORMALIZE_LIVE_PHOTOS),
+    current_user: dict = Depends(get_current_user),
+):
+    _apply_no_store_headers(response)
+    if not files:
+        raise HTTPException(status_code=400, detail="至少上传一张图片")
+    if len(files) > MAX_UPLOAD_PHOTOS:
+        raise HTTPException(status_code=400, detail=f"单次照片集最多上传 {MAX_UPLOAD_PHOTOS} 张图片")
+    if max_photos is not None and (max_photos < 1 or max_photos > MAX_UPLOAD_PHOTOS):
+        raise HTTPException(status_code=400, detail=f"max_photos 必须在 1 到 {MAX_UPLOAD_PHOTOS} 之间")
+
+    task_payload = _create_task_record(
+        current_user["user_id"],
+        version,
+        normalize_live_photos,
+        creation_source="api",
+        expected_upload_count=len(files),
+        requested_max_photos=max_photos,
+        auto_start_on_upload_complete=False,
+    )
+    task_id = task_payload["task_id"]
+    task_dir = task_store.task_dir(task_id)
+
+    try:
+        saved_files, upload_failures = _save_upload_collection(task_id, task_dir, files)
+    except Exception as exc:
+        task_store.update_task(task_id, status="failed", stage="failed", error=f"照片集接收失败: {exc}")
+        raise HTTPException(status_code=500, detail=f"照片集接收失败: {exc}") from exc
+    finally:
+        for upload in files:
+            await upload.close()
+
+    _write_merged_upload_failures(task_dir, upload_failures)
+    if not saved_files:
+        task_store.update_task(task_id, status="failed", stage="failed", error="照片集接收失败，没有成功保存任何图片")
+        raise HTTPException(status_code=400, detail="照片集接收失败，没有成功保存任何图片")
+
+    updated_task = task_store.append_uploads(task_id, saved_files, status="uploading", stage="uploading")
+    manifest = build_task_asset_manifest(task_id, task_dir, asset_store)
+    task_store.update_task(task_id, asset_manifest=manifest)
+    artifact_catalog.replace_task_artifacts(task_id, current_user["user_id"], manifest)
+
+    start_payload = _start_task_impl(
         task_id,
-        upload_count=0,
-        user_id=current_user["user_id"],
-        version=task_version,
-        options=task_options,
-        status="draft",
-        stage="draft",
+        current_user["user_id"],
+        max_photos=max_photos,
+        use_cache=use_cache,
+        normalize_live_photos=normalize_live_photos,
+        background_tasks=background_tasks,
     )
     return {
-        "task_id": task_id,
-        "version": task_version,
-        "options": task_options,
-        "status": "draft",
-        "stage": "draft",
-        "upload_count": 0,
-        "task_url": f"/api/tasks/{task_id}",
+        **start_payload,
+        "accepted_count": len(saved_files),
+        "failed_count": len(upload_failures),
+        "upload_count": updated_task["upload_count"],
     }
 
 
 @app.post("/api/tasks/{task_id}/upload-batches")
 async def upload_task_batch(
     task_id: str,
+    background_tasks: BackgroundTasks,
     response: Response,
     files: List[UploadFile] = File(...),
+    expected_upload_count: Optional[int] = Form(default=None),
+    requested_max_photos: Optional[int] = Form(default=None),
+    creation_source: Optional[str] = Form(default=None),
+    auto_start_on_upload_complete: Optional[bool] = Form(default=None),
     current_user: dict = Depends(get_current_user),
 ):
     _apply_no_store_headers(response)
@@ -652,31 +984,52 @@ async def upload_task_batch(
     if len(files) > UPLOAD_BATCH_MAX_FILES:
         raise HTTPException(status_code=400, detail=f"单批最多上传 {UPLOAD_BATCH_MAX_FILES} 张图片")
 
-    task = task_store.get_task(task_id, user_id=current_user["user_id"])
-    if not task:
-        raise HTTPException(status_code=404, detail="任务不存在")
-    if task["status"] in {"queued", "running", "completed"}:
-        raise HTTPException(status_code=409, detail="当前任务已开始处理，不能继续追加上传")
+    try:
+        with _task_upload_lock(task_id) as task_dir:
+            task = task_store.get_task(task_id, user_id=current_user["user_id"])
+            if not task:
+                raise HTTPException(status_code=404, detail="任务不存在")
+            if task["status"] in {"queued", "running", "completed"}:
+                raise HTTPException(status_code=409, detail="当前任务已开始处理，不能继续追加上传")
 
-    task_dir = task_store.task_dir(task_id)
-    start_index = len(_task_uploads(task)) + 1
-    saved_files, upload_failures, _ = _save_upload_batch(task_id, task_dir, files, start_index)
-    for upload in files:
-        await upload.close()
+            merged_options = _merge_upload_task_options(
+                task.get("options"),
+                creation_source=creation_source,
+                expected_upload_count=expected_upload_count,
+                requested_max_photos=requested_max_photos,
+                auto_start_on_upload_complete=auto_start_on_upload_complete,
+            )
+            if merged_options != normalize_task_options(task.get("options")):
+                task = task_store.update_task(task_id, options=merged_options)
 
-    _write_merged_upload_failures(task_dir, upload_failures)
-    updated_task = task_store.append_uploads(task_id, saved_files, status="uploading", stage="uploading")
-    manifest = build_task_asset_manifest(task_id, task_dir, asset_store)
-    task_store.update_task(task_id, asset_manifest=manifest)
-    artifact_catalog.replace_task_artifacts(task_id, current_user["user_id"], manifest)
+            start_index = len(_task_uploads(task)) + 1
+            saved_files, upload_failures, _ = _save_upload_batch(task_id, task_dir, files, start_index)
+
+            _write_merged_upload_failures(task_dir, upload_failures)
+            updated_task = task_store.append_uploads(task_id, saved_files, status="uploading", stage="uploading")
+            manifest = build_task_asset_manifest(task_id, task_dir, asset_store)
+            task_store.update_task(task_id, asset_manifest=manifest)
+            artifact_catalog.replace_task_artifacts(task_id, current_user["user_id"], manifest)
+            auto_start_payload = _maybe_auto_start_after_upload(
+                task_id,
+                current_user["user_id"],
+                updated_task,
+                task_dir=task_dir,
+                background_tasks=background_tasks,
+            )
+    finally:
+        for upload in files:
+            await upload.close()
+
     return {
         "task_id": task_id,
-        "version": updated_task["version"],
-        "status": updated_task["status"],
-        "stage": updated_task["stage"],
+        "version": (auto_start_payload or updated_task)["version"],
+        "status": (auto_start_payload or updated_task)["status"],
+        "stage": (auto_start_payload or updated_task)["stage"],
         "batch_count": len(saved_files),
         "failed_count": len(upload_failures),
         "upload_count": updated_task["upload_count"],
+        "auto_started": bool(auto_start_payload),
         "task_url": f"/api/tasks/{task_id}",
     }
 
@@ -690,124 +1043,15 @@ def start_task(
     current_user: dict = Depends(get_current_user),
 ):
     _apply_no_store_headers(response)
-    task = task_store.get_task(task_id, user_id=current_user["user_id"])
-    if not task:
-        raise HTTPException(status_code=404, detail="任务不存在")
-    if task["status"] in {"queued", "running", "completed"}:
-        raise HTTPException(status_code=409, detail="当前任务已开始或已完成")
-
-    uploads = _task_uploads(task)
-    if not uploads:
-        raise HTTPException(status_code=400, detail="请先上传图片，再开始处理")
-
-    requested_max = payload.max_photos or len(uploads)
-    if requested_max < 1 or requested_max > MAX_UPLOAD_PHOTOS:
-        raise HTTPException(status_code=400, detail=f"max_photos 必须在 1 到 {MAX_UPLOAD_PHOTOS} 之间")
-    max_photos = min(requested_max, len(uploads), MAX_UPLOAD_PHOTOS)
-    task_version = task.get("version") or DEFAULT_TASK_VERSION
-    task_options = normalize_task_options(
-        {
-            **(task.get("options") or {}),
-            "normalize_live_photos": payload.normalize_live_photos,
-        }
-    )
-    task_store.update_task(task_id, options=task_options)
-
-    if _remote_worker_mode_enabled():
-        launched_worker = None
-        try:
-            active_entries, skipped_uploads = _remote_upload_entries(task, current_user["user_id"])
-            if not active_entries:
-                raise HTTPException(status_code=400, detail="当前任务没有可处理的图片，可能都已被标记为 abandon")
-
-            launched_worker = worker_manager.launch_worker(task_id)
-            ready_worker = worker_manager.wait_until_ready(launched_worker.instance_id)
-            ready_worker.expires_at = launched_worker.expires_at
-            task_store.attach_worker(
-                task_id,
-                ready_worker.instance_id,
-                ready_worker.private_ip,
-                ready_worker.expires_at,
-                worker_status=ready_worker.state,
-            )
-            if not ready_worker.private_ip:
-                raise RuntimeError("worker 未返回私网地址")
-
-            worker_client.wait_for_health(ready_worker.private_ip)
-            for batch in _chunk_remote_upload_entries(active_entries):
-                worker_client.upload_batch(
-                    ready_worker.private_ip,
-                    task_id,
-                    [
-                        {
-                            "filename": item["filename"],
-                            "content_type": item["content_type"],
-                            "payload": item["local_path"].read_bytes(),
-                        }
-                        for item in batch
-                    ],
-                    version=task_version,
-                )
-            start_payload = worker_client.start_task(
-                ready_worker.private_ip,
-                task_id,
-                max_photos=max_photos,
-                use_cache=payload.use_cache,
-                version=task_version,
-                options=task_options,
-            )
-            task_store.update_worker_state(
-                task_id,
-                worker_status=start_payload.get("worker_status", ready_worker.state),
-                version=start_payload.get("version", task_version),
-                options=start_payload.get("options", task_options),
-                status=start_payload.get("status", "queued"),
-                stage=start_payload.get("stage", "queued"),
-                progress=start_payload.get("progress"),
-                error=None,
-            )
-            return {
-                "task_id": task_id,
-                "status": start_payload.get("status", "queued"),
-                "stage": start_payload.get("stage", "queued"),
-                "version": start_payload.get("version", task_version),
-                "options": start_payload.get("options", task_options),
-                "upload_count": len(uploads),
-                "skipped_uploads": skipped_uploads,
-                "max_photos": max_photos,
-                "task_url": f"/api/tasks/{task_id}",
-            }
-        except HTTPException as exc:
-            if launched_worker is not None:
-                worker_manager.terminate_worker(launched_worker.instance_id)
-            task_store.update_task(task_id, status="failed", stage="failed", error=str(exc.detail))
-            raise
-        except Exception as exc:
-            if launched_worker is not None:
-                worker_manager.terminate_worker(launched_worker.instance_id)
-            task_store.update_task(task_id, status="failed", stage="failed", error=f"创建 worker 任务失败: {exc}")
-            raise HTTPException(status_code=502, detail=f"创建 worker 任务失败: {exc}") from exc
-
-    task_store.update_task(task_id, status="queued", stage="queued", progress=None, error=None)
-    background_tasks.add_task(
-        _run_pipeline_task,
-        task_id,
-        current_user["user_id"],
-        max_photos,
-        payload.use_cache,
-        task_version,
-        task_options,
-    )
-    return {
-        "task_id": task_id,
-        "version": task_version,
-        "options": task_options,
-        "status": "queued",
-        "stage": "queued",
-        "upload_count": len(uploads),
-        "max_photos": max_photos,
-        "task_url": f"/api/tasks/{task_id}",
-    }
+    with _task_upload_lock(task_id):
+        return _start_task_impl(
+            task_id,
+            current_user["user_id"],
+            max_photos=payload.max_photos,
+            use_cache=payload.use_cache,
+            normalize_live_photos=payload.normalize_live_photos,
+            background_tasks=background_tasks,
+        )
 
 
 @app.get("/api/tasks")
