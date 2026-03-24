@@ -2766,7 +2766,7 @@ export default function HomePage() {
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/*"
+        accept="image/*,.heic,.heif,.livp"
         multiple
         onChange={handleFileChange}
         disabled={isUploading}

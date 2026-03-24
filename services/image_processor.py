@@ -37,7 +37,7 @@ class ImageProcessor:
         os.makedirs(self.face_dir, exist_ok=True)
 
     def list_supported_photos(self, photo_dir: str) -> List[str]:
-        supported_formats = {'.jpg', '.jpeg', '.png', '.heic', '.heif', '.webp'}
+        supported_formats = {'.jpg', '.jpeg', '.png', '.heic', '.heif', '.livp', '.webp'}
         photo_files = []
 
         for filename in sorted(os.listdir(photo_dir)):
@@ -124,9 +124,11 @@ class ImageProcessor:
         """
         for photo in photos:
             photo.original_path = photo.path
-            needs_working_copy = bool(normalize_live_photos)
+            lower_filename = photo.filename.lower()
+            is_live_like_source = lower_filename.endswith(('.heic', '.heif', '.livp'))
+            needs_working_copy = normalize_live_photos and is_live_like_source
             if not needs_working_copy:
-                needs_working_copy = photo.filename.lower().endswith(('.heic', '.heif'))
+                needs_working_copy = lower_filename.endswith(('.heic', '.heif'))
 
             if not needs_working_copy:
                 try:
