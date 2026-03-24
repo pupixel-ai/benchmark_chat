@@ -11,7 +11,14 @@ from sqlalchemy import delete, desc, or_, select
 
 from backend.db import Base, SessionLocal, engine, ensure_schema
 from backend.models import TaskRecord
-from config import TASKS_DIR, DEFAULT_TASK_VERSION
+from config import DEFAULT_NORMALIZE_LIVE_PHOTOS, TASKS_DIR, DEFAULT_TASK_VERSION
+
+
+def normalize_task_options(options: dict | None) -> dict:
+    payload = dict(options or {})
+    return {
+        "normalize_live_photos": bool(payload.get("normalize_live_photos", DEFAULT_NORMALIZE_LIVE_PHOTOS)),
+    }
 
 
 class TaskStore:
@@ -32,6 +39,7 @@ class TaskStore:
         upload_count: int,
         user_id: str,
         version: str,
+        options: dict | None = None,
         provision_local_dir: bool = True,
         status: str = "queued",
         stage: str = "queued",
@@ -51,6 +59,7 @@ class TaskStore:
             task_dir=str(task_dir),
             progress=None,
             uploads=None,
+            options=normalize_task_options(options),
             result=None,
             result_summary=None,
             asset_manifest=None,
@@ -103,6 +112,8 @@ class TaskStore:
                 raise KeyError(f"任务不存在: {task_id}")
 
             for key, value in updates.items():
+                if key == "options":
+                    value = normalize_task_options(value if isinstance(value, dict) else None)
                 setattr(record, key, value)
 
             record.updated_at = datetime.now()
@@ -236,6 +247,7 @@ class TaskStore:
             "task_dir": record.task_dir,
             "progress": record.progress if include_details else None,
             "uploads": record.uploads if include_details else None,
+            "options": normalize_task_options(record.options),
             "result": record.result if include_details else None,
             "result_summary": record.result_summary,
             "asset_manifest": record.asset_manifest,

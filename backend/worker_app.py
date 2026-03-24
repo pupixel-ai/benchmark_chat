@@ -17,6 +17,7 @@ from backend.artifact_store import build_task_asset_manifest
 from backend.progress_utils import append_terminal_error, append_terminal_info, merge_stage_progress
 from backend.upload_utils import (
     UPLOAD_FAILURES_FILENAME,
+    is_live_photo_candidate,
     save_upload_original_streamed,
     stored_upload_filename,
     task_asset_path,
@@ -24,6 +25,7 @@ from backend.upload_utils import (
 )
 from config import (
     ASSET_URL_PREFIX,
+    DEFAULT_NORMALIZE_LIVE_PHOTOS,
     DEFAULT_TASK_VERSION,
     MAX_UPLOAD_PHOTOS,
     WORKER_SHARED_TOKEN,
@@ -47,6 +49,7 @@ class TaskStartPayload(BaseModel):
     max_photos: int = MAX_UPLOAD_PHOTOS
     use_cache: bool = False
     version: str = DEFAULT_TASK_VERSION
+    normalize_live_photos: bool = DEFAULT_NORMALIZE_LIVE_PHOTOS
 
 
 def _require_internal_token(authorization: str | None = Header(default=None)) -> None:
@@ -91,7 +94,7 @@ def _update_status(task_id: str, **updates) -> dict:
     return _write_status(task_id, current)
 
 
-def _run_pipeline_task(task_id: str, max_photos: int, use_cache: bool, task_version: str) -> None:
+def _run_pipeline_task(task_id: str, max_photos: int, use_cache: bool, task_version: str, task_options: dict | None) -> None:
     task_dir = _task_dir(task_id)
 
     def progress_callback(stage: str, payload: dict) -> None:
@@ -118,6 +121,7 @@ def _run_pipeline_task(task_id: str, max_photos: int, use_cache: bool, task_vers
             task_dir=str(task_dir),
             asset_store=asset_store,
             task_version=task_version,
+            task_options=task_options,
         ).run(
             max_photos=max_photos,
             use_cache=use_cache,
@@ -217,6 +221,7 @@ async def upload_task_batch(
                     "path": original_asset_path,
                     "url": asset_store.asset_url(task_id, original_asset_path),
                     "preview_url": None,
+                    "is_live_photo_candidate": is_live_photo_candidate(upload.filename or stored_name, image_info.get("content_type")),
                     **image_info,
                 }
             )
@@ -254,6 +259,7 @@ async def upload_task_batch(
         "worker_status": "running",
         "created_at": datetime.utcnow().isoformat(),
         "version": task_version,
+        "options": {"normalize_live_photos": DEFAULT_NORMALIZE_LIVE_PHOTOS},
     }
     initial_status.update(
         {
@@ -301,6 +307,9 @@ def start_task(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     if current.get("version") and current.get("version") != task_version:
         raise HTTPException(status_code=409, detail="worker 任务版本已锁定，不能修改")
+    task_options = {
+        "normalize_live_photos": bool(payload.normalize_live_photos),
+    }
 
     max_photos = min(max(1, int(payload.max_photos)), len(uploads), MAX_UPLOAD_PHOTOS)
     _update_status(
@@ -311,13 +320,15 @@ def start_task(
         error=None,
         worker_status="running",
         version=task_version,
+        options=task_options,
     )
-    background_tasks.add_task(_run_pipeline_task, task_id, max_photos, payload.use_cache, task_version)
+    background_tasks.add_task(_run_pipeline_task, task_id, max_photos, payload.use_cache, task_version, task_options)
     return {
         "task_id": task_id,
         "status": "queued",
         "stage": "queued",
         "version": task_version,
+        "options": task_options,
         "upload_count": len(uploads),
         "worker_status": "running",
     }

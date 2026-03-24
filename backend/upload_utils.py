@@ -44,6 +44,17 @@ def task_asset_path(directory: str, filename: str) -> str:
     return f"{directory}/{filename}"
 
 
+def is_live_photo_candidate(filename: str, content_type: str | None = None) -> bool:
+    suffix = Path(filename or "").suffix.lower()
+    normalized_content_type = (content_type or "").strip().lower()
+    return suffix in {".heic", ".heif", ".livp"} or normalized_content_type in {
+        "image/heic",
+        "image/heif",
+        "image/heic-sequence",
+        "image/heif-sequence",
+    }
+
+
 def normalized_exif_bytes(image: Image.Image) -> bytes | None:
     try:
         exif = image.getexif()

@@ -39,6 +39,7 @@ def ensure_schema() -> None:
 
     add_task_column("user_id", f"VARCHAR(64){nullable_suffix}")
     add_task_column("version", f"VARCHAR(16){nullable_suffix}")
+    add_task_column("options", f"JSON{nullable_suffix}")
     add_task_column("result_summary", f"JSON{nullable_suffix}")
     add_task_column("asset_manifest", f"JSON{nullable_suffix}")
     add_task_column("worker_instance_id", f"VARCHAR(64){nullable_suffix}")

@@ -2,20 +2,23 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, ReactNode } from "react";
-import { AlertTriangle, ArrowUp, Ban, ChevronDown, ChevronRight, LoaderCircle, MessageSquare, Plus, X } from "lucide-react";
+import { AlertTriangle, ArrowUp, Ban, Check, ChevronDown, ChevronRight, Copy, LoaderCircle, MessageSquare, Plus, X } from "lucide-react";
 import type {
   AuthResponse,
   AuthUser,
   FaceReport,
   FaceRecognitionPayload,
+  FullMemoryEvent,
+  FullMemoryPhoto,
+  FullMemoryRelationship,
+  FullMemoryVlmEntry,
   HealthResponse,
-  MemoryFocusGraph,
   MemoryQueryHistoryItem,
   MemoryQueryResponse,
-  MemoryPayload,
-  MilvusSegment,
   PersonGroupEntry,
   PersonGroupImage,
+  TaskMemoryFullResponse,
+  TaskMemoryStepsResponse,
   TaskProgressLogEntry,
   TaskListResponse,
   TaskState,
@@ -89,6 +92,19 @@ const llmSubstageLabelMap: Record<string, string> = {
   completed: "LLM Completed"
 };
 
+const lpStepLabelMap: Record<string, string> = {
+  lp1_batch: "LP1 事件聚合",
+  lp2_relationship: "LP2 关系推断",
+  lp3_profile: "LP3 画像生成"
+};
+
+const lpStepStatusLabelMap: Record<string, string> = {
+  pending: "等待中",
+  running: "进行中",
+  completed: "已完成",
+  failed: "失败"
+};
+
 function toAbsoluteUrl(url?: string | null) {
   if (!url) {
     return null;
@@ -106,6 +122,11 @@ function formatStage(stage: string) {
 function formatLLMSubstage(stage: Record<string, unknown>) {
   const substage = typeof stage.substage === "string" ? stage.substage : "";
   return llmSubstageLabelMap[substage] ?? (substage || "LLM");
+}
+
+function formatLpSubstage(substage?: string | null) {
+  const key = (substage ?? "").trim();
+  return lpStepLabelMap[key] ?? (key || "LP");
 }
 
 async function apiFetch(input: string, init?: RequestInit) {
@@ -595,6 +616,22 @@ function formatJson(value: unknown) {
   }
 }
 
+async function copyTextToClipboard(value: string) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(value);
+    return;
+  }
+  const textarea = document.createElement("textarea");
+  textarea.value = value;
+  textarea.setAttribute("readonly", "true");
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+  document.body.appendChild(textarea);
+  textarea.select();
+  document.execCommand("copy");
+  document.body.removeChild(textarea);
+}
+
 function readNumericValue(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) {
     return value;
@@ -616,6 +653,18 @@ function formatRuntimeLabel(value: unknown) {
   return `${runtime.toFixed(runtime >= 10 ? 1 : 2)}s`;
 }
 
+function formatElapsedSince(value?: string | null) {
+  if (!value) {
+    return "";
+  }
+  const startedAt = new Date(value).getTime();
+  if (!Number.isFinite(startedAt)) {
+    return "";
+  }
+  const seconds = Math.max(0, (Date.now() - startedAt) / 1000);
+  return formatRuntimeLabel(seconds);
+}
+
 function hasDisplayValue(value: unknown) {
   if (value == null) {
     return false;
@@ -627,6 +676,11 @@ function hasDisplayValue(value: unknown) {
     return Object.keys(value as Record<string, unknown>).length > 0;
   }
   return true;
+}
+
+function formatLpStepStatus(status?: string | null) {
+  const key = (status ?? "").trim();
+  return lpStepStatusLabelMap[key] ?? key;
 }
 
 function readStageProgress(progress: TaskState["progress"], stage: string) {
@@ -683,11 +737,23 @@ function formatProgressLogLine(entry: TaskProgressLogEntry) {
   if (typeof entry.processed === "number" && typeof entry.total === "number" && entry.total > 0) {
     parts.push(`${entry.processed}/${entry.total}`);
   }
+  if (typeof entry.current_candidate_index === "number" && typeof entry.total === "number" && entry.total > 0) {
+    parts.push(`candidate ${entry.current_candidate_index}/${entry.total}`);
+  }
   if (typeof entry.percent === "number") {
     parts.push(`${entry.percent}%`);
   }
   if (entry.current_person_id) {
     parts.push(entry.current_person_id);
+  }
+  if (entry.last_completed_person_id && entry.last_completed_person_id !== entry.current_person_id) {
+    parts.push(`last ${entry.last_completed_person_id}`);
+  }
+  if (entry.call_started_at && !entry.call_finished_at) {
+    const elapsed = formatElapsedSince(entry.call_started_at);
+    if (elapsed) {
+      parts.push(`call ${elapsed}`);
+    }
   }
   if (entry.provider) {
     parts.push(entry.model ? `${entry.provider} · ${entry.model}` : entry.provider);
@@ -864,7 +930,7 @@ function ScrollableJsonPanel({
         </pre>
       ) : loading ? (
         <div className="mt-3">
-          <WaitingDots label="等待结果生成" percent={loadingPercent} />
+          <WaitingDots label={loadingLabel} percent={loadingPercent} />
         </div>
       ) : (
         <p className="mt-3 text-sm text-black/56">{emptyText}</p>
@@ -946,6 +1012,36 @@ function JsonDetails({
   );
 }
 
+function JsonCopyButton({
+  value,
+  ariaLabel,
+}: {
+  value: unknown;
+  ariaLabel: string;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  return (
+    <button
+      type="button"
+      aria-label={ariaLabel}
+      title={ariaLabel}
+      onClick={async () => {
+        try {
+          await copyTextToClipboard(formatJson(value));
+          setCopied(true);
+          window.setTimeout(() => setCopied(false), 1200);
+        } catch {
+          setCopied(false);
+        }
+      }}
+      className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#ddcebb] bg-white/85 text-black/52 transition hover:bg-[#f6eee3] hover:text-black focus:outline-none focus:ring-2 focus:ring-[#ccb594] focus:ring-offset-2 focus:ring-offset-white/60"
+    >
+      {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+    </button>
+  );
+}
+
 function InferencePipelinePanel({
   task,
   personIndexPanel,
@@ -965,17 +1061,14 @@ function InferencePipelinePanel({
   const faceStage = readStageProgress(task.progress, "face_recognition");
   const vlmStage = readStageProgress(task.progress, "vlm");
   const llmStage = readStageProgress(task.progress, "llm");
-  const memoryStage = readStageProgress(task.progress, "memory");
 
   const facePercent = readNumericValue(faceStage.percent);
   const vlmPercent = readNumericValue(vlmStage.percent);
   const llmPercent = readNumericValue(llmStage.percent);
-  const memoryPercent = readNumericValue(memoryStage.percent);
   const stageRank = inferPipelineStageRank(currentStage);
   const faceRuntime = formatRuntimeLabel(faceStage.runtime_seconds);
   const vlmRuntime = formatRuntimeLabel(vlmStage.runtime_seconds ?? task.result?.memory?.transparency?.vlm_stage?.runtime_seconds);
   const llmRuntime = formatRuntimeLabel(llmStage.runtime_seconds ?? task.result?.memory?.transparency?.llm_stage?.runtime_seconds);
-  const memoryRuntime = formatRuntimeLabel(memoryStage.runtime_seconds);
   const taskLogs = readTaskLogs(task.progress);
   const taskErrorLogs = taskLogs.filter((entry) => entry.level === "error" || Boolean(entry.error));
   const llmSubstageLabel = formatLLMSubstage(llmStage);
@@ -997,7 +1090,11 @@ function InferencePipelinePanel({
   const llmModelBadge = formatModelBadgeLabel(llmModel, llmProvider);
   const vlmLoading = task.status === "running" && currentStage === "vlm";
   const llmLoading = task.status === "running" && currentStage === "llm";
-  const memoryLoading = task.status === "running" && currentStage === "memory";
+  const llmHasMeasuredProgress =
+    (llmProcessedCandidates != null && llmCandidateCount != null && llmCandidateCount > 0) ||
+    (llmPercent != null && llmPercent > 10);
+  const llmDisplayPercent = llmHasMeasuredProgress ? llmPercent : null;
+  const llmDisplayLabel = llmHasMeasuredProgress ? llmSubstageLabel : "LLM 处理中";
   const llmMetaParts = [llmRuntime ? `运行时间 ${llmRuntime}` : ""];
   if (llmLoading && llmSubstageLabel) {
     llmMetaParts.push(llmSubstageLabel);
@@ -1019,7 +1116,6 @@ function InferencePipelinePanel({
     task.result?.memory?.transparency?.vlm_stage?.summaries ??
     null;
   const llmValue =
-    task.result?.memory_contract ??
     (llmStage.memory_contract_preview as unknown) ??
     task.result?.memory?.transparency?.llm_stage?.summaries ??
     (task.result?.memory
@@ -1032,24 +1128,14 @@ function InferencePipelinePanel({
       : null) ??
     null;
   const profileReportValue =
-    task.result?.memory?.profile_revision ??
     task.result?.memory?.delta_profile_revision ??
-    task.result?.memory?.storage?.redis?.profile_current ??
+    task.result?.memory?.profile_revision ??
     null;
   const profileMarkdownValue =
+    task.result?.memory?.delta_profile_markdown ??
     task.result?.memory?.profile_markdown ??
     task.result?.profile_markdown ??
-    task.result?.memory?.delta_profile_markdown ??
     (llmStage.profile_markdown_preview as unknown) ??
-    task.result?.memory?.storage?.redis?.profile_core?.profile_markdown ??
-    null;
-  const redisValue =
-    task.result?.memory?.storage?.redis ??
-    (memoryStage.redis_preview as unknown) ??
-    null;
-  const neo4jValue =
-    task.result?.memory?.storage?.neo4j ??
-    (memoryStage.neo4j_preview as unknown) ??
     null;
   const faceReady = hasDisplayValue(faceValue);
   const vlmReady = hasDisplayValue(vlmValue);
@@ -1065,7 +1151,6 @@ function InferencePipelinePanel({
   const vlmVisible = stageRank >= 2 || personIndexReady || vlmReady;
   const llmVisible = stageRank >= 3 || vlmReady || llmReady || profileReportReady || profileMarkdownReady;
   const profileVisible = stageRank >= 4 || llmReady || profileReportReady || profileMarkdownReady;
-  const memoryVisible = stageRank >= 4 || hasDisplayValue(redisValue) || hasDisplayValue(neo4jValue);
   const vlmWaiting = task.status === "running" && personIndexReady && !vlmReady;
   const llmWaiting = task.status === "running" && (vlmReady || currentStage === "llm") && !llmReady;
   const profileWaiting =
@@ -1078,7 +1163,7 @@ function InferencePipelinePanel({
           <p className="font-mono text-xs uppercase tracking-[0.24em] text-black/40">Inference Timeline</p>
           <h2 className="mt-3 text-2xl font-semibold text-ink">推理生成逐阶段展开</h2>
           <p className="mt-3 max-w-3xl text-sm leading-6 text-black/60">
-            前端会按 `Face → 人物索引 → VLM → LLM → Profile → Redis / Neo4j` 顺序展示当前任务的阶段结果，并且只展示已经完成的阶段与当前正在运行的阶段。
+            前端会按 `Face → 人物索引 → VLM → LLM → Profile` 顺序展示当前任务的阶段结果，并且只展示已经完成的阶段与当前正在运行的阶段。
           </p>
         </div>
         <div className="rounded-[12px] border border-[#ddcebb] bg-white/70 px-5 py-4">
@@ -1132,8 +1217,8 @@ function InferencePipelinePanel({
             loading={llmLoading || llmWaiting}
             meta={llmMeta || undefined}
             badge={llmModelBadge ? <span className="inline-flex items-center rounded-full bg-[#e5e5e5] px-3 py-1 text-[11px] font-medium leading-none text-black/55">{llmModelBadge}</span> : null}
-            loadingLabel={llmSubstageLabel}
-            loadingPercent={llmPercent}
+            loadingLabel={llmDisplayLabel}
+            loadingPercent={llmDisplayPercent}
           />
         ) : null}
 
@@ -1162,28 +1247,6 @@ function InferencePipelinePanel({
           </div>
         ) : null}
 
-        {memoryVisible ? (
-          <div className="grid gap-4 xl:grid-cols-2">
-            <ScrollableJsonPanel
-              title="Redis Profile Materialization"
-              value={redisValue}
-              emptyText="Redis 画像数据尚未产出。"
-              loading={memoryLoading && !hasDisplayValue(redisValue)}
-              meta={memoryRuntime ? `运行时间 ${memoryRuntime}` : undefined}
-              loadingLabel="Redis 画像物化中"
-              loadingPercent={memoryPercent}
-            />
-            <ScrollableJsonPanel
-              title="Neo4j Graph Materialization"
-              value={neo4jValue}
-              emptyText="Neo4j graph 数据尚未产出。"
-              loading={memoryLoading && !hasDisplayValue(neo4jValue)}
-              meta={memoryRuntime ? `运行时间 ${memoryRuntime}` : undefined}
-              loadingLabel="Neo4j 图谱物化中"
-              loadingPercent={memoryPercent}
-            />
-          </div>
-        ) : null}
       </div>
       <div className="mt-5 grid gap-4 xl:grid-cols-2">
         <TaskLogPanel logs={taskLogs} />
@@ -1240,688 +1303,431 @@ function StageSummaryPanel({
   );
 }
 
-function GraphLandingPanel({
-  memory,
-  taskVersion,
-}: {
-  memory: MemoryPayload;
-  taskVersion?: string | null;
-}) {
-  const nodes = memory.storage?.neo4j?.nodes ?? {};
-  const edges = memory.storage?.neo4j?.edges ?? [];
-  const eventNodes = sortByRecent((nodes.events ?? []) as Array<Record<string, unknown>>, (item) =>
-    String(item.started_at ?? item.ended_at ?? "")
-  );
-  const factNodes = sortByRecent((nodes.facts ?? []) as Array<Record<string, unknown>>, (item) =>
-    String(item.started_at ?? item.ended_at ?? "")
-  );
-  const relationshipNodes = sortByRecent(
-    (nodes.relationship_hypotheses ?? []) as Array<Record<string, unknown>>,
-    (item) => String(item.window_end ?? item.window_start ?? "")
-  );
-
-  return (
-    <div className="rounded-[12px] border border-[#ddcebb] bg-white/70 p-4">
-      <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
-        <div>
-          <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-black/42">Neo4j Landing</p>
-          <p className="mt-2 text-sm leading-6 text-black/60">
-            当前以 `v0317` 的 canonical graph 方式落位，Photo 不进图，图内只保留 facts + hypotheses。
-          </p>
-        </div>
-        <div className="rounded-[10px] bg-[#f6eee3] px-3 py-2 text-xs leading-6 text-[#5f4e42]">
-          {taskVersion ?? "unknown"} · {Object.keys(nodes).length} groups · {edges.length} edges
-        </div>
-      </div>
-
-      <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        {Object.entries(memory.transparency.neo4j_state?.node_counts ?? {}).map(([label, count]) => (
-          <MetricCard key={label} label={label} value={count} />
-        ))}
-      </div>
-
-      <div className="mt-4 grid gap-4 xl:grid-cols-2">
-        <StageSummaryPanel
-          title="Event Nodes"
-          items={eventNodes}
-          emptyText="当前还没有 Event 节点落位。"
-        />
-        <StageSummaryPanel
-          title="Fact Nodes"
-          items={factNodes}
-          emptyText="当前还没有 Fact 节点落位。"
-        />
-        <StageSummaryPanel
-          title="Relationship Nodes"
-          items={relationshipNodes}
-          emptyText="当前还没有 RelationshipHypothesis 落位。"
-        />
-      </div>
-    </div>
-  );
-}
-
-function MilvusLandingPanel({ segments }: { segments: MilvusSegment[] }) {
-  const orderedSegments = sortByRecent(segments, (segment) => segment.started_at ?? segment.ended_at ?? "");
-
-  return (
-    <div className="rounded-[12px] border border-[#ddcebb] bg-white/70 p-4">
-      <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-black/42">Milvus Landing</p>
-      <p className="mt-2 text-sm leading-6 text-black/60">
-        Milvus 负责 evidence segments，当前已携带 `started_at / ended_at / place_uuid / location_hint` 这类检索辅助 metadata。
-      </p>
-      <div className="mt-4 space-y-3">
-        {orderedSegments.length > 0 ? (
-          orderedSegments.slice(0, 8).map((segment) => (
-            <div key={segment.segment_uuid} className="rounded-[10px] bg-[#f6eee3] px-3 py-3">
-              <div className="flex flex-wrap items-center gap-2 text-xs text-[#6f5847]">
-                <span className="rounded-full bg-white px-2 py-1 font-mono">{segment.segment_type}</span>
-                {segment.started_at ? <span>{formatDateTime(segment.started_at)}</span> : null}
-                {segment.location_hint ? <span>{segment.location_hint}</span> : null}
-              </div>
-              <p className="mt-2 text-sm leading-6 text-[#5f4e42]">{segment.text}</p>
-              <p className="mt-2 text-xs leading-6 text-[#7a6858]">
-                event {segment.session_uuid ?? "n/a"} · fact {segment.event_uuid ?? "n/a"} · relationship{" "}
-                {segment.relationship_uuid ?? "n/a"}
-              </p>
-            </div>
-          ))
-        ) : (
-          <p className="text-sm text-black/56">当前还没有落到 Milvus 的 evidence segments。</p>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function truncateGraphLabel(value: string, max = 18) {
-  if (value.length <= max) {
-    return value;
-  }
-  return `${value.slice(0, max - 1)}…`;
-}
-
-function graphNodeColor(nodeType: string) {
-  switch (nodeType) {
-    case "primary_person":
-      return { fill: "#d85a31", stroke: "#8d2c0d" };
-    case "related_person":
-    case "participant_person":
-      return { fill: "#f3b470", stroke: "#9d6425" };
-    case "event":
-      return { fill: "#7bb88f", stroke: "#356f49" };
-    case "fact":
-      return { fill: "#8eb7c8", stroke: "#426e80" };
-    case "user_account":
-      return { fill: "#d7d0c6", stroke: "#807567" };
-    default:
-      return { fill: "#d8c9b7", stroke: "#786657" };
-  }
-}
-
-function FocusGraphPanel({ graph }: { graph?: MemoryFocusGraph | null }) {
-  const layout = useMemo(() => {
-    if (!graph || graph.nodes.length === 0) {
-      return null;
-    }
-
-    const width = 820;
-    const height = 560;
-    const centerX = width / 2;
-    const centerY = height / 2;
-    const ringRadii: Record<number, number> = { 0: 0, 1: 150, 2: 245, 3: 330 };
-    const grouped = new Map<number, MemoryFocusGraph["nodes"]>();
-    for (const node of graph.nodes) {
-      const ring = Math.max(0, Math.min(3, Number(node.ring ?? 0)));
-      const bucket = grouped.get(ring) ?? [];
-      bucket.push(node);
-      grouped.set(ring, bucket);
-    }
-
-    const positions = new Map<string, { x: number; y: number }>();
-    for (const [ring, nodes] of grouped.entries()) {
-      const ordered = [...nodes].sort((left, right) => {
-        if (left.node_id === graph.center_node_id) {
-          return -1;
-        }
-        if (right.node_id === graph.center_node_id) {
-          return 1;
-        }
-        if (left.node_type === "user_account") {
-          return -1;
-        }
-        if (right.node_type === "user_account") {
-          return 1;
-        }
-        return left.label.localeCompare(right.label);
-      });
-
-      if (ring === 0 || ordered.length === 1) {
-        positions.set(ordered[0].node_id, { x: centerX, y: centerY });
-        continue;
-      }
-
-      const radius = ringRadii[ring] ?? 150;
-      const angleStep = (Math.PI * 2) / ordered.length;
-      const startAngle = -Math.PI / 2;
-      ordered.forEach((node, index) => {
-        const angle = startAngle + angleStep * index;
-        positions.set(node.node_id, {
-          x: centerX + Math.cos(angle) * radius,
-          y: centerY + Math.sin(angle) * radius
-        });
-      });
-    }
-
-    return {
-      width,
-      height,
-      centerX,
-      centerY,
-      ringRadii,
-      positions
-    };
-  }, [graph]);
-
-  if (!graph || !layout) {
+function photoPreviewUrl(photo?: FullMemoryPhoto | null) {
+  if (!photo) {
     return null;
   }
+  return toAbsoluteUrl(photo.display_image_url ?? photo.original_image_url ?? photo.asset_url ?? null);
+}
+
+function compactLabel(value: unknown, fallback = "n/a") {
+  const normalized = String(value ?? "").trim();
+  return normalized || fallback;
+}
+
+function compactConfidence(value: unknown) {
+  const parsed = readNumericValue(value);
+  return parsed == null ? "n/a" : parsed.toFixed(2);
+}
+
+function PhotoStrip({
+  photos,
+  emptyText = "当前没有原始照片回挂。"
+}: {
+  photos: FullMemoryPhoto[];
+  emptyText?: string;
+}) {
+  if (photos.length === 0) {
+    return <p className="text-sm text-black/56">{emptyText}</p>;
+  }
 
   return (
-    <div className="mt-5 rounded-[12px] border border-[#ddcebb] bg-white/70 p-4">
-      <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
-        <div>
-          <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-black/42">Primary-Centered Graph</p>
-          <p className="mt-2 text-sm leading-6 text-black/60">
-            这张图以 `primary user` 为中心发散，优先展示主角、关系对象、Events 和 Facts。
-          </p>
-        </div>
-        <div className="rounded-[10px] bg-[#f6eee3] px-3 py-2 text-xs leading-6 text-[#5f4e42]">
-          nodes {graph.node_count} · edges {graph.edge_count} · primary {graph.primary_face_person_id ?? "unresolved"}
-        </div>
-      </div>
-
-      <div className="mt-4 overflow-x-auto">
-        <svg
-          viewBox={`0 0 ${layout.width} ${layout.height}`}
-          className="h-[560px] w-full min-w-[760px] rounded-[12px] bg-[#f8f1e8]"
-        >
-          {[1, 2, 3].map((ring) => (
-            <circle
-              key={ring}
-              cx={layout.centerX}
-              cy={layout.centerY}
-              r={layout.ringRadii[ring]}
-              fill="none"
-              stroke="#e3d5c5"
-              strokeDasharray="8 10"
-            />
-          ))}
-
-          {graph.edges.map((edge) => {
-            const source = layout.positions.get(edge.source_id);
-            const target = layout.positions.get(edge.target_id);
-            if (!source || !target) {
-              return null;
-            }
-            const labelX = (source.x + target.x) / 2;
-            const labelY = (source.y + target.y) / 2;
-            return (
-              <g key={edge.edge_id}>
-                <line
-                  x1={source.x}
-                  y1={source.y}
-                  x2={target.x}
-                  y2={target.y}
-                  stroke="#b89976"
-                  strokeWidth={edge.edge_type === "RELATIONSHIP_HYPOTHESIS" ? 2.4 : 1.8}
-                  opacity={0.9}
-                />
-                <text
-                  x={labelX}
-                  y={labelY}
-                  textAnchor="middle"
-                  className="fill-[#7b6654] text-[10px] font-mono uppercase tracking-[0.12em]"
-                >
-                  {truncateGraphLabel(edge.label || edge.edge_type, 14)}
-                </text>
-              </g>
-            );
-          })}
-
-          {graph.nodes.map((node) => {
-            const position = layout.positions.get(node.node_id);
-            if (!position) {
-              return null;
-            }
-            const palette = graphNodeColor(node.node_type);
-            const radius = node.is_primary ? 34 : node.node_type === "event" || node.node_type === "fact" ? 26 : 22;
-            return (
-              <g key={node.node_id}>
-                <circle
-                  cx={position.x}
-                  cy={position.y}
-                  r={radius}
-                  fill={palette.fill}
-                  stroke={palette.stroke}
-                  strokeWidth={node.is_primary ? 4 : 2}
-                />
-                <text
-                  x={position.x}
-                  y={position.y - 2}
-                  textAnchor="middle"
-                  className="fill-[#1d130c] text-[11px] font-semibold"
-                >
-                  {truncateGraphLabel(node.label, 16)}
-                </text>
-                <text
-                  x={position.x}
-                  y={position.y + 14}
-                  textAnchor="middle"
-                  className="fill-[#3d2f25] text-[9px] font-mono uppercase tracking-[0.12em]"
-                >
-                  {node.node_type}
-                </text>
-              </g>
-            );
-          })}
-        </svg>
-      </div>
-
-      <div className="mt-4 grid gap-2 md:grid-cols-3 xl:grid-cols-6">
-        {[
-          ["primary_person", "Primary"],
-          ["related_person", "Related"],
-          ["event", "Event"],
-          ["fact", "Fact"],
-          ["user_account", "User"]
-        ].map(([nodeType, label]) => {
-          const palette = graphNodeColor(nodeType);
-          return (
-            <div key={nodeType} className="flex items-center gap-2 rounded-[10px] bg-[#f6eee3] px-3 py-2 text-xs text-[#5f4e42]">
-              <span
-                className="inline-block h-3 w-3 rounded-full"
-                style={{ backgroundColor: palette.fill, border: `1px solid ${palette.stroke}` }}
-              />
-              {label}
+    <div className="mt-3 flex gap-3 overflow-x-auto pb-1">
+      {photos.map((photo) => {
+        const previewUrl = photoPreviewUrl(photo);
+        return (
+          <article
+            key={photo.original_photo_id}
+            className="min-w-[156px] overflow-hidden rounded-[12px] border border-[#ddcebb] bg-[#fbf5ed]"
+          >
+            <a href={previewUrl ?? undefined} target="_blank" rel="noreferrer" className="block">
+              <div className="h-28 overflow-hidden bg-[#ece2d3]">
+                {previewUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={previewUrl} alt={photo.filename ?? photo.original_photo_id} className="h-full w-full object-cover" />
+                ) : (
+                  <div className="flex h-full items-center justify-center text-xs text-black/35">暂无预览</div>
+                )}
+              </div>
+            </a>
+            <div className="space-y-1 px-3 py-3">
+              <p className="truncate text-sm font-medium text-ink">{photo.filename ?? photo.original_photo_id}</p>
+              <p className="truncate font-mono text-[11px] uppercase tracking-[0.12em] text-black/42">
+                {photo.original_photo_id}
+              </p>
+              {photo.timestamp ? <p className="text-xs text-black/45">{formatDateTime(photo.timestamp)}</p> : null}
             </div>
-          );
-        })}
-      </div>
+          </article>
+        );
+      })}
     </div>
+  );
+}
+
+function buildCorePhotoIndex(fullMemory: TaskMemoryFullResponse | null) {
+  return new Map<string, FullMemoryPhoto>();
+}
+
+function RecallEventCard({ event }: { event: FullMemoryEvent }) {
+  return (
+    <article className="rounded-[12px] border border-[#ddcebb] bg-[#fbf5ed] p-4">
+      <div className="space-y-3">
+        <div>
+          <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-black/42">Event</p>
+          <p className="mt-2 text-sm leading-6 text-[#5f4e42]">{compactLabel(event.llm_summary, "No summary")}</p>
+        </div>
+        <div className="rounded-[10px] bg-white px-4 py-3 text-xs text-[#6f5847]">
+          people {(event.person_ids ?? []).length} · photos {(event.photo_ids ?? []).length} · vlm {(event.vlm ?? []).length}
+        </div>
+      </div>
+      <JsonDetails title="person_ids" value={event.person_ids} />
+      <JsonDetails title="photo_ids" value={event.photo_ids} />
+      <JsonDetails title="vlm" value={event.vlm} />
+    </article>
+  );
+}
+
+function RecallRelationshipCard({ relationship }: { relationship: FullMemoryRelationship }) {
+  return (
+    <article className="rounded-[12px] border border-[#ddcebb] bg-[#fbf5ed] p-4">
+      <div className="space-y-3">
+        <div>
+          <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-black/42">Relationship</p>
+          <p className="mt-2 text-lg font-semibold text-ink">{compactLabel(relationship.person_id, "Unknown Person")}</p>
+        </div>
+        <div className="rounded-[10px] bg-white px-4 py-3 text-xs text-[#6f5847]">
+          photos {(relationship.photo_ids ?? []).length}
+        </div>
+      </div>
+      <JsonDetails title="photo_ids" value={relationship.photo_ids} />
+    </article>
+  );
+}
+
+function RecallVlmCard({ item }: { item: FullMemoryVlmEntry }) {
+  return (
+    <article className="rounded-[12px] border border-[#ddcebb] bg-[#fbf5ed] p-4">
+      <div>
+        <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-black/42">photo_id</p>
+        <p className="mt-2 text-base font-semibold text-ink">{compactLabel(item.photo_id, "photo")}</p>
+        <p className="mt-2 text-sm text-[#5f4e42]">persons {(item.person_ids ?? []).length}</p>
+      </div>
+      <JsonDetails title="person_ids" value={item.person_ids} />
+    </article>
+  );
+}
+
+function QueryResultCard({
+  item,
+  photoIndex,
+}: {
+  item: MemoryQueryHistoryItem;
+  photoIndex: Map<string, FullMemoryPhoto>;
+}) {
+  const response = item.response;
+  const answer = response.answer;
+  const photos = Array.from(
+    new Map(
+      (answer.original_photo_ids ?? [])
+        .map((photoId) => [photoId, photoIndex.get(String(photoId))])
+        .filter((entry): entry is [string, FullMemoryPhoto] => Boolean(entry[1]))
+    ).values()
+  );
+
+  return (
+    <article className="rounded-[12px] border border-[#ddcebb] bg-[#fbf5ed] p-4">
+      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div>
+          <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-black/42">{formatDateTime(item.requested_at)}</p>
+          <p className="mt-2 text-base font-medium text-ink">{item.question}</p>
+          <p className="mt-3 text-sm leading-6 text-[#5f4e42]">{answer.summary}</p>
+        </div>
+        <div className="space-y-2">
+          <div className="rounded-[10px] bg-white px-4 py-3 text-xs text-[#6f5847]">
+            {response.query_plan.plan_type} · {answer.answer_type} · confidence {compactConfidence(answer.confidence)}
+          </div>
+          {response.abstain_reason ? (
+            <div className="rounded-[10px] bg-[#fff3f0] px-4 py-3 text-xs text-[#8a5637]">{response.abstain_reason}</div>
+          ) : null}
+        </div>
+      </div>
+
+      <PhotoStrip photos={photos} emptyText="当前回答没有额外原图回挂。" />
+
+      <div className="mt-3 grid gap-3 xl:grid-cols-3">
+        <JsonDetails title="Supporting Units" value={response.supporting_units} />
+        <JsonDetails title="Supporting Evidence" value={response.supporting_evidence} />
+        <JsonDetails title="Supporting Graph Entities" value={response.supporting_graph_entities} />
+      </div>
+      <div className="mt-3 grid gap-3 xl:grid-cols-2">
+        <JsonDetails title="Answer Payload" value={answer} />
+        <JsonDetails title="Debug Trace" value={response.debug_trace} />
+      </div>
+    </article>
   );
 }
 
 function MemoryPanel({
-  memory,
-  profileMarkdown,
-  taskVersion,
+  fullMemory,
+  loading,
   queryHistory
 }: {
-  memory: MemoryPayload;
-  profileMarkdown?: string | null;
-  taskVersion?: string | null;
+  fullMemory: TaskMemoryFullResponse | null;
+  loading: boolean;
   queryHistory: MemoryQueryHistoryItem[];
 }) {
-  const profileFields = memory.storage?.redis?.profile_core?.fields ?? {};
-  const structuredProfiles = memory.storage?.redis?.profile_core?.profiles ?? {};
-  const relationships = memory.storage?.redis?.profile_relationships?.items ?? [];
-  const recentFacts = sortByRecent(
-    (memory.storage?.redis?.profile_recent_facts?.items ?? []) as Array<Record<string, unknown>>,
-    (item) => String(item.started_at ?? item.generated_at ?? "")
-  );
-  const externalPublish = memory.external_publish ?? null;
-  const focusGraph = memory.transparency.focus_graph ?? memory.storage?.neo4j?.focus_graph ?? null;
-  const milvusSegments = memory.storage?.milvus?.segments ?? [];
-  const stageVlmSummaries = (memory.transparency.vlm_stage?.summaries ?? []) as Array<Record<string, unknown>>;
-  const stageSegmentationSummaries = (memory.transparency.segmentation_stage?.summaries ?? []) as Array<Record<string, unknown>>;
-  const stageLlmSummaries = (memory.transparency.llm_stage?.summaries ?? []) as Array<Record<string, unknown>>;
   const recentQueries = sortByRecent(queryHistory, (item) => item.requested_at);
-  const segmentById = new Map(milvusSegments.map((segment) => [segment.segment_uuid, segment]));
-  const primaryRelationships = sortByRecent(
-    relationships.filter((item) => Boolean((item as Record<string, unknown>).is_primary_focus)),
-    (item) => String((item as Record<string, unknown>).window_end ?? (item as Record<string, unknown>).updated_at ?? "")
-  );
-  const displayRelationships = primaryRelationships.length > 0 ? primaryRelationships : relationships;
-  const materializedProfileCount =
-    memory.transparency.redis_state?.materialized_profile_count ??
-    Object.values(structuredProfiles).reduce((sum, fields) => sum + Object.keys(fields ?? {}).length, 0);
-  const stageCards = [
-    {
-      key: "face",
-      label: "Face",
-      value: memory.transparency.face_stage?.total_faces ?? 0,
-      detail: `${memory.transparency.face_stage?.total_persons ?? 0} persons`,
-    },
-    {
-      key: "vlm",
-      label: "VLM",
-      value: memory.transparency.vlm_stage?.processed_photos ?? 0,
-      detail: `${memory.transparency.vlm_stage?.cached_hits ?? 0} cached`,
-    },
-    {
-      key: "segmentation",
-      label: "Segmentation",
-      value: memory.transparency.segmentation_stage?.event_count ?? 0,
-      detail: `${memory.transparency.segmentation_stage?.burst_count ?? 0} bursts`,
-    },
-    {
-      key: "llm",
-      label: "LLM",
-      value: memory.transparency.llm_stage?.fact_count ?? 0,
-      detail: `${memory.transparency.llm_stage?.relationship_hypothesis_count ?? 0} relationships`,
-    },
-    {
-      key: "neo4j",
-      label: "Neo4j",
-      value: memory.transparency.neo4j_state?.edge_count ?? 0,
-      detail: `${Object.values(memory.transparency.neo4j_state?.node_counts ?? {}).reduce((sum, count) => sum + count, 0)} nodes`,
-    },
-    {
-      key: "milvus",
-      label: "Milvus",
-      value: memory.transparency.milvus_state?.segment_count ?? 0,
-      detail: `${Object.keys(memory.transparency.milvus_state?.segment_type_counts ?? {}).length} segment types`,
-    },
-    {
-      key: "redis",
-      label: "Redis",
-      value: memory.transparency.redis_state?.published_field_count ?? 0,
-      detail: `profile v${memory.transparency.redis_state?.profile_version ?? 0} · materialized ${materializedProfileCount} · facts ${memory.transparency.redis_state?.recent_fact_count ?? 0}`,
-    },
-    {
-      key: "changes",
-      label: "Changes",
-      value: memory.transparency.object_diff?.change_count ?? 0,
-      detail: `${(memory.transparency.publish_decisions ?? []).length} publish decisions`,
-    },
-  ];
+  const photoIndex = useMemo(() => buildCorePhotoIndex(fullMemory), [fullMemory]);
+
+  if (!fullMemory) {
+    return (
+      <section className="w-full rounded-[12px] border border-[#d8c9b7] bg-[rgba(249,244,237,0.94)] p-6 shadow-card">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="font-mono text-xs uppercase tracking-[0.24em] text-black/40">Task Memory Core</p>
+            <h2 className="mt-3 text-2xl font-semibold text-ink">任务核心记忆</h2>
+            <p className="mt-3 text-sm leading-6 text-black/60">
+              这里直接展示这个 task 自己的核心结果：用户画像、人物关系、事件和 VLM。
+            </p>
+          </div>
+          {loading ? <WaitingDots label="正在拉取 memory core" /> : null}
+        </div>
+        {!loading ? <p className="mt-5 text-sm text-black/56">当前任务还没有可展示的 memory core。</p> : null}
+      </section>
+    );
+  }
+
+  const profile = fullMemory.profile;
 
   return (
     <section className="w-full rounded-[12px] border border-[#d8c9b7] bg-[rgba(249,244,237,0.94)] p-6 shadow-card">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="font-mono text-xs uppercase tracking-[0.24em] text-black/40">Memory Transparency</p>
-          <h2 className="mt-3 text-2xl font-semibold text-ink">记忆框架已物化到任务结果</h2>
+          <p className="font-mono text-xs uppercase tracking-[0.24em] text-black/40">Task Memory Core</p>
+          <h2 className="mt-3 text-2xl font-semibold text-ink">任务核心记忆</h2>
           <p className="mt-3 max-w-3xl text-sm leading-6 text-black/60">
-            这里直接展开 `Face / VLM / Segmentation / LLM / Neo4j / Milvus / Redis / changes` 八层结果，方便回看主用户画像、关系、Events 和 Facts。
+            这里直接展示当前 task 自己的核心产物，不混历史任务，也不展示内部账本。
           </p>
         </div>
-        <div className="rounded-[12px] border border-[#ddcebb] bg-white/70 px-5 py-4">
-          <p className="font-mono text-xs uppercase tracking-[0.2em] text-black/42">Profile Version</p>
-          <p className="mt-2 text-xl font-semibold">{memory.summary.profile_version}</p>
-        </div>
+        {loading ? <WaitingDots label="正在刷新 memory core" compact /> : null}
       </div>
 
       <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Photos" value={memory.summary.photo_count} detail={`${memory.summary.person_count} persons`} />
-        <MetricCard label="Events" value={memory.summary.event_count} detail={`${memory.summary.relationship_count} relationships`} />
-        <MetricCard label="Facts" value={memory.summary.fact_count} detail={`${memory.summary.claim_count ?? 0} claims`} />
-        <MetricCard label="Profile Fields" value={memory.summary.profile_field_count} detail={`${memory.summary.segment_count} segments`} />
+        <MetricCard label="VLM" value={fullMemory.vlm.length} detail="photo-level understanding" />
+        <MetricCard label="Events" value={fullMemory.events.length} detail="task finalized events" />
+        <MetricCard label="Relationships" value={fullMemory.relationships.length} detail="task relationship results" />
+        <MetricCard label="Profile" value={profile.report_markdown ? "ready" : "pending"} detail="task profile output" />
       </div>
 
-      <div className="mt-5 grid gap-4 xl:grid-cols-3">
-        <StageSummaryPanel
-          title="VLM Outputs"
-          items={stageVlmSummaries}
-          emptyText="当前还没有可展示的 VLM stage summaries。"
-        />
-        <StageSummaryPanel
-          title="Segmentation Outputs"
-          items={stageSegmentationSummaries}
-          emptyText="当前还没有 segmentation stage summaries。"
-        />
-        <StageSummaryPanel
-          title="LLM Outputs"
-          items={stageLlmSummaries}
-          emptyText="当前还没有可展示的 LLM stage summaries。"
-        />
-      </div>
+      <div className="mt-5 space-y-4">
+        <FoldableStageCard title="Profile / 用户画像">
+          {profile.report_markdown ? (
+            <pre className="max-h-[420px] overflow-auto whitespace-pre-wrap rounded-[10px] bg-[#f6eee3] p-3 text-sm leading-6 text-[#5f4e42]">
+              {profile.report_markdown}
+            </pre>
+          ) : (
+            <p className="text-sm text-black/56">当前画像报告尚未生成。</p>
+          )}
+        </FoldableStageCard>
 
-      {externalPublish ? (
-        <div className="mt-5 grid gap-3 md:grid-cols-3">
-          <MetricCard
-            label="Redis Publish"
-            value={externalPublish.redis?.status ?? "unknown"}
-            detail={externalPublish.redis?.reason ?? `${externalPublish.redis?.key_count ?? 0} keys`}
-          />
-          <MetricCard
-            label="Neo4j Publish"
-            value={externalPublish.neo4j?.status ?? "unknown"}
-            detail={externalPublish.neo4j?.reason ?? `${externalPublish.neo4j?.edge_count ?? 0} edges`}
-          />
-          <MetricCard
-            label="Milvus Publish"
-            value={externalPublish.milvus?.status ?? "unknown"}
-            detail={externalPublish.milvus?.reason ?? `${externalPublish.milvus?.segment_count ?? 0} segments`}
-          />
-        </div>
-      ) : null}
-
-      <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        {stageCards.map((item) => (
-          <MetricCard key={item.key} label={item.label} value={item.value} detail={item.detail} />
-        ))}
-      </div>
-
-      <div className="mt-5 grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
-        <div className="rounded-[12px] border border-[#ddcebb] bg-white/70 p-4">
-          <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-black/42">Redis Profile</p>
-          <div className="mt-3 space-y-3">
-            {Object.entries(structuredProfiles).length > 0 ? (
-              Object.entries(structuredProfiles).map(([profileKey, fields]) => (
-                <div key={profileKey} className="rounded-[10px] bg-[#efe5d8] px-3 py-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-[#6f5847]">{profileKey}</p>
-                    <p className="text-xs text-[#6f5847]">{Object.keys(fields ?? {}).length} fields</p>
-                  </div>
-                  <div className="mt-3 space-y-2">
-                    {Object.entries(fields ?? {}).map(([fieldKey, entry]) => (
-                      <div key={`${profileKey}-${fieldKey}`} className="rounded-[10px] bg-white/80 px-3 py-3">
-                        <div className="flex items-center justify-between gap-3">
-                          <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-[#6f5847]">{fieldKey}</p>
-                          <p className="text-xs text-[#6f5847]">confidence {Number(entry.confidence ?? 0).toFixed(2)}</p>
-                        </div>
-                        <p className="mt-2 text-sm leading-6 text-[#5f4e42]">
-                          {entry.summary ?? (Array.isArray(entry.value) ? entry.value.join(" / ") : String(entry.value ?? "No values"))}
-                        </p>
-                        <p className="mt-2 text-xs text-[#7a6858]">
-                          facts: {entry.supporting_fact_ids?.length ?? 0} · events: {entry.supporting_event_ids?.length ?? 0} · photos: {entry.supporting_photo_ids?.length ?? 0}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))
-            ) : null}
-            {Object.entries(profileFields).length > 0 ? (
-              Object.entries(profileFields).map(([fieldKey, field]) => (
-                <div key={fieldKey} className="rounded-[10px] bg-[#f6eee3] px-3 py-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-[#6f5847]">{fieldKey}</p>
-                    <p className="text-xs text-[#6f5847]">confidence {field.confidence.toFixed(2)}</p>
-                  </div>
-                  <p className="mt-2 text-sm leading-6 text-[#5f4e42]">{field.values.join(" / ") || "No values"}</p>
-                  <p className="mt-2 text-xs text-[#7a6858]">
-                    facts: {field.supporting_fact_ids?.length ?? 0} · events: {field.supporting_event_ids.length} · refs: {field.evidence_refs.length}
-                  </p>
-                </div>
-              ))
-            ) : Object.entries(structuredProfiles).length === 0 ? (
-              <p className="text-sm text-black/56">当前还没有可发布到 Redis 的画像字段。</p>
-            ) : null}
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          <div className="rounded-[12px] border border-[#ddcebb] bg-white/70 p-4">
-            <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-black/42">Primary User Relationships</p>
-            <div className="mt-3 space-y-2">
-              {displayRelationships.length > 0 ? (
-                displayRelationships.slice(0, 8).map((item, index) => {
-                  const supportingEventCount = Array.isArray((item as Record<string, unknown>).supporting_event_ids)
-                    ? ((item as Record<string, unknown>).supporting_event_ids as unknown[]).length
-                    : 0;
-                  const supportingFactCount = Array.isArray((item as Record<string, unknown>).supporting_fact_ids)
-                    ? ((item as Record<string, unknown>).supporting_fact_ids as unknown[]).length
-                    : 0;
-                  const originalImageCount = Array.isArray((item as Record<string, unknown>).original_image_ids)
-                    ? ((item as Record<string, unknown>).original_image_ids as unknown[]).length
-                    : 0;
-                  return (
-                  <div key={`${String(item.person_uuid ?? item.face_person_id)}-${index}`} className="rounded-[10px] bg-[#f6eee3] px-3 py-3 text-sm leading-6 text-[#5f4e42]">
-                    <div className="flex items-center justify-between gap-3">
-                      <span>{String(item.face_person_id ?? "unknown")} · {String(item.label ?? "unknown")}</span>
-                      <span className="text-xs text-[#7a6858]">{Number(item.confidence ?? 0).toFixed(2)}</span>
-                    </div>
-                    <p className="mt-1 text-xs text-[#7a6858]">
-                      events {supportingEventCount} · facts {supportingFactCount} · photos {originalImageCount}
-                    </p>
-                  </div>
-                )})
-              ) : (
-                <p className="text-sm text-black/56">当前还没有围绕主用户的关系候选。</p>
-              )}
-            </div>
-          </div>
-
-          <div className="rounded-[12px] border border-[#ddcebb] bg-white/70 p-4">
-            <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-black/42">Recent Facts</p>
-            <div className="mt-3 space-y-2">
-              {recentFacts.length > 0 ? (
-                recentFacts.slice(0, 6).map((item, index) => (
-                  <div key={`${String(item.event_uuid ?? item.event_id)}-${index}`} className="rounded-[10px] bg-[#f6eee3] px-3 py-3 text-sm leading-6 text-[#5f4e42]">
-                    {String(item.title ?? "Untitled")} · {String(item.location ?? item.place_label ?? "unknown")}
-                  </div>
+        <FoldableStageCard title="Full Relationships / 全量人物关系" meta={`${fullMemory.relationships.length} relationships`}>
+          <div className="h-[min(68vh,46rem)] overflow-auto pr-1">
+            <div className="space-y-3">
+              {fullMemory.relationships.length > 0 ? (
+                fullMemory.relationships.map((relationship, index) => (
+                  <RecallRelationshipCard key={`${relationship.person_id ?? "relationship"}-${index}`} relationship={relationship} />
                 ))
               ) : (
-                <p className="text-sm text-black/56">当前还没有 Fact 候选。</p>
+                <p className="text-sm text-black/56">当前任务还没有人物关系结果。</p>
               )}
             </div>
           </div>
+        </FoldableStageCard>
+
+        <FoldableStageCard title="Full Events / 全量事件" meta={`${fullMemory.events.length} events`}>
+          <div className="h-[min(68vh,46rem)] overflow-auto pr-1">
+            <div className="space-y-3">
+              {fullMemory.events.length > 0 ? (
+                fullMemory.events.map((event, index) => <RecallEventCard key={`event-${index}`} event={event} />)
+              ) : (
+                <p className="text-sm text-black/56">当前任务还没有全量事件。</p>
+              )}
+            </div>
+          </div>
+        </FoldableStageCard>
+
+        <FoldableStageCard title="VLM / 视觉结果" meta={`${fullMemory.vlm.length} items`} defaultCollapsed>
+          <div className="space-y-3">
+            <p className="text-sm text-black/56">VLM 数量较多时默认折叠，避免把事件和人物关系挤到页面下方。</p>
+            {fullMemory.vlm.length > 0 ? (
+              fullMemory.vlm.map((item, index) => (
+                <RecallVlmCard key={`${item.photo_id ?? index}`} item={item} />
+              ))
+            ) : (
+              <p className="text-sm text-black/56">当前任务还没有 VLM 结果。</p>
+            )}
+          </div>
+        </FoldableStageCard>
+
+        <FoldableStageCard title="Query Recall / 任务召回问答" meta={`${recentQueries.length} questions`}>
+          <div className="space-y-3">
+            {recentQueries.length > 0 ? (
+              recentQueries.map((item) => (
+                <QueryResultCard key={item.query_id} item={item} photoIndex={photoIndex} />
+              ))
+            ) : (
+              <p className="text-sm text-black/56">记忆落位后，可以直接在底部 chat bar 里提问；这里会展示新的 query recall 结果。</p>
+            )}
+          </div>
+        </FoldableStageCard>
+      </div>
+    </section>
+  );
+}
+
+function MemoryStepsPanel({
+  stepsPayload,
+  loading,
+}: {
+  stepsPayload: TaskMemoryStepsResponse | null;
+  loading: boolean;
+}) {
+  const steps = stepsPayload?.steps ?? null;
+
+  const buildMeta = (stepKey: "lp1" | "lp2" | "lp3") => {
+    const step = steps?.[stepKey];
+    if (!step) {
+      return "";
+    }
+    const summary = (step.summary ?? {}) as Record<string, unknown>;
+    const parts = [formatLpStepStatus(step.status)];
+    if (typeof step.updated_at === "string" && step.updated_at) {
+      parts.push(`更新于 ${formatDateTime(step.updated_at)}`);
+    }
+    if (stepKey === "lp1") {
+      const eventCount = readNumericValue(summary.event_count);
+      const batchCount = readNumericValue(summary.batch_count);
+      const attemptCount = readNumericValue(summary.attempt_count);
+      const retryCount = readNumericValue(summary.retry_count);
+      const lastParseStatus = typeof summary.last_parse_status === "string" ? summary.last_parse_status : "";
+      if (eventCount != null) {
+        parts.push(`${eventCount} events`);
+      }
+      if (batchCount != null) {
+        parts.push(`${batchCount} batches`);
+      }
+      if (attemptCount != null) {
+        parts.push(`${attemptCount} attempts`);
+      }
+      if (retryCount != null && retryCount > 0) {
+        parts.push(`${retryCount} retries`);
+      }
+      if (lastParseStatus) {
+        parts.push(`last ${lastParseStatus}`);
+      }
+    }
+    if (stepKey === "lp2") {
+      const relationshipCount = readNumericValue(summary.relationship_count);
+      const processedCandidates = readNumericValue(summary.processed_candidates);
+      const candidateCount = readNumericValue(summary.candidate_count);
+      const currentCandidateIndex = readNumericValue(summary.current_candidate_index);
+      const currentPersonId = typeof summary.current_person_id === "string" ? summary.current_person_id : "";
+      const lastCompletedPersonId = typeof summary.last_completed_person_id === "string" ? summary.last_completed_person_id : "";
+      const callElapsed = formatElapsedSince(typeof summary.call_started_at === "string" ? summary.call_started_at : null);
+      if (relationshipCount != null) {
+        parts.push(`${relationshipCount} relationships`);
+      }
+      if (processedCandidates != null && candidateCount != null) {
+        parts.push(`${processedCandidates}/${candidateCount} candidates`);
+      }
+      if (step.status === "running" && currentCandidateIndex != null && candidateCount != null) {
+        parts.push(`当前 ${currentCandidateIndex}/${candidateCount}`);
+      }
+      if (step.status === "running" && currentPersonId) {
+        parts.push(`人物 ${currentPersonId}`);
+      }
+      if (step.status === "running" && callElapsed) {
+        parts.push(`本次调用 ${callElapsed}`);
+      }
+      if (lastCompletedPersonId) {
+        parts.push(`上次成功 ${lastCompletedPersonId}`);
+      }
+    }
+    if (stepKey === "lp3") {
+      const hasProfile = summary.has_profile === true;
+      const reportLength = readNumericValue(summary.report_length);
+      if (hasProfile) {
+        parts.push("profile ready");
+      }
+      if (reportLength != null && reportLength > 0) {
+        parts.push(`${reportLength} chars`);
+      }
+    }
+    return parts.filter(Boolean).join(" · ");
+  };
+
+  return (
+    <section className="w-full rounded-[12px] border border-[#d8c9b7] bg-[rgba(249,244,237,0.94)] p-6 shadow-card">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <p className="font-mono text-xs uppercase tracking-[0.24em] text-black/40">LP Snapshot Steps</p>
+          <h2 className="mt-3 text-2xl font-semibold text-ink">LP1 / LP2 / LP3 分步结果</h2>
+          <p className="mt-3 max-w-3xl text-sm leading-6 text-black/60">
+            这里把 `v0323` 的 LP1、LP2、LP3 拆开展示。每一步一旦写出数据，就会立即显示，不再等整条 memory 链路全部结束。
+          </p>
         </div>
+        {loading ? <WaitingDots label="正在刷新 LP steps" compact /> : null}
       </div>
 
-      <FocusGraphPanel graph={focusGraph} />
-
-      <div className="mt-5 grid gap-4 xl:grid-cols-2">
-        <GraphLandingPanel memory={memory} taskVersion={taskVersion} />
-        <MilvusLandingPanel segments={milvusSegments} />
-      </div>
-
-      <div className="mt-5 rounded-[12px] border border-[#ddcebb] bg-white/70 p-4">
-        <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
-          <div>
-            <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-black/42">Memory Debug / Recall Chain</p>
-            <p className="mt-2 text-sm leading-6 text-black/60">
-              底部 chat bar 发起的问题会在这里按生成时间倒序展开，展示 `OperatorPlan → Recall → Graph → Milvus → Answer` 整条链路。
-            </p>
-          </div>
-          <div className="rounded-[10px] bg-[#f6eee3] px-3 py-2 text-xs leading-6 text-[#5f4e42]">
-            recent first · {recentQueries.length} queries
-          </div>
-        </div>
-
-        <div className="mt-4 space-y-4">
-          {recentQueries.length > 0 ? (
-            recentQueries.map((item) => {
-              const answer = item.response.answer;
-              const trace = item.response.debug_trace;
-              const evidenceSegments = answer.evidence_segment_ids
-                .map((segmentId) => segmentById.get(segmentId))
-                .filter((segment): segment is MilvusSegment => Boolean(segment));
-              return (
-                <article key={item.query_id} className="rounded-[12px] border border-[#eadbcc] bg-[#fcf8f3] p-4">
-                  <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-                    <div>
-                      <p className="text-base font-semibold text-ink">{item.question}</p>
-                      <p className="mt-1 text-xs text-black/50">{formatDateTime(item.requested_at)}</p>
-                    </div>
-                    <div className="rounded-[10px] bg-white px-3 py-2 text-xs leading-6 text-[#5f4e42]">
-                      confidence {answer.confidence.toFixed(2)}
-                    </div>
-                  </div>
-
-                  <div className="mt-3 rounded-[10px] bg-white px-4 py-3">
-                    <p className="text-sm leading-6 text-[#5f4e42]">{answer.summary || "暂无摘要输出"}</p>
-                    {answer.uncertainty_flags.length > 0 ? (
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {answer.uncertainty_flags.map((flag) => (
-                          <span key={flag} className="rounded-full bg-[#f6eee3] px-2.5 py-1 text-xs text-[#7a6858]">
-                            {flag}
-                          </span>
-                        ))}
-                      </div>
-                    ) : null}
-                  </div>
-
-                  <div className="mt-3 grid gap-3 xl:grid-cols-2">
-                    <div className="rounded-[10px] bg-white px-4 py-3">
-                      <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-black/42">Graph Hits</p>
-                      <p className="mt-2 text-xs leading-6 text-[#7a6858]">
-                        events {answer.supporting_events.length} · facts {answer.supporting_facts.length} · relationships {answer.supporting_relationships.length}
-                      </p>
-                      <pre className="mt-2 overflow-x-auto whitespace-pre-wrap break-all text-xs leading-6 text-[#5f4e42]">
-                        {formatJson({
-                          resolved_concepts: answer.resolved_concepts,
-                          resolved_entities: answer.resolved_entities,
-                          supporting_events: answer.supporting_events,
-                          supporting_facts: answer.supporting_facts,
-                          supporting_relationships: answer.supporting_relationships
-                        })}
-                      </pre>
-                    </div>
-
-                    <div className="rounded-[10px] bg-white px-4 py-3">
-                      <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-black/42">Milvus Evidence</p>
-                      {evidenceSegments.length > 0 ? (
-                        <div className="mt-2 space-y-2">
-                          {evidenceSegments.slice(0, 6).map((segment) => (
-                            <div key={segment.segment_uuid} className="rounded-[10px] bg-[#f6eee3] px-3 py-3">
-                              <p className="text-xs text-[#7a6858]">
-                                {segment.segment_type} · {segment.location_hint || "unknown place"} · {formatDateTime(segment.started_at ?? segment.ended_at ?? undefined)}
-                              </p>
-                              <p className="mt-2 text-sm leading-6 text-[#5f4e42]">{segment.text}</p>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="mt-2 text-sm text-black/56">当前回答没有额外命中 Milvus evidence。</p>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="mt-3 grid gap-3 xl:grid-cols-2">
-                    <JsonDetails title="Operator Plan" value={trace.operator_plan} />
-                    <JsonDetails title="Recall Candidates" value={trace.recall_candidates} />
-                    <JsonDetails title="Query DSL" value={trace.dsl} />
-                    <JsonDetails title="Pseudo Cypher / Evidence Fill" value={{ executed_cypher: trace.executed_cypher, evidence_fill: trace.evidence_fill }} />
-                  </div>
-                </article>
-              );
-            })
+      <div className="mt-5 space-y-4">
+        <FoldableStageCard title="LP1 / 事件聚合" meta={buildMeta("lp1")} loading={loading && !hasDisplayValue(steps?.lp1?.data)} loadingLabel="LP1">
+          {hasDisplayValue(steps?.lp1?.data) ? (
+            <>
+              <pre className="max-h-[320px] overflow-auto whitespace-pre-wrap break-all rounded-[10px] bg-[#f6eee3] p-3 text-xs leading-6 text-[#5f4e42]">
+                {formatJson(steps?.lp1?.data)}
+              </pre>
+              <div className="mt-3 flex justify-end">
+                <JsonCopyButton value={steps?.lp1?.data} ariaLabel="复制 LP1 输出" />
+              </div>
+            </>
           ) : (
-            <p className="text-sm text-black/56">记忆落位后，可以直接在底部 chat bar 里提问；链路会显示在这里。</p>
+            <p className="text-sm text-black/56">当前还没有 LP1 数据。</p>
           )}
-        </div>
-      </div>
+          {hasDisplayValue(steps?.lp1?.attempts) ? <div className="mt-3"><JsonDetails title="LP1 Attempts" value={steps?.lp1?.attempts} /></div> : null}
+          {hasDisplayValue(steps?.lp1?.failures) ? <div className="mt-3"><JsonDetails title="LP1 Failures" value={steps?.lp1?.failures} /></div> : null}
+        </FoldableStageCard>
 
-      {profileMarkdown ? (
-        <div className="mt-5 rounded-[12px] border border-[#ddcebb] bg-white/70 p-4">
-          <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-black/42">Profile Markdown</p>
-          <pre className="mt-3 max-h-[360px] overflow-auto whitespace-pre-wrap rounded-[10px] bg-[#f6eee3] p-3 text-sm leading-6 text-[#5f4e42]">
-            {profileMarkdown}
-          </pre>
-        </div>
-      ) : null}
+        <FoldableStageCard title="LP2 / 关系推断" meta={buildMeta("lp2")} loading={Boolean(steps?.lp2?.status === "running")} loadingLabel="LP2">
+          {hasDisplayValue(steps?.lp2?.data) ? (
+            <>
+              <pre className="max-h-[320px] overflow-auto whitespace-pre-wrap break-all rounded-[10px] bg-[#f6eee3] p-3 text-xs leading-6 text-[#5f4e42]">
+                {formatJson(steps?.lp2?.data)}
+              </pre>
+              <div className="mt-3 flex justify-end">
+                <JsonCopyButton value={steps?.lp2?.data} ariaLabel="复制 LP2 输出" />
+              </div>
+            </>
+          ) : (
+            <p className="text-sm text-black/56">当前还没有 LP2 数据。</p>
+          )}
+          {hasDisplayValue(steps?.lp2?.failures) ? <div className="mt-3"><JsonDetails title="LP2 Failures" value={steps?.lp2?.failures} /></div> : null}
+        </FoldableStageCard>
 
-      <div className="mt-5 grid gap-4 xl:grid-cols-2">
-        <JsonDetails title="Envelope DTO" value={memory.envelope} />
-        <JsonDetails title="Neo4j / Milvus / Redis State" value={memory.storage} />
-        <JsonDetails title="Transparency Views" value={memory.transparency} />
-        {focusGraph ? <JsonDetails title="Focus Graph Mermaid" value={focusGraph.mermaid} /> : null}
-        <JsonDetails title="Evaluation Objects" value={memory.evaluation} />
-        {externalPublish ? <JsonDetails title="External Publish Report" value={externalPublish} /> : null}
+        <FoldableStageCard title="LP3 / 画像生成" meta={buildMeta("lp3")} loading={Boolean(steps?.lp3?.status === "running")} loadingLabel="LP3">
+          {hasDisplayValue(steps?.lp3?.data) ? (
+            <>
+              <pre className="max-h-[320px] overflow-auto whitespace-pre-wrap break-all rounded-[10px] bg-[#f6eee3] p-3 text-xs leading-6 text-[#5f4e42]">
+                {formatJson(steps?.lp3?.data)}
+              </pre>
+              <div className="mt-3 flex justify-end">
+                <JsonCopyButton value={steps?.lp3?.data} ariaLabel="复制 LP3 输出" />
+              </div>
+            </>
+          ) : (
+            <p className="text-sm text-black/56">当前还没有 LP3 数据。</p>
+          )}
+          {hasDisplayValue(steps?.lp3?.failures) ? <div className="mt-3"><JsonDetails title="LP3 Failures" value={steps?.lp3?.failures} /></div> : null}
+        </FoldableStageCard>
       </div>
     </section>
   );
@@ -2230,9 +2036,11 @@ export default function HomePage() {
   const [authBusy, setAuthBusy] = useState(true);
   const [registrationEnabled, setRegistrationEnabled] = useState(true);
   const [maxUploadPhotos, setMaxUploadPhotos] = useState(DEFAULT_MAX_UPLOADS);
+  const [appVersion, setAppVersion] = useState("unknown");
   const [availableTaskVersions, setAvailableTaskVersions] = useState<string[]>(FALLBACK_TASK_VERSIONS);
   const [defaultTaskVersion, setDefaultTaskVersion] = useState(FALLBACK_DEFAULT_TASK_VERSION);
   const [selectedTaskVersion, setSelectedTaskVersion] = useState(FALLBACK_DEFAULT_TASK_VERSION);
+  const [normalizeLivePhotos, setNormalizeLivePhotos] = useState(true);
   const [tasks, setTasks] = useState<TaskState[]>([]);
   const [currentTask, setCurrentTask] = useState<TaskState | null>(null);
   const [isDraftView, setIsDraftView] = useState(false);
@@ -2246,6 +2054,10 @@ export default function HomePage() {
   const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
   const [isTaskLoading, setIsTaskLoading] = useState(false);
   const [memoryQueryHistoryByTask, setMemoryQueryHistoryByTask] = useState<Record<string, MemoryQueryHistoryItem[]>>({});
+  const [fullMemoryByTask, setFullMemoryByTask] = useState<Record<string, TaskMemoryFullResponse | null>>({});
+  const [fullMemoryLoadingByTask, setFullMemoryLoadingByTask] = useState<Record<string, boolean>>({});
+  const [memoryStepsByTask, setMemoryStepsByTask] = useState<Record<string, TaskMemoryStepsResponse | null>>({});
+  const [memoryStepsLoadingByTask, setMemoryStepsLoadingByTask] = useState<Record<string, boolean>>({});
   const [error, setError] = useState<string | null>(null);
 
   const currentFaceStage = currentTask ? readStageProgress(currentTask.progress, "face_recognition") : {};
@@ -2256,6 +2068,10 @@ export default function HomePage() {
   const currentUploads = currentTask?.uploads ?? [];
   const taskGroups = useMemo(() => groupTasksByCreatedAt(tasks), [tasks]);
   const currentQueryHistory = currentTask ? memoryQueryHistoryByTask[currentTask.task_id] ?? [] : [];
+  const currentFullMemory = currentTask ? fullMemoryByTask[currentTask.task_id] ?? null : null;
+  const currentFullMemoryLoading = currentTask ? Boolean(fullMemoryLoadingByTask[currentTask.task_id]) : false;
+  const currentMemorySteps = currentTask ? memoryStepsByTask[currentTask.task_id] ?? null : null;
+  const currentMemoryStepsLoading = currentTask ? Boolean(memoryStepsLoadingByTask[currentTask.task_id]) : false;
   const currentTaskVersion = currentTask?.version ?? LEGACY_TASK_VERSION;
   const visibleTaskVersions = useMemo(() => Array.from(new Set([currentTaskVersion, ...availableTaskVersions])), [availableTaskVersions, currentTaskVersion]);
   const currentStatusLabel = currentTask ? formatStatus(currentTask.status) : "";
@@ -2317,6 +2133,7 @@ export default function HomePage() {
     }
 
     const payload = (await response.json()) as HealthResponse;
+    setAppVersion(payload.app_version ?? "unknown");
     setMaxUploadPhotos(Number(payload.max_upload_photos ?? DEFAULT_MAX_UPLOADS));
     const nextVersions =
       Array.isArray(payload.available_task_versions) && payload.available_task_versions.length > 0
@@ -2400,6 +2217,10 @@ export default function HomePage() {
       setReviewBusy({});
       setPolicyBusy({});
       setMemoryQueryHistoryByTask({});
+      setFullMemoryByTask({});
+      setFullMemoryLoadingByTask({});
+      setMemoryStepsByTask({});
+      setMemoryStepsLoadingByTask({});
       setPendingUploads((previous) => {
         revokePendingUploads(previous);
         return [];
@@ -2470,6 +2291,30 @@ export default function HomePage() {
       const payload = (await response.json()) as TaskState;
       setCurrentTask(payload);
       setIsDraftView(false);
+      if (payload.version === "v0323" && payload.status !== "draft") {
+        void fetchTaskMemorySteps(payload.task_id);
+      } else {
+        setMemoryStepsByTask((previous) => ({
+          ...previous,
+          [payload.task_id]: null,
+        }));
+        setMemoryStepsLoadingByTask((previous) => ({
+          ...previous,
+          [payload.task_id]: false,
+        }));
+      }
+      if ((payload.result?.memory ?? null) && payload.status === "completed") {
+        void fetchTaskFullMemory(payload.task_id);
+      } else {
+        setFullMemoryByTask((previous) => ({
+          ...previous,
+          [payload.task_id]: null,
+        }));
+        setFullMemoryLoadingByTask((previous) => ({
+          ...previous,
+          [payload.task_id]: false,
+        }));
+      }
       setTasks((previous) => {
         const taskIndex = previous.findIndex((task) => task.task_id === payload.task_id);
         if (taskIndex === -1) {
@@ -2484,6 +2329,72 @@ export default function HomePage() {
       if (showLoading) {
         setIsTaskLoading(false);
       }
+    }
+  }
+
+  async function fetchTaskMemorySteps(taskId: string) {
+    setMemoryStepsLoadingByTask((previous) => ({
+      ...previous,
+      [taskId]: true,
+    }));
+    try {
+      const response = await apiFetch(`${API_BASE}/api/tasks/${taskId}/memory/steps`, { cache: "no-store" });
+      if (response.status === 404) {
+        setMemoryStepsByTask((previous) => ({
+          ...previous,
+          [taskId]: null,
+        }));
+        return;
+      }
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.detail ?? "读取 LP steps 失败");
+      }
+      const payload = (await response.json()) as TaskMemoryStepsResponse;
+      setMemoryStepsByTask((previous) => ({
+        ...previous,
+        [taskId]: payload,
+      }));
+    } catch (fetchError) {
+      setError(fetchError instanceof Error ? fetchError.message : "读取 LP steps 失败");
+    } finally {
+      setMemoryStepsLoadingByTask((previous) => ({
+        ...previous,
+        [taskId]: false,
+      }));
+    }
+  }
+
+  async function fetchTaskFullMemory(taskId: string) {
+    setFullMemoryLoadingByTask((previous) => ({
+      ...previous,
+      [taskId]: true,
+    }));
+    try {
+      const response = await apiFetch(`${API_BASE}/api/tasks/${taskId}/memory/core`, { cache: "no-store" });
+      if (response.status === 404) {
+        setFullMemoryByTask((previous) => ({
+          ...previous,
+          [taskId]: null,
+        }));
+        return;
+      }
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.detail ?? "读取 memory core 失败");
+      }
+      const payload = (await response.json()) as TaskMemoryFullResponse;
+      setFullMemoryByTask((previous) => ({
+        ...previous,
+        [taskId]: payload,
+      }));
+    } catch (fetchError) {
+      setError(fetchError instanceof Error ? fetchError.message : "读取 memory core 失败");
+    } finally {
+      setFullMemoryLoadingByTask((previous) => ({
+        ...previous,
+        [taskId]: false,
+      }));
     }
   }
 
@@ -2539,7 +2450,8 @@ export default function HomePage() {
       const response = await apiFetch(`${API_BASE}/api/tasks`, {
         method: "POST",
         body: JSON.stringify({
-          version: selectedTaskVersion
+          version: selectedTaskVersion,
+          normalize_live_photos: normalizeLivePhotos,
         })
       });
 
@@ -2581,7 +2493,8 @@ export default function HomePage() {
         method: "POST",
         body: JSON.stringify({
           max_photos: Math.min(files.length, maxUploadPhotos),
-          use_cache: false
+          use_cache: false,
+          normalize_live_photos: normalizeLivePhotos,
         })
       });
       if (!startResponse.ok) {
@@ -2719,6 +2632,26 @@ export default function HomePage() {
         delete next[task.task_id];
         return next;
       });
+      setFullMemoryByTask((previous) => {
+        const next = { ...previous };
+        delete next[task.task_id];
+        return next;
+      });
+      setFullMemoryLoadingByTask((previous) => {
+        const next = { ...previous };
+        delete next[task.task_id];
+        return next;
+      });
+      setMemoryStepsByTask((previous) => {
+        const next = { ...previous };
+        delete next[task.task_id];
+        return next;
+      });
+      setMemoryStepsLoadingByTask((previous) => {
+        const next = { ...previous };
+        delete next[task.task_id];
+        return next;
+      });
       setIsDraftView((previous) => previous || currentTask?.task_id === task.task_id);
       await fetchTasks({ selectInitial: !currentTask || currentTask.task_id === task.task_id, preserveCurrent: false });
     } catch (deleteError) {
@@ -2755,6 +2688,8 @@ export default function HomePage() {
     setExpandedComments({});
     setReviewBusy({});
     setPolicyBusy({});
+    setFullMemoryLoadingByTask({});
+    setMemoryStepsLoadingByTask({});
     setPendingUploads((previous) => {
       revokePendingUploads(previous);
       return [];
@@ -2906,6 +2841,7 @@ export default function HomePage() {
                             <p className="mt-1 truncate text-xs text-black/45">
                               {formatStatus(task.status)} · {formatTaskTime(task.created_at) || formatStage(task.stage)}
                             </p>
+                            <p className="mt-1 truncate text-xs text-black/45">任务版本 {task.version ?? defaultTaskVersion}</p>
                           </button>
                           <button
                             type="button"
@@ -2980,6 +2916,26 @@ export default function HomePage() {
                         ))}
                       </select>
                     </label>
+
+                    <button
+                      type="button"
+                      aria-pressed={normalizeLivePhotos}
+                      onClick={() => setNormalizeLivePhotos((current) => !current)}
+                      disabled={isUploading}
+                      className={`w-full rounded-[12px] border px-4 py-3 text-left transition md:min-w-[280px] ${
+                        normalizeLivePhotos
+                          ? "border-[#1f1a15] bg-white text-ink"
+                          : "border-[#ddcebb] bg-white/70 text-black/58"
+                      } disabled:cursor-not-allowed disabled:bg-black/5`}
+                    >
+                      <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-black/42">Live Photo 预处理</p>
+                      <p className="mt-2 text-sm font-medium">
+                        {normalizeLivePhotos ? "默认开启：转成静态 JPEG 再进入识别与 VLM" : "已关闭：仅在必要时转换"}
+                      </p>
+                      <p className="mt-1 text-xs leading-5 text-black/52">
+                        原始上传仍会保留；后续如果加入 live photo 专项逻辑，可以在这个开关上继续扩展。
+                      </p>
+                    </button>
 
                     <button
                       type="button"
@@ -3119,18 +3075,24 @@ export default function HomePage() {
               </div>
 
               {faceReport.no_face_images.length > 0 ? (
-                <div className="mt-5 rounded-[12px] border border-[#e6cdbf] bg-[#fbf2ea] p-4">
-                  <p className="text-sm font-medium text-[#8a5637]">以下图片本轮未识别到人脸</p>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {faceReport.no_face_images.map((image) => (
-                      <span
-                        key={image.image_id}
-                        className="rounded-[10px] bg-white px-3 py-1.5 font-mono text-xs text-black/68"
-                      >
-                        {image.filename}
-                      </span>
-                    ))}
-                  </div>
+                <div className="mt-5">
+                  <FoldableStageCard
+                    title="未识别人脸图片"
+                    meta={`${faceReport.no_face_images.length} 张图片本轮未识别到人脸`}
+                    defaultCollapsed
+                  >
+                    <p className="text-sm font-medium text-[#8a5637]">以下图片本轮未识别到人脸</p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {faceReport.no_face_images.map((image) => (
+                        <span
+                          key={image.image_id}
+                          className="rounded-[10px] bg-white px-3 py-1.5 font-mono text-xs text-black/68"
+                        >
+                          {image.filename}
+                        </span>
+                      ))}
+                    </div>
+                  </FoldableStageCard>
                 </div>
               ) : null}
 
@@ -3157,11 +3119,17 @@ export default function HomePage() {
             />
           ) : null}
 
-          {!isDraftView && currentTask && memoryResult ? (
+          {!isDraftView && currentTask && currentTask.version === "v0323" ? (
+            <MemoryStepsPanel
+              stepsPayload={currentMemorySteps}
+              loading={currentMemoryStepsLoading}
+            />
+          ) : null}
+
+          {!isDraftView && currentTask && (memoryResult || currentFullMemory || currentFullMemoryLoading) ? (
             <MemoryPanel
-              memory={memoryResult}
-              profileMarkdown={currentTask.result?.profile_markdown}
-              taskVersion={currentTask.version}
+              fullMemory={currentFullMemory}
+              loading={currentFullMemoryLoading}
               queryHistory={currentQueryHistory}
             />
           ) : null}

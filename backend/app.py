@@ -27,10 +27,13 @@ from backend.auth import (
     register_user,
 )
 from backend.face_review_store import FaceReviewStore
+from backend.memory_full_retrieval import build_task_memory_core_payload
+from backend.memory_step_retrieval import build_task_memory_steps_payload
 from backend.progress_utils import append_terminal_error, append_terminal_info, merge_stage_progress
-from backend.task_store import TaskStore
+from backend.task_store import TaskStore, normalize_task_options
 from backend.upload_utils import (
     UPLOAD_FAILURES_FILENAME,
+    is_live_photo_candidate,
     save_upload_original_streamed,
     stored_upload_filename,
     task_asset_path,
@@ -48,6 +51,7 @@ from config import (
     BACKEND_PORT,
     BACKEND_RELOAD,
     CORS_ALLOW_ORIGINS,
+    DEFAULT_NORMALIZE_LIVE_PHOTOS,
     DEFAULT_TASK_VERSION,
     FRONTEND_ORIGIN,
     HIGH_SECURITY_MODE,
@@ -92,10 +96,12 @@ class AuthPayload(BaseModel):
 class TaskStartPayload(BaseModel):
     max_photos: Optional[int] = None
     use_cache: bool = False
+    normalize_live_photos: bool = DEFAULT_NORMALIZE_LIVE_PHOTOS
 
 
 class TaskCreatePayload(BaseModel):
     version: Optional[str] = None
+    normalize_live_photos: bool = DEFAULT_NORMALIZE_LIVE_PHOTOS
 
 
 class FaceReviewPayload(BaseModel):
@@ -187,6 +193,7 @@ def _save_upload_batch(task_id: str, task_dir: Path, files: List[UploadFile], st
                     "path": original_asset_path,
                     "url": asset_store.asset_url(task_id, original_asset_path),
                     "preview_url": None,
+                    "is_live_photo_candidate": is_live_photo_candidate(upload.filename or stored_name, image_info.get("content_type")),
                     **image_info,
                 }
             )
@@ -300,7 +307,37 @@ def _merge_feedback(task: dict, user_id: str) -> dict:
 
 def _hydrate_task(task: dict, user_id: str) -> dict:
     synced = _sync_task_from_worker(task, user_id)
-    return _merge_feedback(synced, user_id)
+    merged = _merge_feedback(synced, user_id)
+    return _sanitize_task_for_client(merged)
+
+
+def _strip_bootstrap_fields(payload):
+    if isinstance(payload, dict):
+        cleaned = {}
+        for key, value in payload.items():
+            if isinstance(key, str) and (
+                key.startswith("bootstrap_")
+                or key == "bootstrap_source"
+                or key == "bootstrap_source_task_id"
+            ):
+                continue
+            cleaned[key] = _strip_bootstrap_fields(value)
+        return cleaned
+    if isinstance(payload, list):
+        return [_strip_bootstrap_fields(item) for item in payload]
+    return payload
+
+
+def _sanitize_task_for_client(task: dict) -> dict:
+    sanitized = copy.deepcopy(task)
+    if isinstance(sanitized.get("result_summary"), dict):
+        sanitized["result_summary"] = _strip_bootstrap_fields(sanitized["result_summary"])
+    result = sanitized.get("result")
+    if isinstance(result, dict):
+        memory = result.get("memory")
+        if isinstance(memory, dict):
+            result["memory"] = _strip_bootstrap_fields(memory)
+    return sanitized
 
 
 def _sync_task_from_worker(task: dict, user_id: str) -> dict:
@@ -340,7 +377,7 @@ def _sync_task_from_worker(task: dict, user_id: str) -> dict:
         return task
 
     updates = {}
-    for key in ("status", "stage", "progress", "result", "error", "version"):
+    for key in ("status", "stage", "progress", "result", "error", "version", "options"):
         if key in remote_payload:
             updates[key] = remote_payload[key]
     if "uploads" in remote_payload and not task.get("uploads"):
@@ -409,7 +446,14 @@ def _chunk_remote_upload_entries(entries: List[dict]) -> List[List[dict]]:
     return batches
 
 
-def _run_pipeline_task(task_id: str, user_id: Optional[str], max_photos: int, use_cache: bool, task_version: str):
+def _run_pipeline_task(
+    task_id: str,
+    user_id: Optional[str],
+    max_photos: int,
+    use_cache: bool,
+    task_version: str,
+    task_options: dict | None,
+):
     task_dir = task_store.task_dir(task_id)
     progress_state: Dict[str, object] = {
         "current_stage": "starting",
@@ -447,6 +491,7 @@ def _run_pipeline_task(task_id: str, user_id: Optional[str], max_photos: int, us
             user_id=user_id,
             face_review_store=face_review_store,
             task_version=task_version,
+            task_options=task_options,
         )
         result = service.run(
             max_photos=max_photos,
@@ -566,18 +611,23 @@ def create_task(
         task_version = normalize_task_version(payload.version if payload else None)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    task_options = normalize_task_options(
+        {"normalize_live_photos": payload.normalize_live_photos} if payload else None
+    )
     task_id = uuid.uuid4().hex
     task_store.create_task(
         task_id,
         upload_count=0,
         user_id=current_user["user_id"],
         version=task_version,
+        options=task_options,
         status="draft",
         stage="draft",
     )
     return {
         "task_id": task_id,
         "version": task_version,
+        "options": task_options,
         "status": "draft",
         "stage": "draft",
         "upload_count": 0,
@@ -651,6 +701,13 @@ def start_task(
         raise HTTPException(status_code=400, detail=f"max_photos 必须在 1 到 {MAX_UPLOAD_PHOTOS} 之间")
     max_photos = min(requested_max, len(uploads), MAX_UPLOAD_PHOTOS)
     task_version = task.get("version") or DEFAULT_TASK_VERSION
+    task_options = normalize_task_options(
+        {
+            **(task.get("options") or {}),
+            "normalize_live_photos": payload.normalize_live_photos,
+        }
+    )
+    task_store.update_task(task_id, options=task_options)
 
     if _remote_worker_mode_enabled():
         launched_worker = None
@@ -693,11 +750,13 @@ def start_task(
                 max_photos=max_photos,
                 use_cache=payload.use_cache,
                 version=task_version,
+                options=task_options,
             )
             task_store.update_worker_state(
                 task_id,
                 worker_status=start_payload.get("worker_status", ready_worker.state),
                 version=start_payload.get("version", task_version),
+                options=start_payload.get("options", task_options),
                 status=start_payload.get("status", "queued"),
                 stage=start_payload.get("stage", "queued"),
                 progress=start_payload.get("progress"),
@@ -708,6 +767,7 @@ def start_task(
                 "status": start_payload.get("status", "queued"),
                 "stage": start_payload.get("stage", "queued"),
                 "version": start_payload.get("version", task_version),
+                "options": start_payload.get("options", task_options),
                 "upload_count": len(uploads),
                 "skipped_uploads": skipped_uploads,
                 "max_photos": max_photos,
@@ -732,10 +792,12 @@ def start_task(
         max_photos,
         payload.use_cache,
         task_version,
+        task_options,
     )
     return {
         "task_id": task_id,
         "version": task_version,
+        "options": task_options,
         "status": "queued",
         "stage": "queued",
         "upload_count": len(uploads),
@@ -784,6 +846,42 @@ def query_task_memory(
         context_hints=payload.context_hints or {},
         time_hint=payload.time_hint,
         answer_shape_hint=payload.answer_shape_hint,
+    )
+
+
+@app.get("/api/tasks/{task_id}/memory/core")
+def get_task_memory_core(
+    task_id: str,
+    response: Response,
+    current_user: dict = Depends(get_current_user),
+):
+    _apply_no_store_headers(response)
+    task = task_store.get_task(task_id, user_id=current_user["user_id"])
+    if not task:
+        raise HTTPException(status_code=404, detail="任务不存在")
+    hydrated = _hydrate_task(task, current_user["user_id"])
+    try:
+        return build_task_memory_core_payload(hydrated)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.get("/api/tasks/{task_id}/memory/steps")
+def get_task_memory_steps(
+    task_id: str,
+    response: Response,
+    current_user: dict = Depends(get_current_user),
+):
+    _apply_no_store_headers(response)
+    task = task_store.get_task(task_id, user_id=current_user["user_id"])
+    if not task:
+        raise HTTPException(status_code=404, detail="任务不存在")
+    hydrated = _sync_task_from_worker(task, current_user["user_id"])
+    if str(hydrated.get("version") or "").strip() != "v0323":
+        raise HTTPException(status_code=404, detail="当前任务没有 LP steps 输出")
+    return build_task_memory_steps_payload(
+        hydrated,
+        asset_url_builder=lambda resolved_task_id, relative_path: asset_store.asset_url(resolved_task_id, relative_path),
     )
 
 

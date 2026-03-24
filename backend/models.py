@@ -43,6 +43,7 @@ class TaskRecord(Base):
     task_dir: Mapped[str] = mapped_column(String(512), nullable=False)
     progress: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     uploads: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    options: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     result: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     result_summary: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     asset_manifest: Mapped[dict | None] = mapped_column(JSON, nullable=True)

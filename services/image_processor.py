@@ -111,7 +111,7 @@ class ImageProcessor:
 
         return photos, errors
 
-    def convert_to_jpeg(self, photos: List[Photo]) -> List[Photo]:
+    def convert_to_jpeg(self, photos: List[Photo], *, normalize_live_photos: bool = False) -> List[Photo]:
         """
         为人脸识别准备工作图。
         原始上传文件保持不变；仅在 HEIC 或带方向标签的图片上生成标准朝向的 JPEG 工作图。
@@ -124,7 +124,9 @@ class ImageProcessor:
         """
         for photo in photos:
             photo.original_path = photo.path
-            needs_working_copy = photo.filename.lower().endswith(('.heic', '.heif'))
+            needs_working_copy = bool(normalize_live_photos)
+            if not needs_working_copy:
+                needs_working_copy = photo.filename.lower().endswith(('.heic', '.heif'))
 
             if not needs_working_copy:
                 try:

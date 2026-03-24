@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
@@ -11,6 +12,7 @@ from time import perf_counter
 from typing import TYPE_CHECKING, Callable, Dict, List, Optional
 
 from config import (
+    DEFAULT_NORMALIZE_LIVE_PHOTOS,
     DEFAULT_TASK_VERSION,
     FACE_MIN_SIZE,
     MAX_UPLOAD_PHOTOS,
@@ -19,6 +21,7 @@ from config import (
     TASK_VERSION_V0317_HEAVY,
     TASK_VERSION_V0321_2,
     TASK_VERSION_V0321_3,
+    TASK_VERSION_V0323,
     VLM_CACHE_FLUSH_EVERY_N,
     VLM_CACHE_FLUSH_INTERVAL_SECONDS,
     VLM_ENABLE_PRIORITY_SCHEDULING,
@@ -62,6 +65,11 @@ try:
 except ModuleNotFoundError:  # pragma: no cover - dependency-light test envs
     V03213PipelineFamily = None  # type: ignore[assignment]
 
+try:
+    from services.v0323.pipeline import V0323PipelineFamily
+except ModuleNotFoundError:  # pragma: no cover - dependency-light test envs
+    V0323PipelineFamily = None  # type: ignore[assignment]
+
 if TYPE_CHECKING:
     from backend.face_review_store import FaceReviewStore
 
@@ -77,6 +85,7 @@ class MemoryPipelineService:
         user_id: Optional[str] = None,
         face_review_store: Optional["FaceReviewStore"] = None,
         task_version: str = DEFAULT_TASK_VERSION,
+        task_options: Optional[Dict[str, object]] = None,
     ):
         self.task_id = task_id
         self.task_dir = Path(task_dir)
@@ -94,11 +103,15 @@ class MemoryPipelineService:
             face_review_store = FaceReviewStore()
         self.face_review_store = face_review_store
         self.task_version = task_version
+        self.task_options = {
+            "normalize_live_photos": bool((task_options or {}).get("normalize_live_photos", DEFAULT_NORMALIZE_LIVE_PHOTOS)),
+        }
 
         self.upload_dir = self.task_dir / "uploads"
         self.cache_dir = self.task_dir / "cache"
         self.output_dir = self.task_dir / "output"
         self.upload_failures_path = self.task_dir / "upload_failures.json"
+        self.vlm_failures_path = self.cache_dir / "vlm_failures.jsonl"
 
         self.upload_dir.mkdir(parents=True, exist_ok=True)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
@@ -150,7 +163,10 @@ class MemoryPipelineService:
             "converting",
             {"message": "转换 HEIC/JPEG", "photo_count": len(photos)},
         )
-        photos = self.image_processor.convert_to_jpeg(photos)
+        photos = self.image_processor.convert_to_jpeg(
+            photos,
+            normalize_live_photos=bool(self.task_options.get("normalize_live_photos")),
+        )
         photos_to_process = self._apply_image_policies(photos)
         photos_to_process = self.image_processor.dedupe_before_face_recognition(photos_to_process)
         dedupe_report = getattr(self.image_processor, "last_dedupe_report", {}) or {}
@@ -303,7 +319,30 @@ class MemoryPipelineService:
             ),
         )
 
-        if self.task_version in {TASK_VERSION_V0321_2, TASK_VERSION_V0321_3}:
+        fallback_primary_person_id = self._resolve_primary_person_id_from_identity_documents(
+            photos_for_vlm,
+            vlm.results,
+            current_primary_person_id=primary_person_id,
+        )
+        if fallback_primary_person_id and fallback_primary_person_id != primary_person_id:
+            primary_person_id = fallback_primary_person_id
+            self.face_recognition.primary_person_id = primary_person_id
+            self.face_recognition.state["primary_person_id"] = primary_person_id
+            for photo in face_ready_photos:
+                photo.primary_person_id = primary_person_id
+            self.face_recognition.save()
+            face_output = self.face_recognition.get_face_output()
+            face_payload = self._build_face_recognition_payload(photos, face_output)
+            self.warnings.append(
+                {
+                    "stage": "primary_person_fallback",
+                    "message": "未能从人脸频次稳定识别主角，已使用证件照中的单人脸作为主角回填。",
+                    "primary_person_id": primary_person_id,
+                }
+            )
+
+        if self.task_version in {TASK_VERSION_V0321_2, TASK_VERSION_V0321_3, TASK_VERSION_V0323}:
+            self._clear_legacy_outputs_for_revision_first_family()
             if self.task_version == TASK_VERSION_V0321_2:
                 memory = self._run_v0321_2_family(
                     photos=photos_for_vlm,
@@ -314,7 +353,7 @@ class MemoryPipelineService:
                     vlm_results=vlm.results,
                     progress_callback=progress_callback,
                 )
-            else:
+            elif self.task_version == TASK_VERSION_V0321_3:
                 memory = self._run_v0321_3_family(
                     photos=photos_for_vlm,
                     face_output=face_output,
@@ -324,6 +363,71 @@ class MemoryPipelineService:
                     vlm_results=vlm.results,
                     progress_callback=progress_callback,
                 )
+            else:
+                memory = self._run_v0323_family(
+                    photos=photos_for_vlm,
+                    face_output=face_output,
+                    primary_person_id=primary_person_id,
+                    cached_photo_ids=cached_photo_ids,
+                    dedupe_report=dedupe_report,
+                    vlm_results=vlm.results,
+                    progress_callback=progress_callback,
+                )
+            if self.task_version == TASK_VERSION_V0323:
+                lp1_events = list(memory.get("lp1_events", []) or [])
+                lp2_relationships = list(memory.get("lp2_relationships", []) or [])
+                profile_payload = dict(memory.get("lp3_profile", {}) or {})
+                profile_markdown = str(profile_payload.get("report_markdown") or "")
+                detailed_output = {
+                    "task_id": self.task_id,
+                    "version": self.task_version,
+                    "generated_at": datetime.now().isoformat(),
+                    "summary": {
+                        "task_version": self.task_version,
+                        "pipeline_family": memory.get("pipeline_family"),
+                        "total_uploaded": self._count_uploaded_files(),
+                        "loaded_images": len(photos),
+                        "failed_images": len(self.failed_images),
+                        "face_processed_images": len(face_ready_photos),
+                        "vlm_processed_images": len(vlm.results),
+                        "total_faces": face_output.get("metrics", {}).get("total_faces", 0),
+                        "total_persons": face_output.get("metrics", {}).get("total_persons", 0),
+                        "primary_person_id": primary_person_id,
+                        "event_count": len(lp1_events),
+                        "fact_count": len(lp1_events),
+                        "relationship_count": len(lp2_relationships),
+                        "observation_count": len(memory.get("vp1_observations", []) or []),
+                        "claim_count": 0,
+                        "profile_delta_count": len(dict(profile_payload.get("structured") or {})),
+                        "profile_version": 1 if profile_payload else 0,
+                        "profile_generation_mode": memory.get("summary", {}).get("profile_generation_mode"),
+                    },
+                    "face_recognition": face_payload,
+                    "face_report": self._build_face_report(face_payload),
+                    "failed_images": self.failed_images,
+                    "warnings": self.warnings,
+                    "facts": lp1_events,
+                    "relationships": lp2_relationships,
+                    "profile_markdown": profile_markdown,
+                    "memory_contract": None,
+                    "llm_chunk_artifacts": {},
+                    "dedupe_report": dedupe_report,
+                    "memory": memory,
+                    "artifacts": {},
+                }
+
+                result_path = self.output_dir / "result.json"
+                save_json(detailed_output, str(result_path))
+                detailed_output["artifacts"]["result_url"] = self._public_url(result_path)
+                detailed_output["artifacts"]["face_output_url"] = self._public_url(self.cache_dir / "face_recognition_output.json")
+                detailed_output["artifacts"]["vlm_cache_url"] = self._public_url(self.vlm_cache_path)
+                detailed_output["artifacts"]["vlm_failures_url"] = self._public_url(self.vlm_failures_path) if self.vlm_failures_path.exists() else None
+                detailed_output["artifacts"]["dedupe_report_url"] = self._public_url(self.dedupe_report_path) if self.dedupe_report_path.exists() else None
+                for artifact_key, artifact_value in memory.get("artifacts", {}).items():
+                    if artifact_key.endswith("_url"):
+                        detailed_output["artifacts"][artifact_key] = artifact_value
+                self.asset_store.sync_task_directory(self.task_id, self.task_dir)
+                return detailed_output
             delta_profile_revision = dict(memory.get("delta_profile_revision", {}) or {})
             delta_profile_markdown = str(memory.get("delta_profile_markdown") or "")
             full_profile_revision = dict(memory.get("profile_revision", {}) or {})
@@ -380,6 +484,7 @@ class MemoryPipelineService:
             detailed_output["artifacts"]["result_url"] = self._public_url(result_path)
             detailed_output["artifacts"]["face_output_url"] = self._public_url(self.cache_dir / "face_recognition_output.json")
             detailed_output["artifacts"]["vlm_cache_url"] = self._public_url(self.vlm_cache_path)
+            detailed_output["artifacts"]["vlm_failures_url"] = self._public_url(self.vlm_failures_path) if self.vlm_failures_path.exists() else None
             detailed_output["artifacts"]["dedupe_report_url"] = self._public_url(self.dedupe_report_path) if self.dedupe_report_path.exists() else None
             for artifact_key, artifact_value in memory.get("artifacts", {}).items():
                 if artifact_key.endswith("_url"):
@@ -562,6 +667,7 @@ class MemoryPipelineService:
         detailed_output["artifacts"]["result_url"] = self._public_url(result_path)
         detailed_output["artifacts"]["face_output_url"] = self._public_url(self.cache_dir / "face_recognition_output.json")
         detailed_output["artifacts"]["vlm_cache_url"] = self._public_url(self.vlm_cache_path)
+        detailed_output["artifacts"]["vlm_failures_url"] = self._public_url(self.vlm_failures_path) if self.vlm_failures_path.exists() else None
         detailed_output["artifacts"]["dedupe_report_url"] = self._public_url(self.dedupe_report_path) if self.dedupe_report_path.exists() else None
         detailed_output["artifacts"]["memory_contract_url"] = self._public_url(self.llm_contract_path) if self.llm_contract_path.exists() else None
         detailed_output["artifacts"]["llm_chunks_url"] = self._public_url(self.llm_chunks_path) if self.llm_chunks_path.exists() else None
@@ -597,7 +703,7 @@ class MemoryPipelineService:
                 "candidate_count": 0,
                 "filtered_count": 0,
                 "processed_candidates": 0,
-                "percent": 10,
+                "percent": None,
                 "runtime_seconds": 0.0,
             },
         )
@@ -649,7 +755,7 @@ class MemoryPipelineService:
                 "candidate_count": 0,
                 "filtered_count": 0,
                 "processed_candidates": 0,
-                "percent": 10,
+                "percent": None,
                 "runtime_seconds": 0.0,
             },
         )
@@ -680,12 +786,65 @@ class MemoryPipelineService:
             ),
         )
 
+    def _run_v0323_family(
+        self,
+        *,
+        photos: List,
+        face_output: Dict[str, object],
+        primary_person_id: Optional[str],
+        cached_photo_ids: set[str],
+        dedupe_report: Dict[str, object],
+        vlm_results: List[Dict[str, object]],
+        progress_callback: Optional[Callable[[str, Dict], None]],
+    ) -> Dict[str, object]:
+        self._notify(
+            progress_callback,
+            "llm",
+            {
+                "message": "v0323 LP snapshot 链路启动",
+                "pipeline_family": "v0323",
+                "substage": "lp1_batch",
+                "batch_index": 0,
+                "batch_count": 0,
+                "event_count": 0,
+                "percent": None,
+                "runtime_seconds": 0.0,
+            },
+        )
+        family_cls = V0323PipelineFamily
+        if family_cls is None:
+            from services.v0323.pipeline import V0323PipelineFamily as family_cls
+        llm_processor_cls = LLMProcessor
+        if llm_processor_cls is None:
+            from services.llm_processor import LLMProcessor as llm_processor_cls
+        return family_cls(
+            task_id=self.task_id,
+            task_dir=self.task_dir,
+            user_id=self.user_id,
+            asset_store=self.asset_store,
+            llm_processor=llm_processor_cls(task_version=self.task_version),
+            public_url_builder=self._public_url,
+        ).run(
+            photos=photos,
+            face_output=face_output,
+            primary_person_id=primary_person_id,
+            vlm_results=vlm_results,
+            cached_photo_ids=cached_photo_ids,
+            dedupe_report=dedupe_report,
+            progress_callback=lambda stage, payload: self._notify(
+                progress_callback,
+                "memory" if stage == "v0323" else stage,
+                payload,
+            ),
+        )
+
     def _supports_memory_graph(self) -> bool:
         return self.task_version in {
             TASK_VERSION_V0317,
             TASK_VERSION_V0317_HEAVY,
             TASK_VERSION_V0321_2,
             TASK_VERSION_V0321_3,
+            TASK_VERSION_V0323,
         }
 
     def _run_face_recognition(
@@ -730,6 +889,7 @@ class MemoryPipelineService:
     ) -> tuple[set[str], List[Dict[str, object]], Dict[str, object]]:
         cached_photo_ids: set[str] = set()
         failed_by_index: Dict[int, Dict[str, object]] = {}
+        vlm_failure_records: List[Dict[str, object]] = []
         ordered_entries: Dict[int, Dict[str, object]] = {}
         metrics: Dict[str, object] = {
             "queued": 0,
@@ -746,6 +906,8 @@ class MemoryPipelineService:
 
         if use_cache:
             vlm.load_cache()
+        if self.vlm_failures_path.exists():
+            self.vlm_failures_path.unlink()
 
         indexed_photos = list(enumerate(photos_for_vlm))
         if VLM_ENABLE_PRIORITY_SCHEDULING:
@@ -816,11 +978,24 @@ class MemoryPipelineService:
                         metrics["completed_count"] = int(metrics["completed_count"]) + 1
                         dirty_successes += 1
                     else:
-                        failed_by_index[original_index] = {
+                        failure_payload = {
                             "photo_id": photo.photo_id,
                             "filename": photo.filename,
                             "error": str(metadata.get("error") or photo.processing_errors.get("vlm") or "未知错误"),
+                            "error_type": str(metadata.get("error_type") or ""),
+                            "provider": str(metadata.get("provider") or ""),
+                            "model": str(metadata.get("model") or ""),
+                            "retry_count": int(metadata.get("retry_count") or 0),
+                            "runtime_seconds": float(metadata.get("runtime_seconds") or 0.0),
+                            "mime_type": str(metadata.get("mime_type") or ""),
+                            "prompt_char_count": int(metadata.get("prompt_char_count") or 0),
+                            "raw_response_preview": str(metadata.get("raw_response_preview") or ""),
+                            "response_status_code": metadata.get("response_status_code"),
+                            "parse_error_type": str(metadata.get("parse_error_type") or ""),
                         }
+                        failed_by_index[original_index] = failure_payload
+                        vlm_failure_records.append(failure_payload)
+                        self._append_jsonl(self.vlm_failures_path, failure_payload)
                         metrics["failed_count"] = int(metrics["failed_count"]) + 1
 
                     now = perf_counter()
@@ -851,6 +1026,124 @@ class MemoryPipelineService:
 
         failed_items = [failed_by_index[index] for index in sorted(failed_by_index)]
         return cached_photo_ids, failed_items, self._serialize_vlm_stats(metrics)
+
+    def _resolve_primary_person_id_from_identity_documents(
+        self,
+        photos_for_vlm: List,
+        vlm_results: List[Dict[str, object]],
+        *,
+        current_primary_person_id: Optional[str],
+    ) -> Optional[str]:
+        if current_primary_person_id:
+            return current_primary_person_id
+
+        results_by_photo = {
+            str(item.get("photo_id") or ""): dict(item.get("vlm_analysis", {}) or {})
+            for item in vlm_results
+            if str(item.get("photo_id") or "")
+        }
+        candidate_scores: Dict[str, Dict[str, float]] = {}
+        for photo in photos_for_vlm:
+            analysis = results_by_photo.get(str(getattr(photo, "photo_id", "") or ""))
+            if not analysis:
+                continue
+            score = self._identity_document_signal_score(analysis)
+            if score < 1.0:
+                continue
+            person_ids = []
+            for face in list(getattr(photo, "faces", []) or []):
+                person_id = str(face.get("person_id") or "")
+                if person_id:
+                    person_ids.append(person_id)
+            unique_person_ids = sorted(set(person_ids))
+            if len(unique_person_ids) != 1:
+                continue
+            person_id = unique_person_ids[0]
+            payload = candidate_scores.setdefault(person_id, {"count": 0.0, "best_score": 0.0})
+            payload["count"] += 1.0
+            payload["best_score"] = max(payload["best_score"], score)
+
+        if not candidate_scores:
+            return None
+
+        ranked = sorted(
+            candidate_scores.items(),
+            key=lambda item: (item[1]["count"], item[1]["best_score"], item[0]),
+            reverse=True,
+        )
+        top_person_id, top_stats = ranked[0]
+        if len(ranked) > 1:
+            next_stats = ranked[1][1]
+            if (
+                float(top_stats.get("count") or 0.0) == float(next_stats.get("count") or 0.0)
+                and float(top_stats.get("best_score") or 0.0) == float(next_stats.get("best_score") or 0.0)
+            ):
+                return None
+        return top_person_id
+
+    def _identity_document_signal_score(self, analysis: Dict[str, object]) -> float:
+        text_pool = []
+        for key in ("summary",):
+            value = analysis.get(key)
+            if value:
+                text_pool.append(str(value))
+        for bucket in ("details", "key_objects", "ocr_hits", "brands", "place_candidates"):
+            text_pool.extend(str(value) for value in list(analysis.get(bucket, []) or []) if value)
+        scene = dict(analysis.get("scene", {}) or {})
+        event = dict(analysis.get("event", {}) or {})
+        text_pool.extend(
+            str(value)
+            for value in [
+                scene.get("location_detected"),
+                scene.get("environment_description"),
+                event.get("activity"),
+                event.get("social_context"),
+                event.get("interaction"),
+            ]
+            if value
+        )
+        normalized = " ".join(text_pool).lower()
+        direct_keywords = [
+            "身份证",
+            "居民身份证",
+            "学生证",
+            "学员证",
+            "校园卡",
+            "证件照",
+            "identity card",
+            "id card",
+            "student id",
+            "student card",
+            "campus card",
+            "identification card",
+            "passport",
+            "driver license",
+            "driving licence",
+        ]
+        supporting_keywords = [
+            "证件",
+            "卡片",
+            "照片",
+            "头像",
+            "portrait",
+            "document",
+            "card",
+            "student",
+            "school",
+            "campus",
+            "姓名",
+            "学号",
+            "身份证号",
+        ]
+        score = 0.0
+        if any(keyword in normalized for keyword in direct_keywords):
+            score += 1.0
+        support_hits = sum(1 for keyword in supporting_keywords if keyword in normalized)
+        if support_hits >= 2:
+            score += 0.5
+        if re.search(r"\b\d{15,18}[0-9xX]?\b", normalized):
+            score += 0.5
+        return score
 
     def _prioritize_vlm_inputs(self, indexed_photos: List[tuple[int, object]]) -> List[tuple[int, object]]:
         def priority_key(item: tuple[int, object]) -> tuple[int, int]:
@@ -1057,7 +1350,11 @@ class MemoryPipelineService:
                 "original_uploads_preserved": True,
                 "preview_format": "webp",
                 "boxed_format": "webp",
-                "recognition_input": "原始上传文件保持不变；HEIC 或带方向标签的图片会先生成标准朝向的 JPEG 工作图供识别使用",
+                "recognition_input": (
+                    "原始上传文件保持不变；当前任务已启用 Live Photo / HEIC 静态 JPEG 预处理，后续人脸识别、VLM 与下游链路统一使用标准化 JPEG 工作图"
+                    if bool(self.task_options.get("normalize_live_photos"))
+                    else "原始上传文件保持不变；HEIC 或带方向标签的图片会先生成标准朝向的 JPEG 工作图供识别使用"
+                ),
             },
             "precision_enhancements": self._precision_enhancements(),
             "score_guide": {
@@ -1343,6 +1640,7 @@ class MemoryPipelineService:
             "order_invariant_verified": bool(stats_payload.get("order_invariant_verified", True)),
             "vlm_results_preview": previews,
             "vlm_cache_url": self._public_url(self.vlm_cache_path),
+            "vlm_failures_url": self._public_url(self.vlm_failures_path) if self.vlm_failures_path.exists() else None,
         }
 
     def _build_llm_stage_progress(
@@ -1395,11 +1693,39 @@ class MemoryPipelineService:
         elif partial_contract:
             save_json(partial_contract, str(self.llm_pre_relationship_contract_path))
 
+    def _clear_legacy_outputs_for_revision_first_family(self) -> None:
+        legacy_paths = [
+            self.llm_contract_path,
+            self.llm_chunks_path,
+            self.llm_slice_contracts_path,
+            self.llm_event_merges_path,
+            self.llm_pre_relationship_contract_path,
+            self.profile_report_path,
+            self.output_dir / "memory",
+        ]
+        for path in legacy_paths:
+            if not path.exists():
+                continue
+            if path.is_dir():
+                for child in sorted(path.rglob("*"), reverse=True):
+                    if child.is_file():
+                        child.unlink(missing_ok=True)
+                    elif child.is_dir():
+                        child.rmdir()
+                path.rmdir()
+            else:
+                path.unlink(missing_ok=True)
+
     def _write_jsonl(self, path: Path, records: List[Dict[str, object]]) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("w", encoding="utf-8") as handle:
             for item in records:
                 handle.write(f"{json.dumps(item, ensure_ascii=False)}\n")
+
+    def _append_jsonl(self, path: Path, record: Dict[str, object]) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a", encoding="utf-8") as handle:
+            handle.write(f"{json.dumps(record, ensure_ascii=False)}\n")
 
     def _build_memory_stage_progress(self, memory: Dict[str, object], *, runtime_seconds: float) -> Dict:
         storage = dict(memory.get("storage", {}) or {})

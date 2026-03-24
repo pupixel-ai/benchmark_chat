@@ -55,7 +55,16 @@ class WorkerClient:
         self._raise_for_status(response, "上传分片到 worker 失败")
         return response.json()
 
-    def start_task(self, private_ip: str, task_id: str, max_photos: int, use_cache: bool, *, version: str) -> dict:
+    def start_task(
+        self,
+        private_ip: str,
+        task_id: str,
+        max_photos: int,
+        use_cache: bool,
+        *,
+        version: str,
+        options: dict | None = None,
+    ) -> dict:
         response = requests.post(
             f"{self._base_url(private_ip)}/internal/tasks/{task_id}/start",
             headers=self._headers(),
@@ -63,6 +72,7 @@ class WorkerClient:
                 "max_photos": max_photos,
                 "use_cache": use_cache,
                 "version": version,
+                "normalize_live_photos": bool((options or {}).get("normalize_live_photos", True)),
             },
             timeout=(10, 30),
         )

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import json
 import shutil
 import unittest
 import uuid
@@ -14,7 +15,7 @@ from sqlalchemy import delete
 
 from backend.app import app, task_store
 from backend.db import SessionLocal
-from config import APP_VERSION, AVAILABLE_TASK_VERSIONS, DEFAULT_TASK_VERSION
+from config import APP_VERSION, AVAILABLE_TASK_VERSIONS, DEFAULT_NORMALIZE_LIVE_PHOTOS, DEFAULT_TASK_VERSION
 from backend.models import (
     ArtifactRecord,
     FaceRecognitionImagePolicyRecord,
@@ -62,6 +63,10 @@ class TaskApiTests(unittest.TestCase):
         task_id = create_response.json()["task_id"]
         self.task_ids.append(task_id)
         self.assertEqual(create_response.json()["version"], DEFAULT_TASK_VERSION)
+        self.assertEqual(
+            create_response.json()["options"]["normalize_live_photos"],
+            DEFAULT_NORMALIZE_LIVE_PHOTOS,
+        )
 
         batch_response = self.client.post(
             f"/api/tasks/{task_id}/upload-batches",
@@ -79,6 +84,7 @@ class TaskApiTests(unittest.TestCase):
         self.assertIsNotNone(task)
         assert task is not None
         self.assertEqual(task["version"], DEFAULT_TASK_VERSION)
+        self.assertEqual(task["options"]["normalize_live_photos"], DEFAULT_NORMALIZE_LIVE_PHOTOS)
         self.assertEqual(len(task.get("uploads") or []), 2)
         self.assertTrue((task_store.task_dir(task_id) / "uploads").exists())
         self.assertTrue(all(upload.get("source_hash") for upload in task["uploads"]))
@@ -92,25 +98,35 @@ class TaskApiTests(unittest.TestCase):
         self.assertEqual(start_response.status_code, 200)
         self.assertEqual(start_response.json()["status"], "queued")
         self.assertEqual(start_response.json()["version"], DEFAULT_TASK_VERSION)
+        self.assertEqual(
+            start_response.json()["options"]["normalize_live_photos"],
+            DEFAULT_NORMALIZE_LIVE_PHOTOS,
+        )
         run_pipeline.assert_called_once_with(
             task_id,
             self.user_id,
             2,
             False,
             DEFAULT_TASK_VERSION,
+            {"normalize_live_photos": DEFAULT_NORMALIZE_LIVE_PHOTOS},
         )
 
     def test_create_task_accepts_explicit_version_and_rejects_invalid_values(self) -> None:
-        create_response = self.client.post("/api/tasks", json={"version": "v0312"})
+        create_response = self.client.post(
+            "/api/tasks",
+            json={"version": "v0312", "normalize_live_photos": False},
+        )
         self.assertEqual(create_response.status_code, 200)
         payload = create_response.json()
         self.task_ids.append(payload["task_id"])
         self.assertEqual(payload["version"], "v0312")
+        self.assertFalse(payload["options"]["normalize_live_photos"])
 
         task = task_store.get_task(payload["task_id"], user_id=self.user_id)
         self.assertIsNotNone(task)
         assert task is not None
         self.assertEqual(task["version"], "v0312")
+        self.assertFalse(task["options"]["normalize_live_photos"])
 
         invalid_response = self.client.post("/api/tasks", json={"version": "v9999"})
         self.assertEqual(invalid_response.status_code, 400)
@@ -123,6 +139,95 @@ class TaskApiTests(unittest.TestCase):
         self.assertEqual(payload["app_version"], APP_VERSION)
         self.assertEqual(payload["default_task_version"], DEFAULT_TASK_VERSION)
         self.assertEqual(payload["available_task_versions"], list(AVAILABLE_TASK_VERSIONS))
+
+    def test_memory_steps_endpoint_returns_v0323_step_payload_for_failed_task(self) -> None:
+        create_response = self.client.post("/api/tasks", json={"version": "v0323"})
+        self.assertEqual(create_response.status_code, 200)
+        task_id = create_response.json()["task_id"]
+        self.task_ids.append(task_id)
+
+        family_dir = task_store.task_dir(task_id) / "v0323"
+        family_dir.mkdir(parents=True, exist_ok=True)
+        (family_dir / "lp1_events_compact.json").write_text(
+            json.dumps([{"event_id": "EVT_0001", "title": "Breakfast"}], ensure_ascii=False),
+            encoding="utf-8",
+        )
+        (family_dir / "lp1_batch_outputs.jsonl").write_text(
+            "\n".join(
+                [
+                    json.dumps(
+                        {
+                            "batch_id": "BATCH_0001",
+                            "attempt": 1,
+                            "max_attempts": 2,
+                            "prompt_kind": "primary",
+                            "parse_status": "raw_parse_failed",
+                            "response_char_count": 12345,
+                            "error": "malformed json",
+                        },
+                        ensure_ascii=False,
+                    ),
+                    json.dumps(
+                        {
+                            "batch_id": "BATCH_0001",
+                            "attempt": 2,
+                            "max_attempts": 2,
+                            "prompt_kind": "retry",
+                            "parse_status": "retry_ok",
+                            "response_char_count": 6789,
+                            "error": None,
+                        },
+                        ensure_ascii=False,
+                    ),
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        (family_dir / "lp2_relationships.jsonl").write_text(
+            json.dumps({"person_id": "Person_002", "relationship_type": "friend"}, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+        (family_dir / "llm_failures.jsonl").write_text(
+            json.dumps({"step": "lp2_relationship", "person_id": "Person_003", "error": "timeout"}, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+
+        task_store.update_task(
+            task_id,
+            status="failed",
+            stage="failed",
+            progress={
+                "current_stage": "failed",
+                "stages": {
+                    "memory": {
+                        "substage": "lp2_relationship",
+                        "processed_candidates": 1,
+                        "candidate_count": 2,
+                        "relationship_count": 1,
+                        "person_id": "Person_002",
+                        "current_person_id": "Person_003",
+                        "current_candidate_index": 2,
+                        "call_started_at": "2026-03-24T08:30:33",
+                        "call_timeout_seconds": 180,
+                    }
+                },
+            },
+        )
+
+        response = self.client.get(f"/api/tasks/{task_id}/memory/steps")
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["pipeline_family"], "v0323")
+        self.assertEqual(payload["steps"]["lp1"]["status"], "completed")
+        self.assertEqual(payload["steps"]["lp1"]["summary"]["attempt_count"], 2)
+        self.assertEqual(payload["steps"]["lp1"]["summary"]["retry_count"], 1)
+        self.assertEqual(payload["steps"]["lp1"]["summary"]["last_parse_status"], "retry_ok")
+        self.assertEqual(payload["steps"]["lp1"]["attempts"][1]["prompt_kind"], "retry")
+        self.assertEqual(payload["steps"]["lp2"]["status"], "failed")
+        self.assertEqual(payload["steps"]["lp2"]["summary"]["current_person_id"], "Person_003")
+        self.assertEqual(payload["steps"]["lp2"]["data"][0]["person_id"], "Person_002")
+        self.assertEqual(payload["steps"]["lp2"]["failures"][0]["person_id"], "Person_003")
 
     def test_legacy_task_without_version_is_serialized_as_default_version(self) -> None:
         task_id = uuid.uuid4().hex
@@ -222,13 +327,95 @@ class TaskApiTests(unittest.TestCase):
         self.assertIn("face_001", feedback["reviews"])
         self.assertIn("hash-001", feedback["policies"])
 
-    def test_memory_query_endpoint_returns_agent_answer(self) -> None:
-        create_response = self.client.post("/api/tasks")
+    def test_task_detail_strips_bootstrap_fields_from_client_payload(self) -> None:
+        create_response = self.client.post("/api/tasks", json={"version": "v0321.3"})
         self.assertEqual(create_response.status_code, 200)
         task_id = create_response.json()["task_id"]
         self.task_ids.append(task_id)
 
-        task_store.update_task(task_id, result=self._synthetic_result(task_id), status="completed", stage="completed")
+        task_store.append_uploads(
+            task_id,
+            [
+                {
+                    "image_id": "photo_001",
+                    "filename": "sample.png",
+                    "stored_filename": "001_sample.png",
+                    "path": "uploads/001_sample.png",
+                    "url": "/assets/uploads/001_sample.png",
+                    "preview_url": None,
+                    "content_type": "image/png",
+                    "width": 100,
+                    "height": 100,
+                    "source_hash": "hash-001",
+                    "timestamp": "2026-03-20T20:00:00",
+                }
+            ],
+            status="completed",
+            stage="completed",
+        )
+        result = self._synthetic_revision_first_result(task_id)
+        result["memory"]["summary"] = {
+            **(result["memory"].get("summary") or {}),
+            "bootstrap_applied": True,
+            "bootstrap_source": "db",
+            "bootstrap_source_task_id": "task_old",
+            "bootstrap_prior_event_revision_count": 57,
+        }
+        task_store.update_task(
+            task_id,
+            result=result,
+            result_summary={
+                "event_count": 1,
+                "bootstrap_applied": True,
+                "bootstrap_source_task_id": "task_old",
+            },
+            status="completed",
+            stage="completed",
+        )
+
+        response = self.client.get(f"/api/tasks/{task_id}")
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        memory_summary = ((payload.get("result") or {}).get("memory") or {}).get("summary") or {}
+        self.assertNotIn("bootstrap_applied", memory_summary)
+        self.assertNotIn("bootstrap_source", memory_summary)
+        self.assertNotIn("bootstrap_source_task_id", memory_summary)
+        self.assertNotIn("bootstrap_prior_event_revision_count", memory_summary)
+        self.assertNotIn("bootstrap_applied", payload.get("result_summary") or {})
+        self.assertNotIn("bootstrap_source_task_id", payload.get("result_summary") or {})
+
+    def test_memory_query_endpoint_returns_agent_answer(self) -> None:
+        create_response = self.client.post("/api/tasks", json={"version": "v0321.3"})
+        self.assertEqual(create_response.status_code, 200)
+        task_id = create_response.json()["task_id"]
+        self.task_ids.append(task_id)
+
+        task_store.append_uploads(
+            task_id,
+            [
+                {
+                    "image_id": "photo_001",
+                    "filename": "sample.png",
+                    "stored_filename": "001_sample.png",
+                    "path": "uploads/001_sample.png",
+                    "url": "/assets/uploads/001_sample.png",
+                    "preview_url": None,
+                    "content_type": "image/png",
+                    "width": 100,
+                    "height": 100,
+                    "source_hash": "hash-001",
+                    "timestamp": "2026-03-20T20:00:00",
+                }
+            ],
+            status="completed",
+            stage="completed",
+        )
+        task_store.update_task(
+            task_id,
+            result=self._synthetic_revision_first_result(task_id),
+            status="completed",
+            stage="completed",
+        )
 
         response = self.client.post(
             f"/api/tasks/{task_id}/memory/query",
@@ -236,9 +423,151 @@ class TaskApiTests(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 200)
         payload = response.json()
+        self.assertEqual(payload["query_plan"]["plan_type"], "hybrid")
         self.assertEqual(payload["answer"]["answer_type"], "event_search")
-        self.assertIn("concert", payload["answer"]["resolved_concepts"])
-        self.assertGreaterEqual(len(payload["answer"]["supporting_events"]), 1)
+        self.assertEqual(payload["answer"]["original_photo_ids"], ["hash-001"])
+        self.assertGreaterEqual(len(payload["supporting_units"]), 1)
+        self.assertGreaterEqual(len(payload["supporting_evidence"]), 1)
+
+        overview_response = self.client.post(
+            f"/api/tasks/{task_id}/memory/query",
+            json={"question": "请总结这个任务里的主要事件、人物关系和用户画像"},
+        )
+        self.assertEqual(overview_response.status_code, 200)
+        overview_payload = overview_response.json()
+        self.assertEqual(overview_payload["query_plan"]["plan_type"], "hybrid")
+        self.assertEqual(overview_payload["answer"]["answer_type"], "task_overview")
+        self.assertGreaterEqual(len(overview_payload["supporting_units"]), 1)
+        self.assertGreaterEqual(len(overview_payload["supporting_graph_entities"]), 1)
+        self.assertGreaterEqual(len(overview_payload["supporting_evidence"]), 1)
+        self.assertNotIn("推理草稿箱", overview_payload["answer"]["summary"])
+        self.assertNotIn("1. 时空锚点确认", overview_payload["answer"]["summary"])
+
+    def test_memory_core_endpoint_returns_events_relationships_profile_with_photos(self) -> None:
+        create_response = self.client.post("/api/tasks", json={"version": "v0321.3"})
+        self.assertEqual(create_response.status_code, 200)
+        task_id = create_response.json()["task_id"]
+        self.task_ids.append(task_id)
+
+        task_store.append_uploads(
+            task_id,
+            [
+                {
+                    "image_id": "photo_001",
+                    "filename": "sample.png",
+                    "stored_filename": "001_sample.png",
+                    "path": "uploads/001_sample.png",
+                    "url": "/assets/uploads/001_sample.png",
+                    "preview_url": None,
+                    "content_type": "image/png",
+                    "width": 100,
+                    "height": 100,
+                    "source_hash": "hash-001",
+                    "timestamp": "2026-03-20T20:00:00",
+                }
+            ],
+            status="completed",
+            stage="completed",
+        )
+        task_store.update_task(
+            task_id,
+            result=self._synthetic_revision_first_result(task_id),
+            status="completed",
+            stage="completed",
+        )
+
+        response = self.client.get(f"/api/tasks/{task_id}/memory/core")
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+
+        self.assertEqual(len(payload["events"]), 1)
+        self.assertEqual(len(payload["relationships"]), 1)
+        self.assertEqual(len(payload["vlm"]), 1)
+        self.assertEqual(set(payload.keys()), {"vlm", "events", "relationships", "profile"})
+
+        event = payload["events"][0]
+        self.assertEqual(event["llm_summary"], "Live concert with a close friend.")
+        self.assertEqual(event["photo_ids"], ["photo_001"])
+        self.assertEqual(event["person_ids"], ["Person_001", "Person_002"])
+        self.assertEqual(len(event["vlm"]), 1)
+
+        relationship = payload["relationships"][0]
+        self.assertEqual(relationship["person_id"], "Person_002")
+        self.assertEqual(relationship["photo_ids"], ["photo_001"])
+
+        profile = payload["profile"]
+        self.assertTrue(profile["report_markdown"].startswith("# Profile"))
+
+        vlm = payload["vlm"][0]
+        self.assertEqual(vlm["photo_id"], "photo_001")
+        self.assertEqual(vlm["person_ids"], ["Person_001"])
+
+    def test_memory_core_endpoint_uses_task_scoped_delta_not_bootstrap_snapshot(self) -> None:
+        create_response = self.client.post("/api/tasks", json={"version": "v0321.3"})
+        self.assertEqual(create_response.status_code, 200)
+        task_id = create_response.json()["task_id"]
+        self.task_ids.append(task_id)
+
+        task_store.append_uploads(
+            task_id,
+            [
+                {
+                    "image_id": "photo_001",
+                    "filename": "sample.png",
+                    "stored_filename": "001_sample.png",
+                    "path": "uploads/001_sample.png",
+                    "url": "/assets/uploads/001_sample.png",
+                    "preview_url": None,
+                    "content_type": "image/png",
+                    "width": 100,
+                    "height": 100,
+                    "source_hash": "hash-001",
+                    "timestamp": "2026-03-20T20:00:00",
+                }
+            ],
+            status="completed",
+            stage="completed",
+        )
+        result = self._synthetic_revision_first_result(task_id)
+        result["memory"]["event_revisions"].append(
+            {
+                "event_root_id": "event_root_old",
+                "event_revision_id": "event_rev_old",
+                "revision": 1,
+                "title": "Historical Event",
+                "event_summary": "Should not appear in task-scoped full recall.",
+                "started_at": "2026-02-01T20:00:00",
+                "ended_at": "2026-02-01T22:00:00",
+                "participant_person_ids": ["Person_999"],
+                "depicted_person_ids": ["Person_999"],
+                "place_refs": ["Beijing"],
+                "original_photo_ids": ["hash-old"],
+                "confidence": 0.9,
+                "status": "active",
+                "sealed_state": "sealed",
+                "atomic_evidence": [],
+            }
+        )
+        result["memory"]["relationship_revisions"].append(
+            {
+                "relationship_root_id": "rel_root_old",
+                "relationship_revision_id": "rel_rev_old",
+                "target_person_id": "Person_999",
+                "relationship_type": "friend",
+                "label": "historical friend",
+                "confidence": 0.5,
+                "supporting_event_ids": ["event_rev_old"],
+            }
+        )
+        task_store.update_task(task_id, result=result, status="completed", stage="completed")
+
+        response = self.client.get(f"/api/tasks/{task_id}/memory/core")
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(len(payload["events"]), 1)
+        self.assertEqual(len(payload["relationships"]), 1)
+        self.assertEqual([item["llm_summary"] for item in payload["events"]], ["Live concert with a close friend."])
+        self.assertEqual([item["person_id"] for item in payload["relationships"]], ["Person_002"])
 
     def test_artifact_catalog_endpoint_returns_uploaded_files(self) -> None:
         create_response = self.client.post("/api/tasks")
@@ -499,6 +828,282 @@ class TaskApiTests(unittest.TestCase):
                     },
                     "milvus": {"segments": []},
                     "redis": {},
+                },
+            },
+        }
+
+    def _synthetic_revision_first_result(self, task_id: str) -> dict:
+        timestamp = datetime.utcnow().isoformat()
+        return {
+            "task_id": task_id,
+            "generated_at": timestamp,
+            "summary": {
+                "primary_person_id": "Person_001",
+            },
+            "face_recognition": {
+                "primary_person_id": "Person_001",
+                "images": [
+                    {
+                        "image_id": "photo_001",
+                        "filename": "sample.png",
+                        "source_hash": "hash-001",
+                        "timestamp": "2026-03-20T20:00:00",
+                        "original_image_url": "/assets/uploads/001_sample.png",
+                        "display_image_url": "/assets/uploads/001_sample.png",
+                        "boxed_image_url": None,
+                        "compressed_image_url": None,
+                        "location": None,
+                        "faces": [],
+                    }
+                ],
+                "person_groups": [
+                    {
+                        "person_id": "Person_001",
+                        "is_primary": True,
+                        "photo_count": 1,
+                        "images": [
+                            {
+                                "image_id": "photo_001",
+                                "filename": "sample.png",
+                                "timestamp": "2026-03-20T20:00:00",
+                                "source_hash": "hash-001",
+                            }
+                        ],
+                    }
+                ],
+            },
+            "memory": {
+                "pipeline_family": "v0321_3",
+                "event_revisions": [
+                    {
+                        "event_root_id": "event_root_001",
+                        "event_revision_id": "event_rev_001",
+                        "revision": 1,
+                        "title": "Concert Night",
+                        "event_summary": "Live concert with a close friend.",
+                        "started_at": "2026-03-20T20:00:00",
+                        "ended_at": "2026-03-20T22:00:00",
+                        "participant_person_ids": ["Person_001", "Person_002"],
+                        "depicted_person_ids": ["Person_001", "Person_002"],
+                        "place_refs": ["Shanghai"],
+                        "original_photo_ids": ["hash-001"],
+                        "confidence": 0.9,
+                        "status": "active",
+                        "sealed_state": "sealed",
+                        "atomic_evidence": [
+                            {
+                                "evidence_id": "evidence_001",
+                                "root_event_revision_id": "event_rev_001",
+                                "evidence_type": "brand",
+                                "value_or_text": "MOET",
+                                "provenance": "brand",
+                                "original_photo_ids": ["hash-001"],
+                                "confidence": 0.8,
+                            }
+                        ],
+                    }
+                ],
+                "atomic_evidence": [
+                    {
+                        "evidence_id": "evidence_001",
+                        "root_event_revision_id": "event_rev_001",
+                        "evidence_type": "brand",
+                        "value_or_text": "MOET",
+                        "provenance": "brand",
+                        "original_photo_ids": ["hash-001"],
+                        "confidence": 0.8,
+                    }
+                ],
+                "relationship_revisions": [
+                    {
+                        "relationship_root_id": "rel_root_001",
+                        "relationship_revision_id": "rel_rev_001",
+                        "target_person_id": "Person_002",
+                        "relationship_type": "friend",
+                        "label": "close friend",
+                        "confidence": 0.85,
+                        "supporting_event_ids": ["event_rev_001"],
+                    }
+                ],
+                "profile_revision": {
+                    "profile_revision_id": "profile_rev_001",
+                    "primary_person_id": "Person_001",
+                    "scope": "cumulative",
+                    "generation_mode": "profile_input_pack_llm",
+                    "original_photo_ids": ["hash-001"],
+                },
+                "profile_markdown": "# Profile\n\nConcert-heavy social life.",
+                "delta_event_revisions": [
+                    {
+                        "event_root_id": "event_root_001",
+                        "event_revision_id": "event_rev_001",
+                        "revision": 1,
+                        "title": "Concert Night",
+                        "event_summary": "Live concert with a close friend.",
+                        "started_at": "2026-03-20T20:00:00",
+                        "ended_at": "2026-03-20T22:00:00",
+                        "participant_person_ids": ["Person_001", "Person_002"],
+                        "depicted_person_ids": ["Person_001", "Person_002"],
+                        "place_refs": ["Shanghai"],
+                        "original_photo_ids": ["hash-001"],
+                        "confidence": 0.9,
+                        "status": "active",
+                        "sealed_state": "sealed",
+                        "atomic_evidence": [
+                            {
+                                "evidence_id": "evidence_001",
+                                "root_event_revision_id": "event_rev_001",
+                                "evidence_type": "brand",
+                                "value_or_text": "MOET",
+                                "provenance": "brand",
+                                "original_photo_ids": ["hash-001"],
+                                "confidence": 0.8,
+                            }
+                        ],
+                    }
+                ],
+                "delta_atomic_evidence": [
+                    {
+                        "evidence_id": "evidence_001",
+                        "root_event_revision_id": "event_rev_001",
+                        "evidence_type": "brand",
+                        "value_or_text": "MOET",
+                        "provenance": "brand",
+                        "original_photo_ids": ["hash-001"],
+                        "confidence": 0.8,
+                    }
+                ],
+                "delta_relationship_revisions": [
+                    {
+                        "relationship_root_id": "rel_root_001",
+                        "relationship_revision_id": "rel_rev_001",
+                        "target_person_id": "Person_002",
+                        "relationship_type": "friend",
+                        "label": "close friend",
+                        "confidence": 0.85,
+                        "supporting_event_ids": ["event_rev_001"],
+                    }
+                ],
+                "delta_profile_revision": {
+                    "profile_revision_id": "profile_rev_001",
+                    "primary_person_id": "Person_001",
+                    "scope": "delta",
+                    "generation_mode": "profile_input_pack_llm",
+                    "original_photo_ids": ["hash-001"],
+                },
+                "delta_profile_markdown": "# Profile\n\nConcert-heavy social life.",
+                "profile_input_pack": {
+                    "profile_input_pack_id": "profile_pack_001",
+                    "time_range": {"start": "2026-03-20T20:00:00", "end": "2026-03-20T22:00:00"},
+                    "baseline_rhythm": {"dominant_activity_window": "evening"},
+                    "place_patterns": {"top_place_refs": [{"place_ref": "Shanghai", "count": 1}]},
+                    "activity_patterns": {"top_activities": [{"activity_type": "concert", "count": 1}]},
+                    "identity_signals": {
+                        "role_hints": [
+                            {
+                                "label": "夜间社交活跃",
+                                "confidence": 0.6,
+                                "evidence_level": "event_grounded",
+                                "supporting_event_ids": ["event_rev_001"],
+                                "supporting_signal_ids": [],
+                            }
+                        ]
+                    },
+                    "lifestyle_consumption_signals": {
+                        "diet_hints": [],
+                    },
+                    "event_grounded_signals": {
+                        "interest_signals": [
+                            {"label": "concert", "count": 1, "supporting_event_ids": ["event_rev_001"]}
+                        ]
+                    },
+                    "reference_media_weak_signals": {},
+                    "social_patterns": {
+                        "top_relationships": [
+                            {
+                                "relationship_revision_id": "rel_rev_001",
+                                "target_person_id": "Person_002",
+                                "relationship_type": "friend",
+                                "confidence": 0.85,
+                            }
+                        ],
+                        "relationship_summary": {"close_relationship_count": 1},
+                        "social_style_hints": {"one_on_one_bias": 0.7},
+                    },
+                    "change_points": [],
+                    "key_event_refs": [{"event_revision_id": "event_rev_001", "title": "Concert Night"}],
+                    "key_relationship_refs": [{"relationship_revision_id": "rel_rev_001"}],
+                        "evidence_guardrails": {"forbidden_direct_inference_from_reference_media": ["真实到访"]},
+                },
+                "delta_profile_input_pack": {
+                    "profile_input_pack_id": "profile_pack_001_delta",
+                    "time_range": {"start": "2026-03-20T20:00:00", "end": "2026-03-20T22:00:00"},
+                    "baseline_rhythm": {"dominant_activity_window": "evening"},
+                    "place_patterns": {"top_place_refs": [{"place_ref": "Shanghai", "count": 1}]},
+                    "activity_patterns": {"top_activities": [{"activity_type": "concert", "count": 1}]},
+                    "identity_signals": {
+                        "role_hints": [
+                            {
+                                "label": "夜间社交活跃",
+                                "confidence": 0.6,
+                                "evidence_level": "event_grounded",
+                                "supporting_event_ids": ["event_rev_001"],
+                                "supporting_signal_ids": [],
+                            }
+                        ]
+                    },
+                    "lifestyle_consumption_signals": {"diet_hints": []},
+                    "event_grounded_signals": {
+                        "interest_signals": [
+                            {"label": "concert", "count": 1, "supporting_event_ids": ["event_rev_001"]}
+                        ]
+                    },
+                    "reference_media_weak_signals": {},
+                    "social_patterns": {
+                        "top_relationships": [
+                            {
+                                "relationship_revision_id": "rel_rev_001",
+                                "target_person_id": "Person_002",
+                                "relationship_type": "friend",
+                                "confidence": 0.85,
+                            }
+                        ],
+                        "relationship_summary": {"close_relationship_count": 1},
+                        "social_style_hints": {"one_on_one_bias": 0.7},
+                    },
+                    "change_points": [],
+                    "key_event_refs": [{"event_revision_id": "event_rev_001", "title": "Concert Night"}],
+                    "key_relationship_refs": [{"relationship_revision_id": "rel_rev_001"}],
+                    "evidence_guardrails": {"forbidden_direct_inference_from_reference_media": ["真实到访"]},
+                },
+                "vlm_observations": [
+                    {
+                        "photo_id": "photo_001",
+                        "original_photo_ids": ["hash-001"],
+                        "summary": "A concert scene.",
+                        "scene_hint": "indoor venue",
+                        "activity_hint": "concert",
+                        "social_hint": "with friend",
+                        "ocr_hits": [],
+                        "brands": ["MOET"],
+                        "place_candidates": ["Shanghai"],
+                        "object_clues": ["stage"],
+                        "embedded_media_signals": [],
+                        "person_ids": ["Person_001"],
+                    }
+                ],
+                "delta_profile_truth_v1": {
+                    "profile_truth_id": "profile_rev_001:truth",
+                    "profile_revision_id": "profile_rev_001",
+                    "original_photo_ids": ["hash-001"],
+                },
+                "profile_truth_v1": {
+                    "profile_truth_id": "profile_rev_001:truth",
+                    "profile_revision_id": "profile_rev_001",
+                    "original_photo_ids": ["hash-001"],
+                },
+                "envelope": {
+                    "scope": {"user_id": self.user_id},
                 },
             },
         }

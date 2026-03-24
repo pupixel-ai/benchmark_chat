@@ -99,6 +99,11 @@ export type UploadItem = {
   height?: number | null;
   content_type?: string | null;
   source_hash?: string | null;
+  is_live_photo_candidate?: boolean;
+};
+
+export type TaskOptions = {
+  normalize_live_photos: boolean;
 };
 
 export type FaceRecognitionPayload = {
@@ -446,20 +451,71 @@ export type MemoryPayload = {
   artifacts?: Record<string, string | null>;
 };
 
+export type FullMemoryPhoto = {
+  original_photo_id: string;
+  image_id?: string | null;
+  source_hash?: string | null;
+  filename?: string | null;
+  stored_filename?: string | null;
+  timestamp?: string | null;
+  location?: Record<string, unknown> | null;
+  path?: string | null;
+  asset_url?: string | null;
+  original_image_url?: string | null;
+  display_image_url?: string | null;
+  boxed_image_url?: string | null;
+  compressed_image_url?: string | null;
+  content_type?: string | null;
+  width?: number | null;
+  height?: number | null;
+};
+
+export type FullMemoryVlmEntry = {
+  photo_id: string;
+  person_ids: string[];
+};
+
+export type FullMemoryEvent = {
+  llm_summary: string;
+  person_ids: string[];
+  photo_ids: string[];
+  vlm: FullMemoryVlmEntry[];
+};
+
+export type FullMemoryRelationship = {
+  person_id?: string;
+  photo_ids: string[];
+};
+
+export type FullMemoryProfile = {
+  summary?: string;
+  report_markdown: string;
+  structured?: Record<string, unknown>;
+};
+
+export type TaskMemoryFullResponse = {
+  events: FullMemoryEvent[];
+  relationships: FullMemoryRelationship[];
+  vlm: FullMemoryVlmEntry[];
+  profile: FullMemoryProfile;
+};
+
 export type MemoryQueryAnswer = {
   answer_type: string;
   summary: string;
   confidence: number;
-  resolved_entities: Array<Record<string, unknown>>;
-  resolved_concepts: string[];
-  time_window: Record<string, unknown>;
-  supporting_events: Array<Record<string, unknown>>;
-  supporting_facts: Array<Record<string, unknown>>;
-  supporting_relationships: Array<Record<string, unknown>>;
-  representative_photo_ids: string[];
-  evidence_segment_ids: string[];
-  explanation: string;
+  original_photo_ids: string[];
   uncertainty_flags: string[];
+  resolved_entities?: Array<Record<string, unknown>>;
+  resolved_concepts?: string[];
+  time_window?: Record<string, unknown>;
+  explanation?: string;
+  profile_truth?: Record<string, unknown>;
+  report_markdown?: string;
+  supporting_unit_ids?: string[];
+  supporting_evidence_ids?: string[];
+  supporting_relationship_revision_ids?: string[];
+  [key: string]: unknown;
 };
 
 export type MemoryQueryDebugTrace = {
@@ -471,8 +527,21 @@ export type MemoryQueryDebugTrace = {
 };
 
 export type MemoryQueryResponse = {
-  request: Record<string, unknown>;
+  request?: Record<string, unknown>;
+  query_plan: {
+    plan_type: string;
+    target_spec?: Record<string, unknown>;
+    operators?: string[];
+    constraints?: Record<string, unknown>;
+    answer_schema?: Record<string, unknown>;
+    answer_type?: string;
+    time_scope?: Record<string, unknown>;
+  };
   answer: MemoryQueryAnswer;
+  supporting_units: Array<Record<string, unknown>>;
+  supporting_evidence: Array<Record<string, unknown>>;
+  supporting_graph_entities: Array<Record<string, unknown>>;
+  abstain_reason: string;
   debug_trace: MemoryQueryDebugTrace;
 };
 
@@ -519,6 +588,7 @@ export type TaskState = {
   task_id: string;
   user_id?: string | null;
   version?: string | null;
+  options?: TaskOptions | null;
   status: "draft" | "uploading" | "queued" | "running" | "completed" | "failed";
   stage: string;
   created_at: string;
@@ -543,6 +613,11 @@ export type TaskProgressLogEntry = {
   provider?: string | null;
   model?: string | null;
   current_person_id?: string | null;
+  current_candidate_index?: number | null;
+  last_completed_person_id?: string | null;
+  call_started_at?: string | null;
+  call_finished_at?: string | null;
+  call_timeout_seconds?: number | null;
   error?: string | null;
 };
 
@@ -579,4 +654,37 @@ export type HealthResponse = {
   asset_url_prefix: string;
   object_storage_enabled: boolean;
   object_storage_bucket?: string | null;
+};
+
+export type TaskMemoryStepArtifact = {
+  relative_path: string;
+  exists: boolean;
+  asset_url?: string | null;
+  size_bytes: number;
+  updated_at?: string | null;
+};
+
+export type TaskMemoryStepPayload = {
+  status: "pending" | "running" | "completed" | "failed";
+  substage: string;
+  updated_at?: string | null;
+  summary?: Record<string, unknown>;
+  artifacts?: Record<string, TaskMemoryStepArtifact>;
+  data?: unknown;
+  attempts?: unknown;
+  failures?: unknown;
+};
+
+export type TaskMemoryStepsResponse = {
+  task_id: string;
+  version?: string | null;
+  pipeline_family?: string | null;
+  task_status?: string | null;
+  current_stage?: string | null;
+  current_substage?: string | null;
+  steps: {
+    lp1: TaskMemoryStepPayload;
+    lp2: TaskMemoryStepPayload;
+    lp3: TaskMemoryStepPayload;
+  };
 };
