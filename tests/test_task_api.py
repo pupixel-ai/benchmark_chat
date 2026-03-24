@@ -5,6 +5,7 @@ import json
 import shutil
 import unittest
 import uuid
+import zipfile
 from datetime import datetime
 from pathlib import Path
 from unittest.mock import patch
@@ -228,6 +229,46 @@ class TaskApiTests(unittest.TestCase):
         self.assertEqual(payload["steps"]["lp2"]["summary"]["current_person_id"], "Person_003")
         self.assertEqual(payload["steps"]["lp2"]["data"][0]["person_id"], "Person_002")
         self.assertEqual(payload["steps"]["lp2"]["failures"][0]["person_id"], "Person_003")
+
+    def test_completed_v0323_task_exposes_analysis_bundle_download(self) -> None:
+        create_response = self.client.post("/api/tasks", json={"version": "v0323"})
+        self.assertEqual(create_response.status_code, 200)
+        task_id = create_response.json()["task_id"]
+        self.task_ids.append(task_id)
+
+        task_dir = task_store.task_dir(task_id)
+        (task_dir / "cache" / "boxed_images").mkdir(parents=True, exist_ok=True)
+        (task_dir / "cache" / "face_crops").mkdir(parents=True, exist_ok=True)
+        (task_dir / "v0323").mkdir(parents=True, exist_ok=True)
+
+        (task_dir / "cache" / "face_recognition_output.json").write_text("{}", encoding="utf-8")
+        (task_dir / "cache" / "face_recognition_state.json").write_text("{}", encoding="utf-8")
+        (task_dir / "cache" / "boxed_images" / "photo_001_boxed.jpg").write_bytes(b"boxed")
+        (task_dir / "cache" / "face_crops" / "face_001.jpg").write_bytes(b"crop")
+        (task_dir / "v0323" / "vp1_observations.json").write_text("[]", encoding="utf-8")
+        (task_dir / "v0323" / "lp1_events_compact.json").write_text("[]", encoding="utf-8")
+        (task_dir / "v0323" / "lp1_batch_outputs.jsonl").write_text("", encoding="utf-8")
+
+        task_store.update_task(task_id, status="completed", stage="completed")
+
+        task_response = self.client.get(f"/api/tasks/{task_id}")
+        self.assertEqual(task_response.status_code, 200)
+        payload = task_response.json()
+        bundle = payload["downloads"]["analysis_bundle"]
+        self.assertTrue(bundle["url"].endswith("/downloads/analysis-bundle"))
+
+        download_response = self.client.get(bundle["url"])
+        self.assertEqual(download_response.status_code, 200)
+        self.assertEqual(download_response.headers["content-type"], "application/zip")
+
+        with zipfile.ZipFile(io.BytesIO(download_response.content)) as archive:
+            members = set(archive.namelist())
+            self.assertIn("bundle_manifest.json", members)
+            self.assertIn("face/face_recognition_output.json", members)
+            self.assertIn("face/boxed_images/photo_001_boxed.jpg", members)
+            self.assertIn("face/face_crops/face_001.jpg", members)
+            self.assertIn("vlm/vp1_observations.json", members)
+            self.assertIn("lp1/lp1_events_compact.json", members)
 
     def test_legacy_task_without_version_is_serialized_as_default_version(self) -> None:
         task_id = uuid.uuid4().hex

@@ -589,6 +589,15 @@ export type TaskState = {
   user_id?: string | null;
   version?: string | null;
   options?: TaskOptions | null;
+  downloads?: {
+    analysis_bundle?: {
+      route: string;
+      url: string;
+      filename: string;
+      file_count: number;
+      categories: string[];
+    };
+  } | null;
   status: "draft" | "uploading" | "queued" | "running" | "completed" | "failed";
   stage: string;
   created_at: string;

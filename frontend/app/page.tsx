@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, ReactNode } from "react";
-import { AlertTriangle, ArrowUp, Ban, Check, ChevronDown, ChevronRight, Copy, LoaderCircle, MessageSquare, Plus, X } from "lucide-react";
+import { AlertTriangle, ArrowUp, Ban, Check, ChevronDown, ChevronRight, Copy, Download, LoaderCircle, MessageSquare, Plus, X } from "lucide-react";
 import type {
   AuthResponse,
   AuthUser,
@@ -2072,6 +2072,7 @@ export default function HomePage() {
   const currentFullMemoryLoading = currentTask ? Boolean(fullMemoryLoadingByTask[currentTask.task_id]) : false;
   const currentMemorySteps = currentTask ? memoryStepsByTask[currentTask.task_id] ?? null : null;
   const currentMemoryStepsLoading = currentTask ? Boolean(memoryStepsLoadingByTask[currentTask.task_id]) : false;
+  const currentAnalysisBundle = currentTask?.downloads?.analysis_bundle ?? null;
   const currentTaskVersion = currentTask?.version ?? LEGACY_TASK_VERSION;
   const visibleTaskVersions = useMemo(() => Array.from(new Set([currentTaskVersion, ...availableTaskVersions])), [availableTaskVersions, currentTaskVersion]);
   const currentStatusLabel = currentTask ? formatStatus(currentTask.status) : "";
@@ -2989,6 +2990,16 @@ export default function HomePage() {
                     <p className="mt-2 text-xl font-semibold">{currentStatusLabel}</p>
                     {showCurrentStageLabel ? <p className="mt-1 text-sm text-black/56">{currentStageLabel}</p> : null}
                   </div>
+
+                  {currentTask.status === "completed" && currentAnalysisBundle ? (
+                    <a
+                      href={toAbsoluteUrl(currentAnalysisBundle.url) ?? currentAnalysisBundle.url}
+                      className="inline-flex items-center gap-2 rounded-full border border-[#1f1a15] bg-white/92 px-4 py-2.5 text-sm font-medium text-ink transition hover:bg-[#f6eee3]"
+                    >
+                      <Download className="h-4 w-4" />
+                      <span>下载 Face / VLM / LP1</span>
+                    </a>
+                  ) : null}
                 </div>
               </div>
             </section>

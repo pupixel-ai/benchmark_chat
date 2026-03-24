@@ -30,6 +30,7 @@ from backend.face_review_store import FaceReviewStore
 from backend.memory_full_retrieval import build_task_memory_core_payload
 from backend.memory_step_retrieval import build_task_memory_steps_payload
 from backend.progress_utils import append_terminal_error, append_terminal_info, merge_stage_progress
+from backend.task_download_bundle import build_task_analysis_bundle, describe_task_downloads
 from backend.task_store import TaskStore, normalize_task_options
 from backend.upload_utils import (
     UPLOAD_FAILURES_FILENAME,
@@ -330,6 +331,9 @@ def _strip_bootstrap_fields(payload):
 
 def _sanitize_task_for_client(task: dict) -> dict:
     sanitized = copy.deepcopy(task)
+    downloads = describe_task_downloads(sanitized)
+    if downloads:
+        sanitized["downloads"] = downloads
     if isinstance(sanitized.get("result_summary"), dict):
         sanitized["result_summary"] = _strip_bootstrap_fields(sanitized["result_summary"])
     result = sanitized.get("result")
@@ -822,6 +826,31 @@ def get_task(task_id: str, response: Response, current_user: dict = Depends(get_
     if not task:
         raise HTTPException(status_code=404, detail="任务不存在")
     return _hydrate_task(task, current_user["user_id"])
+
+
+@app.get("/api/tasks/{task_id}/downloads/analysis-bundle")
+def download_task_analysis_bundle(task_id: str, current_user: dict = Depends(get_current_user)):
+    task = task_store.get_task(task_id, user_id=current_user["user_id"])
+    if not task:
+        raise HTTPException(status_code=404, detail="任务不存在")
+
+    hydrated = _sync_task_from_worker(task, current_user["user_id"])
+    downloads = describe_task_downloads(hydrated)
+    bundle = (downloads or {}).get("analysis_bundle")
+    if not bundle:
+        raise HTTPException(status_code=404, detail="当前任务没有可下载的 Face/VLM/LP1 打包结果")
+
+    try:
+        archive_path = build_task_analysis_bundle(hydrated)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    response = FileResponse(
+        archive_path,
+        media_type="application/zip",
+        filename=str(bundle.get("filename") or f"{task_id[:12]}-face-vlm-lp1-bundle.zip"),
+    )
+    return _apply_no_store_headers(response)
 
 
 @app.post("/api/tasks/{task_id}/memory/query")
