@@ -133,6 +133,31 @@ class TaskApiTests(unittest.TestCase):
         self.assertEqual(invalid_response.status_code, 400)
         self.assertIn("不支持的任务版本", invalid_response.json()["detail"])
 
+    def test_upload_batches_accepts_livp_container(self) -> None:
+        create_response = self.client.post("/api/tasks")
+        self.assertEqual(create_response.status_code, 200)
+        task_id = create_response.json()["task_id"]
+        self.task_ids.append(task_id)
+
+        batch_response = self.client.post(
+            f"/api/tasks/{task_id}/upload-batches",
+            files=[
+                ("files", ("sample.livp", self._livp_bytes("purple"), "application/octet-stream")),
+            ],
+        )
+        self.assertEqual(batch_response.status_code, 200)
+        self.assertEqual(batch_response.json()["failed_count"], 0)
+        self.assertEqual(batch_response.json()["upload_count"], 1)
+
+        task = task_store.get_task(task_id, user_id=self.user_id)
+        self.assertIsNotNone(task)
+        assert task is not None
+        uploads = task.get("uploads") or []
+        self.assertEqual(len(uploads), 1)
+        self.assertTrue(bool(uploads[0].get("is_live_photo_candidate")))
+        self.assertEqual(uploads[0].get("stored_filename"), "001_sample.livp")
+        self.assertTrue((task_store.task_dir(task_id) / "uploads" / "001_sample.livp").exists())
+
     def test_health_reports_available_task_versions(self) -> None:
         response = self.client.get("/api/health")
         self.assertEqual(response.status_code, 200)
@@ -636,6 +661,14 @@ class TaskApiTests(unittest.TestCase):
         image = Image.new("RGB", (48, 48), color=color)
         buffer = io.BytesIO()
         image.save(buffer, format="PNG")
+        return buffer.getvalue()
+
+    def _livp_bytes(self, color: str) -> bytes:
+        image_payload = self._image_bytes(color)
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, mode="w") as archive:
+            archive.writestr("cover.jpg", image_payload)
+            archive.writestr("motion.mp4", b"fake-video")
         return buffer.getvalue()
 
     def _synthetic_result(self, task_id: str) -> dict:

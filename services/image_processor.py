@@ -2,8 +2,10 @@
 图片预处理模块
 """
 import os
+import tempfile
 from datetime import datetime
 from typing import Dict, List, Tuple, Optional
+from zipfile import ZipFile
 from PIL import Image, ExifTags, ImageDraw, ImageFont, ImageOps
 from pillow_heif import register_heif_opener
 import exifread
@@ -126,9 +128,9 @@ class ImageProcessor:
             photo.original_path = photo.path
             lower_filename = photo.filename.lower()
             is_live_like_source = lower_filename.endswith(('.heic', '.heif', '.livp'))
-            needs_working_copy = normalize_live_photos and is_live_like_source
-            if not needs_working_copy:
-                needs_working_copy = lower_filename.endswith(('.heic', '.heif'))
+            needs_working_copy = lower_filename.endswith(('.heic', '.heif', '.livp'))
+            if normalize_live_photos and is_live_like_source:
+                needs_working_copy = True
 
             if not needs_working_copy:
                 try:
@@ -145,7 +147,7 @@ class ImageProcessor:
                 jpeg_filename = f"face_input_{photo.photo_id}.jpg"
                 jpeg_path = os.path.join(self.jpeg_dir, jpeg_filename)
 
-                image = Image.open(photo.path)
+                image = self._open_working_image(photo.path)
                 normalized = ImageOps.exif_transpose(image)
                 exif = normalized_exif_bytes(normalized)
                 working = normalized.convert("RGB")
@@ -162,6 +164,50 @@ class ImageProcessor:
                 continue
 
         return photos
+
+    def _open_working_image(self, image_path: str) -> Image.Image:
+        lower_path = image_path.lower()
+        if lower_path.endswith(".livp"):
+            extracted = self._extract_livp_still(image_path)
+            if extracted is not None:
+                return extracted
+        return Image.open(image_path)
+
+    def _extract_livp_still(self, image_path: str) -> Optional[Image.Image]:
+        try:
+            with ZipFile(image_path) as archive:
+                candidate_names = sorted(
+                    name
+                    for name in archive.namelist()
+                    if not name.endswith("/")
+                    and os.path.splitext(name)[1].lower() in {".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"}
+                )
+                for name in candidate_names:
+                    suffix = os.path.splitext(name)[1].lower() or ".jpg"
+                    with archive.open(name) as handle:
+                        payload = handle.read()
+                    if not payload:
+                        continue
+                    temp_file = tempfile.NamedTemporaryFile(suffix=suffix, delete=False)
+                    temp_path = temp_file.name
+                    try:
+                        temp_file.write(payload)
+                        temp_file.flush()
+                        temp_file.close()
+                        with Image.open(temp_path) as image:
+                            return image.copy()
+                    finally:
+                        try:
+                            temp_file.close()
+                        except Exception:
+                            pass
+                        try:
+                            os.unlink(temp_path)
+                        except FileNotFoundError:
+                            pass
+        except Exception:
+            return None
+        return None
 
     def preprocess(self, photos: List[Photo]) -> List[Photo]:
         """

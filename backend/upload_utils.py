@@ -7,6 +7,7 @@ import io
 import os
 from hashlib import sha256
 from pathlib import Path
+from zipfile import ZipFile
 
 from fastapi import UploadFile
 from PIL import Image, ImageOps
@@ -53,6 +54,25 @@ def is_live_photo_candidate(filename: str, content_type: str | None = None) -> b
         "image/heic-sequence",
         "image/heif-sequence",
     }
+
+
+def _probe_livp_still_image(destination: Path) -> tuple[int | None, int | None]:
+    try:
+        with ZipFile(destination) as archive:
+            candidate_names = sorted(
+                name
+                for name in archive.namelist()
+                if not name.endswith("/")
+                and Path(name).suffix.lower() in {".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"}
+            )
+            for name in candidate_names:
+                with archive.open(name) as handle:
+                    payload = handle.read()
+                with Image.open(io.BytesIO(payload)) as image:
+                    return image.size
+    except Exception:
+        return None, None
+    return None, None
 
 
 def normalized_exif_bytes(image: Image.Image) -> bytes | None:
@@ -112,9 +132,16 @@ def save_upload_original_streamed(upload: UploadFile, destination: Path, chunk_s
         "source_hash": digest.hexdigest(),
     }
 
-    with Image.open(destination) as image:
-        image_info["width"], image_info["height"] = image.size
-        image_info["content_type"] = upload.content_type or Image.MIME.get(image.format, image_info["content_type"])
+    suffix = destination.suffix.lower()
+    if suffix == ".livp":
+        width, height = _probe_livp_still_image(destination)
+        image_info["width"] = width
+        image_info["height"] = height
+        image_info["content_type"] = upload.content_type or "image/livp"
+    else:
+        with Image.open(destination) as image:
+            image_info["width"], image_info["height"] = image.size
+            image_info["content_type"] = upload.content_type or Image.MIME.get(image.format, image_info["content_type"])
 
     upload.file.seek(0)
     return image_info
