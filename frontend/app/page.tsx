@@ -2095,6 +2095,11 @@ export default function HomePage() {
   const currentStageLabel = currentTask ? formatStage(currentTask.stage) : "";
   const showCurrentStageLabel = Boolean(currentTask && currentStageLabel !== currentStatusLabel);
   const currentTaskSource = currentTask?.options?.creation_source ?? "manual";
+  const uploadSessionActive = Boolean(uploadProgress);
+  const uploadSessionPercent =
+    uploadProgress && uploadProgress.totalFiles > 0
+      ? Math.min(100, Math.round(((uploadProgress.uploadedFiles + uploadProgress.failedFiles) / uploadProgress.totalFiles) * 100))
+      : 0;
   const uploadProgressForCurrentTask =
     currentTask && uploadProgress?.taskId === currentTask.task_id ? uploadProgress : null;
   const persistedUploadTotalCount = Number(currentTask?.options?.expected_upload_count ?? 0);
@@ -2525,8 +2530,8 @@ export default function HomePage() {
         retryAttempt: 0,
         lastError: null,
       });
-      setIsDraftView(false);
-      await fetchTask(payload.task_id);
+      setCurrentTask(null);
+      setIsDraftView(true);
 
       const uploadSingleBatch = async (batch: File[], batchIndex: number) => {
         for (let attempt = 1; attempt <= UPLOAD_BATCH_RETRY_LIMIT; attempt += 1) {
@@ -2616,6 +2621,7 @@ export default function HomePage() {
         throw new Error(`上传未完成：服务端仅确认 ${accountedFileCount} / ${files.length} 张，请稍后重试剩余分片`);
       }
 
+      setIsDraftView(false);
       await fetchTasks();
       setUploadProgress(null);
       setPendingUploads([]);
@@ -3075,9 +3081,38 @@ export default function HomePage() {
                   </div>
                 </div>
 
-                {isUploading ? (
-                  <div className="mt-5">
-                    <WaitingDots label="上传完成后立即启动人脸识别" />
+                {uploadSessionActive ? (
+                  <div className="mt-5 rounded-[12px] border border-[#ddcebb] bg-white/72 px-5 py-4">
+                    <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                      <div>
+                        <p className="font-mono text-xs uppercase tracking-[0.2em] text-black/42">上传会话</p>
+                        <p className="mt-2 text-lg font-semibold text-ink">
+                          {isUploading ? "正在上传图片" : uploadProgress?.lastError ? "上传已中断" : "上传已完成，等待切换任务视图"}
+                        </p>
+                        <p className="mt-1 text-sm text-black/56">
+                          Task {uploadProgress?.taskId.slice(0, 12)}
+                          {uploadProgress?.totalFiles ? ` · ${uploadProgress.uploadedFiles} / ${uploadProgress.totalFiles}` : ""}
+                          {uploadProgress?.failedFiles ? ` · 失败 ${uploadProgress.failedFiles}` : ""}
+                        </p>
+                      </div>
+                      {isUploading ? <WaitingDots label="上传完成后立即自动启动" compact /> : null}
+                    </div>
+                    <div className="mt-4 h-2 overflow-hidden rounded-full bg-[#eadfce]">
+                      <div
+                        className="h-full rounded-full bg-[#8a5637] transition-all duration-300"
+                        style={{ width: `${uploadSessionPercent}%` }}
+                      />
+                    </div>
+                    <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-black/50">
+                      <span>{uploadSessionPercent}%</span>
+                      <span>
+                        分片 {Math.min(uploadProgress?.completedBatches ?? 0, uploadProgress?.totalBatches ?? 0)} / {uploadProgress?.totalBatches ?? 0}
+                      </span>
+                      {(uploadProgress?.retryAttempt ?? 0) > 1 ? (
+                        <span>重试 {uploadProgress?.retryAttempt}/{UPLOAD_BATCH_RETRY_LIMIT}</span>
+                      ) : null}
+                    </div>
+                    {uploadProgress?.lastError ? <p className="mt-3 text-sm text-[#8a5637]">{uploadProgress.lastError}</p> : null}
                   </div>
                 ) : null}
 
