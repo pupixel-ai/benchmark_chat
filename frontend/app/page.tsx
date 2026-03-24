@@ -2129,13 +2129,14 @@ export default function HomePage() {
       }));
     }
 
+    const disableRemotePreviewsDuringUpload = currentTask?.status === "uploading";
     return currentUploads.slice(0, GALLERY_PREVIEW_LIMIT).map((upload) => ({
       id: upload.stored_filename,
       filename: upload.filename,
-      imageUrl: toAbsoluteUrl(upload.preview_url ?? upload.url),
+      imageUrl: disableRemotePreviewsDuringUpload ? null : toAbsoluteUrl(upload.preview_url ?? upload.url),
       meta: uploadMeta(upload)
     }));
-  }, [currentUploads, pendingUploads]);
+  }, [currentTask?.status, currentUploads, pendingUploads]);
   const galleryTotalCount = pendingUploads.length > 0 ? selectedFiles.length : currentUploads.length;
 
   useEffect(() => {
@@ -2327,7 +2328,7 @@ export default function HomePage() {
       const payload = (await response.json()) as TaskState;
       setCurrentTask(payload);
       setIsDraftView(false);
-      if (payload.version === "v0323" && payload.status !== "draft") {
+      if (payload.version === "v0323" && payload.status !== "draft" && payload.status !== "uploading") {
         void fetchTaskMemorySteps(payload.task_id);
       } else {
         setMemoryStepsByTask((previous) => ({
