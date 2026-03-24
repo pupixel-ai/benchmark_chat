@@ -21,16 +21,24 @@ def normalize_task_options(options: dict | None) -> dict:
     creation_source = str(payload.get("creation_source") or "manual").strip().lower()
     if creation_source not in {"manual", "api"}:
         creation_source = "manual"
+    normalized_requested_max_photos = (
+        int(requested_max_photos) if isinstance(requested_max_photos, (int, float)) else None
+    )
+    normalized_expected_upload_count = (
+        int(expected_upload_count) if isinstance(expected_upload_count, (int, float)) else None
+    )
+    if normalized_expected_upload_count is None and creation_source == "manual":
+        normalized_expected_upload_count = normalized_requested_max_photos
     auto_start_present = "auto_start_on_upload_complete" in payload
     if auto_start_present:
         auto_start_on_upload_complete = bool(payload.get("auto_start_on_upload_complete"))
     else:
-        auto_start_on_upload_complete = bool(creation_source == "manual" and expected_upload_count is not None)
+        auto_start_on_upload_complete = bool(creation_source == "manual" and normalized_expected_upload_count is not None)
     return {
         "normalize_live_photos": bool(payload.get("normalize_live_photos", DEFAULT_NORMALIZE_LIVE_PHOTOS)),
         "creation_source": creation_source,
-        "expected_upload_count": int(expected_upload_count) if isinstance(expected_upload_count, (int, float)) else None,
-        "requested_max_photos": int(requested_max_photos) if isinstance(requested_max_photos, (int, float)) else None,
+        "expected_upload_count": normalized_expected_upload_count,
+        "requested_max_photos": normalized_requested_max_photos,
         "auto_start_on_upload_complete": auto_start_on_upload_complete,
     }
 

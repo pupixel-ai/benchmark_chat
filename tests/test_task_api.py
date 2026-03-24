@@ -18,6 +18,7 @@ from sqlalchemy import delete
 
 from backend.app import _task_upload_lock, app, task_store
 from backend.db import SessionLocal
+from backend.task_store import normalize_task_options
 from config import APP_VERSION, AVAILABLE_TASK_VERSIONS, DEFAULT_NORMALIZE_LIVE_PHOTOS, DEFAULT_TASK_VERSION
 from backend.models import (
     ArtifactRecord,
@@ -212,6 +213,18 @@ class TaskApiTests(unittest.TestCase):
         invalid_response = self.client.post("/api/tasks", json={"version": "v9999"})
         self.assertEqual(invalid_response.status_code, 400)
         self.assertIn("不支持的任务版本", invalid_response.json()["detail"])
+
+    def test_manual_task_options_fall_back_to_requested_max_photos_for_auto_start(self) -> None:
+        options = normalize_task_options(
+            {
+                "creation_source": "manual",
+                "requested_max_photos": 769,
+            }
+        )
+
+        self.assertEqual(options["expected_upload_count"], 769)
+        self.assertEqual(options["requested_max_photos"], 769)
+        self.assertTrue(options["auto_start_on_upload_complete"])
 
     def test_upload_batches_accepts_livp_container(self) -> None:
         create_response = self.client.post("/api/tasks")

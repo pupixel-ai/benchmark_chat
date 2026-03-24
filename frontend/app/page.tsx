@@ -2453,7 +2453,11 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
-    if (isDraftView || !currentTask || (currentTask.status !== "queued" && currentTask.status !== "running")) {
+    if (
+      isDraftView ||
+      !currentTask ||
+      (currentTask.status !== "queued" && currentTask.status !== "running" && currentTask.status !== "uploading")
+    ) {
       if (pollTimerRef.current) {
         window.clearInterval(pollTimerRef.current);
         pollTimerRef.current = null;
@@ -3117,14 +3121,14 @@ export default function HomePage() {
                     {showCurrentStageLabel ? <p className="mt-1 text-sm text-black/56">{currentStageLabel}</p> : null}
                   </div>
 
-                  {currentTask.status === "uploading" && uploadTotalCount > 0 ? (
+                  {currentTask.status === "uploading" ? (
                     <div className="rounded-[12px] border border-[#ddcebb] bg-white/70 px-5 py-4">
                       <p className="font-mono text-xs uppercase tracking-[0.2em] text-black/42">上传进度</p>
                       <p className="mt-2 text-xl font-semibold">
-                        已上传 {uploadUploadedCount} / {uploadTotalCount}
+                        {uploadTotalCount > 0 ? `已上传 ${uploadUploadedCount} / ${uploadTotalCount}` : `已上传 ${uploadUploadedCount} 张`}
                       </p>
                       <p className="mt-1 text-sm text-black/56">
-                        剩余 {uploadRemainingCount}
+                        {uploadTotalCount > 0 ? `剩余 ${uploadRemainingCount}` : "总数待确认"}
                         {uploadFailedCount > 0 ? ` · 失败 ${uploadFailedCount}` : ""}
                       </p>
                       {uploadTotalBatches > 0 ? (
