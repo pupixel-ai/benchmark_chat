@@ -497,6 +497,135 @@ class TaskApiTests(unittest.TestCase):
         self.assertEqual(payload["steps"]["lp2"]["data"][0]["person_id"], "Person_002")
         self.assertEqual(payload["steps"]["lp2"]["failures"][0]["person_id"], "Person_003")
 
+    def test_memory_steps_endpoint_returns_v0325_step_payload_for_failed_task(self) -> None:
+        create_response = self.client.post("/api/tasks", json={"version": "v0325"})
+        self.assertEqual(create_response.status_code, 200)
+        task_id = create_response.json()["task_id"]
+        self.task_ids.append(task_id)
+
+        family_dir = task_store.task_dir(task_id) / "v0325"
+        family_dir.mkdir(parents=True, exist_ok=True)
+        (family_dir / "lp1_events_compact.json").write_text(
+            json.dumps([{"event_id": "EVT_0001", "title": "Breakfast"}], ensure_ascii=False),
+            encoding="utf-8",
+        )
+        (family_dir / "lp1_batch_outputs.jsonl").write_text(
+            json.dumps(
+                {
+                    "batch_id": "BATCH_0001",
+                    "attempt": 1,
+                    "max_attempts": 1,
+                    "prompt_kind": "primary",
+                    "parse_status": "ok",
+                    "response_char_count": 4096,
+                    "contract_version": "v0325.lp1.output_window.v1",
+                    "convert_finish_reason": "stop",
+                    "error": None,
+                },
+                ensure_ascii=False,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        (family_dir / "lp1_salvage_report.json").write_text(
+            json.dumps(
+                {
+                    "summary": {
+                        "salvage_detected": True,
+                        "salvaged_event_count": 2,
+                        "contract_version": "v0325.lp1.output_window.v1",
+                    },
+                    "batches": [
+                        {
+                            "batch_id": "BATCH_0001",
+                            "attempt": 1,
+                            "salvage_status": "detected",
+                            "salvaged_event_count": 2,
+                            "provider_finish_reason": "length",
+                        }
+                    ],
+                },
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+        (family_dir / "lp1_salvaged_events.jsonl").write_text(
+            "\n".join(
+                [
+                    json.dumps({"debug_only": True, "event_id": "TEMP_EVT_001"}, ensure_ascii=False),
+                    json.dumps({"debug_only": True, "event_id": "TEMP_EVT_002"}, ensure_ascii=False),
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        (family_dir / "lp2_relationships.json").write_text(
+            json.dumps(
+                [
+                    {
+                        "person_id": "Person_002",
+                        "relationship_type": "close_friend",
+                        "confidence": 0.86,
+                        "evidence": {"photo_ids": ["photo_001"], "event_ids": ["EVT_0001"]},
+                    }
+                ],
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+        (family_dir / "lp3_profile.json").write_text(
+            json.dumps({"report_markdown": "# Profile\n\n- stable social circle"}, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        (family_dir / "raw_upstream_manifest.json").write_text(
+            json.dumps({"attachments": [{"attachment_key": "raw_face_output"}]}, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        (family_dir / "raw_upstream_index.json").write_text(
+            json.dumps({"photo": {"photo_001": {}}}, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        (family_dir / "llm_failures.jsonl").write_text(
+            json.dumps({"step": "lp3_profile", "field_key": "long_term_facts.identity.role", "error": "timeout"}, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+
+        task_store.update_task(
+            task_id,
+            status="failed",
+            stage="failed",
+            progress={
+                "current_stage": "failed",
+                "stages": {
+                    "memory": {
+                        "substage": "lp3_profile",
+                        "processed_candidates": 1,
+                        "candidate_count": 1,
+                        "relationship_count": 1,
+                        "provider": "openrouter",
+                        "model": "google/gemini-3.1-pro-preview",
+                    }
+                },
+            },
+        )
+
+        response = self.client.get(f"/api/tasks/{task_id}/memory/steps")
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["pipeline_family"], "v0325")
+        self.assertEqual(payload["steps"]["lp1"]["status"], "completed")
+        self.assertEqual(payload["steps"]["lp1"]["summary"]["salvage_status"], "detected")
+        self.assertEqual(payload["steps"]["lp1"]["summary"]["salvaged_event_count"], 2)
+        self.assertEqual(payload["steps"]["lp1"]["summary"]["provider_finish_reason"], "stop")
+        self.assertEqual(payload["steps"]["lp1"]["summary"]["contract_version"], "v0325.lp1.output_window.v1")
+        self.assertTrue(payload["steps"]["lp1"]["artifacts"]["lp1_salvage_report"]["exists"])
+        self.assertTrue(payload["steps"]["lp1"]["artifacts"]["lp1_salvaged_events"]["exists"])
+        self.assertEqual(payload["steps"]["lp2"]["data"][0]["person_id"], "Person_002")
+        self.assertEqual(payload["steps"]["lp3"]["status"], "failed")
+        self.assertTrue(payload["steps"]["lp3"]["artifacts"]["raw_upstream_manifest"]["exists"])
+        self.assertTrue(payload["steps"]["lp3"]["artifacts"]["raw_upstream_index"]["exists"])
+        self.assertEqual(payload["steps"]["lp3"]["failures"][0]["field_key"], "long_term_facts.identity.role")
+
     def test_completed_v0323_task_exposes_analysis_bundle_download(self) -> None:
         create_response = self.client.post("/api/tasks", json={"version": "v0323"})
         self.assertEqual(create_response.status_code, 200)
@@ -536,6 +665,47 @@ class TaskApiTests(unittest.TestCase):
             self.assertIn("face/face_crops/face_001.jpg", members)
             self.assertIn("vlm/vp1_observations.json", members)
             self.assertIn("lp1/lp1_events_compact.json", members)
+
+    def test_completed_v0325_task_exposes_analysis_bundle_download_with_raw_artifacts(self) -> None:
+        create_response = self.client.post("/api/tasks", json={"version": "v0325"})
+        self.assertEqual(create_response.status_code, 200)
+        task_id = create_response.json()["task_id"]
+        self.task_ids.append(task_id)
+
+        task_dir = task_store.task_dir(task_id)
+        (task_dir / "cache" / "boxed_images").mkdir(parents=True, exist_ok=True)
+        (task_dir / "cache" / "face_crops").mkdir(parents=True, exist_ok=True)
+        (task_dir / "v0325").mkdir(parents=True, exist_ok=True)
+
+        (task_dir / "cache" / "face_recognition_output.json").write_text("{}", encoding="utf-8")
+        (task_dir / "cache" / "face_recognition_state.json").write_text("{}", encoding="utf-8")
+        (task_dir / "cache" / "dedupe_report.json").write_text("{}", encoding="utf-8")
+        (task_dir / "cache" / "boxed_images" / "photo_001_boxed.jpg").write_bytes(b"boxed")
+        (task_dir / "cache" / "face_crops" / "face_001.jpg").write_bytes(b"crop")
+        (task_dir / "v0325" / "vp1_observations.json").write_text("[]", encoding="utf-8")
+        (task_dir / "v0325" / "lp1_events_compact.json").write_text("[]", encoding="utf-8")
+        (task_dir / "v0325" / "lp1_batch_outputs.jsonl").write_text("", encoding="utf-8")
+        (task_dir / "v0325" / "raw_upstream_manifest.json").write_text("{}", encoding="utf-8")
+        (task_dir / "v0325" / "raw_upstream_index.json").write_text("{}", encoding="utf-8")
+
+        task_store.update_task(task_id, status="completed", stage="completed")
+
+        task_response = self.client.get(f"/api/tasks/{task_id}")
+        self.assertEqual(task_response.status_code, 200)
+        payload = task_response.json()
+        bundle = payload["downloads"]["analysis_bundle"]
+        self.assertIn("raw", bundle["categories"])
+
+        download_response = self.client.get(bundle["url"])
+        self.assertEqual(download_response.status_code, 200)
+
+        with zipfile.ZipFile(io.BytesIO(download_response.content)) as archive:
+            members = set(archive.namelist())
+            self.assertIn("bundle_manifest.json", members)
+            self.assertIn("vlm/vp1_observations.json", members)
+            self.assertIn("lp1/lp1_events_compact.json", members)
+            self.assertIn("raw/raw_upstream_manifest.json", members)
+            self.assertIn("raw/raw_upstream_index.json", members)
 
     def test_legacy_task_without_version_is_serialized_as_default_version(self) -> None:
         task_id = uuid.uuid4().hex
@@ -1349,7 +1519,7 @@ class TaskApiTests(unittest.TestCase):
                     "change_points": [],
                     "key_event_refs": [{"event_revision_id": "event_rev_001", "title": "Concert Night"}],
                     "key_relationship_refs": [{"relationship_revision_id": "rel_rev_001"}],
-                        "evidence_guardrails": {"forbidden_direct_inference_from_reference_media": ["真实到访"]},
+                    "evidence_guardrails": {"forbidden_direct_inference_from_reference_media": ["真实到访"]},
                 },
                 "delta_profile_input_pack": {
                     "profile_input_pack_id": "profile_pack_001_delta",

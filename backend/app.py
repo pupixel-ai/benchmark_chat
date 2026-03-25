@@ -1150,7 +1150,7 @@ def get_task_memory_steps(
     if not task:
         raise HTTPException(status_code=404, detail="任务不存在")
     hydrated = _sync_task_from_worker(task, current_user["user_id"])
-    if str(hydrated.get("version") or "").strip() != "v0323":
+    if str(hydrated.get("version") or "").strip() not in {"v0323", "v0325"}:
         raise HTTPException(status_code=404, detail="当前任务没有 LP steps 输出")
     return build_task_memory_steps_payload(
         hydrated,

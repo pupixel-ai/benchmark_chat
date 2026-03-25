@@ -22,6 +22,7 @@ from config import (
     TASK_VERSION_V0321_2,
     TASK_VERSION_V0321_3,
     TASK_VERSION_V0323,
+    TASK_VERSION_V0325,
     VLM_CACHE_FLUSH_EVERY_N,
     VLM_CACHE_FLUSH_INTERVAL_SECONDS,
     VLM_ENABLE_PRIORITY_SCHEDULING,
@@ -69,6 +70,11 @@ try:
     from services.v0323.pipeline import V0323PipelineFamily
 except ModuleNotFoundError:  # pragma: no cover - dependency-light test envs
     V0323PipelineFamily = None  # type: ignore[assignment]
+
+try:
+    from services.v0325.pipeline import V0325PipelineFamily
+except ModuleNotFoundError:  # pragma: no cover - dependency-light test envs
+    V0325PipelineFamily = None  # type: ignore[assignment]
 
 if TYPE_CHECKING:
     from backend.face_review_store import FaceReviewStore
@@ -161,12 +167,53 @@ class MemoryPipelineService:
         self._notify(
             progress_callback,
             "converting",
-            {"message": "转换 HEIC/JPEG", "photo_count": len(photos)},
+            {
+                "message": "转换 HEIC/JPEG",
+                "photo_count": len(photos),
+                "total": len(photos),
+                "processed": 0,
+                "percent": 0,
+            },
         )
+        conversion_total = len(photos)
+        last_conversion_emit = {"processed": 0}
+
+        def report_conversion_progress(processed: int, total: int, _photo) -> None:
+            if total <= 0:
+                return
+            should_emit = processed >= total or processed == 1 or processed - last_conversion_emit["processed"] >= 10
+            if not should_emit:
+                return
+            last_conversion_emit["processed"] = processed
+            self._notify(
+                progress_callback,
+                "converting",
+                {
+                    "message": "转换 HEIC/JPEG",
+                    "photo_count": total,
+                    "total": total,
+                    "processed": processed,
+                    "percent": round((processed / total) * 100, 2),
+                },
+            )
+
         photos = self.image_processor.convert_to_jpeg(
             photos,
             normalize_live_photos=bool(self.task_options.get("normalize_live_photos")),
+            progress_callback=report_conversion_progress,
         )
+        if conversion_total == 0:
+            self._notify(
+                progress_callback,
+                "converting",
+                {
+                    "message": "转换 HEIC/JPEG",
+                    "photo_count": 0,
+                    "total": 0,
+                    "processed": 0,
+                    "percent": 100,
+                },
+            )
         photos_to_process = self._apply_image_policies(photos)
         photos_to_process = self.image_processor.dedupe_before_face_recognition(photos_to_process)
         dedupe_report = getattr(self.image_processor, "last_dedupe_report", {}) or {}
@@ -180,6 +227,7 @@ class MemoryPipelineService:
                 "message": "进行人脸识别",
                 "input_photo_count": len(photos_to_process),
                 "original_photo_count": len(photos),
+                "total": len(photos_to_process),
                 "processed": 0,
                 "percent": 0,
                 "runtime_seconds": 0.0,
@@ -196,12 +244,43 @@ class MemoryPipelineService:
         if face_ready_photos:
             self.face_recognition.reorder_protagonist(face_ready_photos)
             primary_person_id = self.face_recognition.get_primary_person_id()
+            photos_with_faces = [photo for photo in face_ready_photos if photo.faces]
+            visualization_total = len(photos_with_faces)
+            visualization_started_at = perf_counter()
+            rendered_visualizations = 0
+            if visualization_total > 0:
+                self._notify(
+                    progress_callback,
+                    "face_visualization",
+                    {
+                        "message": "生成人脸框预览",
+                        "photo_count": visualization_total,
+                        "total": visualization_total,
+                        "processed": 0,
+                        "percent": 0,
+                        "runtime_seconds": 0.0,
+                    },
+                )
+
             for photo in face_ready_photos:
                 photo.primary_person_id = primary_person_id
                 if photo.faces:
                     boxed_path = self.image_processor.draw_face_boxes(photo)
                     if boxed_path:
                         photo.boxed_path = boxed_path
+                    rendered_visualizations += 1
+                    self._notify(
+                        progress_callback,
+                        "face_visualization",
+                        {
+                            "message": "生成人脸框预览",
+                            "photo_count": visualization_total,
+                            "total": visualization_total,
+                            "processed": rendered_visualizations,
+                            "percent": self._stage_percent(rendered_visualizations, visualization_total),
+                            "runtime_seconds": round(perf_counter() - visualization_started_at, 4),
+                        },
+                    )
 
         self.face_recognition.save()
         face_output = self.face_recognition.get_face_output()
@@ -213,6 +292,7 @@ class MemoryPipelineService:
             {
                 "message": "人脸识别完成",
                 "completed": True,
+                "total": len(photos_to_process),
                 "processed": len(photos_to_process),
                 "percent": 100,
                 "runtime_seconds": round(perf_counter() - face_started_at, 4),
@@ -262,8 +342,39 @@ class MemoryPipelineService:
             self.asset_store.sync_task_directory(self.task_id, self.task_dir)
             return detailed_output
 
-        self._notify(progress_callback, "preprocess", {"message": "压缩图片"})
-        photos_for_vlm = self.image_processor.preprocess(face_ready_photos)
+        preprocess_total = len(face_ready_photos)
+        preprocess_started_at = perf_counter()
+        self._notify(
+            progress_callback,
+            "preprocess",
+            {
+                "message": "压缩图片",
+                "photo_count": preprocess_total,
+                "total": preprocess_total,
+                "processed": 0,
+                "percent": 0 if preprocess_total > 0 else 100,
+                "runtime_seconds": 0.0,
+            },
+        )
+
+        def report_preprocess_progress(processed: int, total: int, _photo: Photo) -> None:
+            self._notify(
+                progress_callback,
+                "preprocess",
+                {
+                    "message": "压缩图片",
+                    "photo_count": total,
+                    "total": total,
+                    "processed": processed,
+                    "percent": self._stage_percent(processed, total),
+                    "runtime_seconds": round(perf_counter() - preprocess_started_at, 4),
+                },
+            )
+
+        photos_for_vlm = self.image_processor.preprocess(
+            face_ready_photos,
+            progress_callback=report_preprocess_progress,
+        )
 
         vlm_started_at = perf_counter()
         self._notify(
@@ -341,7 +452,7 @@ class MemoryPipelineService:
                 }
             )
 
-        if self.task_version in {TASK_VERSION_V0321_2, TASK_VERSION_V0321_3, TASK_VERSION_V0323}:
+        if self.task_version in {TASK_VERSION_V0321_2, TASK_VERSION_V0321_3, TASK_VERSION_V0323, TASK_VERSION_V0325}:
             self._clear_legacy_outputs_for_revision_first_family()
             if self.task_version == TASK_VERSION_V0321_2:
                 memory = self._run_v0321_2_family(
@@ -363,6 +474,16 @@ class MemoryPipelineService:
                     vlm_results=vlm.results,
                     progress_callback=progress_callback,
                 )
+            elif self.task_version == TASK_VERSION_V0325:
+                memory = self._run_v0325_family(
+                    photos=photos_for_vlm,
+                    face_output=face_output,
+                    primary_person_id=primary_person_id,
+                    cached_photo_ids=cached_photo_ids,
+                    dedupe_report=dedupe_report,
+                    vlm_results=vlm.results,
+                    progress_callback=progress_callback,
+                )
             else:
                 memory = self._run_v0323_family(
                     photos=photos_for_vlm,
@@ -373,7 +494,7 @@ class MemoryPipelineService:
                     vlm_results=vlm.results,
                     progress_callback=progress_callback,
                 )
-            if self.task_version == TASK_VERSION_V0323:
+            if self.task_version in {TASK_VERSION_V0323, TASK_VERSION_V0325}:
                 lp1_events = list(memory.get("lp1_events", []) or [])
                 lp2_relationships = list(memory.get("lp2_relationships", []) or [])
                 profile_payload = dict(memory.get("lp3_profile", {}) or {})
@@ -838,6 +959,58 @@ class MemoryPipelineService:
             ),
         )
 
+    def _run_v0325_family(
+        self,
+        *,
+        photos: List,
+        face_output: Dict[str, object],
+        primary_person_id: Optional[str],
+        cached_photo_ids: set[str],
+        dedupe_report: Dict[str, object],
+        vlm_results: List[Dict[str, object]],
+        progress_callback: Optional[Callable[[str, Dict], None]],
+    ) -> Dict[str, object]:
+        self._notify(
+            progress_callback,
+            "llm",
+            {
+                "message": "v0325 LP agent 链路启动",
+                "pipeline_family": "v0325",
+                "substage": "lp1_batch",
+                "batch_index": 0,
+                "batch_count": 0,
+                "event_count": 0,
+                "percent": None,
+                "runtime_seconds": 0.0,
+            },
+        )
+        family_cls = V0325PipelineFamily
+        if family_cls is None:
+            from services.v0325.pipeline import V0325PipelineFamily as family_cls
+        llm_processor_cls = LLMProcessor
+        if llm_processor_cls is None:
+            from services.llm_processor import LLMProcessor as llm_processor_cls
+        return family_cls(
+            task_id=self.task_id,
+            task_dir=self.task_dir,
+            user_id=self.user_id,
+            asset_store=self.asset_store,
+            llm_processor=llm_processor_cls(task_version=self.task_version),
+            public_url_builder=self._public_url,
+        ).run(
+            photos=photos,
+            face_output=face_output,
+            primary_person_id=primary_person_id,
+            vlm_results=vlm_results,
+            cached_photo_ids=cached_photo_ids,
+            dedupe_report=dedupe_report,
+            progress_callback=lambda stage, payload: self._notify(
+                progress_callback,
+                "memory" if stage == "v0325" else stage,
+                payload,
+            ),
+        )
+
     def _supports_memory_graph(self) -> bool:
         return self.task_version in {
             TASK_VERSION_V0317,
@@ -845,6 +1018,7 @@ class MemoryPipelineService:
             TASK_VERSION_V0321_2,
             TASK_VERSION_V0321_3,
             TASK_VERSION_V0323,
+            TASK_VERSION_V0325,
         }
 
     def _run_face_recognition(

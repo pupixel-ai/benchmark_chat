@@ -13,6 +13,8 @@ STEP_ORDER = {
     "lp3_profile": 3,
 }
 
+LP_SNAPSHOT_FAMILIES = {"v0323", "v0325"}
+
 
 def _load_json(path: Path) -> Any:
     if not path.exists():
@@ -104,7 +106,9 @@ def build_task_memory_steps_payload(
 ) -> Dict[str, Any]:
     task_id = str(task.get("task_id") or "").strip()
     task_dir = Path(str(task.get("task_dir") or ""))
-    family_dir = task_dir / "v0323"
+    family_version = str(task.get("version") or "").strip()
+    family_name = family_version if family_version in LP_SNAPSHOT_FAMILIES else "v0323"
+    family_dir = task_dir / family_name
     result = task.get("result") or {}
     memory = result.get("memory") or {}
     memory_stage = _memory_stage(task)
@@ -150,6 +154,22 @@ def build_task_memory_steps_payload(
     lp1_parse_failures = _load_json(family_dir / "lp1_parse_failures.json")
     if not isinstance(lp1_parse_failures, list):
         lp1_parse_failures = []
+    lp1_salvage_report = _load_json(family_dir / "lp1_salvage_report.json")
+    if not isinstance(lp1_salvage_report, dict):
+        lp1_salvage_report = {}
+    lp1_salvaged_events = _load_jsonl(family_dir / "lp1_salvaged_events.jsonl")
+    last_lp1_failure = lp1_parse_failures[-1] if lp1_parse_failures else {}
+    salvage_summary = lp1_salvage_report.get("summary") if isinstance(lp1_salvage_report.get("summary"), dict) else {}
+    lp1_salvage_status = "detected" if salvage_summary.get("salvage_detected") else "none"
+    lp1_salvaged_event_count = int(salvage_summary.get("salvaged_event_count") or len(lp1_salvaged_events) or 0)
+    lp1_provider_finish_reason = (
+        lp1_last_attempt.get("convert_finish_reason")
+        or lp1_last_attempt.get("analysis_finish_reason")
+        or None
+    )
+    lp1_contract_version = lp1_last_attempt.get("contract_version") or (
+        "v0325.lp1.output_window.v1" if family_name == "v0325" else None
+    )
     lp2_failures = [item for item in llm_failures if str(item.get("step") or "").strip() == "lp2_relationship"]
     lp3_failures = [item for item in llm_failures if str(item.get("step") or "").strip() == "lp3_profile"]
 
@@ -160,7 +180,7 @@ def build_task_memory_steps_payload(
     return {
         "task_id": task_id,
         "version": task.get("version"),
-        "pipeline_family": memory.get("pipeline_family") or "v0323",
+        "pipeline_family": memory.get("pipeline_family") or family_name,
         "task_status": task_status,
         "current_stage": task.get("stage"),
         "current_substage": current_substage or None,
@@ -182,12 +202,19 @@ def build_task_memory_steps_payload(
                     "retry_count": len(lp1_retry_attempts),
                     "last_parse_status": lp1_last_attempt.get("parse_status"),
                     "parse_failure_count": len(lp1_parse_failures),
+                    "salvage_status": lp1_salvage_status,
+                    "salvaged_event_count": lp1_salvaged_event_count,
+                    "batch_failure_reason": last_lp1_failure.get("error"),
+                    "provider_finish_reason": lp1_provider_finish_reason,
+                    "contract_version": lp1_contract_version,
                 },
                 "artifacts": {
                     "lp1_events_compact": _artifact_payload(family_dir / "lp1_events_compact.json", task_dir, task_id, asset_url_builder),
                     "lp1_events_jsonl": _artifact_payload(family_dir / "lp1_events.jsonl", task_dir, task_id, asset_url_builder),
                     "lp1_batch_requests": _artifact_payload(family_dir / "lp1_batch_requests.jsonl", task_dir, task_id, asset_url_builder),
                     "lp1_batch_outputs": _artifact_payload(family_dir / "lp1_batch_outputs.jsonl", task_dir, task_id, asset_url_builder),
+                    "lp1_salvaged_events": _artifact_payload(family_dir / "lp1_salvaged_events.jsonl", task_dir, task_id, asset_url_builder),
+                    "lp1_salvage_report": _artifact_payload(family_dir / "lp1_salvage_report.json", task_dir, task_id, asset_url_builder),
                 },
                 "data": lp1_events,
                 "attempts": lp1_batch_outputs,
@@ -241,6 +268,18 @@ def build_task_memory_steps_payload(
                 "artifacts": {
                     "lp3_profile": _artifact_payload(family_dir / "lp3_profile.json", task_dir, task_id, asset_url_builder),
                     "llm_failures": _artifact_payload(family_dir / "llm_failures.jsonl", task_dir, task_id, asset_url_builder),
+                    "raw_upstream_manifest": _artifact_payload(
+                        family_dir / "raw_upstream_manifest.json",
+                        task_dir,
+                        task_id,
+                        asset_url_builder,
+                    ),
+                    "raw_upstream_index": _artifact_payload(
+                        family_dir / "raw_upstream_index.json",
+                        task_dir,
+                        task_id,
+                        asset_url_builder,
+                    ),
                 },
                 "data": lp3_profile,
                 "failures": lp3_failures,

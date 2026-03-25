@@ -28,9 +28,11 @@ from config import (
     OPENROUTER_SITE_URL,
     OPENROUTER_VLM_MODEL,
     TASK_VERSION_V0323,
+    TASK_VERSION_V0325,
     RETRY_DELAY,
     TASK_VERSION_V0317_HEAVY,
     V0323_OPENROUTER_MODEL,
+    V0325_OPENROUTER_VLM_MODEL,
     VLM_PROVIDER,
     VLM_CACHE_PATH,
     VLM_MODEL,
@@ -85,12 +87,14 @@ class VLMAnalyzer:
     }
 
     def __init__(self, cache_path: str = VLM_CACHE_PATH, task_version: str = ""):
-        self.provider = "openrouter" if task_version == TASK_VERSION_V0323 else VLM_PROVIDER
+        self.provider = "openrouter" if task_version in {TASK_VERSION_V0323, TASK_VERSION_V0325} else VLM_PROVIDER
         self.use_proxy = self.provider == "proxy"
         self.use_openrouter = self.provider == "openrouter"
         self.use_bedrock = self.provider == "bedrock"
         if task_version == TASK_VERSION_V0323:
             self.model = V0323_OPENROUTER_MODEL
+        elif task_version == TASK_VERSION_V0325:
+            self.model = V0325_OPENROUTER_VLM_MODEL
         else:
             self.model = OPENROUTER_VLM_MODEL if self.use_openrouter else VLM_MODEL
         self.cache_path = cache_path
@@ -936,7 +940,7 @@ class VLMAnalyzer:
         self._rebuild_result_index()
 
     def _create_prompt(self, photo: Photo, face_db: Dict, primary_person_id: Optional[str]) -> str:
-        if self.use_heavy_prompt:
+        if getattr(self, "use_heavy_prompt", False):
             return self._create_heavy_prompt(photo, face_db, primary_person_id)
         return self._create_default_prompt(photo, face_db, primary_person_id)
 
@@ -986,9 +990,11 @@ class VLMAnalyzer:
                 "C. 主角未稳定识别出，但照片里有人脸：\n"
                 "     **人物说明**：\n"
                 f"     - 照片中的人物：{people_list_text}\n"
-                "     - 当前无法从人脸层稳定识别出【主角】，统一按【主角】是拍摄者处理\n"
+                "     - 没有可靠的主用户身份锚点，当前无法从人脸层稳定识别出【主角】\n"
+                "     - 统一按拍摄者视角处理，但不要把任何可见人物直接绑定成主用户\n"
+                "     - 如出现镜面反射、屏幕、海报、相框、广告牌等媒介场景，要优先识别为疑似载体中的人物\n"
                 "     **分析原则**：\n"
-                '     - summary 中使用"【主角】"指代拍摄者（用户本人）\n'
+                '     - summary 中使用"【拍摄者】"指代用户本人，不要把任何 person_id 写成【主用户】\n'
                 '     - 描述从【主角】的拍摄视角观察到的场景\n'
                 "     - people 数组中使用照片中具体的 person_id"
             )

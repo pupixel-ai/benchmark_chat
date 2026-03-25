@@ -37,7 +37,8 @@ def _progress_counters(payload: Dict[str, Any]) -> tuple[int | None, int | None]
         or _coerce_number(payload.get("completed_count"))
     )
     total = (
-        _coerce_number(payload.get("photo_count"))
+        _coerce_number(payload.get("total"))
+        or _coerce_number(payload.get("photo_count"))
         or _coerce_number(payload.get("slice_count"))
         or _coerce_number(payload.get("event_count"))
         or _coerce_number(payload.get("filtered_count"))

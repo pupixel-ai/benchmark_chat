@@ -52,6 +52,7 @@ TASK_VERSION_V0317_HEAVY = "v0317-Heavy"
 TASK_VERSION_V0321_2 = "v0321.2"
 TASK_VERSION_V0321_3 = "v0321.3"
 TASK_VERSION_V0323 = "v0323"
+TASK_VERSION_V0325 = "v0325"
 AVAILABLE_TASK_VERSIONS = (
     TASK_VERSION_V0312,
     TASK_VERSION_V0315,
@@ -60,6 +61,7 @@ AVAILABLE_TASK_VERSIONS = (
     TASK_VERSION_V0321_2,
     TASK_VERSION_V0321_3,
     TASK_VERSION_V0323,
+    TASK_VERSION_V0325,
 )
 APP_VERSION = os.getenv("APP_VERSION", TASK_VERSION_V0317).strip() or TASK_VERSION_V0317
 DEFAULT_TASK_VERSION = os.getenv("DEFAULT_TASK_VERSION", TASK_VERSION_V0317).strip() or TASK_VERSION_V0317
@@ -232,8 +234,25 @@ OPENROUTER_LLM_MODEL = (
     os.getenv("OPENROUTER_LLM_MODEL", "google/gemini-3.1-flash-lite-preview").strip()
     or "google/gemini-3.1-flash-lite-preview"
 )
+PROFILE_LLM_PROVIDER = (
+    os.getenv("PROFILE_LLM_PROVIDER", LLM_PROVIDER or MODEL_PROVIDER or "auto").strip().lower()
+    or (LLM_PROVIDER or MODEL_PROVIDER or "auto")
+)
+PROFILE_LLM_MODEL = (
+    os.getenv("PROFILE_LLM_MODEL", OPENROUTER_LLM_MODEL).strip()
+    or OPENROUTER_LLM_MODEL
+)
+PROFILE_AGENT_ROOT = os.getenv("PROFILE_AGENT_ROOT", "").strip()
 V0323_OPENROUTER_MODEL = (
     os.getenv("V0323_OPENROUTER_MODEL", "google/gemini-3.1-pro-preview").strip()
+    or "google/gemini-3.1-pro-preview"
+)
+V0325_OPENROUTER_LLM_MODEL = (
+    os.getenv("V0325_OPENROUTER_LLM_MODEL", "google/gemini-3.1-pro-preview").strip()
+    or "google/gemini-3.1-pro-preview"
+)
+V0325_OPENROUTER_VLM_MODEL = (
+    os.getenv("V0325_OPENROUTER_VLM_MODEL", "google/gemini-3.1-pro-preview").strip()
     or "google/gemini-3.1-pro-preview"
 )
 V0323_LP1_MAX_OUTPUT_TOKENS = int(os.getenv("V0323_LP1_MAX_OUTPUT_TOKENS", "24576"))

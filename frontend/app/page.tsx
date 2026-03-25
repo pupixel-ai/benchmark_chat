@@ -32,7 +32,7 @@ const MAX_BATCH_BYTES = 64 * 1024 * 1024;
 const UPLOAD_BATCH_RETRY_LIMIT = 3;
 const UPLOAD_RETRY_BASE_DELAY_MS = 1200;
 const GALLERY_PREVIEW_LIMIT = 120;
-const FACE_RECOGNITION_STAGES = new Set(["queued", "starting", "loading", "converting", "face_recognition"]);
+const FACE_RECOGNITION_STAGES = new Set(["queued", "starting", "loading", "converting", "face_recognition", "face_visualization"]);
 const FALLBACK_TASK_VERSIONS = ["v0317-Heavy", "v0317", "v0315", "v0312"];
 const FALLBACK_DEFAULT_TASK_VERSION = FALLBACK_TASK_VERSIONS[0];
 const LEGACY_TASK_VERSION = FALLBACK_TASK_VERSIONS[FALLBACK_TASK_VERSIONS.length - 1];
@@ -74,6 +74,7 @@ const stageLabelMap: Record<string, string> = {
   loading: "读取图片",
   converting: "格式转换",
   face_recognition: "人脸识别",
+  face_visualization: "人脸框渲染",
   preprocess: "图片压缩",
   vlm: "视觉分析",
   llm: "推理生成",
@@ -1065,14 +1066,20 @@ function InferencePipelinePanel({
     return typeof value === "string" && value ? value : task.stage;
   })();
   const faceStage = readStageProgress(task.progress, "face_recognition");
+  const faceVisualizationStage = readStageProgress(task.progress, "face_visualization");
+  const preprocessStage = readStageProgress(task.progress, "preprocess");
   const vlmStage = readStageProgress(task.progress, "vlm");
   const llmStage = readStageProgress(task.progress, "llm");
 
   const facePercent = readNumericValue(faceStage.percent);
+  const faceVisualizationPercent = readNumericValue(faceVisualizationStage.percent);
+  const preprocessPercent = readNumericValue(preprocessStage.percent);
   const vlmPercent = readNumericValue(vlmStage.percent);
   const llmPercent = readNumericValue(llmStage.percent);
   const stageRank = inferPipelineStageRank(currentStage);
   const faceRuntime = formatRuntimeLabel(faceStage.runtime_seconds);
+  const faceVisualizationRuntime = formatRuntimeLabel(faceVisualizationStage.runtime_seconds);
+  const preprocessRuntime = formatRuntimeLabel(preprocessStage.runtime_seconds);
   const vlmRuntime = formatRuntimeLabel(vlmStage.runtime_seconds ?? task.result?.memory?.transparency?.vlm_stage?.runtime_seconds);
   const llmRuntime = formatRuntimeLabel(llmStage.runtime_seconds ?? task.result?.memory?.transparency?.llm_stage?.runtime_seconds);
   const taskLogs = readTaskLogs(task.progress);
@@ -1117,6 +1124,37 @@ function InferencePipelinePanel({
   const llmMeta = llmMetaParts.filter(Boolean).join(" · ");
 
   const faceValue = task.result?.face_recognition ?? faceStage.face_result_preview ?? null;
+  const faceLoading =
+    task.status === "running" &&
+    (currentStage === "face_recognition" || currentStage === "face_visualization") &&
+    !hasDisplayValue(faceValue);
+  const faceLoadingLabel = currentStage === "face_visualization" ? "人脸结果整理中" : "人脸识别进行中";
+  const faceVisualizationProcessed = readNumericValue(faceVisualizationStage.processed);
+  const faceVisualizationTotal =
+    readNumericValue(faceVisualizationStage.total) ?? readNumericValue(faceVisualizationStage.photo_count);
+  const faceVisualizationVisible =
+    hasDisplayValue(faceVisualizationStage) || currentStage === "face_visualization" || stageRank >= 2 || personIndexReady;
+  const faceVisualizationLoading = task.status === "running" && currentStage === "face_visualization";
+  const faceVisualizationMetaParts = [
+    faceVisualizationRuntime ? `运行时间 ${faceVisualizationRuntime}` : "",
+    faceVisualizationProcessed != null && faceVisualizationTotal != null && faceVisualizationTotal > 0
+      ? `已渲染 ${faceVisualizationProcessed}/${faceVisualizationTotal}`
+      : "",
+  ];
+  const faceVisualizationMeta = faceVisualizationMetaParts.filter(Boolean).join(" · ");
+  const preprocessProcessed = readNumericValue(preprocessStage.processed);
+  const preprocessTotal =
+    readNumericValue(preprocessStage.total) ?? readNumericValue(preprocessStage.photo_count);
+  const preprocessVisible =
+    hasDisplayValue(preprocessStage) || currentStage === "preprocess" || stageRank >= 2;
+  const preprocessLoading = task.status === "running" && currentStage === "preprocess";
+  const preprocessMetaParts = [
+    preprocessRuntime ? `运行时间 ${preprocessRuntime}` : "",
+    preprocessProcessed != null && preprocessTotal != null && preprocessTotal > 0
+      ? `已压缩 ${preprocessProcessed}/${preprocessTotal}`
+      : "",
+  ];
+  const preprocessMeta = preprocessMetaParts.filter(Boolean).join(" · ");
   const vlmValue =
     (vlmStage.vlm_results_preview as unknown) ??
     task.result?.memory?.transparency?.vlm_stage?.summaries ??
@@ -1169,7 +1207,7 @@ function InferencePipelinePanel({
           <p className="font-mono text-xs uppercase tracking-[0.24em] text-black/40">Inference Timeline</p>
           <h2 className="mt-3 text-2xl font-semibold text-ink">推理生成逐阶段展开</h2>
           <p className="mt-3 max-w-3xl text-sm leading-6 text-black/60">
-            前端会按 `Face → 人物索引 → VLM → LLM → Profile` 顺序展示当前任务的阶段结果，并且只展示已经完成的阶段与当前正在运行的阶段。
+            前端会按 `Face → 人脸框渲染 → 人物索引 → 图片压缩 → VLM → LLM → Profile` 顺序展示当前任务的阶段结果，并且只展示已经完成的阶段与当前正在运行的阶段。
           </p>
         </div>
         <div className="rounded-[12px] border border-[#ddcebb] bg-white/70 px-5 py-4">
@@ -1185,10 +1223,26 @@ function InferencePipelinePanel({
             value={faceValue}
             emptyText="当前还没有可展示的人脸识别结果。"
             meta={faceRuntime ? `运行时间 ${faceRuntime}` : undefined}
-            loading={task.status === "running" && FACE_RECOGNITION_STAGES.has(currentStage) && !hasDisplayValue(faceValue)}
-            loadingLabel="人脸识别进行中"
+            loading={faceLoading}
+            loadingLabel={faceLoadingLabel}
             loadingPercent={facePercent}
           />
+        ) : null}
+
+        {faceVisualizationVisible ? (
+          <FoldableStageCard
+            title="Face Visualization / 人脸框渲染"
+            meta={faceVisualizationMeta || "这一步会先生成人物索引所需的带框预览图，再进入 VLM。"}
+            loading={faceVisualizationLoading}
+            loadingLabel="人脸框渲染中"
+            loadingPercent={faceVisualizationPercent}
+          >
+            <p className="text-sm leading-6 text-black/56">
+              {faceVisualizationProcessed != null && faceVisualizationTotal != null && faceVisualizationTotal > 0
+                ? `当前已生成 ${faceVisualizationProcessed}/${faceVisualizationTotal} 张带框预览图。`
+                : "当前还没有可展示的人脸框渲染进度。"}
+            </p>
+          </FoldableStageCard>
         ) : null}
 
         {personIndexVisible ? (
@@ -1199,6 +1253,22 @@ function InferencePipelinePanel({
             loadingLabel="人物索引整理中"
           >
             {personIndexPanel}
+          </FoldableStageCard>
+        ) : null}
+
+        {preprocessVisible ? (
+          <FoldableStageCard
+            title="Preprocess / 图片压缩"
+            meta={preprocessMeta || "这一步会把后续 VLM 要读取的工作图压缩到统一尺寸。"}
+            loading={preprocessLoading}
+            loadingLabel="图片压缩中"
+            loadingPercent={preprocessPercent}
+          >
+            <p className="text-sm leading-6 text-black/56">
+              {preprocessProcessed != null && preprocessTotal != null && preprocessTotal > 0
+                ? `当前已压缩 ${preprocessProcessed}/${preprocessTotal} 张工作图。`
+                : "当前还没有可展示的图片压缩进度。"}
+            </p>
           </FoldableStageCard>
         ) : null}
 
@@ -1615,6 +1685,8 @@ function MemoryStepsPanel({
       const batchCount = readNumericValue(summary.batch_count);
       const attemptCount = readNumericValue(summary.attempt_count);
       const retryCount = readNumericValue(summary.retry_count);
+      const salvageStatus = typeof summary.salvage_status === "string" ? summary.salvage_status : "";
+      const salvagedEventCount = readNumericValue(summary.salvaged_event_count);
       const lastParseStatus = typeof summary.last_parse_status === "string" ? summary.last_parse_status : "";
       if (eventCount != null) {
         parts.push(`${eventCount} events`);
@@ -1627,6 +1699,9 @@ function MemoryStepsPanel({
       }
       if (retryCount != null && retryCount > 0) {
         parts.push(`${retryCount} retries`);
+      }
+      if (salvageStatus === "detected") {
+        parts.push(`partial salvage${salvagedEventCount != null && salvagedEventCount > 0 ? ` ${salvagedEventCount}` : ""}`);
       }
       if (lastParseStatus) {
         parts.push(`last ${lastParseStatus}`);
@@ -1679,7 +1754,7 @@ function MemoryStepsPanel({
           <p className="font-mono text-xs uppercase tracking-[0.24em] text-black/40">LP Snapshot Steps</p>
           <h2 className="mt-3 text-2xl font-semibold text-ink">LP1 / LP2 / LP3 分步结果</h2>
           <p className="mt-3 max-w-3xl text-sm leading-6 text-black/60">
-            这里把 `v0323` 的 LP1、LP2、LP3 拆开展示。每一步一旦写出数据，就会立即显示，不再等整条 memory 链路全部结束。
+            这里把 `v0323 / v0325` 的 LP1、LP2、LP3 拆开展示。每一步一旦写出数据，就会立即显示，不再等整条 memory 链路全部结束。
           </p>
         </div>
         {loading ? <WaitingDots label="正在刷新 LP steps" compact /> : null}
@@ -1687,6 +1762,30 @@ function MemoryStepsPanel({
 
       <div className="mt-5 space-y-4">
         <FoldableStageCard title="LP1 / 事件聚合" meta={buildMeta("lp1")} loading={loading && !hasDisplayValue(steps?.lp1?.data)} loadingLabel="LP1">
+          {steps?.lp1?.summary && typeof steps.lp1.summary === "object" && (steps.lp1.summary as Record<string, unknown>).salvage_status === "detected" ? (
+            <div className="mb-3 rounded-[10px] border border-[#d9a85d] bg-[#fff3df] px-4 py-3 text-sm text-[#7a4d16]">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                <div className="space-y-1">
+                  <p className="font-medium">LP1 Partial Salvage Detected</p>
+                  <p>
+                    已检测到可回收的部分事件对象，但当前 batch 仍判定失败，未继续进入 LP2 / LP3。
+                    {typeof (steps.lp1.summary as Record<string, unknown>).salvaged_event_count === "number"
+                      ? ` salvaged events: ${(steps.lp1.summary as Record<string, unknown>).salvaged_event_count}.`
+                      : ""}
+                  </p>
+                  {typeof (steps.lp1.summary as Record<string, unknown>).batch_failure_reason === "string" &&
+                  (steps.lp1.summary as Record<string, unknown>).batch_failure_reason ? (
+                    <p>failure: {String((steps.lp1.summary as Record<string, unknown>).batch_failure_reason)}</p>
+                  ) : null}
+                  {typeof (steps.lp1.summary as Record<string, unknown>).provider_finish_reason === "string" &&
+                  (steps.lp1.summary as Record<string, unknown>).provider_finish_reason ? (
+                    <p>provider finish reason: {String((steps.lp1.summary as Record<string, unknown>).provider_finish_reason)}</p>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          ) : null}
           {hasDisplayValue(steps?.lp1?.data) ? (
             <>
               <pre className="max-h-[320px] overflow-auto whitespace-pre-wrap break-all rounded-[10px] bg-[#f6eee3] p-3 text-xs leading-6 text-[#5f4e42]">
@@ -2333,7 +2432,7 @@ export default function HomePage() {
       const payload = (await response.json()) as TaskState;
       setCurrentTask(payload);
       setIsDraftView(false);
-      if (payload.version === "v0323" && payload.status !== "draft" && payload.status !== "uploading") {
+      if ((payload.version === "v0323" || payload.version === "v0325") && payload.status !== "draft" && payload.status !== "uploading") {
         void fetchTaskMemorySteps(payload.task_id);
       } else {
         setMemoryStepsByTask((previous) => ({
@@ -3319,7 +3418,7 @@ export default function HomePage() {
             />
           ) : null}
 
-          {!isDraftView && currentTask && currentTask.version === "v0323" ? (
+          {!isDraftView && currentTask && (currentTask.version === "v0323" || currentTask.version === "v0325") ? (
             <MemoryStepsPanel
               stepsPayload={currentMemorySteps}
               loading={currentMemoryStepsLoading}

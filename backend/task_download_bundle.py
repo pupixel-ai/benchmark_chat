@@ -23,15 +23,12 @@ class BundleEntry:
 
 REQUIRED_FILE_SPECS: tuple[tuple[str, str, str], ...] = (
     ("cache/face_recognition_output.json", "face/face_recognition_output.json", "face"),
-    ("v0323/vp1_observations.json", "vlm/vp1_observations.json", "vlm"),
-    ("v0323/lp1_events_compact.json", "lp1/lp1_events_compact.json", "lp1"),
 )
 
 OPTIONAL_FILE_SPECS: tuple[tuple[str, str, str], ...] = (
     ("cache/face_recognition_state.json", "face/face_recognition_state.json", "face"),
     ("cache/vlm_failures.jsonl", "vlm/vlm_failures.jsonl", "vlm"),
-    ("v0323/lp1_batch_outputs.jsonl", "lp1/lp1_batch_outputs.jsonl", "lp1"),
-    ("v0323/lp1_parse_failures.json", "lp1/lp1_parse_failures.json", "lp1"),
+    ("cache/dedupe_report.json", "face/dedupe_report.json", "face"),
 )
 
 OPTIONAL_DIRECTORY_SPECS: tuple[tuple[str, str, str], ...] = (
@@ -64,19 +61,47 @@ def _task_dir(task: dict) -> Path:
         return Path(str(raw))
     raise FileNotFoundError("任务目录不存在")
 
+def _family_name(task: dict) -> str:
+    version = str(task.get("version") or "").strip()
+    if version in {"v0323", "v0325"}:
+        return version
+    return "v0323"
 
-def _collect_entries(task_dir: Path) -> tuple[list[BundleEntry], list[str]]:
+
+def _file_specs_for_task(task: dict) -> tuple[tuple[tuple[str, str, str], ...], tuple[tuple[str, str, str], ...]]:
+    family_name = _family_name(task)
+    required_file_specs = (
+        *REQUIRED_FILE_SPECS,
+        (f"{family_name}/vp1_observations.json", "vlm/vp1_observations.json", "vlm"),
+        (f"{family_name}/lp1_events_compact.json", "lp1/lp1_events_compact.json", "lp1"),
+    )
+    optional_file_specs = (
+        *OPTIONAL_FILE_SPECS,
+        (f"{family_name}/lp1_batch_outputs.jsonl", "lp1/lp1_batch_outputs.jsonl", "lp1"),
+        (f"{family_name}/lp1_parse_failures.json", "lp1/lp1_parse_failures.json", "lp1"),
+    )
+    if family_name == "v0325":
+        optional_file_specs = (
+            *optional_file_specs,
+            (f"{family_name}/raw_upstream_manifest.json", "raw/raw_upstream_manifest.json", "raw"),
+            (f"{family_name}/raw_upstream_index.json", "raw/raw_upstream_index.json", "raw"),
+        )
+    return required_file_specs, optional_file_specs
+
+
+def _collect_entries(task_dir: Path, task: dict) -> tuple[list[BundleEntry], list[str]]:
     entries: list[BundleEntry] = []
     missing_required: list[str] = []
+    required_file_specs, optional_file_specs = _file_specs_for_task(task)
 
-    for relative_path, archive_path, category in REQUIRED_FILE_SPECS:
+    for relative_path, archive_path, category in required_file_specs:
         source = task_dir / relative_path
         if source.exists():
             entries.append(BundleEntry(source, archive_path, category))
         else:
             missing_required.append(relative_path)
 
-    for relative_path, archive_path, category in OPTIONAL_FILE_SPECS:
+    for relative_path, archive_path, category in optional_file_specs:
         source = task_dir / relative_path
         if source.exists():
             entries.append(BundleEntry(source, archive_path, category))
@@ -103,7 +128,7 @@ def describe_task_downloads(task: dict) -> dict | None:
     except FileNotFoundError:
         return None
 
-    entries, missing_required = _collect_entries(task_dir)
+    entries, missing_required = _collect_entries(task_dir, task)
     if missing_required:
         return None
 
@@ -133,7 +158,7 @@ def build_task_analysis_bundle(task: dict) -> Path:
     if not downloads or "analysis_bundle" not in downloads:
         raise FileNotFoundError("当前任务没有可下载的 Face/VLM/LP1 打包结果")
 
-    entries, missing_required = _collect_entries(task_dir)
+    entries, missing_required = _collect_entries(task_dir, task)
     if missing_required:
         raise FileNotFoundError(f"缺少必要产物: {', '.join(missing_required)}")
 

@@ -51,7 +51,11 @@ class FakeImageProcessor:
             )
         return photos[: max_photos or len(photos)], []
 
-    def convert_to_jpeg(self, photos):
+    def convert_to_jpeg(self, photos, *, normalize_live_photos: bool = False, progress_callback=None):
+        if progress_callback is not None:
+            total = len(photos)
+            for index, photo in enumerate(photos, start=1):
+                progress_callback(index, total, photo)
         return photos
 
     def dedupe_before_face_recognition(self, photos):
@@ -70,11 +74,14 @@ class FakeImageProcessor:
         }
         return photos
 
-    def preprocess(self, photos):
-        for photo in photos:
+    def preprocess(self, photos, *, progress_callback=None):
+        total = len(photos)
+        for index, photo in enumerate(photos, start=1):
             compressed_path = self.cache_dir / f"compressed_{photo.photo_id}.webp"
             compressed_path.write_bytes(b"compressed")
             photo.compressed_path = str(compressed_path)
+            if progress_callback is not None:
+                progress_callback(index, total, photo)
         return photos
 
     def draw_face_boxes(self, photo):
@@ -746,6 +753,134 @@ class PipelineMemoryTests(unittest.TestCase):
             self.assertTrue((task_dir / "output" / "slice_contracts.jsonl").exists())
             self.assertTrue((task_dir / "output" / "event_merges.jsonl").exists())
             self.assertTrue((task_dir / "output" / "pre_relationship_contract.json").exists())
+
+    def test_converting_stage_emits_processed_total_progress(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            task_dir = Path(tmpdir)
+            uploads_dir = task_dir / "uploads"
+            uploads_dir.mkdir(parents=True, exist_ok=True)
+            for name in ("a.jpg", "b.jpg", "c.jpg"):
+                (uploads_dir / name).write_bytes(b"stub")
+
+            progress_events = []
+
+            with patch("services.pipeline_service.ImageProcessor", FakeImageProcessor), patch(
+                "services.pipeline_service.FaceRecognition", FakeFaceRecognition
+            ), patch("services.pipeline_service.VLMAnalyzer", FakeVLMAnalyzer), patch(
+                "services.pipeline_service.LLMProcessor", FakeLLMProcessor
+            ):
+                from services.pipeline_service import MemoryPipelineService
+
+                service = MemoryPipelineService(
+                    task_id="task_pipeline_converting_progress",
+                    task_dir=str(task_dir),
+                    asset_store=FakeAssetStore(),
+                    user_id="user_pipeline",
+                    face_review_store=FakeFaceReviewStore(),
+                    task_version="v0317",
+                )
+                service.run(
+                    max_photos=3,
+                    use_cache=False,
+                    progress_callback=lambda stage, payload: progress_events.append((stage, dict(payload))),
+                )
+
+            converting_payloads = [payload for stage, payload in progress_events if stage == "converting"]
+            self.assertGreaterEqual(len(converting_payloads), 2)
+            self.assertEqual(converting_payloads[0]["processed"], 0)
+            self.assertEqual(converting_payloads[0]["total"], 3)
+            self.assertEqual(converting_payloads[0]["photo_count"], 3)
+            self.assertEqual(converting_payloads[0]["percent"], 0)
+            self.assertEqual(converting_payloads[-1]["processed"], 3)
+            self.assertEqual(converting_payloads[-1]["total"], 3)
+            self.assertEqual(converting_payloads[-1]["photo_count"], 3)
+            self.assertEqual(converting_payloads[-1]["percent"], 100.0)
+
+    def test_face_visualization_stage_emits_processed_total_progress(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            task_dir = Path(tmpdir)
+            uploads_dir = task_dir / "uploads"
+            uploads_dir.mkdir(parents=True, exist_ok=True)
+            for name in ("a.jpg", "b.jpg", "c.jpg"):
+                (uploads_dir / name).write_bytes(b"stub")
+
+            progress_events = []
+
+            with patch("services.pipeline_service.ImageProcessor", FakeImageProcessor), patch(
+                "services.pipeline_service.FaceRecognition", FakeFaceRecognition
+            ), patch("services.pipeline_service.VLMAnalyzer", FakeVLMAnalyzer), patch(
+                "services.pipeline_service.LLMProcessor", FakeLLMProcessor
+            ):
+                from services.pipeline_service import MemoryPipelineService
+
+                service = MemoryPipelineService(
+                    task_id="task_pipeline_face_visualization_progress",
+                    task_dir=str(task_dir),
+                    asset_store=FakeAssetStore(),
+                    user_id="user_pipeline",
+                    face_review_store=FakeFaceReviewStore(),
+                    task_version="v0317",
+                )
+                service.run(
+                    max_photos=3,
+                    use_cache=False,
+                    progress_callback=lambda stage, payload: progress_events.append((stage, dict(payload))),
+                )
+
+            visualization_payloads = [payload for stage, payload in progress_events if stage == "face_visualization"]
+            self.assertGreaterEqual(len(visualization_payloads), 2)
+            self.assertEqual(visualization_payloads[0]["processed"], 0)
+            self.assertEqual(visualization_payloads[0]["total"], 3)
+            self.assertEqual(visualization_payloads[0]["photo_count"], 3)
+            self.assertEqual(visualization_payloads[0]["percent"], 0)
+            self.assertIn("runtime_seconds", visualization_payloads[-1])
+            self.assertEqual(visualization_payloads[-1]["processed"], 3)
+            self.assertEqual(visualization_payloads[-1]["total"], 3)
+            self.assertEqual(visualization_payloads[-1]["photo_count"], 3)
+            self.assertEqual(visualization_payloads[-1]["percent"], 100)
+
+    def test_preprocess_stage_emits_processed_total_progress(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            task_dir = Path(tmpdir)
+            uploads_dir = task_dir / "uploads"
+            uploads_dir.mkdir(parents=True, exist_ok=True)
+            for name in ("a.jpg", "b.jpg", "c.jpg"):
+                (uploads_dir / name).write_bytes(b"stub")
+
+            progress_events = []
+
+            with patch("services.pipeline_service.ImageProcessor", FakeImageProcessor), patch(
+                "services.pipeline_service.FaceRecognition", FakeFaceRecognition
+            ), patch("services.pipeline_service.VLMAnalyzer", FakeVLMAnalyzer), patch(
+                "services.pipeline_service.LLMProcessor", FakeLLMProcessor
+            ):
+                from services.pipeline_service import MemoryPipelineService
+
+                service = MemoryPipelineService(
+                    task_id="task_pipeline_preprocess_progress",
+                    task_dir=str(task_dir),
+                    asset_store=FakeAssetStore(),
+                    user_id="user_pipeline",
+                    face_review_store=FakeFaceReviewStore(),
+                    task_version="v0317",
+                )
+                service.run(
+                    max_photos=3,
+                    use_cache=False,
+                    progress_callback=lambda stage, payload: progress_events.append((stage, dict(payload))),
+                )
+
+            preprocess_payloads = [payload for stage, payload in progress_events if stage == "preprocess"]
+            self.assertGreaterEqual(len(preprocess_payloads), 2)
+            self.assertEqual(preprocess_payloads[0]["processed"], 0)
+            self.assertEqual(preprocess_payloads[0]["total"], 3)
+            self.assertEqual(preprocess_payloads[0]["photo_count"], 3)
+            self.assertEqual(preprocess_payloads[0]["percent"], 0)
+            self.assertIn("runtime_seconds", preprocess_payloads[-1])
+            self.assertEqual(preprocess_payloads[-1]["processed"], 3)
+            self.assertEqual(preprocess_payloads[-1]["total"], 3)
+            self.assertEqual(preprocess_payloads[-1]["photo_count"], 3)
+            self.assertEqual(preprocess_payloads[-1]["percent"], 100)
 
     def test_vlm_parallel_execution_preserves_result_and_cache_order(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

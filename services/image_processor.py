@@ -5,7 +5,7 @@ import os
 import re
 import tempfile
 from datetime import datetime
-from typing import Dict, List, Tuple, Optional
+from typing import Callable, Dict, List, Tuple, Optional
 from zipfile import ZipFile
 from PIL import Image, ExifTags, ImageDraw, ImageFont, ImageOps
 from pillow_heif import register_heif_opener
@@ -120,7 +120,13 @@ class ImageProcessor:
 
         return photos, errors
 
-    def convert_to_jpeg(self, photos: List[Photo], *, normalize_live_photos: bool = False) -> List[Photo]:
+    def convert_to_jpeg(
+        self,
+        photos: List[Photo],
+        *,
+        normalize_live_photos: bool = False,
+        progress_callback: Callable[[int, int, Photo], None] | None = None,
+    ) -> List[Photo]:
         """
         为人脸识别准备工作图。
         原始上传文件保持不变；仅在 HEIC 或带方向标签的图片上生成标准朝向的 JPEG 工作图。
@@ -131,7 +137,8 @@ class ImageProcessor:
         Returns:
             转换后的照片列表
         """
-        for photo in photos:
+        total_photos = len(photos)
+        for index, photo in enumerate(photos, start=1):
             photo.original_path = photo.path
             lower_filename = photo.filename.lower()
             is_live_like_source = lower_filename.endswith(('.heic', '.heif', '.livp'))
@@ -168,7 +175,9 @@ class ImageProcessor:
             except Exception as e:
                 print(f"警告：转换HEIC失败 {photo.filename}: {e}")
                 photo.processing_errors["convert_to_jpeg"] = str(e)
-                continue
+            finally:
+                if progress_callback is not None:
+                    progress_callback(index, total_photos, photo)
 
         return photos
 
@@ -216,7 +225,12 @@ class ImageProcessor:
             return None
         return None
 
-    def preprocess(self, photos: List[Photo]) -> List[Photo]:
+    def preprocess(
+        self,
+        photos: List[Photo],
+        *,
+        progress_callback: Callable[[int, int, Photo], None] | None = None,
+    ) -> List[Photo]:
         """
         预处理照片：压缩
 
@@ -226,7 +240,9 @@ class ImageProcessor:
         Returns:
             处理后的照片列表
         """
-        return self._compress_photos(photos)
+        if progress_callback is None:
+            return self._compress_photos(photos)
+        return self._compress_photos(photos, progress_callback=progress_callback)
 
     def dedupe_before_face_recognition(self, photos: List[Photo]) -> List[Photo]:
         """
@@ -319,7 +335,12 @@ class ImageProcessor:
 
         return deduped
 
-    def _compress_photos(self, photos: List[Photo]) -> List[Photo]:
+    def _compress_photos(
+        self,
+        photos: List[Photo],
+        *,
+        progress_callback: Callable[[int, int, Photo], None] | None = None,
+    ) -> List[Photo]:
         """
         压缩所有照片
 
@@ -329,6 +350,9 @@ class ImageProcessor:
         Returns:
             压缩后的照片列表
         """
+        total = len(photos)
+        processed = 0
+
         for photo in photos:
             try:
                 # 压缩文件名
@@ -344,7 +368,10 @@ class ImageProcessor:
             except Exception as e:
                 print(f"警告：压缩照片 {photo.filename} 失败: {e}")
                 photo.processing_errors["preprocess"] = str(e)
-                continue
+            finally:
+                processed += 1
+                if progress_callback is not None:
+                    progress_callback(processed, total, photo)
 
         return photos
 
