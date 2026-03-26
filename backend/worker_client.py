@@ -4,6 +4,7 @@ HTTP client used by the control-plane to talk to private worker instances.
 from __future__ import annotations
 
 import time
+from pathlib import Path
 
 import requests
 
@@ -73,10 +74,22 @@ class WorkerClient:
                 "use_cache": use_cache,
                 "version": version,
                 "normalize_live_photos": bool((options or {}).get("normalize_live_photos", True)),
+                "options": dict(options or {}),
             },
             timeout=(10, 30),
         )
         self._raise_for_status(response, "启动 worker 任务失败")
+        return response.json()
+
+    def upload_checkpoint_archive(self, private_ip: str, task_id: str, archive_path: str) -> dict:
+        with open(archive_path, "rb") as handle:
+            response = requests.post(
+                f"{self._base_url(private_ip)}/internal/tasks/{task_id}/checkpoint-archive",
+                headers=self._headers(),
+                files={"archive": (Path(archive_path).name, handle, "application/zip")},
+                timeout=(10, 120),
+            )
+        self._raise_for_status(response, "上传 checkpoint archive 到 worker 失败")
         return response.json()
 
     def fetch_status(self, private_ip: str, task_id: str) -> dict:

@@ -104,6 +104,7 @@ class LLMProcessor:
             self.model = OPENROUTER_LLM_MODEL if self.use_openrouter else LLM_MODEL
         self.relationship_model = self.model
         self.requests = None
+        self.http_session = None
         self.genai = None
         self.bedrock_client = None
         self.bedrock_model_candidates: List[str] = []
@@ -120,6 +121,7 @@ class LLMProcessor:
             except ModuleNotFoundError:
                 requests = None
             self.requests = requests
+            self.http_session = self._build_http_session(requests)
             self.proxy_url = API_PROXY_URL
             self.proxy_key = API_PROXY_KEY
             self.proxy_model = API_PROXY_MODEL
@@ -130,6 +132,7 @@ class LLMProcessor:
             except ModuleNotFoundError:
                 requests = None
             self.requests = requests
+            self.http_session = self._build_http_session(requests)
             self.openrouter_api_key = OPENROUTER_API_KEY or GEMINI_API_KEY
             if not self.openrouter_api_key:
                 raise ValueError("使用 OpenRouter 需要配置 OPENROUTER_API_KEY 或 GEMINI_API_KEY")
@@ -163,6 +166,7 @@ class LLMProcessor:
             except ModuleNotFoundError:
                 requests = None
             self.requests = requests
+            self.http_session = self._build_http_session(requests)
             self.openrouter_api_key = OPENROUTER_API_KEY or GEMINI_API_KEY
             if not self.openrouter_api_key:
                 raise ValueError("relationship 使用 OpenRouter 需要配置 OPENROUTER_API_KEY 或 GEMINI_API_KEY")
@@ -188,6 +192,26 @@ class LLMProcessor:
             self.relationship_bedrock_model_candidates = self._dedupe_bedrock_candidates(
                 [BEDROCK_RELATIONSHIP_LLM_MODEL, BEDROCK_RELATIONSHIP_LLM_FALLBACK_MODEL],
             )
+
+    def _build_http_session(self, requests_module):
+        if requests_module is None:
+            return None
+        session = requests_module.Session()
+        try:
+            from requests.adapters import HTTPAdapter
+
+            adapter = HTTPAdapter(pool_connections=16, pool_maxsize=16, max_retries=0)
+            session.mount("https://", adapter)
+            session.mount("http://", adapter)
+        except Exception:
+            pass
+        return session
+
+    def _http_post(self, url: str, **kwargs):
+        client = self.http_session or self.requests
+        if client is None:
+            raise RuntimeError("requests 未安装，无法发起 HTTP 请求")
+        return client.post(url, **kwargs)
 
     def _coerce_text_content(self, content: Any) -> str:
         if isinstance(content, str):
@@ -3650,7 +3674,7 @@ Slice contracts:
             ]
         }
         url = f"{self.proxy_url}/api/gemini/v1beta/models/{self.proxy_model}:generateContent"
-        response = self.requests.post(url, json=payload, headers=headers, timeout=60)
+        response = self._http_post(url, json=payload, headers=headers, timeout=60)
         if response.status_code == 200:
             response_data = response.json()
             if "candidates" in response_data and response_data["candidates"]:
@@ -3697,7 +3721,7 @@ Slice contracts:
         timeout: tuple[int | float, int | float] = (15, 180),
     ) -> Dict[str, Any]:
         try:
-            response = self.requests.post(
+            response = self._http_post(
                 f"{self.openrouter_base_url}/chat/completions",
                 json=payload,
                 headers=self._openrouter_headers(),
@@ -3796,7 +3820,7 @@ Slice contracts:
             ]
         }
         url = f"{self.proxy_url}/api/gemini/v1beta/models/{self.proxy_model}:generateContent"
-        response = self.requests.post(url, json=payload, headers=headers, timeout=60)
+        response = self._http_post(url, json=payload, headers=headers, timeout=60)
         if response.status_code == 200:
             response_data = response.json()
             if "candidates" in response_data and response_data["candidates"]:

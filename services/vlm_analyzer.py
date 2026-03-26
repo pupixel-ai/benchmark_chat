@@ -6,6 +6,7 @@ from __future__ import annotations
 import base64
 import json
 import mimetypes
+from pathlib import Path
 import re
 import time
 from typing import Any, Dict, List, Optional
@@ -1119,7 +1120,12 @@ class VLMAnalyzer:
             },
             "photos": self.results,
         }
-        save_json(data, self.cache_path)
+        cache_path = Path(self.cache_path)
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        tmp_path = cache_path.with_suffix(f"{cache_path.suffix}.tmp")
+        with tmp_path.open("w", encoding="utf-8") as handle:
+            json.dump(data, handle, indent=2, ensure_ascii=False)
+        tmp_path.replace(cache_path)
 
     def _rebuild_result_index(self) -> None:
         self._result_index = {}

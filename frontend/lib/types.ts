@@ -489,6 +489,13 @@ export type FullMemoryEvent = {
 export type FullMemoryRelationship = {
   person_id?: string;
   photo_ids: string[];
+  relationship_type?: string;
+  status?: string;
+  confidence?: number;
+  intimacy_score?: number;
+  reasoning?: string;
+  shared_events?: Array<Record<string, unknown>>;
+  evidence?: Record<string, unknown>;
 };
 
 export type FullMemoryProfile = {
@@ -688,6 +695,14 @@ export type TaskMemoryStepPayload = {
   failures?: unknown;
 };
 
+export type TaskResumeAction = {
+  resume_from: "vp1" | "lp1" | "lp2";
+  available: boolean;
+  disabled_reason?: string | null;
+  rerun_stages: string[];
+  target_mode?: "in_place" | "fork" | null;
+};
+
 export type TaskMemoryStepsResponse = {
   task_id: string;
   version?: string | null;
@@ -695,6 +710,7 @@ export type TaskMemoryStepsResponse = {
   task_status?: string | null;
   current_stage?: string | null;
   current_substage?: string | null;
+  resume_actions?: Partial<Record<"vp1" | "lp1" | "lp2", TaskResumeAction>>;
   steps: {
     lp1: TaskMemoryStepPayload;
     lp2: TaskMemoryStepPayload;

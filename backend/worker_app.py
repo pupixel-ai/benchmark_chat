@@ -3,10 +3,13 @@ Private worker app used for per-task processing.
 """
 from __future__ import annotations
 
+import json
 import logging
 import shutil
+import zipfile
 from datetime import datetime
 from pathlib import Path
+from time import monotonic
 from typing import List
 
 from fastapi import BackgroundTasks, Depends, FastAPI, File, Form, Header, HTTPException, Response, UploadFile, status
@@ -43,6 +46,8 @@ asset_store = TaskAssetStore()
 worker_root = Path(WORKER_TASK_ROOT)
 STATUS_FILENAME = "worker_status.json"
 UPLOAD_BATCH_MAX_FILES = 50
+STATUS_FLUSH_INTERVAL_SECONDS = 1.0
+STATUS_MIN_PERCENT_DELTA = 1
 
 
 class TaskStartPayload(BaseModel):
@@ -50,6 +55,7 @@ class TaskStartPayload(BaseModel):
     use_cache: bool = False
     version: str = DEFAULT_TASK_VERSION
     normalize_live_photos: bool = DEFAULT_NORMALIZE_LIVE_PHOTOS
+    options: dict | None = None
 
 
 def _require_internal_token(authorization: str | None = Header(default=None)) -> None:
@@ -84,7 +90,11 @@ def _write_status(task_id: str, payload: dict) -> dict:
     task_dir = _task_dir(task_id)
     task_dir.mkdir(parents=True, exist_ok=True)
     payload["updated_at"] = datetime.utcnow().isoformat()
-    save_json(payload, str(_status_path(task_id)))
+    status_path = _status_path(task_id)
+    tmp_path = status_path.with_suffix(f"{status_path.suffix}.tmp")
+    with tmp_path.open("w", encoding="utf-8") as handle:
+        json.dump(payload, handle, indent=2, ensure_ascii=False)
+    tmp_path.replace(status_path)
     return payload
 
 
@@ -94,28 +104,79 @@ def _update_status(task_id: str, **updates) -> dict:
     return _write_status(task_id, current)
 
 
+def _progress_substage(progress: dict | None, stage: str) -> str:
+    stages = dict((progress or {}).get("stages") or {})
+    stage_payload = dict(stages.get(stage) or {})
+    return str(stage_payload.get("substage") or "").strip()
+
+
+def _progress_percent(progress: dict | None, stage: str) -> int | None:
+    stages = dict((progress or {}).get("stages") or {})
+    stage_payload = dict(stages.get(stage) or {})
+    value = stage_payload.get("percent")
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return int(value)
+    if isinstance(value, str) and value.strip():
+        try:
+            return int(float(value))
+        except ValueError:
+            return None
+    return None
+
+
 def _run_pipeline_task(task_id: str, max_photos: int, use_cache: bool, task_version: str, task_options: dict | None) -> None:
     task_dir = _task_dir(task_id)
+    status_snapshot = _read_status(task_id)
+    last_flush_at = monotonic()
+    last_flushed_stage = str(status_snapshot.get("stage") or "").strip()
+    last_flushed_substage = _progress_substage(status_snapshot.get("progress"), last_flushed_stage)
+    last_flushed_percent = _progress_percent(status_snapshot.get("progress"), last_flushed_stage)
+
+    def flush_status(*, force: bool = False) -> dict | None:
+        nonlocal last_flush_at, last_flushed_stage, last_flushed_substage, last_flushed_percent
+        stage = str(status_snapshot.get("stage") or "").strip()
+        progress = status_snapshot.get("progress") if isinstance(status_snapshot.get("progress"), dict) else {}
+        substage = _progress_substage(progress, stage)
+        percent = _progress_percent(progress, stage)
+        percent_advanced = (
+            percent is not None
+            and (
+                last_flushed_percent is None
+                or percent >= (last_flushed_percent + STATUS_MIN_PERCENT_DELTA)
+            )
+        )
+        should_flush = force or stage != last_flushed_stage or substage != last_flushed_substage or percent_advanced
+        if not should_flush and (monotonic() - last_flush_at) < STATUS_FLUSH_INTERVAL_SECONDS:
+            return None
+        payload = _write_status(task_id, dict(status_snapshot))
+        last_flush_at = monotonic()
+        last_flushed_stage = stage
+        last_flushed_substage = substage
+        last_flushed_percent = percent
+        return payload
 
     def progress_callback(stage: str, payload: dict) -> None:
-        current = _read_status(task_id)
         merged_progress = merge_stage_progress(
-            current.get("progress") if isinstance(current, dict) else None,
+            status_snapshot.get("progress") if isinstance(status_snapshot, dict) else None,
             stage,
             payload or {},
         )
-        _update_status(task_id, status="running", stage=stage, progress=merged_progress, worker_status="running")
+        status_snapshot.update(status="running", stage=stage, progress=merged_progress, worker_status="running")
+        flush_status()
 
     try:
-        _update_status(
-            task_id,
+        status_snapshot.update(
             status="running",
             stage="starting",
             progress=append_terminal_info(None, stage="starting", message="准备启动推理任务"),
             error=None,
             worker_status="running",
             version=task_version,
+            options=task_options,
         )
+        flush_status(force=True)
         result = MemoryPipelineService(
             task_id=task_id,
             task_dir=str(task_dir),
@@ -127,12 +188,11 @@ def _run_pipeline_task(task_id: str, max_photos: int, use_cache: bool, task_vers
             use_cache=use_cache,
             progress_callback=progress_callback,
         )
-        _update_status(
-            task_id,
+        status_snapshot.update(
             status="completed",
             stage="completed",
             progress=append_terminal_info(
-                _read_status(task_id).get("progress"),
+                status_snapshot.get("progress") if isinstance(status_snapshot.get("progress"), dict) else None,
                 stage="completed",
                 message="任务执行完成",
             ),
@@ -143,20 +203,21 @@ def _run_pipeline_task(task_id: str, max_photos: int, use_cache: bool, task_vers
             worker_status="running",
             version=task_version,
         )
+        flush_status(force=True)
     except Exception as exc:
         logger.exception("Worker pipeline task failed for task_id=%s version=%s", task_id, task_version)
-        _update_status(
-            task_id,
+        status_snapshot.update(
             status="failed",
             stage="failed",
             progress=append_terminal_error(
-                _read_status(task_id).get("progress"),
+                status_snapshot.get("progress") if isinstance(status_snapshot.get("progress"), dict) else None,
                 stage="failed",
                 error=str(exc),
             ),
             error=str(exc),
             worker_status="running",
         )
+        flush_status(force=True)
 
 
 @app.get("/internal/health")
@@ -284,6 +345,46 @@ async def upload_task_batch(
     }
 
 
+@app.post("/internal/tasks/{task_id}/checkpoint-archive")
+async def upload_checkpoint_archive(
+    task_id: str,
+    response: Response,
+    archive: UploadFile = File(...),
+    _: None = Depends(_require_internal_token),
+):
+    _apply_no_store_headers(response)
+    if archive.filename is None:
+        raise HTTPException(status_code=400, detail="checkpoint archive 文件缺失")
+    task_dir = _task_dir(task_id)
+    task_dir.mkdir(parents=True, exist_ok=True)
+    archive_path = task_dir / "_resume_checkpoint.zip"
+    try:
+        with archive_path.open("wb") as handle:
+            while True:
+                chunk = await archive.read(1024 * 1024)
+                if not chunk:
+                    break
+                handle.write(chunk)
+        with zipfile.ZipFile(archive_path, "r") as bundle:
+            for member in bundle.infolist():
+                relative_name = str(member.filename or "").strip()
+                if not relative_name or relative_name.endswith("/"):
+                    continue
+                target = (task_dir / relative_name).resolve()
+                if task_dir.resolve() not in target.parents and target != task_dir.resolve():
+                    raise HTTPException(status_code=400, detail="checkpoint archive 包含非法路径")
+                target.parent.mkdir(parents=True, exist_ok=True)
+                with bundle.open(member, "r") as source, target.open("wb") as sink:
+                    shutil.copyfileobj(source, sink)
+    finally:
+        try:
+            archive_path.unlink()
+        except Exception:
+            pass
+        await archive.close()
+    return {"task_id": task_id, "status": "ok"}
+
+
 @app.post("/internal/tasks/{task_id}/start")
 def start_task(
     task_id: str,
@@ -307,9 +408,8 @@ def start_task(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     if current.get("version") and current.get("version") != task_version:
         raise HTTPException(status_code=409, detail="worker 任务版本已锁定，不能修改")
-    task_options = {
-        "normalize_live_photos": bool(payload.normalize_live_photos),
-    }
+    task_options = dict(payload.options or {})
+    task_options["normalize_live_photos"] = bool(task_options.get("normalize_live_photos", payload.normalize_live_photos))
 
     max_photos = min(max(1, int(payload.max_photos)), len(uploads), MAX_UPLOAD_PHOTOS)
     _update_status(

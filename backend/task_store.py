@@ -34,13 +34,22 @@ def normalize_task_options(options: dict | None) -> dict:
         auto_start_on_upload_complete = bool(payload.get("auto_start_on_upload_complete"))
     else:
         auto_start_on_upload_complete = bool(creation_source == "manual" and normalized_expected_upload_count is not None)
-    return {
+    resume_from = str(payload.get("resume_from") or "").strip().lower() or None
+    if resume_from not in {"vp1", "lp1", "lp2"}:
+        resume_from = None
+    resume_source_task_id = str(payload.get("resume_source_task_id") or "").strip() or None
+    normalized = {
         "normalize_live_photos": bool(payload.get("normalize_live_photos", DEFAULT_NORMALIZE_LIVE_PHOTOS)),
         "creation_source": creation_source,
         "expected_upload_count": normalized_expected_upload_count,
         "requested_max_photos": normalized_requested_max_photos,
         "auto_start_on_upload_complete": auto_start_on_upload_complete,
     }
+    if resume_from is not None:
+        normalized["resume_from"] = resume_from
+    if resume_source_task_id is not None:
+        normalized["resume_source_task_id"] = resume_source_task_id
+    return normalized
 
 
 class TaskStore:

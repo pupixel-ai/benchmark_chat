@@ -503,8 +503,30 @@ class TaskApiTests(unittest.TestCase):
         task_id = create_response.json()["task_id"]
         self.task_ids.append(task_id)
 
+        task_dir = task_store.task_dir(task_id)
+        (task_dir / "cache").mkdir(parents=True, exist_ok=True)
         family_dir = task_store.task_dir(task_id) / "v0325"
         family_dir.mkdir(parents=True, exist_ok=True)
+        (task_dir / "cache" / "face_recognition_output.json").write_text(
+            json.dumps({"primary_person_id": "Person_001", "persons": [], "images": []}, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        (task_dir / "cache" / "face_recognition_state.json").write_text(
+            json.dumps({"primary_person_id": "Person_001"}, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        (task_dir / "cache" / "vlm_cache.json").write_text(
+            json.dumps({"photos": []}, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        (task_dir / "cache" / "dedupe_report.json").write_text(
+            json.dumps({"retained_images": 1}, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        (family_dir / "vp1_observations.json").write_text(
+            json.dumps([{"photo_id": "photo_001", "sequence_index": 1}], ensure_ascii=False),
+            encoding="utf-8",
+        )
         (family_dir / "lp1_events_compact.json").write_text(
             json.dumps([{"event_id": "EVT_0001", "title": "Breakfast"}], ensure_ascii=False),
             encoding="utf-8",
@@ -622,9 +644,274 @@ class TaskApiTests(unittest.TestCase):
         self.assertTrue(payload["steps"]["lp1"]["artifacts"]["lp1_salvaged_events"]["exists"])
         self.assertEqual(payload["steps"]["lp2"]["data"][0]["person_id"], "Person_002")
         self.assertEqual(payload["steps"]["lp3"]["status"], "failed")
+        self.assertTrue(payload["resume_actions"]["vp1"]["available"])
+        self.assertTrue(payload["resume_actions"]["lp1"]["available"])
+        self.assertFalse(payload["resume_actions"]["lp2"]["available"])
+        self.assertIn("需回退到重跑 LP2+", payload["resume_actions"]["lp2"]["disabled_reason"])
         self.assertTrue(payload["steps"]["lp3"]["artifacts"]["raw_upstream_manifest"]["exists"])
         self.assertTrue(payload["steps"]["lp3"]["artifacts"]["raw_upstream_index"]["exists"])
         self.assertEqual(payload["steps"]["lp3"]["failures"][0]["field_key"], "long_term_facts.identity.role")
+
+    def test_resume_endpoint_forks_completed_v0325_task(self) -> None:
+        create_response = self.client.post("/api/tasks", json={"version": "v0325"})
+        self.assertEqual(create_response.status_code, 200)
+        source_task_id = create_response.json()["task_id"]
+        self.task_ids.append(source_task_id)
+
+        source_task_dir = task_store.task_dir(source_task_id)
+        (source_task_dir / "uploads").mkdir(parents=True, exist_ok=True)
+        (source_task_dir / "uploads" / "001_one.png").write_bytes(self._image_bytes("red"))
+        (source_task_dir / "cache").mkdir(parents=True, exist_ok=True)
+        (source_task_dir / "v0325").mkdir(parents=True, exist_ok=True)
+        (source_task_dir / "cache" / "face_recognition_output.json").write_text(json.dumps({"primary_person_id": "Person_001", "persons": [], "images": []}, ensure_ascii=False), encoding="utf-8")
+        (source_task_dir / "cache" / "face_recognition_state.json").write_text(json.dumps({"primary_person_id": "Person_001"}, ensure_ascii=False), encoding="utf-8")
+        (source_task_dir / "cache" / "vlm_cache.json").write_text(json.dumps({"photos": []}, ensure_ascii=False), encoding="utf-8")
+        (source_task_dir / "cache" / "dedupe_report.json").write_text(json.dumps({"retained_images": 1}, ensure_ascii=False), encoding="utf-8")
+        (source_task_dir / "v0325" / "vp1_observations.json").write_text(json.dumps([{"photo_id": "photo_001", "sequence_index": 1}], ensure_ascii=False), encoding="utf-8")
+        (source_task_dir / "v0325" / "lp1_events_compact.json").write_text(json.dumps([{"event_id": "EVT_0001", "supporting_photo_ids": ["photo_001"]}], ensure_ascii=False), encoding="utf-8")
+        task_store.append_uploads(
+            source_task_id,
+            [
+                {
+                    "image_id": "photo_001",
+                    "filename": "one.png",
+                    "stored_filename": "001_one.png",
+                    "path": "uploads/001_one.png",
+                    "url": "/assets/uploads/001_one.png",
+                    "preview_url": None,
+                    "content_type": "image/png",
+                    "width": 100,
+                    "height": 100,
+                    "source_hash": "hash-001",
+                    "timestamp": "2026-03-20T20:00:00",
+                }
+            ],
+            status="completed",
+            stage="completed",
+        )
+        task_store.update_task(source_task_id, status="completed", stage="completed")
+
+        with patch("backend.app._run_pipeline_task") as run_pipeline:
+            response = self.client.post(
+                f"/api/tasks/{source_task_id}/resume",
+                json={"resume_from": "lp1", "mode": "auto"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertNotEqual(payload["task_id"], source_task_id)
+        self.assertEqual(payload["resume_source_task_id"], source_task_id)
+        self.assertEqual(payload["resume_from"], "lp1")
+        resumed_task = task_store.get_task(payload["task_id"], user_id=self.user_id)
+        self.assertIsNotNone(resumed_task)
+        assert resumed_task is not None
+        self.task_ids.append(payload["task_id"])
+        self.assertEqual(resumed_task["options"]["resume_from"], "lp1")
+        self.assertEqual(resumed_task["options"]["resume_source_task_id"], source_task_id)
+        self.assertTrue((task_store.task_dir(payload["task_id"]) / "uploads" / "001_one.png").exists())
+        self.assertTrue((task_store.task_dir(payload["task_id"]) / "v0325" / "lp1_events_compact.json").exists())
+        run_pipeline.assert_called_once()
+
+    def test_resume_endpoint_reuses_failed_v0325_task_in_place(self) -> None:
+        create_response = self.client.post("/api/tasks", json={"version": "v0325"})
+        self.assertEqual(create_response.status_code, 200)
+        task_id = create_response.json()["task_id"]
+        self.task_ids.append(task_id)
+
+        task_dir = task_store.task_dir(task_id)
+        (task_dir / "uploads").mkdir(parents=True, exist_ok=True)
+        (task_dir / "uploads" / "001_one.png").write_bytes(self._image_bytes("blue"))
+        (task_dir / "cache").mkdir(parents=True, exist_ok=True)
+        (task_dir / "output").mkdir(parents=True, exist_ok=True)
+        (task_dir / "v0325").mkdir(parents=True, exist_ok=True)
+        (task_dir / "cache" / "face_recognition_output.json").write_text(json.dumps({"primary_person_id": "Person_001", "persons": [], "images": []}, ensure_ascii=False), encoding="utf-8")
+        (task_dir / "cache" / "face_recognition_state.json").write_text(json.dumps({"primary_person_id": "Person_001"}, ensure_ascii=False), encoding="utf-8")
+        (task_dir / "cache" / "vlm_cache.json").write_text(json.dumps({"photos": []}, ensure_ascii=False), encoding="utf-8")
+        (task_dir / "cache" / "dedupe_report.json").write_text(json.dumps({"retained_images": 1}, ensure_ascii=False), encoding="utf-8")
+        (task_dir / "v0325" / "vp1_observations.json").write_text(json.dumps([{"photo_id": "photo_001", "sequence_index": 1}], ensure_ascii=False), encoding="utf-8")
+        (task_dir / "v0325" / "lp2_relationships.json").write_text("[]", encoding="utf-8")
+        (task_dir / "output" / "result.json").write_text("{}", encoding="utf-8")
+        task_store.append_uploads(
+            task_id,
+            [
+                {
+                    "image_id": "photo_001",
+                    "filename": "one.png",
+                    "stored_filename": "001_one.png",
+                    "path": "uploads/001_one.png",
+                    "url": "/assets/uploads/001_one.png",
+                    "preview_url": None,
+                    "content_type": "image/png",
+                    "width": 100,
+                    "height": 100,
+                    "source_hash": "hash-001",
+                    "timestamp": "2026-03-20T20:00:00",
+                }
+            ],
+            status="failed",
+            stage="failed",
+        )
+        task_store.update_task(task_id, status="failed", stage="failed", error="lp2 timeout", result={"memory": {}}, result_summary={"pipeline_family": "v0325"})
+
+        with patch("backend.app._run_pipeline_task") as run_pipeline:
+            response = self.client.post(
+                f"/api/tasks/{task_id}/resume",
+                json={"resume_from": "vp1", "mode": "auto"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["task_id"], task_id)
+        refreshed = task_store.get_task(task_id, user_id=self.user_id)
+        self.assertIsNotNone(refreshed)
+        assert refreshed is not None
+        self.assertEqual(refreshed["options"]["resume_from"], "vp1")
+        self.assertEqual(refreshed["options"]["resume_source_task_id"], task_id)
+        archive_root = task_dir / "resume_archives"
+        self.assertTrue(archive_root.exists())
+        self.assertTrue(any((archive_root / child / "v0325" / "lp2_relationships.json").exists() for child in archive_root.iterdir()))
+        run_pipeline.assert_called_once()
+
+    def test_v0325_memory_views_compact_lp3_profile_for_api_payloads(self) -> None:
+        create_response = self.client.post("/api/tasks", json={"version": "v0325"})
+        self.assertEqual(create_response.status_code, 200)
+        task_id = create_response.json()["task_id"]
+        self.task_ids.append(task_id)
+
+        task_store.append_uploads(
+            task_id,
+            [
+                {
+                    "image_id": "photo_001",
+                    "filename": "sample.png",
+                    "stored_filename": "001_sample.png",
+                    "path": "uploads/001_sample.png",
+                    "url": "/assets/uploads/001_sample.png",
+                    "preview_url": None,
+                    "content_type": "image/png",
+                    "width": 100,
+                    "height": 100,
+                    "source_hash": "hash-001",
+                    "timestamp": "2026-03-20T20:00:00",
+                }
+            ],
+            status="completed",
+            stage="completed",
+        )
+        family_dir = task_store.task_dir(task_id) / "v0325"
+        family_dir.mkdir(parents=True, exist_ok=True)
+        structured = {
+            "long_term_facts": {
+                "identity": {
+                    "name": {
+                        "value": "Vigar",
+                        "confidence": 0.93,
+                        "evidence": {
+                            "photo_ids": ["photo_001"],
+                            "event_ids": ["EVT_0001"],
+                            "person_ids": ["Person_001"],
+                            "group_ids": [],
+                            "feature_names": ["event_count"],
+                            "supporting_refs": [
+                                {
+                                    "source_type": "vlm",
+                                    "source_id": "photo_001",
+                                    "photo_id": "photo_001",
+                                    "signal": "sample signal",
+                                    "details": ["very", "large", "payload"],
+                                }
+                            ],
+                            "contradicting_refs": [
+                                {
+                                    "source_type": "vlm",
+                                    "source_id": "photo_009",
+                                    "photo_id": "photo_009",
+                                    "signal": "other signal",
+                                }
+                            ],
+                            "events": [{"event_id": "EVT_0001", "title": "Breakfast"}],
+                            "vlm_observations": [{"photo_id": "photo_001", "summary": "summary"}],
+                            "constraint_notes": ["note-1"],
+                            "summary": "field_judge:long_term_facts.identity.name",
+                        },
+                        "reasoning": "grounded by direct evidence",
+                    }
+                }
+            },
+            "short_term_facts": {},
+            "long_term_expression": {},
+            "short_term_expression": {},
+        }
+        (family_dir / "lp2_relationships.json").write_text(
+            json.dumps(
+                [{"person_id": "Person_002", "relationship_type": "friend", "supporting_photo_ids": ["photo_001"]}],
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+        (family_dir / "lp3_profile.json").write_text(
+            json.dumps(
+                {
+                    "structured": structured,
+                    "summary": "compact summary",
+                    "consistency": {"summary": {"issue_count": 0}},
+                    "field_decisions": [{"field_key": "long_term_facts.identity.name", "final": {"value": "Vigar", "confidence": 0.93}}],
+                    "report_markdown": "# Profile\n\n- Vigar",
+                    "internal_artifacts": {
+                        "downstream_audit": {"final_structured_profile": structured},
+                        "raw_manifest_path": "v0325/raw_upstream_manifest.json",
+                    },
+                },
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+        result = {
+            "face_recognition": {
+                "primary_person_id": "Person_001",
+                "persons": [{"person_id": "Person_001", "photo_count": 1, "face_count": 1, "avg_score": 0.95}],
+                "images": [{"image_id": "photo_001", "source_hash": "hash-001", "faces": [{"person_id": "Person_001"}]}],
+            },
+            "memory": {
+                "pipeline_family": "v0325",
+                "vp1_observations": [{"photo_id": "photo_001", "face_person_ids": ["Person_001"]}],
+                "lp1_events": [{"event_id": "EVT_0001", "supporting_photo_ids": ["photo_001"], "title": "Breakfast"}],
+                "lp2_relationships": [{"person_id": "Person_002", "relationship_type": "friend", "supporting_photo_ids": ["photo_001"]}],
+                "lp3_profile": {
+                    "structured": structured,
+                    "summary": "compact summary",
+                    "consistency": {"summary": {"issue_count": 0}},
+                    "field_decisions": [{"field_key": "long_term_facts.identity.name", "final": {"value": "Vigar", "confidence": 0.93}}],
+                    "report_markdown": "# Profile\n\n- Vigar",
+                    "internal_artifacts": {
+                        "downstream_audit": {"final_structured_profile": structured},
+                        "raw_manifest_path": "v0325/raw_upstream_manifest.json",
+                    },
+                },
+            },
+        }
+        task_store.update_task(task_id, result=result, status="completed", stage="completed")
+
+        core_response = self.client.get(f"/api/tasks/{task_id}/memory/core")
+        self.assertEqual(core_response.status_code, 200)
+        core_payload = core_response.json()
+        evidence = core_payload["profile"]["structured"]["long_term_facts"]["identity"]["name"]["evidence"]
+        self.assertEqual(core_payload["relationships"][0]["person_id"], "Person_002")
+        self.assertEqual(evidence["photo_ids"], ["photo_001"])
+        self.assertEqual(evidence["supporting_ref_count"], 1)
+        self.assertEqual(evidence["contradicting_ref_count"], 1)
+        self.assertNotIn("supporting_refs", evidence)
+        self.assertNotIn("vlm_observations", evidence)
+
+        steps_response = self.client.get(f"/api/tasks/{task_id}/memory/steps")
+        self.assertEqual(steps_response.status_code, 200)
+        steps_payload = steps_response.json()
+        lp3_data = steps_payload["steps"]["lp3"]["data"]
+        lp3_evidence = lp3_data["structured"]["long_term_facts"]["identity"]["name"]["evidence"]
+        self.assertEqual(steps_payload["steps"]["lp2"]["data"][0]["person_id"], "Person_002")
+        self.assertEqual(lp3_evidence["supporting_ref_count"], 1)
+        self.assertNotIn("internal_artifacts", lp3_data)
+        self.assertNotIn("supporting_refs", lp3_evidence)
 
     def test_completed_v0323_task_exposes_analysis_bundle_download(self) -> None:
         create_response = self.client.post("/api/tasks", json={"version": "v0323"})
@@ -861,6 +1148,65 @@ class TaskApiTests(unittest.TestCase):
         self.assertNotIn("bootstrap_prior_event_revision_count", memory_summary)
         self.assertNotIn("bootstrap_applied", payload.get("result_summary") or {})
         self.assertNotIn("bootstrap_source_task_id", payload.get("result_summary") or {})
+
+    def test_task_detail_strips_heavy_lp_snapshot_fields_from_client_payload(self) -> None:
+        create_response = self.client.post("/api/tasks", json={"version": "v0325"})
+        self.assertEqual(create_response.status_code, 200)
+        task_id = create_response.json()["task_id"]
+        self.task_ids.append(task_id)
+
+        task_store.append_uploads(
+            task_id,
+            [
+                {
+                    "image_id": "photo_001",
+                    "filename": "sample.png",
+                    "stored_filename": "001_sample.png",
+                    "path": "uploads/001_sample.png",
+                    "url": "/assets/uploads/001_sample.png",
+                    "preview_url": None,
+                    "content_type": "image/png",
+                    "width": 100,
+                    "height": 100,
+                    "source_hash": "hash-001",
+                    "timestamp": "2026-03-20T20:00:00",
+                }
+            ],
+            status="completed",
+            stage="completed",
+        )
+        task_store.update_task(
+            task_id,
+            result={
+                "memory": {
+                    "pipeline_family": "v0325",
+                    "summary": {"event_count": 1},
+                    "transparency": {"vlm_stage": {"processed_photos": 1}},
+                    "profile_markdown": "# Profile",
+                    "vp1_observations": [{"photo_id": "photo_001"}],
+                    "lp1_events": [{"event_id": "EVT_0001"}],
+                    "lp1_batches": [{"batch_id": "BATCH_0001"}],
+                    "lp2_relationships": [{"person_id": "Person_002"}],
+                    "lp3_profile": {"structured": {"long_term_facts": {}}},
+                }
+            },
+            status="completed",
+            stage="completed",
+        )
+
+        response = self.client.get(f"/api/tasks/{task_id}")
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        memory_payload = ((payload.get("result") or {}).get("memory") or {})
+        self.assertEqual(memory_payload.get("pipeline_family"), "v0325")
+        self.assertIn("summary", memory_payload)
+        self.assertIn("transparency", memory_payload)
+        self.assertIn("profile_markdown", memory_payload)
+        self.assertNotIn("vp1_observations", memory_payload)
+        self.assertNotIn("lp1_events", memory_payload)
+        self.assertNotIn("lp1_batches", memory_payload)
+        self.assertNotIn("lp2_relationships", memory_payload)
+        self.assertNotIn("lp3_profile", memory_payload)
 
     def test_memory_query_endpoint_returns_agent_answer(self) -> None:
         create_response = self.client.post("/api/tasks", json={"version": "v0321.3"})

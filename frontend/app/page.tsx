@@ -18,6 +18,7 @@ import type {
   PersonGroupEntry,
   PersonGroupImage,
   TaskMemoryFullResponse,
+  TaskResumeAction,
   TaskMemoryStepsResponse,
   TaskProgressLogEntry,
   TaskListResponse,
@@ -1396,6 +1397,199 @@ function compactConfidence(value: unknown) {
   return parsed == null ? "n/a" : parsed.toFixed(2);
 }
 
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function formatStructuredLabel(value: string) {
+  return value
+    .split(".")
+    .pop()
+    ?.replace(/_/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase()) ?? value;
+}
+
+function formatStructuredValue(value: unknown) {
+  if (value == null) {
+    return "null";
+  }
+  if (Array.isArray(value)) {
+    if (value.length === 0) {
+      return "[]";
+    }
+    return value.map((item) => (typeof item === "string" ? item : JSON.stringify(item))).join(" · ");
+  }
+  if (typeof value === "string") {
+    return value || "null";
+  }
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
+}
+
+function isStructuredTagObject(value: unknown): value is Record<string, unknown> {
+  if (!isObjectRecord(value)) {
+    return false;
+  }
+  return "value" in value && "confidence" in value && ("evidence" in value || "reasoning" in value);
+}
+
+type StructuredTagEntry = {
+  path: string;
+  sectionKey: string;
+  groupKey: string;
+  fieldKey: string;
+  tag: Record<string, unknown>;
+};
+
+function collectStructuredTagEntries(node: unknown, path: string[] = []): StructuredTagEntry[] {
+  if (isStructuredTagObject(node)) {
+    const sectionKey = path[0] ?? "structured";
+    const groupKey = path[1] ?? sectionKey;
+    const fieldKey = path[path.length - 1] ?? groupKey;
+    return [
+      {
+        path: path.join("."),
+        sectionKey,
+        groupKey,
+        fieldKey,
+        tag: node,
+      },
+    ];
+  }
+  if (!isObjectRecord(node)) {
+    return [];
+  }
+  const entries: StructuredTagEntry[] = [];
+  for (const [key, value] of Object.entries(node)) {
+    entries.push(...collectStructuredTagEntries(value, [...path, key]));
+  }
+  return entries;
+}
+
+function summarizeStructuredEvidence(value: unknown) {
+  if (!isObjectRecord(value)) {
+    return [];
+  }
+  const chips: string[] = [];
+  const photoIds = Array.isArray(value.photo_ids) ? value.photo_ids.length : 0;
+  const eventIds = Array.isArray(value.event_ids) ? value.event_ids.length : 0;
+  const personIds = Array.isArray(value.person_ids) ? value.person_ids.length : 0;
+  const groupIds = Array.isArray(value.group_ids) ? value.group_ids.length : 0;
+  const featureNames = Array.isArray(value.feature_names) ? value.feature_names.length : 0;
+  const supportingCount = readNumericValue(value.supporting_ref_count);
+  const contradictingCount = readNumericValue(value.contradicting_ref_count);
+  if (photoIds > 0) {
+    chips.push(`${photoIds} photos`);
+  }
+  if (eventIds > 0) {
+    chips.push(`${eventIds} events`);
+  }
+  if (personIds > 0) {
+    chips.push(`${personIds} persons`);
+  }
+  if (groupIds > 0) {
+    chips.push(`${groupIds} groups`);
+  }
+  if (featureNames > 0) {
+    chips.push(`${featureNames} features`);
+  }
+  if (supportingCount != null) {
+    chips.push(`${supportingCount} support refs`);
+  }
+  if (contradictingCount != null && contradictingCount > 0) {
+    chips.push(`${contradictingCount} contradictions`);
+  }
+  return chips;
+}
+
+function StructuredProfilePresenter({
+  structured,
+  reportMarkdown,
+  emptyText,
+}: {
+  structured: unknown;
+  reportMarkdown?: string | null;
+  emptyText?: string;
+}) {
+  const entries = collectStructuredTagEntries(structured);
+  const resolvedEntries = entries.filter((entry) => hasDisplayValue(entry.tag.value));
+  const grouped = new Map<string, { sectionKey: string; groupKey: string; items: StructuredTagEntry[] }>();
+  for (const entry of resolvedEntries) {
+    const groupId = `${entry.sectionKey}.${entry.groupKey}`;
+    if (!grouped.has(groupId)) {
+      grouped.set(groupId, { sectionKey: entry.sectionKey, groupKey: entry.groupKey, items: [] });
+    }
+    grouped.get(groupId)?.items.push(entry);
+  }
+
+  return (
+    <div className="space-y-4">
+      {resolvedEntries.length > 0 ? (
+        <>
+          <div className="rounded-[10px] bg-white px-4 py-3 text-xs text-[#6f5847]">
+            resolved {resolvedEntries.length} / total {entries.length} fields
+          </div>
+          <div className="space-y-4">
+            {Array.from(grouped.values()).map((group) => (
+              <section key={`${group.sectionKey}.${group.groupKey}`} className="rounded-[12px] border border-[#ddcebb] bg-[#fbf5ed] p-4">
+                <div className="mb-3">
+                  <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-black/42">{formatStructuredLabel(group.sectionKey)}</p>
+                  <h4 className="mt-2 text-base font-semibold text-ink">{formatStructuredLabel(group.groupKey)}</h4>
+                </div>
+                <div className="grid gap-3 lg:grid-cols-2">
+                  {group.items.map((entry) => {
+                    const evidence = isObjectRecord(entry.tag.evidence) ? entry.tag.evidence : null;
+                    const evidenceChips = summarizeStructuredEvidence(evidence);
+                    const reasoning = typeof entry.tag.reasoning === "string" ? entry.tag.reasoning : "";
+                    const evidenceSummary = evidence && typeof evidence.summary === "string" ? evidence.summary : "";
+                    return (
+                      <article key={entry.path} className="rounded-[10px] bg-white px-4 py-4 text-sm text-[#5f4e42] shadow-[inset_0_0_0_1px_rgba(120,91,66,0.08)]">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-black/42">{formatStructuredLabel(entry.fieldKey)}</p>
+                            <p className="mt-2 text-base font-medium text-ink">{formatStructuredValue(entry.tag.value)}</p>
+                          </div>
+                          <div className="rounded-[10px] bg-[#f6eee3] px-3 py-2 text-xs text-[#6f5847]">
+                            conf {compactConfidence(entry.tag.confidence)}
+                          </div>
+                        </div>
+                        {reasoning ? <p className="mt-3 text-sm leading-6 text-[#5f4e42]">{reasoning}</p> : null}
+                        {evidenceChips.length > 0 ? (
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {evidenceChips.map((chip) => (
+                              <span key={chip} className="rounded-full bg-[#f6eee3] px-3 py-1 text-[11px] text-[#6f5847]">
+                                {chip}
+                              </span>
+                            ))}
+                          </div>
+                        ) : null}
+                        {evidenceSummary ? <p className="mt-3 text-xs leading-5 text-black/45">{evidenceSummary}</p> : null}
+                      </article>
+                    );
+                  })}
+                </div>
+              </section>
+            ))}
+          </div>
+        </>
+      ) : (
+        <p className="text-sm text-black/56">{emptyText ?? "当前还没有可展示的结构化画像字段。"}</p>
+      )}
+      {reportMarkdown ? (
+        <pre className="max-h-[420px] overflow-auto whitespace-pre-wrap rounded-[10px] bg-[#f6eee3] p-3 text-sm leading-6 text-[#5f4e42]">
+          {reportMarkdown}
+        </pre>
+      ) : null}
+    </div>
+  );
+}
+
 function PhotoStrip({
   photos,
   emptyText = "当前没有原始照片回挂。"
@@ -1464,6 +1658,12 @@ function RecallEventCard({ event }: { event: FullMemoryEvent }) {
 }
 
 function RecallRelationshipCard({ relationship }: { relationship: FullMemoryRelationship }) {
+  const badges = [
+    relationship.relationship_type ? `type ${relationship.relationship_type}` : "",
+    relationship.status ? `status ${relationship.status}` : "",
+    readNumericValue(relationship.confidence) != null ? `confidence ${compactConfidence(relationship.confidence)}` : "",
+    readNumericValue(relationship.intimacy_score) != null ? `intimacy ${compactConfidence(relationship.intimacy_score)}` : "",
+  ].filter(Boolean);
   return (
     <article className="rounded-[12px] border border-[#ddcebb] bg-[#fbf5ed] p-4">
       <div className="space-y-3">
@@ -1473,9 +1673,22 @@ function RecallRelationshipCard({ relationship }: { relationship: FullMemoryRela
         </div>
         <div className="rounded-[10px] bg-white px-4 py-3 text-xs text-[#6f5847]">
           photos {(relationship.photo_ids ?? []).length}
+          {Array.isArray(relationship.shared_events) ? ` · events ${relationship.shared_events.length}` : ""}
         </div>
+        {badges.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {badges.map((badge) => (
+              <span key={badge} className="rounded-full bg-white px-3 py-1 text-[11px] text-[#6f5847]">
+                {badge}
+              </span>
+            ))}
+          </div>
+        ) : null}
+        {relationship.reasoning ? <p className="text-sm leading-6 text-[#5f4e42]">{relationship.reasoning}</p> : null}
       </div>
       <JsonDetails title="photo_ids" value={relationship.photo_ids} />
+      {hasDisplayValue(relationship.shared_events) ? <JsonDetails title="shared_events" value={relationship.shared_events} /> : null}
+      {hasDisplayValue(relationship.evidence) ? <JsonDetails title="evidence" value={relationship.evidence} /> : null}
     </article>
   );
 }
@@ -1592,18 +1805,16 @@ function MemoryPanel({
         <MetricCard label="VLM" value={fullMemory.vlm.length} detail="photo-level understanding" />
         <MetricCard label="Events" value={fullMemory.events.length} detail="task finalized events" />
         <MetricCard label="Relationships" value={fullMemory.relationships.length} detail="task relationship results" />
-        <MetricCard label="Profile" value={profile.report_markdown ? "ready" : "pending"} detail="task profile output" />
+        <MetricCard label="Profile" value={profile.report_markdown || hasDisplayValue(profile.structured) ? "ready" : "pending"} detail="task profile output" />
       </div>
 
       <div className="mt-5 space-y-4">
         <FoldableStageCard title="Profile / 用户画像">
-          {profile.report_markdown ? (
-            <pre className="max-h-[420px] overflow-auto whitespace-pre-wrap rounded-[10px] bg-[#f6eee3] p-3 text-sm leading-6 text-[#5f4e42]">
-              {profile.report_markdown}
-            </pre>
-          ) : (
-            <p className="text-sm text-black/56">当前画像报告尚未生成。</p>
-          )}
+          <StructuredProfilePresenter
+            structured={profile.structured}
+            reportMarkdown={profile.report_markdown}
+            emptyText="当前画像报告尚未生成。"
+          />
         </FoldableStageCard>
 
         <FoldableStageCard title="Full Relationships / 全量人物关系" meta={`${fullMemory.relationships.length} relationships`}>
@@ -1662,13 +1873,25 @@ function MemoryPanel({
 }
 
 function MemoryStepsPanel({
+  taskId,
   stepsPayload,
   loading,
+  resumeBusy,
+  onResume,
 }: {
+  taskId: string;
   stepsPayload: TaskMemoryStepsResponse | null;
   loading: boolean;
+  resumeBusy: boolean;
+  onResume: (resumeFrom: "vp1" | "lp1" | "lp2") => void;
 }) {
   const steps = stepsPayload?.steps ?? null;
+  const resumeActions = stepsPayload?.resume_actions ?? {};
+  const resumeButtons: Array<{ key: "vp1" | "lp1" | "lp2"; label: string }> = [
+    { key: "vp1", label: "重跑 LP1+（复用 VP1）" },
+    { key: "lp1", label: "重跑 LP2+（复用 LP1）" },
+    { key: "lp2", label: "重跑 LP3（复用 LP2）" },
+  ];
 
   const buildMeta = (stepKey: "lp1" | "lp2" | "lp3") => {
     const step = steps?.[stepKey];
@@ -1757,7 +1980,29 @@ function MemoryStepsPanel({
             这里把 `v0323 / v0325` 的 LP1、LP2、LP3 拆开展示。每一步一旦写出数据，就会立即显示，不再等整条 memory 链路全部结束。
           </p>
         </div>
-        {loading ? <WaitingDots label="正在刷新 LP steps" compact /> : null}
+        <div className="flex flex-col items-start gap-3 lg:items-end">
+          {loading ? <WaitingDots label="正在刷新 LP steps" compact /> : null}
+          {stepsPayload?.pipeline_family === "v0325" ? (
+            <div className="flex flex-wrap gap-2">
+              {resumeButtons.map(({ key, label }) => {
+                const action = resumeActions[key] as TaskResumeAction | undefined;
+                const disabled = resumeBusy || !action?.available;
+                return (
+                  <button
+                    key={`${taskId}-${key}`}
+                    type="button"
+                    onClick={() => onResume(key)}
+                    disabled={disabled}
+                    title={action?.disabled_reason ?? ""}
+                    className="rounded-full border border-[#c7a889] bg-white px-4 py-2 text-sm text-[#6c4e34] transition hover:border-[#9c724b] hover:text-[#4d331d] disabled:cursor-not-allowed disabled:border-black/10 disabled:bg-black/[0.04] disabled:text-black/35"
+                  >
+                    {resumeBusy ? "处理中..." : label}
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
+        </div>
       </div>
 
       <div className="mt-5 space-y-4">
@@ -1803,13 +2048,17 @@ function MemoryStepsPanel({
         </FoldableStageCard>
 
         <FoldableStageCard title="LP2 / 关系推断" meta={buildMeta("lp2")} loading={Boolean(steps?.lp2?.status === "running")} loadingLabel="LP2">
-          {hasDisplayValue(steps?.lp2?.data) ? (
+          {Array.isArray(steps?.lp2?.data) && steps.lp2.data.length > 0 ? (
             <>
-              <pre className="max-h-[320px] overflow-auto whitespace-pre-wrap break-all rounded-[10px] bg-[#f6eee3] p-3 text-xs leading-6 text-[#5f4e42]">
-                {formatJson(steps?.lp2?.data)}
-              </pre>
-              <div className="mt-3 flex justify-end">
-                <JsonCopyButton value={steps?.lp2?.data} ariaLabel="复制 LP2 输出" />
+              <div className="h-[min(62vh,38rem)] overflow-auto pr-1">
+                <div className="space-y-3">
+                  {steps.lp2.data.map((relationship, index) => (
+                    <RecallRelationshipCard key={`${String((relationship as Record<string, unknown>).person_id ?? "relationship")}-${index}`} relationship={relationship as FullMemoryRelationship} />
+                  ))}
+                </div>
+              </div>
+              <div className="mt-3">
+                <JsonDetails title="LP2 Raw" value={steps.lp2.data} />
               </div>
             </>
           ) : (
@@ -1821,11 +2070,13 @@ function MemoryStepsPanel({
         <FoldableStageCard title="LP3 / 画像生成" meta={buildMeta("lp3")} loading={Boolean(steps?.lp3?.status === "running")} loadingLabel="LP3">
           {hasDisplayValue(steps?.lp3?.data) ? (
             <>
-              <pre className="max-h-[320px] overflow-auto whitespace-pre-wrap break-all rounded-[10px] bg-[#f6eee3] p-3 text-xs leading-6 text-[#5f4e42]">
-                {formatJson(steps?.lp3?.data)}
-              </pre>
-              <div className="mt-3 flex justify-end">
-                <JsonCopyButton value={steps?.lp3?.data} ariaLabel="复制 LP3 输出" />
+              <StructuredProfilePresenter
+                structured={isObjectRecord(steps?.lp3?.data) ? steps.lp3.data.structured : null}
+                reportMarkdown={isObjectRecord(steps?.lp3?.data) && typeof steps.lp3.data.report_markdown === "string" ? steps.lp3.data.report_markdown : ""}
+                emptyText="当前还没有 LP3 结构化画像。"
+              />
+              <div className="mt-3">
+                <JsonDetails title="LP3 Raw" value={steps?.lp3?.data} />
               </div>
             </>
           ) : (
@@ -2173,6 +2424,7 @@ export default function HomePage() {
   const [fullMemoryLoadingByTask, setFullMemoryLoadingByTask] = useState<Record<string, boolean>>({});
   const [memoryStepsByTask, setMemoryStepsByTask] = useState<Record<string, TaskMemoryStepsResponse | null>>({});
   const [memoryStepsLoadingByTask, setMemoryStepsLoadingByTask] = useState<Record<string, boolean>>({});
+  const [resumeBusyByTask, setResumeBusyByTask] = useState<Record<string, boolean>>({});
   const [error, setError] = useState<string | null>(null);
 
   const currentFaceStage = currentTask ? readStageProgress(currentTask.progress, "face_recognition") : {};
@@ -2187,6 +2439,7 @@ export default function HomePage() {
   const currentFullMemoryLoading = currentTask ? Boolean(fullMemoryLoadingByTask[currentTask.task_id]) : false;
   const currentMemorySteps = currentTask ? memoryStepsByTask[currentTask.task_id] ?? null : null;
   const currentMemoryStepsLoading = currentTask ? Boolean(memoryStepsLoadingByTask[currentTask.task_id]) : false;
+  const currentResumeBusy = currentTask ? Boolean(resumeBusyByTask[currentTask.task_id]) : false;
   const currentAnalysisBundle = currentTask?.downloads?.analysis_bundle ?? null;
   const currentTaskVersion = currentTask?.version ?? LEGACY_TASK_VERSION;
   const visibleTaskVersions = useMemo(() => Array.from(new Set([currentTaskVersion, ...availableTaskVersions])), [availableTaskVersions, currentTaskVersion]);
@@ -2501,6 +2754,37 @@ export default function HomePage() {
       setError(fetchError instanceof Error ? fetchError.message : "读取 LP steps 失败");
     } finally {
       setMemoryStepsLoadingByTask((previous) => ({
+        ...previous,
+        [taskId]: false,
+      }));
+    }
+  }
+
+  async function resumeTaskFromCheckpoint(taskId: string, resumeFrom: "vp1" | "lp1" | "lp2") {
+    setResumeBusyByTask((previous) => ({
+      ...previous,
+      [taskId]: true,
+    }));
+    try {
+      const response = await apiFetch(`${API_BASE}/api/tasks/${taskId}/resume`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ resume_from: resumeFrom, mode: "auto" }),
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(payload?.detail ?? "启动 checkpoint 恢复失败");
+      }
+      await fetchTasks({ preserveCurrent: false });
+      if (payload?.task_id) {
+        await fetchTask(String(payload.task_id));
+      }
+    } catch (resumeError) {
+      setError(resumeError instanceof Error ? resumeError.message : "启动 checkpoint 恢复失败");
+    } finally {
+      setResumeBusyByTask((previous) => ({
         ...previous,
         [taskId]: false,
       }));
@@ -3420,8 +3704,13 @@ export default function HomePage() {
 
           {!isDraftView && currentTask && (currentTask.version === "v0323" || currentTask.version === "v0325") ? (
             <MemoryStepsPanel
+              taskId={currentTask.task_id}
               stepsPayload={currentMemorySteps}
               loading={currentMemoryStepsLoading}
+              resumeBusy={currentResumeBusy}
+              onResume={(resumeFrom) => {
+                void resumeTaskFromCheckpoint(currentTask.task_id, resumeFrom);
+              }}
             />
           ) : null}
 

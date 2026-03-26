@@ -12,7 +12,9 @@ LP2/LP3 agent-style pipeline with:
 from __future__ import annotations
 
 import copy
+import gzip
 import json
+import os
 import re
 from collections import Counter, defaultdict
 from dataclasses import asdict, dataclass, field, replace
@@ -35,6 +37,16 @@ from config import (
 from models import Event
 from utils import load_json, save_json
 
+from services.v0325.profile_compaction import compact_structured_profile
+from services.v0325.lp3_core import (
+    analyze_primary_person_with_reflection as agent_analyze_primary_person_with_reflection,
+    build_profile_context as agent_build_profile_context,
+    build_relationship_dossiers as agent_build_relationship_dossiers,
+    detect_groups as agent_detect_groups,
+    generate_structured_profile as agent_generate_structured_profile,
+    infer_relationships_from_dossiers as agent_infer_relationships_from_dossiers,
+    screen_people as agent_screen_people,
+)
 from services.v0323.pipeline import (
     LP1_ANALYSIS_TEXT_CHAR_LIMIT,
     LP1_BATCH_SIZE,
@@ -279,6 +291,64 @@ def _flatten_ref_buckets(ref_buckets: Dict[str, List[Dict[str, Any]]]) -> List[D
     return flat
 
 
+def _candidate_ref_ids(ref: Dict[str, Any]) -> List[str]:
+    ids: List[str] = []
+    for key in ("event_id", "photo_id", "person_id", "group_id", "feature_name"):
+        if ref.get(key):
+            ids.append(str(ref[key]))
+    for key in ("event_ids", "photo_ids", "person_ids", "group_ids", "feature_names"):
+        ids.extend(str(item) for item in ref.get(key, []) or [])
+    return _dedupe_strs(ids)
+
+
+def _build_ref_index(ref_buckets: Dict[str, List[Dict[str, Any]]]) -> Dict[str, Dict[str, Any]]:
+    ref_index: Dict[str, Dict[str, Any]] = {}
+    for ref in _flatten_ref_buckets(ref_buckets):
+        for ref_id in _candidate_ref_ids(ref):
+            ref_index[ref_id] = ref
+    return ref_index
+
+
+def _dedupe_refs(refs: Iterable[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    seen: set[Tuple[str, ...]] = set()
+    ordered: List[Dict[str, Any]] = []
+    for ref in refs:
+        identity = tuple(_candidate_ref_ids(ref)) or tuple(
+            f"{key}:{json.dumps(value, ensure_ascii=False, default=_json_default)}"
+            for key, value in sorted(ref.items())
+        )
+        if identity in seen:
+            continue
+        seen.add(identity)
+        ordered.append(ref)
+    return ordered
+
+
+def _select_refs(ref_index: Dict[str, Dict[str, Any]], ref_ids: Iterable[str] | None) -> List[Dict[str, Any]]:
+    refs: List[Dict[str, Any]] = []
+    for ref_id in ref_ids or []:
+        normalized = str(ref_id or "").strip()
+        if not normalized:
+            continue
+        ref = ref_index.get(normalized)
+        if ref is not None:
+            refs.append(ref)
+    return _dedupe_refs(refs)
+
+
+def _filter_bucket(bucket: List[Dict[str, Any]], selected_refs: Iterable[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    selected_id_set: set[str] = set()
+    for ref in selected_refs:
+        selected_id_set.update(_candidate_ref_ids(ref))
+    if not selected_id_set:
+        return []
+    filtered: List[Dict[str, Any]] = []
+    for ref in bucket:
+        if selected_id_set.intersection(_candidate_ref_ids(ref)):
+            filtered.append(ref)
+    return _dedupe_refs(filtered)
+
+
 def _extract_ids_from_refs(refs: Iterable[Dict[str, Any]]) -> Dict[str, List[str]]:
     photo_ids: List[str] = []
     event_ids: List[str] = []
@@ -358,6 +428,13 @@ def _empty_tag_object() -> Dict[str, Any]:
         "evidence": evidence,
         "reasoning": "",
     }
+
+
+def _normalize_ref_id_list(values: Any, *, ref_index: Dict[str, Dict[str, Any]] | None = None) -> List[str]:
+    normalized = _dedupe_strs(values if isinstance(values, list) else [])
+    if not ref_index:
+        return normalized
+    return [ref_id for ref_id in normalized if ref_id in ref_index]
 
 
 def _section(keys: Iterable[str]) -> Dict[str, Any]:
@@ -815,6 +892,7 @@ class V0325LLMRuntimeAdapter:
             evidence["private_scene_ratio"] = round(private_scene_hits / len(co_photos), 2)
         if scene_counts:
             evidence["dominant_scene_ratio"] = round(max(scene_counts.values()) / len(co_photos), 2)
+
         evidence["rela_events"] = _collect_shared_events_from_state(events or [], person_id)
         for event in evidence["rela_events"]:
             for dyn in list(event.get("social_dynamics", []) or []):
@@ -822,11 +900,7 @@ class V0325LLMRuntimeAdapter:
                     interaction = str(dyn.get("interaction_type") or "").strip()
                     if interaction and interaction not in evidence["interaction_behavior"]:
                         evidence["interaction_behavior"].append(interaction)
-        evidence["co_appearing_persons"] = [
-            {"person_id": pid, "co_count": count, "co_ratio": round(count / len(co_photos), 2)}
-            for pid, count in third_party.most_common(8)
-            if count >= 2
-        ]
+
         if len(timestamps) >= 4:
             midpoint = timestamps[0] + (timestamps[-1] - timestamps[0]) / 2
             first_half = [item for item in timestamps if item <= midpoint]
@@ -846,6 +920,11 @@ class V0325LLMRuntimeAdapter:
                 "direction": direction,
                 "change_ratio": round(second_freq / max(first_freq, 0.1), 1),
             }
+        evidence["co_appearing_persons"] = [
+            {"person_id": pid, "co_count": count, "co_ratio": round(count / len(co_photos), 2)}
+            for pid, count in third_party.most_common(8)
+            if count >= 2
+        ]
         evidence["contact_types"] = _unique_strings(evidence["contact_types"])
         return evidence
 
@@ -912,6 +991,11 @@ class V0325PipelineFamily(V0323PipelineFamily):
         self.lp2_relationships_jsonl_path = self.family_dir / "lp2_relationships.jsonl"
         self.lp2_relationships_path = self.family_dir / "lp2_relationships.json"
         self.lp3_profile_path = self.family_dir / "lp3_profile.json"
+        self.structured_profile_path = self.family_dir / "structured_profile.json"
+        self.relationship_dossiers_path = self.family_dir / "relationship_dossiers.json"
+        self.group_artifacts_path = self.family_dir / "group_artifacts.json"
+        self.profile_fact_decisions_path = self.family_dir / "profile_fact_decisions.json"
+        self.downstream_audit_report_path = self.family_dir / "downstream_audit_report.json"
         self.llm_failures_path = self.family_dir / "llm_failures.jsonl"
         self.memory_snapshot_path = self.family_dir / "memory_snapshot.json"
         self.raw_manifest_path = self.family_dir / "raw_upstream_manifest.json"
@@ -1000,6 +1084,62 @@ class V0325PipelineFamily(V0323PipelineFamily):
             )
         else:
             _safe_unlink(self.lp1_salvage_report_path)
+
+    def _relative_artifact_path(self, path: Path) -> str:
+        return path.relative_to(self.task_dir).as_posix()
+
+    def _persist_lp3_sidecar_artifacts(
+        self,
+        *,
+        state: MemoryState,
+        field_decisions: Sequence[Dict[str, Any]],
+        audit_payload: Dict[str, Any],
+        compact_structured: Dict[str, Any],
+    ) -> Dict[str, str]:
+        relationship_dossiers = [dossier.to_dict() for dossier in state.relationship_dossiers]
+        group_artifacts = [group.to_dict() for group in state.groups]
+        compact_field_decisions = [self._compact_profile_fact_decision(item) for item in field_decisions]
+        save_json(compact_structured, str(self.structured_profile_path))
+        save_json(relationship_dossiers, str(self.relationship_dossiers_path))
+        save_json(group_artifacts, str(self.group_artifacts_path))
+        save_json(compact_field_decisions, str(self.profile_fact_decisions_path))
+        if self._debug_profile_trace_enabled():
+            with gzip.open(self.profile_fact_decisions_path.with_suffix(".full.json.gz"), "wt", encoding="utf-8") as handle:
+                json.dump(list(field_decisions), handle, indent=2, ensure_ascii=False)
+        save_json(audit_payload, str(self.downstream_audit_report_path))
+        return {
+            "structured_profile_path": self._relative_artifact_path(self.structured_profile_path),
+            "relationship_dossiers_path": self._relative_artifact_path(self.relationship_dossiers_path),
+            "group_artifacts_path": self._relative_artifact_path(self.group_artifacts_path),
+            "profile_fact_decisions_path": self._relative_artifact_path(self.profile_fact_decisions_path),
+            "downstream_audit_report_path": self._relative_artifact_path(self.downstream_audit_report_path),
+        }
+
+    def _debug_profile_trace_enabled(self) -> bool:
+        return str(os.getenv("DEBUG_PROFILE_TRACE", "")).strip().lower() in {"1", "true", "yes", "on"}
+
+    def _compact_profile_fact_decision(self, decision: Dict[str, Any]) -> Dict[str, Any]:
+        tool_trace = dict(decision.get("tool_trace") or {})
+        evidence_bundle = dict(tool_trace.get("evidence_bundle") or {})
+        compact = dict(evidence_bundle.get("compact") or {})
+        final = dict(decision.get("final") or {})
+        draft = dict(decision.get("draft") or {})
+        supporting_ids = list(final.get("supporting_ref_ids", []) or draft.get("supporting_ref_ids", []) or [])
+        contradicting_ids = list(final.get("contradicting_ref_ids", []) or draft.get("contradicting_ref_ids", []) or [])
+        return {
+            "field_key": decision.get("field_key"),
+            "batch_name": decision.get("batch_name"),
+            "final": final,
+            "null_reason": decision.get("null_reason") or final.get("null_reason") or draft.get("null_reason"),
+            "supporting_ids": supporting_ids,
+            "contradicting_ids": contradicting_ids,
+            "source_coverage": compact.get("source_coverage", evidence_bundle.get("source_coverage", {})),
+            "representative_refs": {
+                "events": list(compact.get("representative_events", []) or []),
+                "photos": list(compact.get("representative_photos", []) or []),
+                "top_candidates": list(compact.get("top_candidates", []) or []),
+            },
+        }
 
     def _build_batches(self, observations: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
         batches: List[Dict[str, Any]] = []
@@ -1631,6 +1771,105 @@ class V0325PipelineFamily(V0323PipelineFamily):
         save_json(observations, str(self.vp1_path))
 
         lp1_payload = self._run_lp1_batches(observations, progress_callback=progress_callback)
+        return self._run_from_lp1_payload(
+            observations=observations,
+            face_output=face_output,
+            primary_person_id=primary_person_id,
+            cached_photo_ids=cached_photo_ids,
+            dedupe_report=dedupe_report,
+            lp1_payload=lp1_payload,
+            progress_callback=progress_callback,
+        )
+
+    def run_from_precomputed(
+        self,
+        *,
+        observations: Sequence[Dict[str, Any]],
+        face_output: Dict[str, Any],
+        primary_person_id: Optional[str],
+        cached_photo_ids: Sequence[str],
+        dedupe_report: Dict[str, Any],
+        lp1_events: Sequence[Dict[str, Any]],
+        lp1_batches: Sequence[Dict[str, Any]] | None = None,
+        lp1_event_continuation_log: Sequence[Dict[str, Any]] | None = None,
+        progress_callback: Optional[Callable[[str, Dict[str, Any]], None]] = None,
+    ) -> Dict[str, Any]:
+        observations = [dict(item) for item in list(observations or [])]
+        self.observation_index = {item["photo_id"]: item for item in observations}
+        self.photo_order_index = {
+            item["photo_id"]: int(item["sequence_index"])
+            for item in observations
+        }
+        save_json(observations, str(self.vp1_path))
+        lp1_payload = self._persist_precomputed_lp1_payload(
+            observations=observations,
+            lp1_events=lp1_events,
+            lp1_batches=lp1_batches,
+            lp1_event_continuation_log=lp1_event_continuation_log,
+        )
+        return self._run_from_lp1_payload(
+            observations=observations,
+            face_output=face_output,
+            primary_person_id=primary_person_id,
+            cached_photo_ids=cached_photo_ids,
+            dedupe_report=dedupe_report,
+            lp1_payload=lp1_payload,
+            progress_callback=progress_callback,
+        )
+
+    def run_from_lp2_checkpoint(
+        self,
+        *,
+        observations: Sequence[Dict[str, Any]],
+        face_output: Dict[str, Any],
+        primary_person_id: Optional[str],
+        cached_photo_ids: Sequence[str],
+        dedupe_report: Dict[str, Any],
+        lp1_events: Sequence[Dict[str, Any]],
+        lp2_relationships: Sequence[Dict[str, Any]],
+        relationship_dossiers: Sequence[Dict[str, Any]],
+        group_artifacts: Sequence[Dict[str, Any]],
+        lp1_batches: Sequence[Dict[str, Any]] | None = None,
+        lp1_event_continuation_log: Sequence[Dict[str, Any]] | None = None,
+        progress_callback: Optional[Callable[[str, Dict[str, Any]], None]] = None,
+    ) -> Dict[str, Any]:
+        observations = [dict(item) for item in list(observations or [])]
+        self.observation_index = {item["photo_id"]: item for item in observations}
+        self.photo_order_index = {
+            item["photo_id"]: int(item["sequence_index"])
+            for item in observations
+        }
+        save_json(observations, str(self.vp1_path))
+        lp1_payload = self._persist_precomputed_lp1_payload(
+            observations=observations,
+            lp1_events=lp1_events,
+            lp1_batches=lp1_batches,
+            lp1_event_continuation_log=lp1_event_continuation_log,
+        )
+        return self._run_from_lp2_payload(
+            observations=observations,
+            face_output=face_output,
+            primary_person_id=primary_person_id,
+            cached_photo_ids=cached_photo_ids,
+            dedupe_report=dedupe_report,
+            lp1_payload=lp1_payload,
+            lp2_relationships=lp2_relationships,
+            relationship_dossiers=relationship_dossiers,
+            group_artifacts=group_artifacts,
+            progress_callback=progress_callback,
+        )
+
+    def _run_from_lp1_payload(
+        self,
+        *,
+        observations: Sequence[Dict[str, Any]],
+        face_output: Dict[str, Any],
+        primary_person_id: Optional[str],
+        cached_photo_ids: Sequence[str],
+        dedupe_report: Dict[str, Any],
+        lp1_payload: Dict[str, Any],
+        progress_callback: Optional[Callable[[str, Dict[str, Any]], None]] = None,
+    ) -> Dict[str, Any]:
 
         self._notify(
             progress_callback,
@@ -1662,34 +1901,176 @@ class V0325PipelineFamily(V0323PipelineFamily):
             llm_processor=self.llm_processor,
             primary_person_id_hint=primary_person_id,
         )
-        state.screening = _screen_people(state)
-        primary_decision, primary_reflection = _analyze_primary_person_with_reflection(
+        state.screening = agent_screen_people(state)
+        primary_decision, primary_reflection = agent_analyze_primary_person_with_reflection(
             state=state,
             fallback_primary_person_id=primary_person_id,
             llm_processor=llm_adapter,
         )
-        state.primary_decision = primary_decision
+        state.primary_decision = primary_decision.to_dict()
         state.primary_reflection = primary_reflection
         _rebind_primary_aliases(state, previous_primary_person_id=primary_person_id)
         llm_adapter.primary_person_id = (state.primary_decision or {}).get("primary_person_id")
 
-        dossiers = _build_relationship_dossiers(state=state, llm_processor=llm_adapter)
-        relationships, dossiers = _infer_relationships_from_dossiers(
+        dossiers = agent_build_relationship_dossiers(state=state, llm_processor=llm_adapter)
+        candidate_count = len(dossiers)
+        self._notify(
+            progress_callback,
+            {
+                "message": "v0325 LP2 关系推断中",
+                "pipeline_family": PIPELINE_FAMILY_V0325,
+                "substage": "lp2_relationship",
+                "candidate_count": candidate_count,
+                "processed_candidates": 0,
+                "current_candidate_index": 0,
+                "relationship_count": 0,
+                "percent": 45 if candidate_count > 0 else 70,
+            },
+        )
+
+        def _report_relationship_progress(payload: Dict[str, Any]) -> None:
+            processed = int(payload.get("processed_candidates") or 0)
+            total = int(payload.get("candidate_count") or candidate_count or 0)
+            percent = 70 if total <= 0 else round(45 + (processed / total) * 25, 2)
+            self._notify(
+                progress_callback,
+                {
+                    "message": "v0325 LP2 关系推断中",
+                    "pipeline_family": PIPELINE_FAMILY_V0325,
+                    "substage": "lp2_relationship",
+                    "candidate_count": total,
+                    "processed_candidates": processed,
+                    "current_candidate_index": int(payload.get("current_candidate_index") or processed),
+                    "last_completed_person_id": payload.get("last_completed_person_id"),
+                    "relationship_count": int(payload.get("relationship_count") or 0),
+                    "percent": percent,
+                },
+            )
+
+        relationships, dossiers = agent_infer_relationships_from_dossiers(
             state=state,
             llm_processor=llm_adapter,
             dossiers=dossiers,
+            progress_callback=_report_relationship_progress,
         )
         state.relationship_dossiers = dossiers
         state.relationships = relationships
-        state.groups = _detect_groups(state)
-        state.profile_context = _build_profile_context(state)
+        state.groups = agent_detect_groups(state)
+        state.profile_context = agent_build_profile_context(state)
 
         profile_payload = self._run_lp3_profile(
             state=state,
             llm_processor=llm_adapter,
             progress_callback=progress_callback,
         )
+        return self._finalize_memory_payload(
+            observations=observations,
+            lp1_payload=lp1_payload,
+            state=state,
+            profile_payload=profile_payload,
+            cached_photo_ids=cached_photo_ids,
+            dedupe_report=dedupe_report,
+            raw_manifest=raw_manifest,
+        )
 
+    def _run_from_lp2_payload(
+        self,
+        *,
+        observations: Sequence[Dict[str, Any]],
+        face_output: Dict[str, Any],
+        primary_person_id: Optional[str],
+        cached_photo_ids: Sequence[str],
+        dedupe_report: Dict[str, Any],
+        lp1_payload: Dict[str, Any],
+        lp2_relationships: Sequence[Dict[str, Any]],
+        relationship_dossiers: Sequence[Dict[str, Any]],
+        group_artifacts: Sequence[Dict[str, Any]],
+        progress_callback: Optional[Callable[[str, Dict[str, Any]], None]] = None,
+    ) -> Dict[str, Any]:
+        self._notify(
+            progress_callback,
+            {
+                "message": "v0325 LP3 checkpoint 恢复中",
+                "pipeline_family": PIPELINE_FAMILY_V0325,
+                "substage": "lp3_profile",
+                "percent": 72,
+            },
+        )
+        raw_upstream, raw_manifest, raw_index = self._build_raw_upstream_payload(
+            face_output=face_output,
+            observations=observations,
+            lp1_payload=lp1_payload,
+            dedupe_report=dedupe_report,
+        )
+        save_json(raw_manifest, str(self.raw_manifest_path))
+        save_json(raw_index, str(self.raw_index_path))
+
+        state = self._build_memory_state(
+            face_output=face_output,
+            observations=observations,
+            lp1_events=lp1_payload["lp1_events"],
+            fallback_primary_person_id=primary_person_id,
+            raw_upstream=raw_upstream,
+            raw_index=raw_index,
+        )
+        llm_adapter = V0325LLMRuntimeAdapter(
+            llm_processor=self.llm_processor,
+            primary_person_id_hint=primary_person_id,
+        )
+        state.screening = agent_screen_people(state)
+        primary_decision, primary_reflection = agent_analyze_primary_person_with_reflection(
+            state=state,
+            fallback_primary_person_id=primary_person_id,
+            llm_processor=llm_adapter,
+        )
+        state.primary_decision = primary_decision.to_dict()
+        state.primary_reflection = primary_reflection
+        _rebind_primary_aliases(state, previous_primary_person_id=primary_person_id)
+        llm_adapter.primary_person_id = (state.primary_decision or {}).get("primary_person_id")
+
+        state.relationship_dossiers = [
+            self._relationship_dossier_from_dict(item)
+            for item in list(relationship_dossiers or [])
+            if isinstance(item, dict)
+        ]
+        state.relationships = [
+            self._relationship_record_from_dict(item)
+            for item in list(lp2_relationships or [])
+            if isinstance(item, dict)
+        ]
+        state.groups = [
+            self._group_artifact_from_dict(item)
+            for item in list(group_artifacts or [])
+            if isinstance(item, dict)
+        ]
+        state.profile_context = agent_build_profile_context(state)
+
+        profile_payload = self._run_lp3_profile(
+            state=state,
+            llm_processor=llm_adapter,
+            progress_callback=progress_callback,
+        )
+        return self._finalize_memory_payload(
+            observations=observations,
+            lp1_payload=lp1_payload,
+            state=state,
+            profile_payload=profile_payload,
+            cached_photo_ids=cached_photo_ids,
+            dedupe_report=dedupe_report,
+            raw_manifest=raw_manifest,
+        )
+
+    def _finalize_memory_payload(
+        self,
+        *,
+        observations: Sequence[Dict[str, Any]],
+        lp1_payload: Dict[str, Any],
+        state: MemoryState,
+        profile_payload: Dict[str, Any],
+        cached_photo_ids: Sequence[str],
+        dedupe_report: Dict[str, Any],
+        raw_manifest: Dict[str, Any],
+    ) -> Dict[str, Any]:
         lp2_relationships = [relationship.to_dict() for relationship in state.relationships]
         save_json(lp2_relationships, str(self.lp2_relationships_path))
         _write_jsonl(self.lp2_relationships_jsonl_path, lp2_relationships)
@@ -1710,6 +2091,11 @@ class V0325PipelineFamily(V0323PipelineFamily):
                 "lp2_relationships_jsonl_url": self.lp2_relationships_jsonl_path,
                 "lp2_relationships_url": self.lp2_relationships_path,
                 "lp3_profile_url": self.lp3_profile_path,
+                "structured_profile_url": self.structured_profile_path,
+                "relationship_dossiers_url": self.relationship_dossiers_path,
+                "group_artifacts_url": self.group_artifacts_path,
+                "profile_fact_decisions_url": self.profile_fact_decisions_path,
+                "downstream_audit_report_url": self.downstream_audit_report_path,
                 "llm_failures_url": self.llm_failures_path,
                 "memory_snapshot_url": self.memory_snapshot_path,
                 "raw_upstream_manifest_url": self.raw_manifest_path,
@@ -1756,6 +2142,122 @@ class V0325PipelineFamily(V0323PipelineFamily):
         }
         save_json(memory, str(self.memory_snapshot_path))
         return memory
+
+    def _relationship_dossier_from_dict(self, payload: Dict[str, Any]) -> RelationshipDossier:
+        return RelationshipDossier(
+            person_id=str(payload.get("person_id") or ""),
+            person_kind=str(payload.get("person_kind") or "uncertain"),
+            memory_value=str(payload.get("memory_value") or "candidate"),
+            photo_count=int(payload.get("photo_count") or 0),
+            time_span_days=int(payload.get("time_span_days") or 0),
+            recent_gap_days=int(payload.get("recent_gap_days") or 0),
+            monthly_frequency=float(payload.get("monthly_frequency") or 0.0),
+            scene_profile=dict(payload.get("scene_profile") or {}),
+            interaction_signals=list(payload.get("interaction_signals", []) or []),
+            shared_events=list(payload.get("shared_events", []) or []),
+            trend_detail=dict(payload.get("trend_detail") or {}),
+            co_appearing_persons=list(payload.get("co_appearing_persons", []) or []),
+            anomalies=list(payload.get("anomalies", []) or []),
+            evidence_refs=list(payload.get("evidence_refs", []) or []),
+            block_reasons=list(payload.get("block_reasons", []) or []),
+            retention_decision=str(payload.get("retention_decision") or "review"),
+            retention_reason=str(payload.get("retention_reason") or ""),
+            group_eligible=bool(payload.get("group_eligible", False)),
+            group_block_reason=payload.get("group_block_reason"),
+            group_weight=float(payload.get("group_weight") or 0.0),
+            relationship_result=dict(payload.get("relationship_result") or {}),
+            relationship_reflection=dict(payload.get("relationship_reflection") or {}),
+        )
+
+    def _relationship_record_from_dict(self, payload: Dict[str, Any]) -> RelationshipRecord:
+        return RelationshipRecord(
+            person_id=str(payload.get("person_id") or ""),
+            relationship_type=str(payload.get("relationship_type") or ""),
+            intimacy_score=float(payload.get("intimacy_score") or 0.0),
+            status=str(payload.get("status") or ""),
+            confidence=float(payload.get("confidence") or 0.0),
+            reasoning=str(payload.get("reasoning") or payload.get("reason") or ""),
+            shared_events=list(payload.get("shared_events", []) or []),
+            evidence=dict(payload.get("evidence") or {}),
+        )
+
+    def _group_artifact_from_dict(self, payload: Dict[str, Any]) -> GroupArtifact:
+        return GroupArtifact(
+            group_id=str(payload.get("group_id") or ""),
+            members=list(payload.get("members", []) or []),
+            group_type_candidate=str(payload.get("group_type_candidate") or ""),
+            confidence=float(payload.get("confidence") or 0.0),
+            strong_evidence_refs=list(payload.get("strong_evidence_refs", []) or []),
+            reason=str(payload.get("reason") or ""),
+        )
+
+    def _persist_precomputed_lp1_payload(
+        self,
+        *,
+        observations: Sequence[Dict[str, Any]],
+        lp1_events: Sequence[Dict[str, Any]],
+        lp1_batches: Sequence[Dict[str, Any]] | None = None,
+        lp1_event_continuation_log: Sequence[Dict[str, Any]] | None = None,
+    ) -> Dict[str, Any]:
+        final_events = [dict(item) for item in list(lp1_events or []) if isinstance(item, dict)]
+        continuation_log = [
+            dict(item)
+            for item in list(lp1_event_continuation_log or []) or []
+            if isinstance(item, dict)
+        ]
+        batch_summaries = [
+            dict(item)
+            for item in list(lp1_batches or []) or []
+            if isinstance(item, dict)
+        ]
+        if not batch_summaries:
+            event_support_sets = [
+                set(_unique_strings(list(event.get("supporting_photo_ids", []) or [])))
+                for event in final_events
+            ]
+            batch_summaries = []
+            for batch in self._build_batches(observations):
+                output_window_photo_ids = list(batch.get("output_window_photo_ids", []) or [])
+                output_window_photo_set = set(output_window_photo_ids)
+                raw_event_count = 0
+                for support_set in event_support_sets:
+                    if support_set and support_set.intersection(output_window_photo_set):
+                        raw_event_count += 1
+                batch_summaries.append(
+                    {
+                        "batch_id": batch["batch_id"],
+                        "batch_index": batch["batch_index"],
+                        "input_photo_ids": list(batch["input_photo_ids"]),
+                        "overlap_context_photo_ids": list(batch["overlap_context_photo_ids"]),
+                        "output_window_photo_ids": output_window_photo_ids,
+                        "carryover_event_refs": [],
+                        "raw_event_count": raw_event_count,
+                        "parse_status": "reused_precomputed",
+                        "prompt_version": LP1_PROMPT_VERSION_V0325,
+                        "contract_version": LP1_CONTRACT_VERSION_V0325,
+                        "salvage_status": "none",
+                        "salvaged_event_count": 0,
+                        "reuse_mode": "precomputed_lp1",
+                    }
+                )
+
+        for path in (
+            self.lp1_batch_requests_path,
+            self.lp1_batch_outputs_path,
+            self.lp1_salvaged_events_path,
+            self.lp1_salvage_report_path,
+        ):
+            _safe_unlink(path)
+        _write_jsonl(self.lp1_event_cards_path, [])
+        _write_jsonl(self.lp1_events_path, final_events)
+        _write_jsonl(self.lp1_continuation_log_path, continuation_log)
+        save_json([], str(self.lp1_parse_failures_path))
+        save_json(final_events, str(self.lp1_events_compact_path))
+        return {
+            "lp1_batches": batch_summaries,
+            "lp1_events": final_events,
+            "lp1_event_continuation_log": continuation_log,
+        }
 
     def _notify(
         self,
@@ -2045,10 +2547,10 @@ class V0325PipelineFamily(V0323PipelineFamily):
                 "relationship_count": len(state.relationships),
             },
         )
-        state.profile_context = _build_profile_context(state)
-        profile_state = _run_field_agent_profile(context=state.profile_context, llm_processor=llm_processor)
+        state.profile_context = agent_build_profile_context(state)
+        profile_state = agent_generate_structured_profile(state, llm_processor=llm_processor)
         structured = profile_state["structured"]
-        consistency = _build_consistency_report(state.events, state.relationships, structured)
+        consistency = profile_state["consistency"]
         audit_payload = _run_downstream_audit_and_backflow(
             primary_decision=state.primary_decision or {},
             relationships=state.relationships,
@@ -2057,31 +2559,38 @@ class V0325PipelineFamily(V0323PipelineFamily):
             consistency=consistency,
         )
         final_structured = audit_payload["final_structured_profile"]
-        final_consistency = _build_consistency_report(state.events, state.relationships, final_structured)
+        compact_structured = compact_structured_profile(final_structured)
+        sidecar_paths = self._persist_lp3_sidecar_artifacts(
+            state=state,
+            field_decisions=profile_state["field_decisions"],
+            audit_payload=audit_payload,
+            compact_structured=compact_structured,
+        )
+        final_consistency = _build_consistency_report(state.events, state.relationships, compact_structured)
         report_markdown = _build_report_markdown(
             primary_decision=state.primary_decision or {},
-            structured_profile=final_structured,
+            structured_profile=compact_structured,
             consistency=final_consistency,
             relationships=state.relationships,
             groups=state.groups,
             audit_report=audit_payload,
         )
         profile_payload = {
-            "structured": final_structured,
-            "summary": _build_profile_summary(final_structured, state.relationships),
+            "structured": compact_structured,
+            "summary": _build_profile_summary(compact_structured, state.relationships),
             "consistency": final_consistency,
-            "field_decisions": profile_state["field_decisions"],
             "report_markdown": report_markdown,
             "internal_artifacts": {
-                "screening": {person_id: screening.to_dict() for person_id, screening in state.screening.items()},
+                "screening_count": len(state.screening),
                 "primary_decision": state.primary_decision,
                 "primary_reflection": state.primary_reflection or {},
-                "relationship_dossiers": [dossier.to_dict() for dossier in state.relationship_dossiers],
-                "group_artifacts": [group.to_dict() for group in state.groups],
-                "profile_fact_decisions": profile_state["field_decisions"],
-                "downstream_audit": audit_payload,
-                "raw_manifest_path": self.raw_manifest_path.relative_to(self.task_dir).as_posix(),
-                "raw_index_path": self.raw_index_path.relative_to(self.task_dir).as_posix(),
+                "relationship_dossier_count": len(state.relationship_dossiers),
+                "group_artifact_count": len(state.groups),
+                "profile_fact_decision_count": len(profile_state["field_decisions"]),
+                "audit_flag_count": len(list(audit_payload.get("audit_flags", []) or [])),
+                **sidecar_paths,
+                "raw_manifest_path": self._relative_artifact_path(self.raw_manifest_path),
+                "raw_index_path": self._relative_artifact_path(self.raw_index_path),
             },
         }
         self._notify(
@@ -3233,10 +3742,24 @@ def _fetch_field_evidence(field_key: str, context: Dict[str, Any]) -> Dict[str, 
                 or ref.get("subject_role") == "protagonist_view"
             )
         ]
+        supporting_refs["relationships"] = []
+        supporting_refs["group_artifacts"] = []
     elif field_key == "long_term_facts.relationships.intimate_partner":
         supporting_refs["relationships"] = [ref for ref in allowed_refs["relationships"] if ref.get("relationship_type") == "romantic"]
+        supporting_refs["events"] = []
+        supporting_refs["vlm_observations"] = []
+        supporting_refs["group_artifacts"] = []
     elif field_key == "long_term_facts.relationships.social_groups":
+        supporting_refs["events"] = []
+        supporting_refs["vlm_observations"] = []
+        supporting_refs["relationships"] = []
         supporting_refs["group_artifacts"] = list(allowed_refs["group_artifacts"])
+        supporting_refs["feature_refs"] = []
+    elif field_key == "long_term_facts.relationships.close_circle_size":
+        supporting_refs["events"] = []
+        supporting_refs["vlm_observations"] = []
+        supporting_refs["relationships"] = list(allowed_refs["relationships"])
+        supporting_refs["group_artifacts"] = []
     elif field_key in {
         "long_term_facts.material.brand_preference",
         "long_term_facts.material.signature_items",
@@ -3262,6 +3785,8 @@ def _fetch_field_evidence(field_key: str, context: Dict[str, Any]) -> Dict[str, 
                 MATERIAL_SIGNAL_KEYWORDS,
             )
         ]
+        supporting_refs["relationships"] = []
+        supporting_refs["group_artifacts"] = []
     elif field_key in {
         "long_term_facts.geography.location_anchors",
         "long_term_facts.geography.mobility_pattern",
@@ -3273,6 +3798,8 @@ def _fetch_field_evidence(field_key: str, context: Dict[str, Any]) -> Dict[str, 
             ref for ref in allowed_refs["vlm_observations"]
             if str(ref.get("location") or "").strip() or list(ref.get("place_candidates", []) or [])
         ]
+        supporting_refs["relationships"] = []
+        supporting_refs["group_artifacts"] = []
     elif field_key == "short_term_facts.recent_interests":
         latest_timestamp = max(
             [
@@ -3295,12 +3822,23 @@ def _fetch_field_evidence(field_key: str, context: Dict[str, Any]) -> Dict[str, 
             if _window_key_from_timestamp(str(ref.get("timestamp") or "")) == latest_window
             or _contains_any_keyword(ref.get("signal", ""), ("interest", "爱好", "喜欢", "watching", "reading"))
         ]
+        supporting_refs["relationships"] = []
+        supporting_refs["group_artifacts"] = []
+    elif field_key == "long_term_facts.time.sleep_pattern":
+        supporting_refs["vlm_observations"] = []
+        supporting_refs["relationships"] = []
+        supporting_refs["group_artifacts"] = []
+    elif field_key == "long_term_facts.relationships.living_situation":
+        supporting_refs["vlm_observations"] = []
+        supporting_refs["group_artifacts"] = []
     supporting_flat = _flatten_ref_buckets(supporting_refs)
     payload = {
         "field_key": field_key,
         "primary_person_id": primary_person_id,
         "allowed_refs": allowed_refs,
         "supporting_refs": supporting_refs,
+        "ref_index": _build_ref_index(allowed_refs),
+        "ids": _extract_ids_from_refs(supporting_flat),
         "raw_ref_lookup": _build_raw_ref_lookup(supporting_flat, context.get("raw_index", {})),
     }
     return payload
@@ -3514,33 +4052,37 @@ def _deterministic_field_value(field_key: str, context: Dict[str, Any]) -> Tuple
 
 
 def _build_tag_evidence(
-    allowed_refs: Dict[str, List[Dict[str, Any]]],
-    supporting_refs: Dict[str, List[Dict[str, Any]]],
-    contradicting_refs: List[Dict[str, Any]],
-    field_key: str,
+    evidence_bundle: Dict[str, Any],
+    *,
+    selected_supporting_ids: List[str] | None = None,
+    selected_contradicting_ids: List[str] | None = None,
+    constraint_notes: List[str] | None = None,
 ) -> Dict[str, Any]:
-    normalized_supporting = _flatten_ref_buckets(supporting_refs)
-    ids = _extract_ids_from_refs(normalized_supporting)
+    ref_index = evidence_bundle.get("ref_index") or {}
+    supporting_refs = _select_refs(ref_index, selected_supporting_ids) or _flatten_ref_buckets(evidence_bundle["supporting_refs"])
+    contradicting_refs = _select_refs(ref_index, selected_contradicting_ids)
+    ids = _extract_ids_from_refs(supporting_refs)
     evidence = _build_evidence_payload(
         photo_ids=ids["photo_ids"],
         event_ids=ids["event_ids"],
         person_ids=ids["person_ids"],
         group_ids=ids["group_ids"],
         feature_names=ids["feature_names"],
-        supporting_refs=normalized_supporting,
+        supporting_refs=supporting_refs,
         contradicting_refs=contradicting_refs,
     )
-    evidence["events"] = supporting_refs.get("events", [])
-    evidence["relationships"] = supporting_refs.get("relationships", [])
-    evidence["vlm_observations"] = supporting_refs.get("vlm_observations", []) or allowed_refs.get("vlm_observations", [])
-    evidence["group_artifacts"] = supporting_refs.get("group_artifacts", [])
-    evidence["feature_refs"] = supporting_refs.get("feature_refs", [])
-    evidence["constraint_notes"] = []
-    evidence["summary"] = f"field_judge:{field_key}"
+    allowed_refs = evidence_bundle["allowed_refs"]
+    evidence["events"] = _filter_bucket(allowed_refs["events"], supporting_refs)
+    evidence["relationships"] = _filter_bucket(allowed_refs["relationships"], supporting_refs)
+    evidence["vlm_observations"] = _filter_bucket(allowed_refs["vlm_observations"], supporting_refs)
+    evidence["group_artifacts"] = _filter_bucket(allowed_refs["group_artifacts"], supporting_refs)
+    evidence["feature_refs"] = _filter_bucket(allowed_refs["feature_refs"], supporting_refs)
+    evidence["constraint_notes"] = _dedupe_strs(constraint_notes)
+    evidence["summary"] = f"field_judge:{evidence_bundle.get('field_key')}"
     return evidence
 
 
-def _llm_field_value(field_key: str, evidence_bundle: Dict[str, Any], stats_bundle: Dict[str, Any], ownership_bundle: Dict[str, Any], counter_bundle: Dict[str, Any], llm_processor: Any) -> Tuple[Any, float]:
+def _llm_field_value(field_key: str, evidence_bundle: Dict[str, Any], stats_bundle: Dict[str, Any], ownership_bundle: Dict[str, Any], counter_bundle: Dict[str, Any], llm_processor: Any) -> Dict[str, Any]:
     prompt = f"""你是客观画像字段判定 agent。
 字段: {field_key}
 风险等级: {FIELD_SPECS[field_key].risk_level}
@@ -3550,19 +4092,33 @@ def _llm_field_value(field_key: str, evidence_bundle: Dict[str, Any], stats_bund
 冲突: {json.dumps(counter_bundle, ensure_ascii=False)}
 允许证据:
 {json.dumps(evidence_bundle['supporting_refs'], ensure_ascii=False, default=_json_default)}
+可引用锚点 IDs:
+{json.dumps(evidence_bundle.get('ids') or {}, ensure_ascii=False)}
 
 请只输出 JSON:
 {{
   "value": null,
-  "confidence": 0.0
+  "confidence": 0.0,
+  "reasoning": "",
+  "supporting_ref_ids": [],
+  "contradicting_ref_ids": [],
+  "null_reason": null
 }}"""
     try:
         result = llm_processor._call_llm_via_official_api(prompt, response_mime_type="application/json")
     except Exception:
-        return None, 0.0
+        return {}
     if not isinstance(result, dict):
-        return None, 0.0
-    return result.get("value"), float(result.get("confidence", 0.0) or 0.0)
+        return {}
+    ref_index = evidence_bundle.get("ref_index") or {}
+    return {
+        "value": result.get("value"),
+        "confidence": float(result.get("confidence", 0.0) or 0.0),
+        "reasoning": str(result.get("reasoning") or "").strip(),
+        "supporting_ref_ids": _normalize_ref_id_list(result.get("supporting_ref_ids"), ref_index=ref_index),
+        "contradicting_ref_ids": _normalize_ref_id_list(result.get("contradicting_ref_ids"), ref_index=ref_index),
+        "null_reason": str(result.get("null_reason") or "").strip() or None,
+    }
 
 
 def _run_field_agent_profile(*, context: Dict[str, Any], llm_processor: Any | None) -> Dict[str, Any]:
@@ -3580,21 +4136,37 @@ def _run_field_agent_profile(*, context: Dict[str, Any], llm_processor: Any | No
                 tag_object = {
                     "value": deterministic_value,
                     "confidence": round(min(max(deterministic_confidence, 0.0), 1.0), 3),
-                    "evidence": _build_tag_evidence(
-                        evidence_bundle["allowed_refs"],
-                        evidence_bundle["supporting_refs"],
-                        counter_bundle["contradicting_refs"],
-                        field_key,
-                    ),
+                    "evidence": _build_tag_evidence(evidence_bundle),
                     "reasoning": f"{field_key} 使用确定性规则产出。",
+                }
+                field_output = {
+                    "value": deterministic_value,
+                    "confidence": round(min(max(deterministic_confidence, 0.0), 1.0), 3),
+                    "supporting_ref_ids": [],
+                    "contradicting_ref_ids": [],
+                    "null_reason": None,
                 }
             elif not stats_bundle.get("suggested_strong_evidence_met"):
                 tag_object = _empty_tag_object()
                 tag_object["reasoning"] = f"{field_key} 证据不足，保守输出 null。"
+                field_output = {
+                    "value": None,
+                    "confidence": 0.0,
+                    "supporting_ref_ids": [],
+                    "contradicting_ref_ids": [],
+                    "null_reason": "insufficient_evidence",
+                }
             else:
-                value, confidence = (None, 0.0)
+                field_output: Dict[str, Any] = {
+                    "value": None,
+                    "confidence": 0.0,
+                    "reasoning": "",
+                    "supporting_ref_ids": [],
+                    "contradicting_ref_ids": [],
+                    "null_reason": None,
+                }
                 if llm_processor and hasattr(llm_processor, "_call_llm_via_official_api"):
-                    value, confidence = _llm_field_value(
+                    field_output = _llm_field_value(
                         field_key,
                         evidence_bundle,
                         stats_bundle,
@@ -3602,19 +4174,24 @@ def _run_field_agent_profile(*, context: Dict[str, Any], llm_processor: Any | No
                         counter_bundle,
                         llm_processor,
                     )
+                value = field_output.get("value")
+                confidence = float(field_output.get("confidence", 0.0) or 0.0)
                 tag_object = {
                     "value": value,
                     "confidence": round(min(max(confidence, 0.0), 1.0), 3),
                     "evidence": _build_tag_evidence(
-                        evidence_bundle["allowed_refs"],
-                        evidence_bundle["supporting_refs"],
-                        counter_bundle["contradicting_refs"],
-                        field_key,
+                        evidence_bundle,
+                        selected_supporting_ids=field_output.get("supporting_ref_ids", []),
+                        selected_contradicting_ids=field_output.get("contradicting_ref_ids", []),
+                        constraint_notes=[field_output["null_reason"]] if field_output.get("null_reason") else [],
                     ),
                     "reasoning": (
-                        f"{field_key} 基于字段级证据判定完成。"
-                        if value not in (None, "", [])
-                        else f"{field_key} 未通过字段闸门或冲突检查，输出 null。"
+                        str(field_output.get("reasoning") or "").strip()
+                        or (
+                            f"{field_key} 基于字段级证据判定完成。"
+                            if value not in (None, "", [])
+                            else f"{field_key} 未通过字段闸门或冲突检查，输出 null。"
+                        )
                     ),
                 }
             _assign_tag_object(profile_state.structured_profile, field_key, tag_object)
@@ -3629,6 +4206,9 @@ def _run_field_agent_profile(*, context: Dict[str, Any], llm_processor: Any | No
                         "conflict_strength": counter_bundle["conflict_strength"],
                     },
                     "raw_ref_lookup_count": len(evidence_bundle.get("raw_ref_lookup", [])),
+                    "selected_supporting_ref_ids": list(field_output.get("supporting_ref_ids", []) or []),
+                    "selected_contradicting_ref_ids": list(field_output.get("contradicting_ref_ids", []) or []),
+                    "null_reason": field_output.get("null_reason"),
                     "final": {
                         "value": tag_object.get("value"),
                         "confidence": tag_object.get("confidence"),

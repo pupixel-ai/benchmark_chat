@@ -28,6 +28,13 @@ from backend.auth import (
     logout_current_session,
     register_user,
 )
+from backend.checkpoint_resume import (
+    archive_resume_outputs,
+    build_resume_actions,
+    build_resume_checkpoint_archive,
+    copy_resume_checkpoint_files,
+    copy_task_uploads,
+)
 from backend.face_review_store import FaceReviewStore
 from backend.memory_full_retrieval import build_task_memory_core_payload
 from backend.memory_step_retrieval import build_task_memory_steps_payload
@@ -109,6 +116,11 @@ class TaskCreatePayload(BaseModel):
     expected_upload_count: Optional[int] = None
     requested_max_photos: Optional[int] = None
     auto_start_on_upload_complete: Optional[bool] = None
+
+
+class TaskResumePayload(BaseModel):
+    resume_from: str
+    mode: str = "auto"
 
 
 class FaceReviewPayload(BaseModel):
@@ -314,8 +326,7 @@ def _merge_feedback(task: dict, user_id: str) -> dict:
 
 def _hydrate_task(task: dict, user_id: str) -> dict:
     synced = _sync_task_from_worker(task, user_id)
-    merged = _merge_feedback(synced, user_id)
-    return _sanitize_task_for_client(merged)
+    return _merge_feedback(synced, user_id)
 
 
 def _strip_bootstrap_fields(payload):
@@ -335,6 +346,19 @@ def _strip_bootstrap_fields(payload):
     return payload
 
 
+def _strip_heavy_memory_snapshot_fields(memory: dict) -> dict:
+    stripped = copy.deepcopy(memory)
+    for key in (
+        "vp1_observations",
+        "lp1_events",
+        "lp1_batches",
+        "lp2_relationships",
+        "lp3_profile",
+    ):
+        stripped.pop(key, None)
+    return stripped
+
+
 def _sanitize_task_for_client(task: dict) -> dict:
     sanitized = copy.deepcopy(task)
     downloads = describe_task_downloads(sanitized)
@@ -346,7 +370,7 @@ def _sanitize_task_for_client(task: dict) -> dict:
     if isinstance(result, dict):
         memory = result.get("memory")
         if isinstance(memory, dict):
-            result["memory"] = _strip_bootstrap_fields(memory)
+            result["memory"] = _strip_heavy_memory_snapshot_fields(_strip_bootstrap_fields(memory))
     return sanitized
 
 
@@ -595,6 +619,72 @@ def _create_task_record(
     }
 
 
+def _clone_task_for_resume(source_task: dict, user_id: str, *, resume_from: str) -> dict:
+    source_task_dir = task_store.task_dir(source_task["task_id"])
+    source_options = normalize_task_options(source_task.get("options"))
+    created = _create_task_record(
+        user_id,
+        source_task.get("version"),
+        bool(source_options.get("normalize_live_photos", DEFAULT_NORMALIZE_LIVE_PHOTOS)),
+        creation_source=str(source_options.get("creation_source") or "manual"),
+        expected_upload_count=source_options.get("expected_upload_count"),
+        requested_max_photos=source_options.get("requested_max_photos"),
+        auto_start_on_upload_complete=False,
+    )
+    target_task_id = created["task_id"]
+    target_task_dir = task_store.task_dir(target_task_id)
+    copy_task_uploads(source_task_dir, target_task_dir)
+    copy_resume_checkpoint_files(source_task_dir, target_task_dir, resume_from=resume_from)
+    resume_options = normalize_task_options(
+        {
+            **source_options,
+            "resume_from": resume_from,
+            "resume_source_task_id": source_task["task_id"],
+            "auto_start_on_upload_complete": False,
+        }
+    )
+    manifest = build_task_asset_manifest(target_task_id, target_task_dir, asset_store)
+    updated = task_store.update_task(
+        target_task_id,
+        uploads=copy.deepcopy(source_task.get("uploads") or []),
+        upload_count=len(list(source_task.get("uploads") or [])),
+        options=resume_options,
+        asset_manifest=manifest,
+        status="draft",
+        stage="draft",
+    )
+    artifact_catalog.replace_task_artifacts(target_task_id, user_id, manifest)
+    return updated
+
+
+def _prepare_failed_task_for_resume(task: dict, *, resume_from: str, user_id: str) -> dict:
+    task_id = task["task_id"]
+    task_dir = task_store.task_dir(task_id)
+    archive_resume_outputs(task_dir, resume_from=resume_from)
+    options = normalize_task_options(
+        {
+            **(task.get("options") or {}),
+            "resume_from": resume_from,
+            "resume_source_task_id": task_id,
+            "auto_start_on_upload_complete": False,
+        }
+    )
+    manifest = build_task_asset_manifest(task_id, task_dir, asset_store)
+    updated = task_store.update_task(
+        task_id,
+        options=options,
+        status="draft",
+        stage="draft",
+        progress=None,
+        result=None,
+        result_summary=None,
+        error=None,
+        asset_manifest=manifest,
+    )
+    artifact_catalog.replace_task_artifacts(task_id, user_id, manifest)
+    return updated
+
+
 def _save_upload_collection(task_id: str, task_dir: Path, files: List[UploadFile]) -> tuple[List[dict], List[dict]]:
     saved_files: List[dict] = []
     upload_failures: List[dict] = []
@@ -750,6 +840,21 @@ def _start_task_impl(
                     ],
                     version=task_version,
                 )
+            resume_from = str(task_options.get("resume_from") or "").strip().lower() or None
+            if resume_from in {"vp1", "lp1", "lp2"}:
+                checkpoint_archive_path = task_dir / "_worker_resume_checkpoint.zip"
+                build_resume_checkpoint_archive(task_dir, checkpoint_archive_path, resume_from=resume_from)
+                try:
+                    worker_client.upload_checkpoint_archive(
+                        ready_worker.private_ip,
+                        task_id,
+                        str(checkpoint_archive_path),
+                    )
+                finally:
+                    try:
+                        checkpoint_archive_path.unlink()
+                    except Exception:
+                        pass
             start_payload = worker_client.start_task(
                 ready_worker.private_ip,
                 task_id,
@@ -1054,6 +1159,49 @@ def start_task(
         )
 
 
+@app.post("/api/tasks/{task_id}/resume")
+def resume_task(
+    task_id: str,
+    payload: TaskResumePayload,
+    background_tasks: BackgroundTasks,
+    response: Response,
+    current_user: dict = Depends(get_current_user),
+):
+    _apply_no_store_headers(response)
+    resume_from = str(payload.resume_from or "").strip().lower()
+    if payload.mode != "auto":
+        raise HTTPException(status_code=400, detail="当前仅支持 mode=auto")
+    with _task_upload_lock(task_id):
+        task = task_store.get_task(task_id, user_id=current_user["user_id"])
+        if not task:
+            raise HTTPException(status_code=404, detail="任务不存在")
+        hydrated = _sync_task_from_worker(task, current_user["user_id"])
+        resume_actions = build_resume_actions(hydrated)
+        action = resume_actions.get(resume_from)
+        if not action:
+            raise HTTPException(status_code=400, detail="resume_from 只支持 vp1 / lp1 / lp2")
+        if not action.get("available"):
+            raise HTTPException(status_code=409, detail=action.get("disabled_reason") or "当前任务不能从该 checkpoint 恢复")
+
+        if str(hydrated.get("status") or "").strip().lower() == "completed":
+            target_task = _clone_task_for_resume(hydrated, current_user["user_id"], resume_from=resume_from)
+        else:
+            target_task = _prepare_failed_task_for_resume(hydrated, resume_from=resume_from, user_id=current_user["user_id"])
+
+        target_options = normalize_task_options(target_task.get("options"))
+        start_payload = _start_task_impl(
+            target_task["task_id"],
+            current_user["user_id"],
+            max_photos=target_options.get("requested_max_photos"),
+            use_cache=False,
+            normalize_live_photos=bool(target_options.get("normalize_live_photos", DEFAULT_NORMALIZE_LIVE_PHOTOS)),
+            background_tasks=background_tasks,
+        )
+        start_payload["resume_source_task_id"] = hydrated["task_id"]
+        start_payload["resume_from"] = resume_from
+        return start_payload
+
+
 @app.get("/api/tasks")
 def list_tasks(response: Response, limit: int = 20, current_user: dict = Depends(get_current_user)):
     _apply_no_store_headers(response)
@@ -1069,7 +1217,7 @@ def get_task(task_id: str, response: Response, current_user: dict = Depends(get_
     task = task_store.get_task(task_id, user_id=current_user["user_id"])
     if not task:
         raise HTTPException(status_code=404, detail="任务不存在")
-    return _hydrate_task(task, current_user["user_id"])
+    return _sanitize_task_for_client(_hydrate_task(task, current_user["user_id"]))
 
 
 @app.get("/api/tasks/{task_id}/downloads/analysis-bundle")
