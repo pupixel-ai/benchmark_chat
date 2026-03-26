@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Dict, Iterable, List, Optional, Sequence
+from typing import Callable, Dict, Iterable, List, Optional, Sequence, Union
 
 import numpy as np
 
@@ -171,8 +171,8 @@ def decide_match(
     weak_threshold: Optional[float] = None,
     margin_threshold: float = FACE_MATCH_MARGIN_THRESHOLD,
     min_quality_for_gray_zone: float = FACE_MATCH_MIN_QUALITY_GRAY_ZONE,
-    pose_bucket: str | None = None,
-    pose_yaw: float | None = None,
+    pose_bucket: Optional[str] = None,
+    pose_yaw: Optional[float] = None,
     profile_rescue_delta: float = FACE_PROFILE_RESCUE_DELTA,
     profile_rescue_margin: float = FACE_PROFILE_RESCUE_MARGIN,
     profile_rescue_min_quality: float = FACE_PROFILE_RESCUE_MIN_QUALITY,
@@ -333,6 +333,13 @@ def decide_cluster_merge(
         strong_threshold=strong_threshold,
         high_quality_threshold=high_quality_threshold,
     )
+    aggressive_singleton_merge = _should_allow_aggressive_singleton_merge(
+        left_faces=left_list,
+        right_faces=right_list,
+        best_similarity=best_similarity,
+        strong_threshold=strong_threshold,
+        high_quality_threshold=high_quality_threshold,
+    )
 
     if best_similarity >= strong_threshold + 0.12 and high_quality_support >= 1:
         return ClusterMergeCandidate(
@@ -394,13 +401,28 @@ def decide_cluster_merge(
             profile_bridge=profile_bridge,
         )
 
+    if aggressive_singleton_merge:
+        return ClusterMergeCandidate(
+            left_person_id=left_person_id,
+            right_person_id=right_person_id,
+            decision="aggressive_singleton_cluster_merge",
+            reason=(
+                f"激进双单脸合并: best={best_similarity:.3f}, top2_mean={top_two_mean:.3f}, "
+                f"support={support_count}"
+            ),
+            best_similarity=best_similarity,
+            top_two_mean=top_two_mean,
+            support_count=support_count,
+            profile_bridge=profile_bridge,
+        )
+
     return None
 
 
 def _should_allow_profile_rescue(
     *,
-    pose_bucket: str | None,
-    pose_yaw: float | None,
+    pose_bucket: Optional[str] = None,
+    pose_yaw: Optional[float] = None,
     quality_score: float,
     best_similarity: float,
     margin: float,
@@ -503,6 +525,50 @@ def _should_allow_singleton_bridge_merge(
         top_two_mean=top_two_mean,
     ):
         return False
+    return True
+
+
+def _should_allow_aggressive_singleton_merge(
+    *,
+    left_faces: List[Dict[str, object]],
+    right_faces: List[Dict[str, object]],
+    best_similarity: float,
+    strong_threshold: float,
+    high_quality_threshold: float,
+) -> bool:
+    if len(left_faces) != 1 or len(right_faces) != 1:
+        return False
+
+    left_face = left_faces[0]
+    right_face = right_faces[0]
+    left_quality = float(left_face.get("quality_score") or 0.0)
+    right_quality = float(right_face.get("quality_score") or 0.0)
+    if min(left_quality, right_quality) < max(high_quality_threshold, 0.65):
+        return False
+
+    if best_similarity < strong_threshold - 0.05:
+        return False
+
+    left_bucket = str(left_face.get("pose_bucket") or "unknown")
+    right_bucket = str(right_face.get("pose_bucket") or "unknown")
+    if "unknown" in {left_bucket, right_bucket}:
+        return False
+
+    left_decision = str(left_face.get("match_decision") or "")
+    right_decision = str(right_face.get("match_decision") or "")
+    allowed_decisions = {"new_person", "new_person_from_ambiguity", "profile_rescue_match"}
+    if left_decision not in allowed_decisions or right_decision not in allowed_decisions:
+        return False
+
+    # 至少有一张是清晰 frontal 锚点，避免两个低稳侧脸直接互并。
+    has_frontal_anchor = (
+        left_bucket == "frontal" and left_quality >= 0.72
+    ) or (
+        right_bucket == "frontal" and right_quality >= 0.72
+    )
+    if not has_frontal_anchor:
+        return False
+
     return True
 
 

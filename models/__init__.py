@@ -1,5 +1,5 @@
 """
-数据模型定义
+数据模型定义（v2.0 — 合并新工程 Photo/Person + 老工程 Relationship/Event/UserProfile）
 """
 from dataclasses import dataclass, field
 from typing import Dict, List, Any, Optional
@@ -37,39 +37,8 @@ class Photo:
     #   }
     # ]
 
-    # VLM分析结果（新结构）
+    # VLM分析结果
     vlm_analysis: Optional[Dict] = None
-    # {
-    #     "summary": str,
-    #     "people_details": [
-    #         {
-    #             "person_id": str,
-    #             "appearance": str,  # 外貌特征
-    #             "clothing": str,    # 穿着
-    #             "activity": str,
-    #             "interaction": str,
-    #             "expression": str
-    #         }
-    #     ],
-    #     "scene": {
-    #         "environment_description": str,
-    #         "environment_details": List[str],
-    #         "location_detected": str,
-    #         "visual_clues": List[str],
-    #         "weather": Optional[str]
-    #     },
-    #     "event": {
-    #         "activity": str,
-    #         "social_context": str,
-    #         "interaction": str,
-    #         "mood": str
-    #     },
-    #     "time": {
-    #         "date": str,  # 日期特别之处
-    #         "time": str   # 时间特别之处
-    #     },
-    #     "details": List[str]
-    # }
 
 
 @dataclass
@@ -103,19 +72,16 @@ class Event:
     reason: str
 
     # 核心叙事字段
-    narrative: str = ""  # 客观叙事（50-100字）
-    narrative_synthesis: str = ""  # 一句话深度还原
+    narrative: str = ""
+    narrative_synthesis: str = ""
 
     # 新增 v2.1 字段
-    meta_info: Dict[str, Any] = field(default_factory=dict)  # {title, timestamp, location_context, photo_count}
-    objective_fact: Dict[str, Any] = field(default_factory=dict)  # {scene_description, participants}
+    meta_info: Dict[str, Any] = field(default_factory=dict)
+    objective_fact: Dict[str, Any] = field(default_factory=dict)
 
     # 社交分析
     social_interaction: Dict[str, Any] = field(default_factory=dict)
     social_dynamics: List[Dict[str, Any]] = field(default_factory=list)
-
-    # 证据
-    evidence_photos: List[str] = field(default_factory=list)
 
     # 标签
     lifestyle_tags: List[str] = field(default_factory=list)
@@ -128,13 +94,15 @@ class Event:
 
 @dataclass
 class Relationship:
-    """关系对象"""
+    """关系对象（v3.1 — 从"判标签"到"建档案"）"""
     person_id: str
-    relationship_type: str  # family/close_friend/friend/colleague/acquaintance
-    label: str
+    relationship_type: str  # family/romantic/bestie/close_friend/friend/classmate_colleague/activity_buddy/acquaintance
+    intimacy_score: float   # 0-1, code-computed
+    status: str             # new/growing/stable/fading/gone
     confidence: float
-    evidence: Dict[str, Any]
-    reason: str
+    reasoning: str
+    shared_events: List[Dict] = field(default_factory=list)  # [{event_id, date, narrative}]
+    evidence: Dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -145,6 +113,6 @@ class UserProfile:
     personality: Dict[str, Any]
     interests: Dict[str, Any]
     values: Dict[str, Any]
-    place: Dict[str, Any] = field(default_factory=dict)  # 新增：地点信息
-    preferences: Dict[str, Any] = field(default_factory=dict)  # 新增：审美与偏好
-    one_more_thing: Optional[str] = None  # 新增：有趣洞察
+    place: Dict[str, Any] = field(default_factory=dict)
+    preferences: Dict[str, Any] = field(default_factory=dict)
+    one_more_thing: Optional[str] = None

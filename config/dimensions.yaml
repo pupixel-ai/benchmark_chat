@@ -1,0 +1,362 @@
+# dimensions.yaml - 画像字段配置总表
+
+schema_version: "1.0.0"
+last_updated: "2026-03-24"
+source:
+  - "docs/主链路策略/画像facts字段_FieldSpec总表.md"
+  - "docs/主链路策略/画像facts字段_字段级COT总表.md"
+
+# 配置字段说明
+# - field_id: 字段标识符
+# - json_path: 在结构化画像中的路径
+# - risk_level: P0/P1/P2（风险等级）
+# - allowed_sources: [V/E/R/G/F] 允许的证据来源
+# - strong_evidence: 强证据的准入条件（文本描述）
+# - hard_blocks: 硬阻断条件清单
+# - tool_required: 是否需要 Tool 预聚合
+# - tool_names: Tool 的列表
+# - deterministic: 是否走 deterministic 路径
+# - reflection_rounds: 反思轮数（1 或 2）
+# - requires_social_media: 是否需要社媒数据
+# - cot_key_questions: 关键推理问题清单
+# - evidence_rules: 强/弱证据的具体示例
+# - phase0_note: Phase 0 验证中的发现
+
+dimensions:
+
+  # ============================================================================
+  # long_term_facts.identity - 身份基础（3 个 P0 字段）
+  # ============================================================================
+
+  - field_id: "role"
+    json_path: "long_term_facts.identity.role"
+    risk_level: "P0"
+    allowed_sources: ["E", "V", "F"]
+    strong_evidence: "至少 2 条校园/工作主线证据，且 career_evidence_count 达标"
+    hard_blocks: ["only_background_office", "unclear_subject_attribution"]
+    tool_required: false
+    deterministic: false
+    reflection_rounds: 2
+    requires_social_media: false
+
+    cot_key_questions:
+      - "是否有明确的校园或工作主线证据？（至少 2 条）"
+      - "证据是否来自主角本人的活动，而不是环境背景？"
+      - "当前的身份是否与 education 和 career 字段相符？"
+
+    evidence_rules:
+      strong:
+        - "校园日常（课堂、自习、讲座）+ 多次出现"
+        - "工作场景（办公、会议、与同事互动）+ 多次出现"
+        - "相关证件（学生证、工作证）"
+      weak:
+        - "偶发办公或校园背景"
+        - "穿着相关（学位服、工作装）但无确定场景"
+
+  - field_id: "race"
+    json_path: "long_term_facts.identity.race"
+    risk_level: "P0"
+    allowed_sources: ["V", "E", "F"]
+    strong_evidence: "主体明确 + 多事件稳定外观 + 文化/地理线索不冲突"
+    hard_blocks: ["single_photo_inference", "filter_or_makeup_distortion", "travel_scene_assumption"]
+    tool_required: false
+    deterministic: false
+    reflection_rounds: 2
+    requires_social_media: false
+
+    cot_key_questions:
+      - "外观特征是否在多个事件中稳定且一致？"
+      - "是否存在滤镜、妆造、特殊场景（cosplay）导致的干扰？"
+      - "文化背景、语言、地理线索是否支持判断？"
+
+    evidence_rules:
+      strong:
+        - "跨事件、不同光线和角度下的稳定外观"
+        - "文化/语言线索与外观一致"
+      weak:
+        - "单张照片推断"
+        - "旅行场景中的推断"
+
+  - field_id: "nationality"
+    json_path: "long_term_facts.identity.nationality"
+    risk_level: "P0"
+    allowed_sources: ["V", "E", "F"]
+    strong_evidence: "长期地点锚点 + 语言文化/证件线索共同成立"
+    hard_blocks: ["only_chinese_environment", "single_trip_inference", "language_only"]
+    tool_required: false
+    deterministic: false
+    reflection_rounds: 2
+    requires_social_media: false
+
+    cot_key_questions:
+      - "是否有多个长期生活地点显示国籍？"
+      - "语言、文化、生活方式是否支持判断？"
+      - "是否仅基于单次旅行或中文环境推断？"
+
+    evidence_rules:
+      strong:
+        - "证件照（护照、身份证）"
+        - "长期生活地点 + 地本化生活方式"
+      weak:
+        - "中文环境、国内城市"
+        - "单次旅行或短期访问"
+
+  # ============================================================================
+  # long_term_facts.social_identity - 社会身份（3 个 P0 字段）
+  # ============================================================================
+
+  - field_id: "education"
+    json_path: "long_term_facts.social_identity.education"
+    risk_level: "P0"
+    allowed_sources: ["E", "V", "F"]
+    strong_evidence: |
+      路径 A：1 条正式学业文档锚点（论文/考试纸/系别/学号/课程文本）
+      路径 B：2 条中等强度校园/课堂/课程/作业线索，跨 ≥2 个不同月份
+    hard_blocks: ["single_campus_visit", "borrowed_document", "one_lecture_event"]
+    tool_required: true
+    tool_names: ["filter_events_by_scene", "get_education_stats"]
+    deterministic: true
+    reflection_rounds: 2
+    requires_social_media: false
+
+    cot_key_questions:
+      - "是否有正式学业文档（论文、考试、学号、系别）？"
+      - "校园证据是否来自多个不同月份和场景？"
+      - "是否存在单次参观或借用他人文件？"
+
+    evidence_rules:
+      strong:
+        - "学位证、毕业证、学生证"
+        - "连续 ≥3 天不同场景的校园证据"
+      weak:
+        - "校园打卡（单次）"
+        - "学科相关创作或笔记"
+
+  - field_id: "career"
+    json_path: "long_term_facts.social_identity.career"
+    risk_level: "P0"
+    allowed_sources: ["E", "V", "F"]
+    strong_evidence: |
+      路径 A：role=student + 明确专业/系别文本锚点
+      路径 B：多事件工作/职业闭环，证据来自 ≥2 个不同月份
+    hard_blocks: ["hobby_misidentified_as_career", "learning_activity_not_profession", "single_work_event"]
+    tool_required: true
+    tool_names: ["get_career_stats"]
+    deterministic: true
+    reflection_rounds: 2
+    requires_social_media: false
+
+    cot_key_questions:
+      - "是否有职位证据（名片、工作证、邮箱签名）？"
+      - "是否有与专业相关的多场景证据（≥2 个不同月份）？"
+      - "是否被兴趣爱好或学习活动误认为职业？"
+
+    evidence_rules:
+      strong:
+        - "职位头衔、名片、工作证"
+        - "专业领域的笔记/作品，跨 ≥2 个月出现"
+      weak:
+        - "与专业相关的单次活动"
+        - "自媒体简介中的职位描述"
+
+    phase0_note: |
+      Phase 0 发现：Tool 能识别强证据（7 次、3 个月）。
+      问题可能在 LLM fallback 虽然有候选但仍输出 null。
+      改进：确保 deterministic=true，当 Tool 找到强证据时直接输出，无需 LLM。
+
+  - field_id: "professional_dedication"
+    json_path: "long_term_facts.social_identity.professional_dedication"
+    risk_level: "P1"
+    allowed_sources: ["E", "F"]
+    strong_evidence: "连续工作/学习事件密度高，时间投入稳定，成果/重复参与可见"
+    hard_blocks: ["single_work_burst", "temporary_project"]
+    tool_required: false
+    deterministic: false
+    reflection_rounds: 1
+    requires_social_media: false
+
+    cot_key_questions:
+      - "工作/学习事件的密度和频率如何？"
+      - "是否显示稳定的时间投入和成果？"
+      - "是否仅因一两次加班/课堂就下结论？"
+
+    evidence_rules:
+      strong:
+        - "连续高频工作/学习事件，跨多个月份"
+        - "可见的成果或作品产出"
+      weak:
+        - "偶发加班或课堂参与"
+
+  # ============================================================================
+  # long_term_facts.material - 物质生活（2 个 P0 字段）
+  # ============================================================================
+
+  - field_id: "asset_level"
+    json_path: "long_term_facts.material.asset_level"
+    risk_level: "P0"
+    allowed_sources: ["E", "V", "F"]
+    strong_evidence: "多条社经证据 + 稳定生活方式 + 明确归属，且 asset_evidence_count 达标"
+    hard_blocks: ["hotel_or_exhibition", "one_time_high_consumption", "other_peoples_property"]
+    tool_required: false
+    deterministic: false
+    reflection_rounds: 2
+    requires_social_media: false
+
+    cot_key_questions:
+      - "是否有多个社经阶层的证据（住房、交通、消费）？"
+      - "生活方式是否稳定一致？"
+      - "财产归属是否明确属于主角本人？"
+
+    evidence_rules:
+      strong:
+        - "房产、交通工具等资产的长期拥有证据"
+        - "稳定的消费模式反映的生活水平"
+      weak:
+        - "单次高消费体验"
+        - "酒店、展厅访问"
+
+  - field_id: "brand_preference"
+    json_path: "long_term_facts.material.brand_preference"
+    risk_level: "P0"
+    allowed_sources: ["V", "E", "F"]
+    strong_evidence: |
+      命中任一条件即可：
+      1) owned_refs >= 2（穿着、背着、使用超过 2 次）
+      2) fandom_refs >= 2（应援物品超过 2 个）
+      3) (owned_refs >= 1 AND cross_event >= 2)（有 1 次所有权证据 + 跨 2 个事件）
+    hard_blocks: ["ocr_fragment", "non_brand_word", "scene_property_not_owned", "advertisement_exposure"]
+    tool_required: true
+    tool_names: ["get_brand_stats"]
+    deterministic: true
+    reflection_rounds: 2
+    requires_social_media: false
+
+    cot_key_questions:
+      - "这个品牌是否被反复使用（穿着、背着、使用 ≥2 次）？"
+      - "是否是粉丝应援（应援棒、专辑、周边）？"
+      - "是否是场景中的背景物品或他人物品（非主角归属）？"
+      - "是否是广告植入或一次性展示？"
+      - "OCR 碎片（'Hello'、'粉色蝴蝶结虚拟'）是否被误认为品牌？"
+
+    evidence_rules:
+      strong:
+        - "反复穿着/使用/背着（≥2 次，≥2 个月）"
+        - "应援物品（应援棒、专辑、演唱会周边）"
+      weak:
+        - "单次拍照时穿着"
+        - "社交媒体签名或头像"
+
+    phase0_note: |
+      Phase 0 发现：频次≥2 规则过严，丢失 80% 品牌。
+      改进：使用多维度规则（owned_refs / fandom_refs / cross_event 组合），而非简单频次。
+      当前 YAML 已修正为：(owned_refs >= 2) OR (fandom_refs >= 2) OR (owned_refs >= 1 AND cross_event >= 2)
+
+  # ============================================================================
+  # long_term_facts.relationships - 关系网络（2 个 P0 字段）
+  # ============================================================================
+
+  - field_id: "intimate_partner"
+    json_path: "long_term_facts.relationships.intimate_partner"
+    risk_level: "P0"
+    allowed_sources: ["R"]
+    strong_evidence: "RelationshipExtractor 明确识别为 romantic 类型"
+    hard_blocks: ["working_together", "shared_activity", "unclear_relationship"]
+    tool_required: false
+    from_relation: true
+    deterministic: true
+    reflection_rounds: 0
+    requires_social_media: false
+
+    cot_key_questions:
+      - "RelationshipExtractor 是否确认了 romantic 关系类型？"
+      - "是否有明确的亲密行为和专属互动？"
+
+    note: "直接从 RelationshipExtractor 读取，不走画像层 LLM"
+
+  - field_id: "parenting"
+    json_path: "long_term_facts.relationships.parenting"
+    risk_level: "P0"
+    allowed_sources: ["R", "E"]
+    strong_evidence: "RelationshipExtractor 识别出 child 类型关系，或主角带小孩的连续护理场景"
+    hard_blocks: ["child_in_activity", "other_peoples_children", "babysitting_not_parenting"]
+    tool_required: false
+    deterministic: false
+    reflection_rounds: 2
+    requires_social_media: false
+
+    cot_key_questions:
+      - "是否有主角与小孩的持续互动和护理行为？"
+      - "小孩与主角的关系是否明确（自己的孩子）？"
+      - "是否是临时照看他人的孩子？"
+
+    evidence_rules:
+      strong:
+        - "主角与小孩的日常照护和教育活动"
+        - "多个事件中显示的监护关系"
+      weak:
+        - "活动中出现的小孩"
+        - "临时照看"
+
+  # ============================================================================
+  # long_term_expression - 长期表达（1 个 P0 字段）
+  # ============================================================================
+
+  - field_id: "personality_mbti"
+    json_path: "long_term_expression.personality_mbti"
+    risk_level: "P0"
+    allowed_sources: ["E", "V"]
+    strong_evidence: "跨事件稳定行为特征 + 3+ 条证据 + 无冲突"
+    hard_blocks: ["insufficient_evidence", "contradictory_signals", "social_media_only"]
+    requires_social_media: true
+    tool_required: false
+    deterministic: false
+    reflection_rounds: 2
+
+    cot_key_questions:
+      - "是否有跨事件稳定的行为特征？"
+      - "证据是否足够（≥3 条）且相互印证？"
+      - "是否存在相互矛盾的信号？"
+
+    evidence_rules:
+      strong:
+        - "多个事件中显示的稳定决策风格、社交模式、工作方式"
+      weak:
+        - "单一场景或短期行为"
+        - "社交媒体自述"
+
+    note: "高风险字段，缺社媒时自动 null"
+
+  # ============================================================================
+  # 未观测字段 - 照片无法推断，直接输出 null
+  # ============================================================================
+
+unobservable:
+  - field_id: "political_preference"
+    json_path: "long_term_facts.social_identity.political_preference"
+    risk_level: "P2"
+    reason: "photograph cannot reveal political beliefs"
+
+  - field_id: "health_conditions"
+    json_path: "long_term_facts.physiology.health_conditions"
+    risk_level: "P2"
+    reason: "private medical information"
+
+  - field_id: "physiological_state"
+    json_path: "short_term_facts.physiological_state"
+    risk_level: "P2"
+    reason: "private medical information"
+
+# ============================================================================
+# 待补充的字段
+# ============================================================================
+
+# P1 字段将在后续补充，当前标记为 TODO：
+# - long_term_facts.geography.location_anchors
+#   问题：VLM location 字段质量不足，待补充 EXIF/GPS 后重新评估
+# - long_term_facts.geography.cross_border
+# - long_term_facts.time.life_rhythm
+# - long_term_facts.time.event_cycles
+# - long_term_facts.time.sleep_pattern
+# - long_term_facts.hobbies.solo_vs_social
+# - short_term_facts.life_events
+# - 其他 P1 和 P2 字段...
