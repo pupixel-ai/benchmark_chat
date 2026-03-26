@@ -701,3 +701,221 @@ export type TaskMemoryStepsResponse = {
     lp3: TaskMemoryStepPayload;
   };
 };
+
+export type ReflectionEvidenceRef = {
+  source_type?: string;
+  source_id?: string;
+  description?: string;
+  feature_names?: string[];
+};
+
+export type ReflectionTaskItem = {
+  task_id: string;
+  task_type: string;
+  pattern_id: string;
+  user_name: string;
+  album_id?: string;
+  lane: "upstream" | "downstream";
+  priority: "high" | "medium" | "low";
+  summary: string;
+  detail_url: string;
+  support_case_ids: string[];
+  options: string[];
+  recommended_option: string;
+  status: string;
+  feishu_status: string;
+  created_at: string;
+  updated_at: string;
+  why_blocked?: string;
+  evidence_refs: ReflectionEvidenceRef[];
+};
+
+export type ReflectionPatternCluster = {
+  pattern_id: string;
+  user_name: string;
+  lane: "upstream" | "downstream";
+  business_priority: "high" | "medium" | "low";
+  root_cause_candidates: string[];
+  fix_surface_candidates: string[];
+  support_case_ids: string[];
+  is_direction_clear: boolean;
+  entity_type?: string;
+  dimension?: string;
+  triage_reason?: string;
+  album_id?: string;
+  support_count: number;
+  summary: string;
+  evidence_refs: ReflectionEvidenceRef[];
+  status: string;
+  why_blocked?: string;
+  recommended_option: string;
+  eligible_for_task: boolean;
+};
+
+export type ReflectionCaseFact = {
+  case_id: string;
+  user_name: string;
+  album_id: string;
+  entity_type: string;
+  entity_id: string;
+  dimension: string;
+  signal_source: string;
+  first_seen_stage: string;
+  surfaced_stage: string;
+  routing_result: string;
+  business_priority: string;
+  auto_confidence: number;
+  triage_reason?: string;
+  support_count?: number;
+  accuracy_gap_status?: string;
+  resolution_route?: string;
+  comparison_grade?: string;
+  comparison_score?: number;
+  comparison_method?: string;
+  trace_payload_path?: string;
+  decision_trace?: Record<string, unknown>;
+  evidence_refs?: ReflectionEvidenceRef[];
+  upstream_output?: Record<string, unknown>;
+  gt_payload?: Record<string, unknown>;
+  comparison_result?: Record<string, unknown>;
+  downstream_challenge?: Record<string, unknown>;
+  downstream_judge?: Record<string, unknown>;
+};
+
+export type ReflectionTaskListResponse = {
+  task_count: number;
+  tasks: ReflectionTaskItem[];
+};
+
+export type ReflectionGTComparison = {
+  case_id?: string;
+  output_value?: unknown;
+  gt_value?: unknown;
+  grade?: string;
+  score?: number;
+  method?: string;
+  severity?: string;
+};
+
+export type ReflectionTraceSummary = {
+  case_id: string;
+  album_id?: string;
+  field_key?: string;
+  batch_name?: string;
+  tool_called?: boolean;
+  retrieval_hit_count?: number;
+  null_reason?: string;
+  selected_supporting_ref_ids?: string[];
+  selected_contradicting_ref_ids?: string[];
+  trace_payload_path?: string;
+};
+
+export type ReflectionRouteDecision = {
+  case_id: string;
+  resolution_route?: string;
+  accuracy_gap_status?: string;
+  comparison_grade?: string;
+  pre_audit_comparison_grade?: string;
+  causality_route?: string;
+  audit_action_type?: string;
+};
+
+export type ReflectionProposalRecord = {
+  proposal_id: string;
+  task_id: string;
+  experiment_id: string;
+  pattern_id: string;
+  user_name: string;
+  lane: string;
+  field_key: string;
+  fix_surface: string;
+  summary: string;
+  detail_url: string;
+  status: string;
+  approval_required?: boolean;
+  recommended_option?: string;
+  options?: string[];
+  agent_reasoning_summary?: string;
+  why_not_other_surfaces?: string;
+  decision_tree_path?: string[];
+  patch_intent?: Record<string, unknown>;
+  patch_preview?: Record<string, unknown>;
+  diff_summary?: string[];
+  baseline_metrics?: Record<string, unknown>;
+  candidate_metrics?: Record<string, unknown>;
+  metric_gain?: Record<string, unknown>;
+  override_bundle_path?: string;
+  experiment_report_path?: string;
+  experiment_report?: Record<string, unknown>;
+  validation_summary?: Record<string, unknown>;
+  proposal_status?: string;
+  feishu_status?: string;
+  feishu_message_id?: string;
+  feishu_last_sent_at?: string;
+  resolved_option?: string;
+  reviewer_note?: string;
+  reviewed_by?: string;
+  last_action_type?: string;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type ReflectionTaskDetailResponse = {
+  task: ReflectionTaskItem;
+  pattern: ReflectionPatternCluster;
+  proposal?: ReflectionProposalRecord;
+  support_cases: ReflectionCaseFact[];
+  evidence_refs: ReflectionEvidenceRef[];
+  stage_trace: Array<{
+    case_id: string;
+    first_seen_stage: string;
+    surfaced_stage: string;
+    signal_source: string;
+    triage_reason?: string;
+    business_priority?: string;
+  }>;
+  gt_comparisons: ReflectionGTComparison[];
+  field_trace_summaries: ReflectionTraceSummary[];
+  route_decisions: ReflectionRouteDecision[];
+  history_summary: Record<string, unknown>;
+  history_patterns: ReflectionPatternCluster[];
+  history_experiments: Array<Record<string, unknown>>;
+  history_outcomes: Array<Record<string, unknown>>;
+};
+
+export type DifficultCaseItem = {
+  case_id: string;
+  user_name: string;
+  album_id: string;
+  dimension: string;
+  entity_type: string;
+  summary: string;
+  detail_url: string;
+  status: string;
+  comparison_grade?: string;
+  comparison_score?: number;
+  resolution_route?: string;
+  trace_payload_path?: string;
+  evidence_refs: ReflectionEvidenceRef[];
+  feishu_status?: string;
+  feishu_message_id?: string;
+  feishu_last_sent_at?: string;
+};
+
+export type ReflectionDifficultCaseDetailResponse = {
+  case: DifficultCaseItem;
+  case_fact: ReflectionCaseFact;
+  gt_comparison: ReflectionGTComparison;
+  difficulty_reason?: string;
+  trace_summary: ReflectionTraceSummary;
+  trace_payload: Record<string, unknown>;
+  evidence_refs: ReflectionEvidenceRef[];
+  route_decision: {
+    resolution_route?: string;
+    accuracy_gap_status?: string;
+    comparison_grade?: string;
+    pre_audit_comparison_grade?: string;
+    causality_route?: string;
+    audit_action_type?: string;
+  };
+};

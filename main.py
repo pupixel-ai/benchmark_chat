@@ -51,12 +51,15 @@ from services.memory_pipeline.downstream_audit import (
     inspect_profile_agent_runtime_health,
     run_downstream_profile_agent_audit,
 )
-from services.memory_pipeline.feedback_cases import persist_downstream_feedback_cases
 from services.memory_pipeline.orchestrator import (
     build_memory_state,
     rerun_pipeline_from_primary_backflow,
     rerun_pipeline_from_relationship_backflow,
     run_memory_pipeline,
+)
+from services.reflection import (
+    persist_downstream_audit_reflection_assets,
+    persist_mainline_reflection_assets,
 )
 
 
@@ -99,8 +102,8 @@ def print_simple_summary(events: List, relationships: List, artifacts: Dict[str,
     print(f"关系调试输出已保存到: {artifacts.get('relationships_path')}")
     print(f"画像调试输出已保存到: {artifacts.get('profile_debug_path')}")
     print(f"下游审计输出已保存到: {artifacts.get('downstream_audit_report_path')}")
-    print(f"下游反馈 case 已保存到: {artifacts.get('downstream_feedback_cases_path')}")
-    print(f"下游通知状态已保存到: {artifacts.get('downstream_notification_status_path')}")
+    print(f"Reflection observation cases 已保存到: {artifacts.get('reflection_observation_cases_path')}")
+    print(f"Reflection case facts 已保存到: {artifacts.get('reflection_case_facts_path')}")
 
 
 def save_detailed_report(events: List, relationships: List, face_db: dict):
@@ -315,38 +318,72 @@ def run_memory_pipeline_entry(
     final_primary_person_id = (
         (profile_result.get("internal_artifacts", {}).get("primary_decision") or {}).get("primary_person_id")
     )
-    feedback_case_error = ""
+    mainline_capture_error = ""
     try:
-        feedback_case_result = persist_downstream_feedback_cases(
-            downstream_audit_report=downstream_audit_report,
+        mainline_capture_result = persist_mainline_reflection_assets(
+            internal_artifacts=profile_result.get("internal_artifacts", {}),
+            project_root=PROJECT_ROOT,
             user_name=USER_NAME,
-            run_timestamp=RUN_TIMESTAMP,
             album_id=audit_album_id,
-            queue_path=DOWNSTREAM_BADCASE_QUEUE_PATH,
-            run_output_path=DOWNSTREAM_FEEDBACK_CASES_OUTPUT_PATH,
-            profile_agent_root=PROFILE_AGENT_ROOT,
         )
     except Exception as exc:
-        feedback_case_error = str(exc)
-        feedback_case_result = {
-            "run_output_path": None,
-            "queue_path": DOWNSTREAM_BADCASE_QUEUE_PATH,
-            "written_count": 0,
-            "pending_count": 0,
-            "mirrored_count": 0,
+        mainline_capture_error = str(exc)
+        mainline_capture_result = {
+            "observation_cases_path": None,
+            "case_facts_path": None,
+            "written_observation_count": 0,
+            "written_case_fact_count": 0,
             "case_ids": [],
-            "error": feedback_case_error,
+            "error": mainline_capture_error,
         }
-    downstream_feedback_cases_path = feedback_case_result.get("run_output_path")
-    notification_status = {
-        "phase": "downstream_audit_pipeline",
-        "state": "not_triggered" if not feedback_case_error else "feedback_case_write_failed",
-        "message": "使用 scripts/downstream_badcase_bridge.py propose/apply 触发飞书审批链。",
-        "feedback_case_error": feedback_case_error,
-        "notification_failures": [],
+
+    reflection_capture_error = ""
+    try:
+        downstream_capture_result = persist_downstream_audit_reflection_assets(
+            downstream_audit_report=downstream_audit_report,
+            project_root=PROJECT_ROOT,
+            user_name=USER_NAME,
+            album_id=audit_album_id,
+        )
+    except Exception as exc:
+        reflection_capture_error = str(exc)
+        downstream_capture_result = {
+            "observation_cases_path": None,
+            "case_facts_path": None,
+            "written_observation_count": 0,
+            "written_case_fact_count": 0,
+            "case_ids": [],
+            "error": reflection_capture_error,
+        }
+    reflection_observation_cases_path = (
+        downstream_capture_result.get("observation_cases_path")
+        or mainline_capture_result.get("observation_cases_path")
+    )
+    reflection_case_facts_path = (
+        downstream_capture_result.get("case_facts_path")
+        or mainline_capture_result.get("case_facts_path")
+    )
+    reflection_capture_status = {
+        "phase": "mainline_and_downstream_capture",
+        "state": "captured" if not (mainline_capture_error or reflection_capture_error) else "capture_failed",
+        "mainline_capture_error": mainline_capture_error,
+        "downstream_capture_error": reflection_capture_error,
+        "written_mainline_observation_count": mainline_capture_result.get("written_observation_count", 0),
+        "written_mainline_case_fact_count": mainline_capture_result.get("written_case_fact_count", 0),
+        "written_downstream_observation_count": downstream_capture_result.get("written_observation_count", 0),
+        "written_downstream_case_fact_count": downstream_capture_result.get("written_case_fact_count", 0),
+        "written_observation_count": (
+            mainline_capture_result.get("written_observation_count", 0)
+            + downstream_capture_result.get("written_observation_count", 0)
+        ),
+        "written_case_fact_count": (
+            mainline_capture_result.get("written_case_fact_count", 0)
+            + downstream_capture_result.get("written_case_fact_count", 0)
+        ),
     }
-    downstream_audit_report.setdefault("metadata", {})["feedback_cases_written"] = feedback_case_result.get("written_count", 0)
-    downstream_audit_report["metadata"]["notification_status"] = notification_status
+    downstream_audit_report.setdefault("metadata", {})["reflection_observation_cases_written"] = downstream_capture_result.get("written_observation_count", 0)
+    downstream_audit_report["metadata"]["reflection_case_facts_written"] = downstream_capture_result.get("written_case_fact_count", 0)
+    downstream_audit_report["metadata"]["reflection_capture_status"] = reflection_capture_status
     events = profile_result.get("events", [])
     relationships = profile_result.get("relationships", [])
     relationship_dossiers_path = save_internal_artifact(
@@ -370,13 +407,12 @@ def run_memory_pipeline_entry(
         primary_person_id=final_primary_person_id,
         total_fields=len(profile_result.get("internal_artifacts", {}).get("profile_fact_decisions", [])),
     )
-    downstream_notification_status_path = save_internal_artifact(
-        artifact_name="downstream_notification_status",
-        payload=notification_status,
-        path=DOWNSTREAM_NOTIFICATION_STATUS_PATH,
+    reflection_capture_status_path = save_internal_artifact(
+        artifact_name="reflection_capture_status",
+        payload=reflection_capture_status,
+        path=os.path.join(USER_OUTPUT_DIR, f"reflection_capture_status_{USER_NAME}_{RUN_TIMESTAMP}.json"),
         primary_person_id=final_primary_person_id,
-        queue_path=DOWNSTREAM_BADCASE_QUEUE_PATH,
-        feedback_cases_written=feedback_case_result.get("written_count", 0),
+        reflection_case_facts_written=reflection_capture_status.get("written_case_fact_count", 0),
     )
     downstream_audit_report_path = save_internal_artifact(
         artifact_name="downstream_audit_report",
@@ -398,8 +434,9 @@ def run_memory_pipeline_entry(
         "group_artifacts_path": group_artifacts_path,
         "profile_fact_decisions_path": profile_fact_decisions_path,
         "downstream_audit_report_path": downstream_audit_report_path,
-        "downstream_feedback_cases_path": downstream_feedback_cases_path,
-        "downstream_notification_status_path": downstream_notification_status_path,
+        "reflection_observation_cases_path": reflection_observation_cases_path,
+        "reflection_case_facts_path": reflection_case_facts_path,
+        "reflection_capture_status_path": reflection_capture_status_path,
     }
 
 
@@ -492,11 +529,14 @@ def _build_skipped_downstream_audit_report(
             "audit_error_type": error_type,
             "audit_error_message": error_message,
             "runtime_health": runtime_health or {},
-            "feedback_cases_written": 0,
-            "notification_status": {
-                "phase": "downstream_audit_pipeline",
+            "reflection_observation_cases_written": 0,
+            "reflection_case_facts_written": 0,
+            "reflection_capture_status": {
+                "phase": "downstream_audit_capture",
                 "state": "skipped_init_failure",
-                "notification_failures": [],
+                "capture_error": error_message,
+                "written_observation_count": 0,
+                "written_case_fact_count": 0,
             },
         },
         "summary": {
@@ -686,8 +726,9 @@ def main():
     group_artifacts_path = pipeline_result["group_artifacts_path"]
     profile_fact_decisions_path = pipeline_result["profile_fact_decisions_path"]
     downstream_audit_report_path = pipeline_result["downstream_audit_report_path"]
-    downstream_feedback_cases_path = pipeline_result["downstream_feedback_cases_path"]
-    downstream_notification_status_path = pipeline_result["downstream_notification_status_path"]
+    reflection_observation_cases_path = pipeline_result["reflection_observation_cases_path"]
+    reflection_case_facts_path = pipeline_result["reflection_case_facts_path"]
+    reflection_capture_status_path = pipeline_result["reflection_capture_status_path"]
     final_primary_person_id = pipeline_result.get("final_primary_person_id")
     profile_path = None
     structured_path = None
@@ -720,8 +761,9 @@ def main():
         profile_debug_path=profile_debug_path,
         profile_fact_decisions_path=profile_fact_decisions_path,
         downstream_audit_report_path=downstream_audit_report_path,
-        downstream_feedback_cases_path=downstream_feedback_cases_path,
-        downstream_notification_status_path=downstream_notification_status_path,
+        reflection_observation_cases_path=reflection_observation_cases_path,
+        reflection_case_facts_path=reflection_case_facts_path,
+        reflection_capture_status_path=reflection_capture_status_path,
         detailed_report_path=DETAILED_OUTPUT_PATH,
     )
     save_final_output(events, relationships, face_db, artifacts)

@@ -9,3 +9,7 @@ runtime/models/*.task
 .DS_Store
 past-test/
 .codex_local/
+frontend/node_modules/
+frontend/node_modules_bad_*/
+frontend/.next-build/
+frontend/.next-dev/

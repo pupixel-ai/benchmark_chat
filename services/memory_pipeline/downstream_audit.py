@@ -352,11 +352,14 @@ def build_downstream_audit_report(
             "audit_cycle_mode": "full_v1_critic_v2_judge",
             "profile_agent_root": PROFILE_AGENT_ROOT,
             "runtime_health": runtime_health,
-            "feedback_cases_written": 0,
-            "notification_status": {
-                "phase": "downstream_audit_pipeline",
+            "reflection_observation_cases_written": 0,
+            "reflection_case_facts_written": 0,
+            "reflection_capture_status": {
+                "phase": "downstream_audit_capture",
                 "state": "not_triggered",
-                "notification_failures": [],
+                "capture_error": "",
+                "written_observation_count": 0,
+                "written_case_fact_count": 0,
             },
         },
         "summary": summary,

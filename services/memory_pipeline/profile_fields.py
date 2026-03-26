@@ -8,6 +8,12 @@ from services.consistency_checker import build_consistency_report
 
 from .evidence_utils import build_evidence_payload, extract_ids_from_refs, flatten_ref_buckets
 from .profile_agent import ProfileAgent
+from .rule_asset_loader import (
+    apply_runtime_field_spec_updates,
+    clear_runtime_rule_overlays,
+    get_effective_field_specs,
+    temporary_rule_overlay,
+)
 from .types import FactFieldDecision, FieldBundle, FieldSpec, MemoryState
 
 
@@ -478,12 +484,15 @@ def build_empty_structured_profile() -> Dict[str, Any]:
 def generate_structured_profile(
     state: MemoryState,
     llm_processor: Any | None = None,
+    rule_overlay: Dict[str, Any] | None = None,
 ) -> Dict[str, Any]:
     context = state.profile_context or build_profile_context(state)
     structured = build_empty_structured_profile()
     effective_llm_processor = llm_processor or _resolve_profile_llm_processor(context)
-    profile_agent = ProfileAgent(FIELD_SPECS)
-    profile_result = profile_agent.run(context, structured, llm_processor=effective_llm_processor)
+    effective_field_specs = get_active_field_specs(rule_overlay=rule_overlay)
+    profile_agent = ProfileAgent(effective_field_specs)
+    with temporary_rule_overlay(rule_overlay):
+        profile_result = profile_agent.run(context, structured, llm_processor=effective_llm_processor)
     structured = profile_result["structured"]
     consistency = build_consistency_report(state.events or [], state.relationships or [], structured)
     return {
@@ -492,6 +501,14 @@ def generate_structured_profile(
         "llm_batch_debug": profile_result.get("llm_batch_debug", []),
         "consistency": consistency,
     }
+
+
+def get_active_field_specs(*, rule_overlay: Dict[str, Any] | None = None) -> Dict[str, FieldSpec]:
+    return get_effective_field_specs(base_field_specs=FIELD_SPECS, overlay_bundle=rule_overlay)
+
+
+def clear_runtime_field_spec_updates() -> None:
+    clear_runtime_rule_overlays()
 
 
 def _resolve_profile_llm_processor(context: Dict[str, Any]) -> Any | None:

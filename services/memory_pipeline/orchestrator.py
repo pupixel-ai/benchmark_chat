@@ -104,6 +104,7 @@ def _build_pipeline_result(state: MemoryState, profile_result: Dict[str, Any]) -
             "relationship_dossiers": [dossier.to_dict() for dossier in state.relationship_dossiers],
             "group_artifacts": [group.to_dict() for group in state.groups],
             "profile_fact_decisions": profile_result["field_decisions"],
+            "profile_llm_batch_debug": profile_result.get("llm_batch_debug", []),
         },
     }
 

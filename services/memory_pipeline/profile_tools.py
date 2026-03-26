@@ -628,9 +628,16 @@ def get_tool(tool_name: str):
 
 
 def fetch_field_evidence(field_key: str, context: Dict[str, Any], profile_state: Dict[str, Any] | None = None) -> Dict[str, Any]:
-    from .profile_fields import FIELD_SPECS
+    from .profile_fields import get_active_field_specs
+    from .rule_asset_loader import get_active_call_policy, get_active_tool_rule
 
-    spec = FIELD_SPECS[field_key]
+    spec = get_active_field_specs()[field_key]
+    call_policy = get_active_call_policy(field_key)
+    tool_rule = get_active_tool_rule(field_key)
+    allowed_sources = list(call_policy.get("override_allowed_sources") or spec.allowed_sources)
+    if not call_policy.get("override_allowed_sources"):
+        allowed_sources = list(spec.allowed_sources)
+    allowed_sources.extend(item for item in list(call_policy.get("append_allowed_sources") or []) if item not in allowed_sources)
     primary_person_id = context.get("primary_person_id")
     allowed_refs = {
         "events": [],
@@ -640,7 +647,7 @@ def fetch_field_evidence(field_key: str, context: Dict[str, Any], profile_state:
         "feature_refs": [],
     }
 
-    if "event" in spec.allowed_sources:
+    if "event" in allowed_sources:
         for event in context.get("events", []):
             allowed_refs["events"].append(
                 {
@@ -662,7 +669,7 @@ def fetch_field_evidence(field_key: str, context: Dict[str, Any], profile_state:
                 }
             )
 
-    if "relationship" in spec.allowed_sources:
+    if "relationship" in allowed_sources:
         for relationship in context.get("relationships", []):
             relationship_evidence = relationship.evidence or {}
             allowed_refs["relationships"].append(
@@ -679,7 +686,7 @@ def fetch_field_evidence(field_key: str, context: Dict[str, Any], profile_state:
                 }
             )
 
-    if "vlm" in spec.allowed_sources:
+    if "vlm" in allowed_sources:
         for observation in context.get("vlm_observations", []):
             allowed_refs["vlm_observations"].append(
                 {
@@ -712,7 +719,7 @@ def fetch_field_evidence(field_key: str, context: Dict[str, Any], profile_state:
                 }
             )
 
-    if "group" in spec.allowed_sources:
+    if "group" in allowed_sources:
         for group in context.get("groups", []):
             allowed_refs["group_artifacts"].append(
                 {
@@ -726,7 +733,7 @@ def fetch_field_evidence(field_key: str, context: Dict[str, Any], profile_state:
                 }
             )
 
-    if "feature" in spec.allowed_sources:
+    if "feature" in allowed_sources:
         for feature in context.get("feature_refs", []):
             feature_name = str(feature.get("feature_name", "") or "")
             allowed_refs["feature_refs"].append(
@@ -830,6 +837,14 @@ def fetch_field_evidence(field_key: str, context: Dict[str, Any], profile_state:
             supporting_refs["vlm_observations"],
         )
     payload["compact"] = _build_compact_evidence_payload(payload)
+    max_refs_per_source = tool_rule.get("max_refs_per_source")
+    if isinstance(max_refs_per_source, int) and max_refs_per_source > 0:
+        for bucket_name, refs in list((payload.get("allowed_refs") or {}).items()):
+            if isinstance(refs, list):
+                payload["allowed_refs"][bucket_name] = refs[:max_refs_per_source]
+        for bucket_name, refs in list((payload.get("supporting_refs") or {}).items()):
+            if isinstance(refs, list):
+                payload["supporting_refs"][bucket_name] = refs[:max_refs_per_source]
     return payload
 
 
@@ -839,9 +854,9 @@ def analyze_evidence_stats(
     ownership_bundle: Dict[str, Any] | None = None,
     profile_state: Dict[str, Any] | None = None,
 ) -> Dict[str, Any]:
-    from .profile_fields import FIELD_SPECS
+    from .profile_fields import get_active_field_specs
 
-    spec = FIELD_SPECS[field_key]
+    spec = get_active_field_specs()[field_key]
     supporting_refs = evidence_bundle["supporting_refs"]
     supporting_events = supporting_refs.get("events", [])
     supporting_vlm = supporting_refs.get("vlm_observations", [])

@@ -954,6 +954,7 @@ Step 4: 只有在完全没有相关证据时，或者全部证据都只能指向
                 "domain_name": domain_spec["display_name"],
                 "batch_name": batch_name,
                 "field_spec_snapshot": spec.to_dict(),
+                "resolved_facts_summary_at_decision_time": deepcopy(profile_state.resolved_facts_summary),
                 "tool_trace": tool_trace,
                 "draft": draft,
                 "final": final,

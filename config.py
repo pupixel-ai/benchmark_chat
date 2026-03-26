@@ -6,6 +6,25 @@ from __future__ import annotations
 
 import os
 from datetime import datetime
+from pathlib import Path
+
+
+def _fallback_load_dotenv(dotenv_path: str | os.PathLike[str]) -> None:
+    file_path = Path(dotenv_path)
+    if not file_path.exists():
+        return
+    for raw_line in file_path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip().strip("'").strip('"')
+        if key and key not in os.environ:
+            os.environ[key] = value
+
+
+_fallback_load_dotenv(Path(__file__).resolve().parent / ".env")
 
 # 项目路径
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -36,13 +55,30 @@ OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "").strip()
 OPENROUTER_BASE_URL = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1").strip() or "https://openrouter.ai/api/v1"
 PROFILE_LLM_PROVIDER = os.getenv("PROFILE_LLM_PROVIDER", "").strip().lower()
 PROFILE_LLM_MODEL = os.getenv("PROFILE_LLM_MODEL", "google/gemini-3.1-flash-lite-preview").strip() or "google/gemini-3.1-flash-lite-preview"
+REFLECTION_AGENT_PROVIDER = os.getenv("REFLECTION_AGENT_PROVIDER", "openrouter").strip().lower() or "openrouter"
+REFLECTION_AGENT_OPENROUTER_API_KEY = os.getenv("REFLECTION_AGENT_OPENROUTER_API_KEY", "").strip() or OPENROUTER_API_KEY
+REFLECTION_AGENT_MODEL = os.getenv("REFLECTION_AGENT_MODEL", "").strip()
+REFLECTION_AGENT_TEMPERATURE = float(os.getenv("REFLECTION_AGENT_TEMPERATURE", "0.1"))
 AMAP_API_KEY = os.getenv("AMAP_API_KEY", "").strip()
 PROFILE_AGENT_ROOT = os.getenv(
     "PROFILE_AGENT_ROOT",
     "/Users/vigar07/Downloads/profile_agent_reflect",
 ).strip() or "/Users/vigar07/Downloads/profile_agent_reflect"
 FEISHU_WEBHOOK_URL = os.getenv("FEISHU_WEBHOOK_URL", "").strip()
+FEISHU_APP_ID = os.getenv("FEISHU_APP_ID", "").strip()
+FEISHU_APP_SECRET = os.getenv("FEISHU_APP_SECRET", "").strip()
+FEISHU_CALLBACK_VERIFICATION_TOKEN = os.getenv("FEISHU_CALLBACK_VERIFICATION_TOKEN", "").strip()
+FEISHU_CALLBACK_ENCRYPT_KEY = os.getenv("FEISHU_CALLBACK_ENCRYPT_KEY", "").strip()
+FEISHU_API_BASE_URL = os.getenv("FEISHU_API_BASE_URL", "https://open.feishu.cn").strip() or "https://open.feishu.cn"
+FEISHU_LONG_CONNECTION_LOG_LEVEL = os.getenv("FEISHU_LONG_CONNECTION_LOG_LEVEL", "INFO").strip().upper() or "INFO"
+FEISHU_DEFAULT_RECEIVE_ID = os.getenv("FEISHU_DEFAULT_RECEIVE_ID", "").strip()
+FEISHU_DEFAULT_RECEIVE_ID_TYPE = os.getenv("FEISHU_DEFAULT_RECEIVE_ID_TYPE", "open_id").strip() or "open_id"
+FEISHU_APPROVAL_RECEIVE_ID = os.getenv("FEISHU_APPROVAL_RECEIVE_ID", "").strip()
+FEISHU_APPROVAL_RECEIVE_ID_TYPE = os.getenv("FEISHU_APPROVAL_RECEIVE_ID_TYPE", "chat_id").strip() or "chat_id"
+FEISHU_DIFFICULT_CASE_RECEIVE_ID = os.getenv("FEISHU_DIFFICULT_CASE_RECEIVE_ID", "").strip()
+FEISHU_DIFFICULT_CASE_RECEIVE_ID_TYPE = os.getenv("FEISHU_DIFFICULT_CASE_RECEIVE_ID_TYPE", "chat_id").strip() or "chat_id"
 REVIEW_BASE_URL = os.getenv("REVIEW_BASE_URL", "http://localhost:8080").strip() or "http://localhost:8080"
+REFLECTION_STRICT_NOTIFY_BEFORE_CHANGES = os.getenv("REFLECTION_STRICT_NOTIFY_BEFORE_CHANGES", "false").strip().lower() == "true"
 
 VLM_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
 LLM_MODEL = "gemini-2.5-flash"
@@ -131,11 +167,8 @@ RELATIONSHIP_DOSSIERS_PATH = os.path.join(USER_OUTPUT_DIR, f"relationship_dossie
 GROUP_ARTIFACTS_PATH = os.path.join(USER_OUTPUT_DIR, f"group_artifacts_{USER_NAME}_{RUN_TIMESTAMP}.json")
 PROFILE_FACT_DECISIONS_PATH = os.path.join(USER_OUTPUT_DIR, f"profile_fact_decisions_{USER_NAME}_{RUN_TIMESTAMP}.json")
 DOWNSTREAM_AUDIT_REPORT_PATH = os.path.join(USER_OUTPUT_DIR, f"downstream_audit_report_{USER_NAME}_{RUN_TIMESTAMP}.json")
-DOWNSTREAM_FEEDBACK_CASES_OUTPUT_PATH = os.path.join(USER_OUTPUT_DIR, f"downstream_feedback_cases_{USER_NAME}_{RUN_TIMESTAMP}.json")
-DOWNSTREAM_NOTIFICATION_STATUS_PATH = os.path.join(USER_OUTPUT_DIR, f"downstream_notification_status_{USER_NAME}_{RUN_TIMESTAMP}.json")
 FACE_PIPELINE_RESULT_PATH = os.path.join(USER_OUTPUT_DIR, f"face_pipeline_result_{RUN_TIMESTAMP}.json")
 FACE_PIPELINE_REPORT_PATH = os.path.join(USER_OUTPUT_DIR, f"face_pipeline_report_{RUN_TIMESTAMP}.md")
-DOWNSTREAM_BADCASE_QUEUE_PATH = os.path.join(USER_CACHE_DIR, "downstream_feedback_cases.jsonl")
 
 # ─── 错误处理 ────────────────────────────────────────────────────
 MAX_RETRIES = 3
