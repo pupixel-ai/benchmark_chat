@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Sequence
 
+from services.v0325.profile_compaction import compact_lp3_profile
 from services.v0321_3.retrieval_shadow import build_profile_truth_v1
 
 
@@ -20,6 +21,28 @@ def _unique(values: Iterable[Any]) -> List[Any]:
         seen.add(normalized)
         result.append(value)
     return result
+
+
+def _coalesce_photo_ids(event: dict) -> List[Any]:
+    if not isinstance(event, dict):
+        return []
+    supporting_photo_ids = list(event.get("supporting_photo_ids", []) or [])
+    if supporting_photo_ids:
+        return supporting_photo_ids
+    evidence_photos = list(event.get("evidence_photos", []) or [])
+    if evidence_photos:
+        return evidence_photos
+    trace = dict((event.get("meta_info") or {}).get("trace") or {})
+    return list(trace.get("supporting_photo_ids", []) or [])
+
+
+def _coalesce_person_ids(event: dict) -> List[Any]:
+    if not isinstance(event, dict):
+        return []
+    participants = list(event.get("participants", []) or [])
+    if participants:
+        return participants
+    return list(event.get("participant_person_ids", []) or []) + list(event.get("depicted_person_ids", []) or [])
 
 
 def _index_asset_manifest(asset_manifest: dict | None) -> Dict[str, dict]:
@@ -256,11 +279,12 @@ def _build_relationships(memory_payload: dict, events: Sequence[dict], photo_cat
 
 def _build_profile(memory_payload: dict, photo_catalog: Dict[str, dict], *, user_id: str, pipeline_family: str) -> dict:
     if memory_payload.get("pipeline_family") == "v0323" or memory_payload.get("lp3_profile"):
-        lp3_profile = copy.deepcopy(memory_payload.get("lp3_profile") or {})
+        lp3_profile = compact_lp3_profile(memory_payload.get("lp3_profile") or {})
         structured = copy.deepcopy(lp3_profile.get("structured") or {})
+        report = str(lp3_profile.get("report_markdown") or lp3_profile.get("report") or "")
         return {
             "summary": str(structured.get("summary") or lp3_profile.get("summary") or ""),
-            "report_markdown": str(lp3_profile.get("report_markdown") or ""),
+            "report_markdown": report,
             "structured": structured,
         }
     profile_revision = copy.deepcopy(memory_payload.get("delta_profile_revision") or memory_payload.get("profile_revision") or {})
@@ -378,7 +402,7 @@ def _build_lp_snapshot_events(memory_payload: dict, photo_catalog: Dict[str, dic
     for event in list(memory_payload.get("lp1_events", []) or []):
         if not isinstance(event, dict):
             continue
-        photo_ids = _resolve_task_photo_ids(list(event.get("supporting_photo_ids", []) or []), photo_catalog)
+        photo_ids = _resolve_task_photo_ids(_coalesce_photo_ids(event), photo_catalog)
         event_vlm = []
         seen_vlm = set()
         for photo_id in photo_ids:
@@ -390,11 +414,8 @@ def _build_lp_snapshot_events(memory_payload: dict, photo_catalog: Dict[str, dic
                 event_vlm.append(item)
         events.append(
             {
-                "llm_summary": event.get("narrative_synthesis") or event.get("title"),
-                "person_ids": _unique(
-                    list(event.get("participant_person_ids", []) or [])
-                    + list(event.get("depicted_person_ids", []) or [])
-                ),
+                "llm_summary": event.get("narrative_synthesis") or event.get("narrative") or event.get("title"),
+                "person_ids": _unique(_coalesce_person_ids(event)),
                 "photo_ids": photo_ids,
                 "vlm": event_vlm,
             }
@@ -407,8 +428,10 @@ def _build_lp_snapshot_relationships(memory_payload: dict, events: Sequence[dict
     for relationship in list(memory_payload.get("lp2_relationships", []) or []):
         if not isinstance(relationship, dict):
             continue
+        evidence = copy.deepcopy(relationship.get("evidence") or {})
         supporting_photo_ids = _resolve_task_photo_ids(
-            list(relationship.get("supporting_photo_ids", []) or []),
+            list(relationship.get("supporting_photo_ids", []) or [])
+            or list(evidence.get("photo_ids", []) or []),
             photo_catalog,
         )
         if not supporting_photo_ids:
@@ -418,10 +441,19 @@ def _build_lp_snapshot_relationships(memory_payload: dict, events: Sequence[dict
                 for photo_id in list(event.get("photo_ids", []) or [])
                 if relationship.get("person_id") in list(event.get("person_ids", []) or [])
             )
+        if isinstance(evidence, dict):
+            evidence["photo_ids"] = supporting_photo_ids
         relationships.append(
             {
                 "person_id": relationship.get("person_id"),
                 "photo_ids": supporting_photo_ids,
+                "relationship_type": relationship.get("relationship_type"),
+                "status": relationship.get("status"),
+                "confidence": relationship.get("confidence"),
+                "intimacy_score": relationship.get("intimacy_score"),
+                "reasoning": relationship.get("reasoning") or relationship.get("reason"),
+                "shared_events": copy.deepcopy(list(relationship.get("shared_events", []) or [])),
+                "evidence": evidence,
             }
         )
     return relationships

@@ -79,10 +79,16 @@ def _file_specs_for_task(task: dict) -> tuple[tuple[tuple[str, str, str], ...], 
         *OPTIONAL_FILE_SPECS,
         (f"{family_name}/lp1_batch_outputs.jsonl", "lp1/lp1_batch_outputs.jsonl", "lp1"),
         (f"{family_name}/lp1_parse_failures.json", "lp1/lp1_parse_failures.json", "lp1"),
+        (f"{family_name}/lp1_events_raw.json", "lp1/lp1_events_raw.json", "lp1"),
     )
     if family_name == "v0325":
         optional_file_specs = (
             *optional_file_specs,
+            (f"{family_name}/structured_profile.json", "lp3/structured_profile.json", "lp3"),
+            (f"{family_name}/profile_fact_decisions.json", "lp3/profile_fact_decisions.json", "lp3"),
+            (f"{family_name}/downstream_audit_report.json", "lp3/downstream_audit_report.json", "lp3"),
+            (f"{family_name}/relationship_dossiers.json", "lp2/relationship_dossiers.json", "lp2"),
+            (f"{family_name}/group_artifacts.json", "lp3/group_artifacts.json", "lp3"),
             (f"{family_name}/raw_upstream_manifest.json", "raw/raw_upstream_manifest.json", "raw"),
             (f"{family_name}/raw_upstream_index.json", "raw/raw_upstream_index.json", "raw"),
         )

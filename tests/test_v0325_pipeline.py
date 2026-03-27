@@ -80,17 +80,62 @@ class StubV0325LLM:
                 "strength_summary": "稳定共同用餐与居家共现",
                 "reasoning": "多次一起吃饭并在居家场景共同出现。",
             }
-        if "你是客观画像字段判定 agent。" in prompt:
+        if "你是结构化画像的字段裁决 agent。" in prompt:
+            fields = {}
+            if "long_term_facts.identity.name" in prompt:
+                fields["long_term_facts.identity.name"] = {
+                    "value": "Vigar",
+                    "confidence": 0.76,
+                    "reasoning": "identity anchor points to the primary subject",
+                    "supporting_ref_ids": ["photo_001"],
+                    "contradicting_ref_ids": ["photo_004"],
+                    "null_reason": None,
+                }
             if "long_term_facts.identity.role" in prompt:
-                return {"value": "student", "confidence": 0.74}
+                fields["long_term_facts.identity.role"] = {
+                    "value": "student",
+                    "confidence": 0.74,
+                    "reasoning": "school-like cues appear in the evidence bundle",
+                    "supporting_ref_ids": ["photo_002", "EVT_0001"],
+                    "contradicting_ref_ids": [],
+                    "null_reason": None,
+                }
             if "long_term_facts.social_identity.education" in prompt:
-                return {"value": "college student", "confidence": 0.72}
+                fields["long_term_facts.social_identity.education"] = {
+                    "value": "college student",
+                    "confidence": 0.72,
+                    "reasoning": "campus cues and study context repeat",
+                    "supporting_ref_ids": ["photo_002", "EVT_0001"],
+                    "contradicting_ref_ids": [],
+                    "null_reason": None,
+                }
             if "long_term_facts.geography.location_anchors" in prompt:
-                return {"value": ["Home"], "confidence": 0.78}
+                fields["long_term_facts.geography.location_anchors"] = {
+                    "value": ["Home"],
+                    "confidence": 0.78,
+                    "reasoning": "recurring home location across selected observations",
+                    "supporting_ref_ids": ["photo_001", "photo_002", "EVT_0001"],
+                    "contradicting_ref_ids": [],
+                    "null_reason": None,
+                }
             if "long_term_facts.hobbies.frequent_activities" in prompt:
-                return {"value": ["meal"], "confidence": 0.68}
-            return {"value": None, "confidence": 0.0}
-        return {"value": None, "confidence": 0.0}
+                fields["long_term_facts.hobbies.frequent_activities"] = {
+                    "value": ["meal"],
+                    "confidence": 0.68,
+                    "reasoning": "meal activity repeats across selected evidence",
+                    "supporting_ref_ids": ["photo_001", "photo_003", "EVT_0001"],
+                    "contradicting_ref_ids": [],
+                    "null_reason": None,
+                }
+            return {"fields": fields}
+        return {
+            "value": None,
+            "confidence": 0.0,
+            "reasoning": "",
+            "supporting_ref_ids": [],
+            "contradicting_ref_ids": [],
+            "null_reason": None,
+        }
 
     def _call_json_prompt_raw_text(self, prompt: str, **kwargs) -> str:
         self.json_calls.append({"prompt": prompt, "kwargs": dict(kwargs), "raw_text_mode": True})
@@ -198,7 +243,11 @@ class V0325PipelineTests(unittest.TestCase):
                     "location": {"name": "Home"},
                     "face_person_ids": [face["person_id"] for face in faces],
                     "vlm_analysis": {
-                        "summary": f"summary {photo_id}",
+                        "summary": (
+                            "【主角】(Person_001) 自拍 in mirror at home with student id visible"
+                            if index == 4
+                            else f"summary {photo_id}"
+                        ),
                         "scene": {"location_detected": "Home", "environment_description": "home scene"},
                         "event": {"activity": "meal", "social_context": "friend"},
                         "people": [
@@ -310,23 +359,56 @@ class V0325PipelineTests(unittest.TestCase):
             self.assertIn("evidence", relationship)
             self.assertIn("photo_ids", relationship["evidence"])
             self.assertIn("event_ids", relationship["evidence"])
+            self.assertEqual(result["lp1_events"][0]["participants"], ["Person_001", "Person_002"])
+            self.assertEqual(result["lp1_events"][0]["evidence_photos"], ["photo_001", "photo_002", "photo_003"])
+            self.assertIn("events", result["lp3_profile"])
+            self.assertIn("relationships", result["lp3_profile"])
+            self.assertIn("report", result["lp3_profile"])
+            self.assertIn("debug", result["lp3_profile"])
             self.assertTrue(result["lp3_profile"]["report_markdown"])
-            self.assertIn("downstream_audit", result["lp3_profile"]["internal_artifacts"])
+            self.assertNotIn("field_decisions", result["lp3_profile"])
             self.assertEqual(
-                result["lp3_profile"]["internal_artifacts"]["raw_manifest_path"],
-                "v0325/raw_upstream_manifest.json",
+                set(result["lp3_profile"]["structured"]["long_term_facts"]["identity"]["name"]["evidence"].keys()),
+                {
+                    "photo_ids",
+                    "event_ids",
+                    "person_ids",
+                    "group_ids",
+                    "feature_names",
+                    "supporting_ref_count",
+                    "contradicting_ref_count",
+                    "constraint_notes",
+                    "summary",
+                },
+            )
+            name_evidence = result["lp3_profile"]["structured"]["long_term_facts"]["identity"]["name"]["evidence"]
+            self.assertEqual(name_evidence["photo_ids"], ["photo_001"])
+            self.assertEqual(name_evidence["contradicting_ref_count"], 1)
+            self.assertEqual(name_evidence["supporting_ref_count"], 1)
+            self.assertEqual(
+                result["lp3_profile"]["internal_artifacts"]["downstream_audit_report_path"],
+                "v0325/downstream_audit_report.json",
             )
             self.assertEqual(
-                result["lp3_profile"]["internal_artifacts"]["raw_index_path"],
-                "v0325/raw_upstream_index.json",
+                result["lp3_profile"]["internal_artifacts"]["profile_fact_decisions_path"],
+                "v0325/profile_fact_decisions.json",
+            )
+            self.assertEqual(
+                result["lp3_profile"]["internal_artifacts"]["structured_profile_path"],
+                "v0325/structured_profile.json",
             )
             self.assertTrue((task_dir / "v0325" / "raw_upstream_manifest.json").exists())
             self.assertTrue((task_dir / "v0325" / "raw_upstream_index.json").exists())
+            self.assertTrue((task_dir / "v0325" / "structured_profile.json").exists())
+            self.assertTrue((task_dir / "v0325" / "profile_fact_decisions.json").exists())
+            self.assertTrue((task_dir / "v0325" / "downstream_audit_report.json").exists())
             self.assertTrue((task_dir / "v0325" / "memory_snapshot.json").exists())
+            self.assertTrue((task_dir / "v0325" / "lp1_events_raw.json").exists())
 
             raw_manifest = json.loads((task_dir / "v0325" / "raw_upstream_manifest.json").read_text(encoding="utf-8"))
             self.assertTrue(raw_manifest["summary"]["no_drop_guarantee"])
             self.assertTrue(any(item["attachment_key"] == "raw_face_output" for item in raw_manifest["attachments"]))
+            self.assertTrue(any(item["attachment_key"] == "raw_lp1_events" for item in raw_manifest["attachments"]))
 
             request_rows = (task_dir / "v0325" / "lp1_batch_requests.jsonl").read_text(encoding="utf-8").strip().splitlines()
             self.assertTrue(request_rows)
@@ -342,6 +424,82 @@ class V0325PipelineTests(unittest.TestCase):
             self.assertEqual(first_attempt["analysis_response_id"], "resp_test_001")
             self.assertEqual(first_attempt["convert_response_id"], "resp_test_001")
             self.assertEqual(first_attempt["contract_version"], "v0325.lp1.output_window.v1")
+
+            lp2_artifact = json.loads((task_dir / "v0325" / "lp2_relationships.json").read_text(encoding="utf-8"))
+            self.assertEqual(lp2_artifact["metadata"]["primary_person_id"], "Person_001")
+            self.assertEqual(lp2_artifact["metadata"]["total_relationships"], 1)
+            self.assertEqual(lp2_artifact["relationships"][0]["person_id"], "Person_002")
+            self.assertNotIn("supporting_photo_ids", lp2_artifact["relationships"][0])
+
+            structured_artifact = json.loads((task_dir / "v0325" / "structured_profile.json").read_text(encoding="utf-8"))
+            self.assertIn("metadata", structured_artifact)
+            self.assertIn("structured_profile", structured_artifact)
+
+            decisions_artifact = json.loads((task_dir / "v0325" / "profile_fact_decisions.json").read_text(encoding="utf-8"))
+            self.assertIn("metadata", decisions_artifact)
+            self.assertIn("profile_fact_decisions", decisions_artifact)
+            self.assertIn("reasoning", decisions_artifact["profile_fact_decisions"][0]["draft"])
+
+    def test_v0325_pipeline_can_resume_from_precomputed_vp1_and_lp1(self) -> None:
+        photos, vlm_results, face_output = self._build_inputs()
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            task_dir = Path(tmp_dir)
+            cache_dir = task_dir / "cache"
+            cache_dir.mkdir(parents=True, exist_ok=True)
+            (cache_dir / "face_recognition_output.json").write_text(json.dumps(face_output, ensure_ascii=False), encoding="utf-8")
+            (cache_dir / "face_recognition_state.json").write_text(
+                json.dumps({"primary_person_id": "Person_001"}, ensure_ascii=False),
+                encoding="utf-8",
+            )
+            (cache_dir / "vlm_cache.json").write_text(
+                json.dumps({"photos": vlm_results}, ensure_ascii=False),
+                encoding="utf-8",
+            )
+            (cache_dir / "dedupe_report.json").write_text(
+                json.dumps({"retained_images": 4, "duplicate_backrefs": {}}, ensure_ascii=False),
+                encoding="utf-8",
+            )
+
+            bootstrap_family = V0325PipelineFamily(
+                task_id="task_bootstrap",
+                task_dir=task_dir,
+                user_id="user_1",
+                asset_store=None,
+                llm_processor=StubV0325LLM(),
+                public_url_builder=lambda path: f"/assets/{Path(path).relative_to(task_dir).as_posix()}",
+            )
+            observations = bootstrap_family._build_vp1_observations(photos, vlm_results)
+            lp1_events = StubV0325LLM()._lp1_batch_payload("BATCH_0001")["events"]
+
+            family = V0325PipelineFamily(
+                task_id="task_precomputed",
+                task_dir=task_dir,
+                user_id="user_1",
+                asset_store=None,
+                llm_processor=StubV0325LLM(),
+                public_url_builder=lambda path: f"/assets/{Path(path).relative_to(task_dir).as_posix()}",
+            )
+            result = family.run_from_precomputed(
+                observations=observations,
+                face_output=face_output,
+                primary_person_id="Person_001",
+                cached_photo_ids=["photo_004"],
+                dedupe_report={"retained_images": 4},
+                lp1_events=lp1_events,
+            )
+
+            self.assertEqual(result["pipeline_family"], "v0325")
+            self.assertEqual(len(result["lp2_relationships"]), 1)
+            self.assertTrue(result["lp3_profile"]["report_markdown"])
+            lp1_events_on_disk = json.loads((task_dir / "v0325" / "lp1_events_compact.json").read_text(encoding="utf-8"))
+            self.assertEqual(len(lp1_events_on_disk), 1)
+            self.assertEqual(lp1_events_on_disk[0]["event_id"], "TEMP_EVT_001")
+            self.assertEqual(lp1_events_on_disk[0]["participants"], ["Person_001", "Person_002"])
+            self.assertTrue((task_dir / "v0325" / "lp1_events_raw.json").exists())
+            parse_failures = json.loads((task_dir / "v0325" / "lp1_parse_failures.json").read_text(encoding="utf-8"))
+            self.assertEqual(parse_failures, [])
+            self.assertFalse((task_dir / "v0325" / "lp1_batch_requests.jsonl").exists())
+            self.assertFalse((task_dir / "v0325" / "lp1_batch_outputs.jsonl").exists())
 
     @patch("services.llm_processor.OPENROUTER_API_KEY", "test-openrouter-key")
     @patch("services.vlm_analyzer.OPENROUTER_API_KEY", "test-openrouter-key")

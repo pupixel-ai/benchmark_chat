@@ -6,6 +6,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Dict, List
 
+from services.v0325.profile_compaction import compact_lp3_profile
 
 STEP_ORDER = {
     "lp1_batch": 1,
@@ -42,6 +43,14 @@ def _load_jsonl(path: Path) -> List[Dict[str, Any]]:
     except Exception:
         return []
     return records
+
+
+def _unwrap_named_artifact(payload: Any, key: str) -> Any:
+    if not isinstance(payload, dict):
+        return payload
+    if key in payload:
+        return payload.get(key)
+    return payload
 
 
 def _artifact_payload(path: Path, task_dir: Path, task_id: str, asset_url_builder: Callable[[str, str], str]) -> Dict[str, Any]:
@@ -140,7 +149,7 @@ def build_task_memory_steps_payload(
     ]
     lp1_last_attempt = lp1_batch_outputs[-1] if lp1_batch_outputs else {}
 
-    lp2_relationships = _load_json(family_dir / "lp2_relationships.json")
+    lp2_relationships = _unwrap_named_artifact(_load_json(family_dir / "lp2_relationships.json"), "relationships")
     if not isinstance(lp2_relationships, list):
         lp2_relationships = _load_jsonl(family_dir / "lp2_relationships.jsonl")
     if not isinstance(lp2_relationships, list):
@@ -149,6 +158,7 @@ def build_task_memory_steps_payload(
     lp3_profile = _load_json(family_dir / "lp3_profile.json")
     if not isinstance(lp3_profile, dict):
         lp3_profile = dict(memory.get("lp3_profile") or {})
+    lp3_profile_display = compact_lp3_profile(lp3_profile)
 
     llm_failures = _load_jsonl(family_dir / "llm_failures.jsonl")
     lp1_parse_failures = _load_json(family_dir / "lp1_parse_failures.json")
@@ -267,6 +277,31 @@ def build_task_memory_steps_payload(
                 },
                 "artifacts": {
                     "lp3_profile": _artifact_payload(family_dir / "lp3_profile.json", task_dir, task_id, asset_url_builder),
+                    "structured_profile": _artifact_payload(family_dir / "structured_profile.json", task_dir, task_id, asset_url_builder),
+                    "profile_fact_decisions": _artifact_payload(
+                        family_dir / "profile_fact_decisions.json",
+                        task_dir,
+                        task_id,
+                        asset_url_builder,
+                    ),
+                    "downstream_audit_report": _artifact_payload(
+                        family_dir / "downstream_audit_report.json",
+                        task_dir,
+                        task_id,
+                        asset_url_builder,
+                    ),
+                    "relationship_dossiers": _artifact_payload(
+                        family_dir / "relationship_dossiers.json",
+                        task_dir,
+                        task_id,
+                        asset_url_builder,
+                    ),
+                    "group_artifacts": _artifact_payload(
+                        family_dir / "group_artifacts.json",
+                        task_dir,
+                        task_id,
+                        asset_url_builder,
+                    ),
                     "llm_failures": _artifact_payload(family_dir / "llm_failures.jsonl", task_dir, task_id, asset_url_builder),
                     "raw_upstream_manifest": _artifact_payload(
                         family_dir / "raw_upstream_manifest.json",
@@ -281,7 +316,7 @@ def build_task_memory_steps_payload(
                         asset_url_builder,
                     ),
                 },
-                "data": lp3_profile,
+                "data": lp3_profile_display,
                 "failures": lp3_failures,
             },
         },
