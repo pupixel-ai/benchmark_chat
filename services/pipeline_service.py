@@ -498,7 +498,7 @@ class MemoryPipelineService:
                 lp1_events = list(memory.get("lp1_events", []) or [])
                 lp2_relationships = list(memory.get("lp2_relationships", []) or [])
                 profile_payload = dict(memory.get("lp3_profile", {}) or {})
-                profile_markdown = str(profile_payload.get("report_markdown") or "")
+                profile_markdown = str(profile_payload.get("report_markdown") or profile_payload.get("report") or "")
                 detailed_output = {
                     "task_id": self.task_id,
                     "version": self.task_version,

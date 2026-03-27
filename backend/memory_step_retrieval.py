@@ -273,7 +273,11 @@ def build_task_memory_steps_payload(
                 or memory_stage.get("updated_at"),
                 "summary": {
                     "has_profile": bool(lp3_profile),
-                    "report_length": len(str(lp3_profile.get("report_markdown") or "")) if isinstance(lp3_profile, dict) else 0,
+                    "report_length": (
+                        len(str(lp3_profile.get("report_markdown") or lp3_profile.get("report") or ""))
+                        if isinstance(lp3_profile, dict)
+                        else 0
+                    ),
                 },
                 "artifacts": {
                     "lp3_profile": _artifact_payload(family_dir / "lp3_profile.json", task_dir, task_id, asset_url_builder),
