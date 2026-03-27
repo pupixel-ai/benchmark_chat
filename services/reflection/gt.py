@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Tuple
+from typing import Any, Dict, Iterable, List, Set, Tuple
 
 from .gt_matcher import compare_profile_field_values
 from .types import CaseFact
@@ -276,3 +277,72 @@ def _resolve_badcase_kind(*, upstream_value: Any, gt_value: Any, grade: str) -> 
             return "overclaim"
         return "wrong_granularity"
     return "wrong_value"
+
+
+def auto_generate_pseudo_gt(
+    case_facts: Iterable[CaseFact],
+    gt_path: str,
+    *,
+    manual_gt_keys: Set[str] | None = None,
+    confidence_threshold: float = 0.85,
+    enum_field_keys: Set[str] | None = None,
+) -> List[Dict[str, Any]]:
+    """
+    Generate pseudo-GT from high-confidence, Judge-accepted, non-social-media fields.
+    Only for empty_output_candidate cases (not mismatch).
+    Only for enum-type fields (enum_field_keys whitelist).
+    Writes new entries to gt_path (JSONL append).
+    Returns list of newly written GT records.
+    """
+    existing_gt = load_profile_field_gt(gt_path)
+    existing_keys: Set[str] = {
+        _gt_lookup_key(str(r.get("album_id") or ""), str(r.get("field_key") or ""))
+        for r in existing_gt
+    }
+    manual_keys = manual_gt_keys or set()
+    enum_keys = enum_field_keys or set()
+
+    new_records: List[Dict[str, Any]] = []
+    for fact in case_facts:
+        if fact.signal_source != "mainline_profile" or fact.entity_type != "profile_field":
+            continue
+        if fact.badcase_source != "empty_output_candidate":
+            continue
+        if fact.dimension in manual_keys:
+            continue
+        if enum_keys and fact.dimension not in enum_keys:
+            continue
+        lookup_key = _gt_lookup_key(fact.album_id, fact.dimension)
+        if lookup_key in existing_keys:
+            continue
+        if float(fact.auto_confidence or 0.0) < confidence_threshold:
+            continue
+        audit_verdict = str((fact.downstream_judge or {}).get("verdict") or "").strip().lower()
+        if audit_verdict != "accept":
+            continue
+        causality_route = str(fact.causality_route or "").strip()
+        if causality_route == "downstream_helped":
+            continue
+        upstream_value = (fact.upstream_output or {}).get("value")
+        if upstream_value in (None, "", []):
+            continue
+        record = {
+            "album_id": fact.album_id,
+            "field_key": fact.dimension,
+            "gt_value": upstream_value,
+            "source": "auto_high_confidence",
+            "confidence": float(fact.auto_confidence or 0.0),
+            "case_id": fact.case_id,
+            "created_at": datetime.now(UTC).isoformat(),
+        }
+        new_records.append(record)
+        existing_keys.add(lookup_key)
+
+    if new_records:
+        gt_file = Path(gt_path)
+        gt_file.parent.mkdir(parents=True, exist_ok=True)
+        with gt_file.open("a", encoding="utf-8") as handle:
+            for record in new_records:
+                handle.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+    return new_records

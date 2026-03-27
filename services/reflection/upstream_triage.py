@@ -18,6 +18,8 @@ ALLOWED_ROOT_CAUSE_FAMILIES = (
     "orchestration_guardrail",
     "engineering_issue",
     "watch_only",
+    "coverage_gap_source",
+    "coverage_gap_tool",
 )
 
 ROOT_CAUSE_TO_FIX_SURFACE = {
@@ -28,6 +30,8 @@ ROOT_CAUSE_TO_FIX_SURFACE = {
     "orchestration_guardrail": "engineering_issue",
     "engineering_issue": "engineering_issue",
     "watch_only": "watch_only",
+    "coverage_gap_source": "call_policy",
+    "coverage_gap_tool": "tool_rule",
 }
 
 
@@ -50,6 +54,28 @@ class UpstreamTriageScorer:
             case_fact.resolution_route = "difficult_case"
             case_fact.accuracy_gap_status = case_fact.accuracy_gap_status or "open"
             return case_fact
+
+        coverage_gap = dict((case_fact.tool_usage_summary or {}).get("coverage_gap") or {})
+        if coverage_gap.get("has_gap"):
+            gap_type = str(coverage_gap.get("gap_type") or "")
+            if gap_type == "source_unconfigured":
+                chosen = {"root_cause_family": "coverage_gap_source", "fix_surface_confidence": 0.92,
+                          "recommended_fix_surface": "call_policy"}
+            elif gap_type in {"tool_called_no_hit", "tool_rule_blocked", "index_path_suspect"}:
+                chosen = {"root_cause_family": "coverage_gap_tool", "fix_surface_confidence": 0.90,
+                          "recommended_fix_surface": "tool_rule"}
+            else:
+                chosen = None
+            if chosen is not None:
+                case_fact.root_cause_family = chosen["root_cause_family"]
+                case_fact.fix_surface_confidence = float(chosen["fix_surface_confidence"])
+                case_fact.tool_usage_summary = {
+                    **dict(case_fact.tool_usage_summary or {}),
+                    "recommended_fix_surface": chosen["recommended_fix_surface"],
+                }
+                case_fact.accuracy_gap_status = case_fact.accuracy_gap_status or ("open" if case_fact.badcase_source else "")
+                case_fact.resolution_route = resolve_accuracy_gap_route(case_fact)
+                return case_fact
 
         features = extract_upstream_triage_features(case_fact, similar_patterns or [])
         llm_result = self._score_with_llm(case_fact, features)

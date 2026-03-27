@@ -205,12 +205,19 @@ class BadcasePacketAssembler:
                     }
                 )
 
+        resolution_signal = "open"
+        if any(s for s in successful_surfaces if s in (requested_fix_surfaces or successful_surfaces)):
+            resolution_signal = "already_fixed"
+        elif failed_surfaces and not successful_surfaces:
+            resolution_signal = "failed_before"
+
         return {
             "field_key": field_key,
             "similar_pattern_count": len(relevant_patterns),
             "same_field_successful_surfaces": successful_surfaces,
             "same_field_failed_surfaces": failed_surfaces,
             "recommended_surface_prior": recommended_surface_prior,
+            "resolution_signal": resolution_signal,
             "feedback_summary": feedback_summary,
             "recent_feedback_notes": recent_feedback_notes,
             "history_patterns": _compact_history_items(relevant_patterns),
@@ -1603,3 +1610,92 @@ def _normalize_expected_metric_gain(payload: Any, *, default: Dict[str, Any]) ->
                 "summary": text,
             }
     return dict(default)
+
+
+class CoverageProbe:
+    """
+    Purely rule-based structural check: does this field's tool setup have gaps?
+    Runs before UpstreamReflectionAgent. Zero LLM calls.
+
+    Output coverage_gap dict injected into CaseFact.tool_usage_summary["coverage_gap"].
+    """
+
+    def probe(
+        self,
+        *,
+        field_key: str,
+        tool_trace: Dict[str, Any],
+        allowed_sources: List[str],
+        call_policies: Dict[str, Any],
+        tool_rules: Dict[str, Any],
+        group_tool_traces: List[Dict[str, Any]] | None = None,
+    ) -> Dict[str, Any]:
+        evidence_bundle = dict(tool_trace.get("evidence_bundle") or {})
+        tool_called = bool(tool_trace)
+
+        gap_type = "none"
+        affected_sources: List[str] = []
+        detail = ""
+
+        # Rule 1: tool_rule_blocked — max_refs_per_source == 0 or allowed_sources empty
+        field_tool_rule = dict((tool_rules or {}).get(field_key) or {})
+        if not allowed_sources:
+            gap_type = "tool_rule_blocked"
+            detail = "allowed_sources is empty"
+        elif int(field_tool_rule.get("max_refs_per_source") or -1) == 0:
+            gap_type = "tool_rule_blocked"
+            detail = f"tool_rules[{field_key}].max_refs_per_source == 0"
+
+        if gap_type == "none" and tool_called:
+            field_call_policy = dict((call_policies or {}).get(field_key) or {})
+            appended_sources = list(field_call_policy.get("append_allowed_sources") or [])
+            effective_sources = list(set(allowed_sources + appended_sources))
+
+            for source in effective_sources:
+                source_bundle = evidence_bundle.get(source)
+                hit_count = 0
+                if isinstance(source_bundle, list):
+                    hit_count = len(source_bundle)
+                elif isinstance(source_bundle, dict):
+                    hit_count = int(source_bundle.get("hit_count") or 0)
+
+                if hit_count > 0:
+                    continue
+
+                # Rule 2: source_unconfigured — source in allowed_sources but no call_policy entry for this field
+                if source not in appended_sources and field_key not in (call_policies or {}):
+                    gap_type = "source_unconfigured"
+                    affected_sources.append(source)
+                    detail = f"source '{source}' in allowed_sources but call_policy not configured for {field_key}"
+                    break
+
+                # Rule 3: tool_called_no_hit — tool was called but returned 0 hits for this source
+                if source in evidence_bundle:
+                    gap_type = "tool_called_no_hit"
+                    affected_sources.append(source)
+                    detail = f"source '{source}' called but hit_count == 0"
+
+        # Rule 4: index_path_suspect — only this field has 0 refs while same-group fields have refs
+        if gap_type == "none" and group_tool_traces:
+            this_total = sum(
+                len(v) if isinstance(v, list) else int((v or {}).get("hit_count") or 0)
+                for v in evidence_bundle.values()
+            )
+            if this_total == 0:
+                group_totals = []
+                for gt in group_tool_traces:
+                    gb = dict((gt or {}).get("evidence_bundle") or {})
+                    group_totals.append(sum(
+                        len(v) if isinstance(v, list) else int((v or {}).get("hit_count") or 0)
+                        for v in gb.values()
+                    ))
+                if any(c > 0 for c in group_totals):
+                    gap_type = "index_path_suspect"
+                    detail = f"field {field_key} has 0 refs while same-group fields have evidence"
+
+        return {
+            "has_gap": gap_type != "none",
+            "gap_type": gap_type,
+            "affected_sources": affected_sources,
+            "detail": detail,
+        }

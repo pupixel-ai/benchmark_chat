@@ -16,10 +16,12 @@ from config import (
     FEISHU_DIFFICULT_CASE_RECEIVE_ID_TYPE,
     REFLECTION_STRICT_NOTIFY_BEFORE_CHANGES,
 )
-from .gt import apply_profile_field_gt, load_profile_field_gt
+from services.memory_pipeline.profile_fields import FIELD_SPECS
+from services.memory_pipeline.rule_asset_loader import load_repo_rule_assets
+from .gt import apply_profile_field_gt, auto_generate_pseudo_gt, load_profile_field_gt
 from .storage import build_reflection_asset_paths, ensure_reflection_root
 from .types import CaseFact, DecisionReviewItem, DifficultCaseRecord, EngineeringAlert, EngineeringChangeRequest, ExperimentOutcome, PatternCluster, ProposalReviewRecord, StrategyExperiment
-from .upstream_agent import BadcasePacketAssembler, ExperimentPlanner, ProposalBuilder, UpstreamReflectionAgent
+from .upstream_agent import BadcasePacketAssembler, CoverageProbe, ExperimentPlanner, ProposalBuilder, UpstreamReflectionAgent
 from .upstream_triage import UpstreamTriageScorer, recommend_fix_surface, resolve_accuracy_gap_route, retrieve_similar_patterns
 
 
@@ -359,8 +361,11 @@ def run_reflection_task_generation(*, project_root: str, user_name: str) -> Dict
     ensure_reflection_root(paths)
 
     case_facts = load_case_facts(project_root=project_root, user_name=user_name)
+    auto_generate_pseudo_gt(case_facts, paths.profile_field_gt_path)
     gt_records = load_profile_field_gt(paths.profile_field_gt_path)
     case_facts, gt_comparisons = apply_profile_field_gt(case_facts, gt_records)
+    case_facts = _run_data_sufficiency_gate(case_facts)
+    case_facts = _run_coverage_probe(case_facts, project_root=project_root)
     scorer = UpstreamTriageScorer()
     existing_upstream_patterns = _read_json_array(paths.upstream_patterns_path)
     existing_upstream_experiments = _read_json_array(paths.upstream_experiments_path)
@@ -526,6 +531,10 @@ def _apply_upstream_agent_reflection(*, project_root: str, case_facts: Iterable[
             reflected.append(fact)
             continue
         packet = packet_assembler.assemble(fact)
+        recall = packet_assembler.history_recall(packet)
+        if str(recall.get("resolution_signal") or "").strip() == "already_fixed":
+            reflected.append(fact)
+            continue
         result = reflection_agent.reflect(packet)
         fact.agent_reasoning_summary = str(result.get("judgment_summary_zh") or "").strip()
         fact.why_not_other_surfaces = str(result.get("why_not_other_surfaces_zh") or "").strip()
@@ -868,6 +877,116 @@ def get_difficult_case_detail_payload(*, project_root: str, user_name: str, case
             "audit_action_type": str(case_payload.get("audit_action_type") or ""),
         },
     }
+
+
+_MODAL_MISSING_NULL_SIGNALS = (
+    "requires_social_media",
+    "cleared_by_field_gate",
+)
+
+
+def _is_data_insufficient(fact: CaseFact, group_facts: List[CaseFact]) -> Tuple[bool, str]:
+    tool_trace = dict((fact.decision_trace or {}).get("tool_trace") or {})
+    evidence_bundle = dict(tool_trace.get("evidence_bundle") or {})
+
+    null_reason = str((fact.upstream_output or {}).get("null_reason") or "")
+    if any(sig in null_reason for sig in _MODAL_MISSING_NULL_SIGNALS):
+        return True, f"null_reason_modal_missing:{null_reason}"
+
+    total_refs = sum(
+        len(v) if isinstance(v, list) else int((v or {}).get("hit_count") or 0)
+        for v in evidence_bundle.values()
+    )
+    if total_refs == 0:
+        group_ref_counts = []
+        for gf in group_facts:
+            gf_bundle = dict((gf.decision_trace or {}).get("tool_trace", {}).get("evidence_bundle") or {})
+            group_ref_counts.append(sum(
+                len(v) if isinstance(v, list) else int((v or {}).get("hit_count") or 0)
+                for v in gf_bundle.values()
+            ))
+        if any(c > 0 for c in group_ref_counts):
+            return False, ""
+        return True, "group_level_zero_refs"
+
+    return False, ""
+
+
+def _run_data_sufficiency_gate(case_facts: Iterable[CaseFact]) -> List[CaseFact]:
+    facts = list(case_facts)
+    domain_to_facts: Dict[str, List[CaseFact]] = {}
+    for fact in facts:
+        spec = FIELD_SPECS.get(fact.dimension)
+        domain = str(getattr(spec, "domain", None) or "").strip() if spec else ""
+        domain_to_facts.setdefault(domain or fact.dimension, []).append(fact)
+
+    gated: List[CaseFact] = []
+    for fact in facts:
+        if fact.signal_source != "mainline_profile" or fact.accuracy_gap_status != "open":
+            gated.append(fact)
+            continue
+        spec = FIELD_SPECS.get(fact.dimension)
+        domain = str(getattr(spec, "domain", None) or "").strip() if spec else fact.dimension
+        group_facts = [f for f in domain_to_facts.get(domain or fact.dimension, []) if f.case_id != fact.case_id]
+        is_insufficient, reason = _is_data_insufficient(fact, group_facts)
+        if is_insufficient:
+            fact.routing_result = "difficult_case"
+            fact.resolution_route = "difficult_case"
+            fact.triage_reason = f"data_insufficient:{reason}"
+            fact.tool_usage_summary = {
+                **dict(fact.tool_usage_summary or {}),
+                "difficult_case_reason": "data_insufficient",
+                "data_insufficiency_reason": reason,
+            }
+        gated.append(fact)
+    return gated
+
+
+def _run_coverage_probe(case_facts: Iterable[CaseFact], *, project_root: str) -> List[CaseFact]:
+    probe = CoverageProbe()
+    rule_assets = load_repo_rule_assets(project_root=project_root)
+    call_policies = dict(rule_assets.get("call_policies") or {})
+    tool_rules = dict(rule_assets.get("tool_rules") or {})
+
+    facts = list(case_facts)
+    domain_to_facts: Dict[str, List[CaseFact]] = {}
+    for fact in facts:
+        spec = FIELD_SPECS.get(fact.dimension)
+        domain = str(getattr(spec, "domain", None) or "").strip() if spec else ""
+        domain_to_facts.setdefault(domain or fact.dimension, []).append(fact)
+
+    probed: List[CaseFact] = []
+    for fact in facts:
+        if fact.signal_source != "mainline_profile" or fact.accuracy_gap_status != "open":
+            probed.append(fact)
+            continue
+        spec = FIELD_SPECS.get(fact.dimension)
+        if spec is None:
+            probed.append(fact)
+            continue
+        allowed_sources = list(getattr(spec, "allowed_sources", []) or [])
+        tool_trace = dict((fact.decision_trace or {}).get("tool_trace") or {})
+        domain = str(getattr(spec, "domain", None) or "").strip() or fact.dimension
+        group_traces = [
+            dict((f.decision_trace or {}).get("tool_trace") or {})
+            for f in domain_to_facts.get(domain, [])
+            if f.case_id != fact.case_id
+        ]
+        coverage_gap = probe.probe(
+            field_key=fact.dimension,
+            tool_trace=tool_trace,
+            allowed_sources=allowed_sources,
+            call_policies=call_policies,
+            tool_rules=tool_rules,
+            group_tool_traces=group_traces or None,
+        )
+        if coverage_gap["has_gap"]:
+            fact.tool_usage_summary = {
+                **dict(fact.tool_usage_summary or {}),
+                "coverage_gap": coverage_gap,
+            }
+        probed.append(fact)
+    return probed
 
 
 def _enrich_upstream_case_facts(
