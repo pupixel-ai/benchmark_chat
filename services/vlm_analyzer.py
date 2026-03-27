@@ -29,6 +29,7 @@ from config import (
     OPENROUTER_VLM_MODEL,
     TASK_VERSION_V0323,
     TASK_VERSION_V0325,
+    TASK_VERSION_V0327_EXP,
     RETRY_DELAY,
     TASK_VERSION_V0317_HEAVY,
     V0323_OPENROUTER_MODEL,
@@ -87,13 +88,13 @@ class VLMAnalyzer:
     }
 
     def __init__(self, cache_path: str = VLM_CACHE_PATH, task_version: str = ""):
-        self.provider = "openrouter" if task_version in {TASK_VERSION_V0323, TASK_VERSION_V0325} else VLM_PROVIDER
+        self.provider = "openrouter" if task_version in {TASK_VERSION_V0323, TASK_VERSION_V0325, TASK_VERSION_V0327_EXP} else VLM_PROVIDER
         self.use_proxy = self.provider == "proxy"
         self.use_openrouter = self.provider == "openrouter"
         self.use_bedrock = self.provider == "bedrock"
         if task_version == TASK_VERSION_V0323:
             self.model = V0323_OPENROUTER_MODEL
-        elif task_version == TASK_VERSION_V0325:
+        elif task_version in {TASK_VERSION_V0325, TASK_VERSION_V0327_EXP}:
             self.model = V0325_OPENROUTER_VLM_MODEL
         else:
             self.model = OPENROUTER_VLM_MODEL if self.use_openrouter else VLM_MODEL

@@ -23,6 +23,7 @@ from config import (
     TASK_VERSION_V0321_3,
     TASK_VERSION_V0323,
     TASK_VERSION_V0325,
+    TASK_VERSION_V0327_EXP,
     VLM_CACHE_FLUSH_EVERY_N,
     VLM_CACHE_FLUSH_INTERVAL_SECONDS,
     VLM_ENABLE_PRIORITY_SCHEDULING,
@@ -452,7 +453,7 @@ class MemoryPipelineService:
                 }
             )
 
-        if self.task_version in {TASK_VERSION_V0321_2, TASK_VERSION_V0321_3, TASK_VERSION_V0323, TASK_VERSION_V0325}:
+        if self.task_version in {TASK_VERSION_V0321_2, TASK_VERSION_V0321_3, TASK_VERSION_V0323, TASK_VERSION_V0325, TASK_VERSION_V0327_EXP}:
             self._clear_legacy_outputs_for_revision_first_family()
             if self.task_version == TASK_VERSION_V0321_2:
                 memory = self._run_v0321_2_family(
@@ -474,7 +475,7 @@ class MemoryPipelineService:
                     vlm_results=vlm.results,
                     progress_callback=progress_callback,
                 )
-            elif self.task_version == TASK_VERSION_V0325:
+            elif self.task_version in {TASK_VERSION_V0325, TASK_VERSION_V0327_EXP}:
                 memory = self._run_v0325_family(
                     photos=photos_for_vlm,
                     face_output=face_output,
@@ -494,7 +495,7 @@ class MemoryPipelineService:
                     vlm_results=vlm.results,
                     progress_callback=progress_callback,
                 )
-            if self.task_version in {TASK_VERSION_V0323, TASK_VERSION_V0325}:
+            if self.task_version in {TASK_VERSION_V0323, TASK_VERSION_V0325, TASK_VERSION_V0327_EXP}:
                 lp1_events = list(memory.get("lp1_events", []) or [])
                 lp2_relationships = list(memory.get("lp2_relationships", []) or [])
                 profile_payload = dict(memory.get("lp3_profile", {}) or {})
@@ -1019,6 +1020,7 @@ class MemoryPipelineService:
             TASK_VERSION_V0321_3,
             TASK_VERSION_V0323,
             TASK_VERSION_V0325,
+            TASK_VERSION_V0327_EXP,
         }
 
     def _run_face_recognition(

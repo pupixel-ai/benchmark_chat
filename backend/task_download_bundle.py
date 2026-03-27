@@ -63,6 +63,8 @@ def _task_dir(task: dict) -> Path:
 
 def _family_name(task: dict) -> str:
     version = str(task.get("version") or "").strip()
+    if version == "v0327-exp":
+        return "v0325"
     if version in {"v0323", "v0325"}:
         return version
     return "v0323"

@@ -17,6 +17,15 @@ STEP_ORDER = {
 LP_SNAPSHOT_FAMILIES = {"v0323", "v0325"}
 
 
+def _family_name(version: str) -> str:
+    normalized = str(version or "").strip()
+    if normalized == "v0327-exp":
+        return "v0325"
+    if normalized in LP_SNAPSHOT_FAMILIES:
+        return normalized
+    return "v0323"
+
+
 def _load_json(path: Path) -> Any:
     if not path.exists():
         return None
@@ -116,7 +125,7 @@ def build_task_memory_steps_payload(
     task_id = str(task.get("task_id") or "").strip()
     task_dir = Path(str(task.get("task_dir") or ""))
     family_version = str(task.get("version") or "").strip()
-    family_name = family_version if family_version in LP_SNAPSHOT_FAMILIES else "v0323"
+    family_name = _family_name(family_version)
     family_dir = task_dir / family_name
     result = task.get("result") or {}
     memory = result.get("memory") or {}
