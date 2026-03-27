@@ -1176,6 +1176,33 @@ class TaskApiTests(unittest.TestCase):
         self.assertNotIn("events", photos_payload)
         self.assertTrue(photos_payload["photos"][0]["urls"]["compressed"].startswith("/api/assets/photos/"))
 
+    def test_user_memory_photos_prefers_raw_exif_time_string_over_iso_timestamp(self) -> None:
+        create_response = self.client.post("/api/tasks", json={"version": "v0327-exp"})
+        self.assertEqual(create_response.status_code, 200)
+        task_id = create_response.json()["task_id"]
+        self.task_ids.append(task_id)
+
+        self._append_uploaded_sample(
+            task_id,
+            filename="sample.jpg",
+            stored_filename="001_sample.jpg",
+            content_type="image/jpeg",
+            exif_datetime="2026:03:20 20:00:00",
+            color="white",
+        )
+        task_store.update_task(
+            task_id,
+            result=self._synthetic_v0327_memory_result(task_id),
+            status="completed",
+            stage="completed",
+        )
+
+        photos_response = self.client.get(f"/api/users/{self.user_id}/memory/photos", params={"task_id": task_id})
+        self.assertEqual(photos_response.status_code, 200)
+        photo = photos_response.json()["tasks"][0]["photos"][0]
+        self.assertEqual(photo["taken_at"], "2026:03:20 20:00:00")
+        self.assertEqual(photo["exif"]["datetime_original"], "2026:03:20 20:00:00")
+
     def test_user_memory_dataset_and_version_filters_follow_latest_and_all_rules(self) -> None:
         task_shared_old = self.client.post("/api/tasks", json={"version": "v0325"}).json()["task_id"]
         self.task_ids.append(task_shared_old)
@@ -1313,11 +1340,20 @@ class TaskApiTests(unittest.TestCase):
         stored_filename: str = "001_sample.png",
         source_hash: str = "hash-001",
         color: str = "red",
+        content_type: str = "image/png",
+        exif_datetime: str | None = None,
     ) -> None:
         uploads_dir = task_store.task_dir(task_id) / "uploads"
         uploads_dir.mkdir(parents=True, exist_ok=True)
         local_path = uploads_dir / stored_filename
-        Image.new("RGB", (64, 64), color=color).save(local_path, format="PNG")
+        image = Image.new("RGB", (64, 64), color=color)
+        if exif_datetime:
+            exif = Image.Exif()
+            exif[306] = exif_datetime
+            exif[36867] = exif_datetime
+            image.save(local_path, format="JPEG", exif=exif)
+        else:
+            image.save(local_path, format="PNG")
         task_store.append_uploads(
             task_id,
             [
@@ -1328,7 +1364,7 @@ class TaskApiTests(unittest.TestCase):
                     "path": f"uploads/{stored_filename}",
                     "url": f"/api/assets/{task_id}/uploads/{stored_filename}",
                     "preview_url": None,
-                    "content_type": "image/png",
+                    "content_type": content_type,
                     "width": 64,
                     "height": 64,
                     "source_hash": source_hash,

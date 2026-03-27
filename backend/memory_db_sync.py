@@ -95,6 +95,18 @@ def _safe_float(value: Any) -> Optional[float]:
         return None
 
 
+def _stringify_exif_text(value: Any) -> Optional[str]:
+    if value in (None, ""):
+        return None
+    if isinstance(value, bytes):
+        try:
+            value = value.decode("utf-8", errors="ignore")
+        except Exception:
+            value = str(value)
+    text = str(value).strip()
+    return text or None
+
+
 def _canonical_photo_id(task_id: str, source_photo_id: str) -> str:
     return f"{task_id}:{source_photo_id}"
 
@@ -147,10 +159,10 @@ def _extract_exif(local_path: Path) -> tuple[dict | None, dict | None]:
                 "width": image.width,
                 "height": image.height,
                 "orientation": exif.get(274),
-                "datetime": exif.get(306),
-                "datetime_original": exif.get(36867),
-                "camera_make": exif.get(271),
-                "camera_model": exif.get(272),
+                "datetime": _stringify_exif_text(exif.get(306)),
+                "datetime_original": _stringify_exif_text(exif.get(36867)),
+                "camera_make": _stringify_exif_text(exif.get(271)),
+                "camera_model": _stringify_exif_text(exif.get(272)),
             }
             return raw_payload, normalized
     except Exception:
@@ -522,6 +534,11 @@ class MemoryDBSyncService:
             compressed_relative_path = _task_asset_relative_path(image_payload.get("compressed_image_url"), task_id)
             raw_local_path = (task_dir / raw_relative_path) if raw_relative_path else None
             raw_exif, normalized_exif = _extract_exif(raw_local_path) if raw_local_path else (None, None)
+            taken_at = (
+                _stringify_exif_text((normalized_exif or {}).get("datetime_original"))
+                or _stringify_exif_text((normalized_exif or {}).get("datetime"))
+                or _stringify_exif_text(image_payload.get("timestamp"))
+            )
 
             photo_rows.append(
                 PhotoRecord(
@@ -536,7 +553,7 @@ class MemoryDBSyncService:
                     mime_type=str(upload.get("content_type") or "") or None,
                     width=_safe_int(upload.get("width") or image_payload.get("width")),
                     height=_safe_int(upload.get("height") or image_payload.get("height")),
-                    taken_at=str(image_payload.get("timestamp") or "") or None,
+                    taken_at=taken_at,
                     location_json=_coerce_location(image_payload.get("location")),
                     exif_json=normalized_exif,
                     raw_relative_path=raw_relative_path or None,
