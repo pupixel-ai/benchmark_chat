@@ -3,6 +3,7 @@ Normalized memory-domain tables for the v0327-db retrieval layer.
 """
 from __future__ import annotations
 
+import json
 from datetime import datetime
 
 from sqlalchemy import (
@@ -27,6 +28,39 @@ class Vector512(UserDefinedType):
 
     def get_col_spec(self, **kw) -> str:
         return "vector(512)"
+
+    def bind_processor(self, dialect):
+        def process(value):
+            if value is None:
+                return None
+            if isinstance(value, str):
+                return value
+            if isinstance(value, (list, tuple)):
+                return json.dumps([float(item) for item in value], ensure_ascii=False, separators=(",", ":"))
+            return str(value)
+
+        return process
+
+    def result_processor(self, dialect, coltype):
+        def process(value):
+            if value is None or isinstance(value, (list, tuple)):
+                return value
+            if isinstance(value, memoryview):
+                value = value.tobytes().decode("utf-8", errors="ignore")
+            if isinstance(value, (bytes, bytearray)):
+                value = value.decode("utf-8", errors="ignore")
+            if isinstance(value, str):
+                candidate = value.strip()
+                if not candidate:
+                    return None
+                try:
+                    decoded = json.loads(candidate)
+                except Exception:
+                    return value
+                return decoded if isinstance(decoded, list) else value
+            return value
+
+        return process
 
 
 class DatasetRecord(Base):
