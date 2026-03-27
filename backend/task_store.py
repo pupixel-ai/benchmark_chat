@@ -10,7 +10,9 @@ from typing import Dict, List, Optional
 from sqlalchemy import delete, desc, or_, select
 
 from backend.db import Base, SessionLocal, engine, ensure_schema
+import backend.memory_models  # noqa: F401
 from backend.models import TaskRecord
+from backend.version_utils import build_stage_version_matrix, parse_numeric_version
 from config import DEFAULT_NORMALIZE_LIVE_PHOTOS, TASKS_DIR, DEFAULT_TASK_VERSION
 
 
@@ -70,11 +72,23 @@ class TaskStore:
         if provision_local_dir:
             task_dir.mkdir(parents=True, exist_ok=True)
         now = datetime.now()
+        pipeline_version, pipeline_channel = parse_numeric_version(version)
+        stage_version_matrix = build_stage_version_matrix(version)
 
         record = TaskRecord(
             task_id=task_id,
             user_id=user_id,
+            dataset_id=None,
+            dataset_fingerprint=None,
             version=version,
+            pipeline_version=pipeline_version,
+            pipeline_channel=pipeline_channel,
+            face_version=stage_version_matrix.get("face_version"),
+            vlm_version=stage_version_matrix.get("vlm_version"),
+            lp1_version=stage_version_matrix.get("lp1_version"),
+            lp2_version=stage_version_matrix.get("lp2_version"),
+            lp3_version=stage_version_matrix.get("lp3_version"),
+            judge_version=stage_version_matrix.get("judge_version"),
             status=status,
             stage=stage,
             upload_count=upload_count,
@@ -136,6 +150,29 @@ class TaskStore:
             for key, value in updates.items():
                 if key == "options":
                     value = normalize_task_options(value if isinstance(value, dict) else None)
+                if key == "version":
+                    pipeline_version, pipeline_channel = parse_numeric_version(value)
+                    stage_matrix = build_stage_version_matrix(value, updates.get("result") if isinstance(updates.get("result"), dict) else record.result)
+                    record.pipeline_version = pipeline_version
+                    record.pipeline_channel = pipeline_channel
+                    record.face_version = stage_matrix.get("face_version")
+                    record.vlm_version = stage_matrix.get("vlm_version")
+                    record.lp1_version = stage_matrix.get("lp1_version")
+                    record.lp2_version = stage_matrix.get("lp2_version")
+                    record.lp3_version = stage_matrix.get("lp3_version")
+                    record.judge_version = stage_matrix.get("judge_version")
+                if key == "result":
+                    version_text = updates.get("version", record.version)
+                    stage_matrix = build_stage_version_matrix(version_text, value if isinstance(value, dict) else None)
+                    for stage_key in (
+                        "face_version",
+                        "vlm_version",
+                        "lp1_version",
+                        "lp2_version",
+                        "lp3_version",
+                        "judge_version",
+                    ):
+                        setattr(record, stage_key, stage_matrix.get(stage_key))
                 setattr(record, key, value)
 
             record.updated_at = datetime.now()
@@ -262,7 +299,19 @@ class TaskStore:
         return {
             "task_id": record.task_id,
             "user_id": record.user_id,
+            "dataset_id": record.dataset_id,
+            "dataset_fingerprint": record.dataset_fingerprint,
             "version": record.version or DEFAULT_TASK_VERSION,
+            "pipeline_version": record.pipeline_version,
+            "pipeline_channel": record.pipeline_channel,
+            "stage_versions": {
+                "face": record.face_version,
+                "vlm": record.vlm_version,
+                "lp1": record.lp1_version,
+                "lp2": record.lp2_version,
+                "lp3": record.lp3_version,
+                "judge": record.judge_version,
+            },
             "status": record.status,
             "stage": record.stage,
             "upload_count": record.upload_count,

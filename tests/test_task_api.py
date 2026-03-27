@@ -16,7 +16,7 @@ from fastapi.testclient import TestClient
 from PIL import Image
 from sqlalchemy import delete
 
-from backend.app import _task_upload_lock, app, task_store
+from backend.app import _task_upload_lock, app, memory_db_sync, task_store
 from backend.db import SessionLocal
 from backend.task_store import normalize_task_options
 from config import APP_VERSION, AVAILABLE_TASK_VERSIONS, DEFAULT_NORMALIZE_LIVE_PHOTOS, DEFAULT_TASK_VERSION
@@ -47,6 +47,7 @@ class TaskApiTests(unittest.TestCase):
     def tearDown(self) -> None:
         for task_id in self.task_ids:
             shutil.rmtree(task_store.task_dir(task_id), ignore_errors=True)
+            memory_db_sync.delete_task_snapshot(task_id, self.user_id, delete_task_record=True)
 
         with SessionLocal() as session:
             session.execute(delete(ArtifactRecord).where(ArtifactRecord.user_id == self.user_id))
@@ -1069,11 +1070,239 @@ class TaskApiTests(unittest.TestCase):
         self.assertEqual(artifact["storage_backend"], "local")
         self.assertTrue(artifact["asset_url"].endswith("/uploads/001_one.png"))
 
+    def test_user_memory_faces_endpoint_returns_stable_urls_and_assets(self) -> None:
+        create_response = self.client.post("/api/tasks", json={"version": "v0327-exp"})
+        self.assertEqual(create_response.status_code, 200)
+        task_id = create_response.json()["task_id"]
+        self.task_ids.append(task_id)
+
+        self._append_uploaded_sample(task_id, color="purple")
+        task_store.update_task(
+            task_id,
+            result=self._synthetic_v0327_memory_result(task_id),
+            status="completed",
+            stage="completed",
+        )
+
+        response = self.client.get(f"/api/users/{self.user_id}/memory/faces", params={"task_id": task_id})
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+
+        self.assertEqual(payload["query"]["task_id"], task_id)
+        self.assertEqual(len(payload["tasks"]), 1)
+        task_payload = payload["tasks"][0]
+        self.assertEqual(task_payload["pipeline_version"], 327)
+        self.assertEqual(task_payload["pipeline_channel"], "exp")
+        self.assertEqual(task_payload["stage_versions"]["face"], 327)
+        self.assertEqual(len(task_payload["identities"]), 2)
+        self.assertEqual(len(task_payload["faces"]), 2)
+        self.assertEqual(len(task_payload["photos"]), 1)
+
+        face = task_payload["faces"][0]
+        photo = task_payload["photos"][0]
+        self.assertTrue(face["urls"]["crop"].startswith("/api/assets/faces/"))
+        self.assertTrue(face["urls"]["boxed_full"].startswith("/api/assets/photos/"))
+        self.assertTrue(photo["urls"]["raw"].startswith("/api/assets/photos/"))
+        self.assertTrue(photo["urls"]["display"].startswith("/api/assets/photos/"))
+
+        raw_response = self.client.get(photo["urls"]["raw"])
+        self.assertEqual(raw_response.status_code, 200)
+        self.assertEqual(raw_response.headers["content-type"], "image/png")
+
+        crop_response = self.client.get(face["urls"]["crop"])
+        self.assertEqual(crop_response.status_code, 200)
+        self.assertEqual(crop_response.headers["content-type"], "image/webp")
+
+    def test_user_memory_endpoints_return_task_scoped_structured_payloads(self) -> None:
+        create_response = self.client.post("/api/tasks", json={"version": "v0327-exp"})
+        self.assertEqual(create_response.status_code, 200)
+        task_id = create_response.json()["task_id"]
+        self.task_ids.append(task_id)
+
+        self._append_uploaded_sample(task_id, color="orange")
+        task_store.update_task(
+            task_id,
+            result=self._synthetic_v0327_memory_result(task_id),
+            status="completed",
+            stage="completed",
+        )
+
+        events_response = self.client.get(
+            f"/api/users/{self.user_id}/memory/events",
+            params={"task_id": task_id, "include_raw": "true"},
+        )
+        self.assertEqual(events_response.status_code, 200)
+        event_payload = events_response.json()["tasks"][0]
+        self.assertEqual(event_payload["events"][0]["event_id"], "EVT_001")
+        self.assertEqual(event_payload["events"][0]["participant_person_ids"], ["Person_001", "Person_002"])
+        self.assertEqual(len(event_payload["raw_events"]), 1)
+
+        vlm_response = self.client.get(
+            f"/api/users/{self.user_id}/memory/vlm",
+            params={"task_id": task_id, "include_raw": "true"},
+        )
+        self.assertEqual(vlm_response.status_code, 200)
+        vlm_payload = vlm_response.json()["tasks"][0]
+        self.assertEqual(vlm_payload["vlm_observations"][0]["summary"], "Two friends enjoying a live concert.")
+        self.assertIn("raw", vlm_payload["vlm_observations"][0])
+
+        relationship_response = self.client.get(
+            f"/api/users/{self.user_id}/memory/relationships",
+            params={"task_id": task_id, "include_raw": "true"},
+        )
+        self.assertEqual(relationship_response.status_code, 200)
+        relationship_payload = relationship_response.json()["tasks"][0]
+        self.assertEqual(relationship_payload["relationships"][0]["person_id"], "Person_002")
+        self.assertEqual(relationship_payload["relationships"][0]["shared_events"][0]["event_id"], "EVT_001")
+        self.assertEqual(len(relationship_payload["relationship_dossiers"]), 1)
+
+        profile_response = self.client.get(
+            f"/api/users/{self.user_id}/memory/profiles",
+            params={"task_id": task_id, "include_raw": "true"},
+        )
+        self.assertEqual(profile_response.status_code, 200)
+        profile_payload = profile_response.json()["tasks"][0]
+        self.assertEqual(profile_payload["profiles"][0]["primary_person_id"], "Person_001")
+        self.assertEqual(
+            profile_payload["profiles"][0]["structured"]["long_term_facts"]["identity"]["name"]["value"],
+            "Vigar",
+        )
+        self.assertEqual(len(profile_payload["profiles"][0]["field_decisions"]), 1)
+
+    def test_user_memory_dataset_and_version_filters_follow_latest_and_all_rules(self) -> None:
+        task_shared_old = self.client.post("/api/tasks", json={"version": "v0325"}).json()["task_id"]
+        self.task_ids.append(task_shared_old)
+        self._append_uploaded_sample(task_shared_old, source_hash="hash-shared", color="red")
+        task_store.update_task(
+            task_shared_old,
+            result=self._synthetic_v0327_memory_result(task_shared_old),
+            status="completed",
+            stage="completed",
+        )
+
+        time.sleep(0.02)
+
+        task_shared_new = self.client.post("/api/tasks", json={"version": "v0327-exp"}).json()["task_id"]
+        self.task_ids.append(task_shared_new)
+        self._append_uploaded_sample(task_shared_new, source_hash="hash-shared", color="blue")
+        task_store.update_task(
+            task_shared_new,
+            result=self._synthetic_v0327_memory_result(task_shared_new),
+            status="completed",
+            stage="completed",
+        )
+
+        time.sleep(0.02)
+
+        task_latest_dataset = self.client.post("/api/tasks", json={"version": "v0325"}).json()["task_id"]
+        self.task_ids.append(task_latest_dataset)
+        self._append_uploaded_sample(task_latest_dataset, source_hash="hash-latest", color="green")
+        task_store.update_task(
+            task_latest_dataset,
+            result=self._synthetic_v0327_memory_result(task_latest_dataset),
+            status="completed",
+            stage="completed",
+        )
+
+        datasets_response = self.client.get(f"/api/users/{self.user_id}/datasets")
+        self.assertEqual(datasets_response.status_code, 200)
+        datasets = datasets_response.json()["datasets"]
+        self.assertEqual(len(datasets), 2)
+        latest_dataset_id = next(item["dataset_id"] for item in datasets if item["latest_task_id"] == task_latest_dataset)
+        shared_dataset_id = next(item["dataset_id"] for item in datasets if item["latest_task_id"] == task_shared_new)
+
+        default_bundle = self.client.get(f"/api/users/{self.user_id}/memory/bundle")
+        self.assertEqual(default_bundle.status_code, 200)
+        self.assertEqual(default_bundle.json()["tasks"][0]["task_id"], task_latest_dataset)
+
+        shared_all = self.client.get(
+            f"/api/users/{self.user_id}/memory/bundle",
+            params={"dataset_id": shared_dataset_id, "all": "true"},
+        )
+        self.assertEqual(shared_all.status_code, 200)
+        shared_task_ids = [item["task_id"] for item in shared_all.json()["tasks"]]
+        self.assertEqual(shared_task_ids, [task_shared_new, task_shared_old])
+
+        filtered_tasks = self.client.get(
+            f"/api/users/{self.user_id}/tasks",
+            params={"pipeline_version": 327, "pipeline_channel": "exp", "scope": "user"},
+        )
+        self.assertEqual(filtered_tasks.status_code, 200)
+        self.assertEqual(filtered_tasks.json()["tasks"][0]["task_id"], task_shared_new)
+
+        versions_response = self.client.get(f"/api/users/{self.user_id}/versions")
+        self.assertEqual(versions_response.status_code, 200)
+        versions_payload = versions_response.json()
+        self.assertEqual(versions_payload["pipeline_versions"], [325, 327])
+        self.assertEqual(versions_payload["pipeline_channels"], ["exp"])
+        self.assertIn(latest_dataset_id, [item["dataset_id"] for item in datasets])
+
+    def test_delete_task_removes_db_backed_memory_snapshot(self) -> None:
+        create_response = self.client.post("/api/tasks", json={"version": "v0327-exp"})
+        self.assertEqual(create_response.status_code, 200)
+        task_id = create_response.json()["task_id"]
+        self.task_ids.append(task_id)
+
+        self._append_uploaded_sample(task_id, color="black")
+        task_store.update_task(
+            task_id,
+            result=self._synthetic_v0327_memory_result(task_id),
+            status="completed",
+            stage="completed",
+        )
+
+        warm_response = self.client.get(f"/api/users/{self.user_id}/memory/bundle", params={"task_id": task_id})
+        self.assertEqual(warm_response.status_code, 200)
+        self.assertEqual(len(warm_response.json()["tasks"]), 1)
+
+        delete_response = self.client.delete(f"/api/tasks/{task_id}")
+        self.assertEqual(delete_response.status_code, 200)
+        self.assertEqual(delete_response.json()["status"], "deleted")
+
+        lookup_response = self.client.get(f"/api/users/{self.user_id}/memory/bundle", params={"task_id": task_id})
+        self.assertEqual(lookup_response.status_code, 200)
+        self.assertEqual(lookup_response.json()["tasks"], [])
+
     def _image_bytes(self, color: str) -> bytes:
         image = Image.new("RGB", (48, 48), color=color)
         buffer = io.BytesIO()
         image.save(buffer, format="PNG")
         return buffer.getvalue()
+
+    def _append_uploaded_sample(
+        self,
+        task_id: str,
+        *,
+        image_id: str = "photo_001",
+        filename: str = "sample.png",
+        stored_filename: str = "001_sample.png",
+        source_hash: str = "hash-001",
+        color: str = "red",
+    ) -> None:
+        uploads_dir = task_store.task_dir(task_id) / "uploads"
+        uploads_dir.mkdir(parents=True, exist_ok=True)
+        local_path = uploads_dir / stored_filename
+        Image.new("RGB", (64, 64), color=color).save(local_path, format="PNG")
+        task_store.append_uploads(
+            task_id,
+            [
+                {
+                    "image_id": image_id,
+                    "filename": filename,
+                    "stored_filename": stored_filename,
+                    "path": f"uploads/{stored_filename}",
+                    "url": f"/api/assets/{task_id}/uploads/{stored_filename}",
+                    "preview_url": None,
+                    "content_type": "image/png",
+                    "width": 64,
+                    "height": 64,
+                    "source_hash": source_hash,
+                    "timestamp": "2026-03-20T20:00:00",
+                }
+            ],
+            status="completed",
+            stage="completed",
+        )
 
     def _livp_bytes(self, color: str) -> bytes:
         image_payload = self._image_bytes(color)
@@ -1590,6 +1819,215 @@ class TaskApiTests(unittest.TestCase):
                 },
                 "envelope": {
                     "scope": {"user_id": self.user_id},
+                },
+            },
+        }
+
+    def _synthetic_v0327_memory_result(self, task_id: str) -> dict:
+        raw_upload_url = f"/api/assets/{task_id}/uploads/001_sample.png"
+        return {
+            "task_id": task_id,
+            "generated_at": "2026-03-20T20:00:00",
+            "summary": {
+                "primary_person_id": "Person_001",
+            },
+            "face_recognition": {
+                "primary_person_id": "Person_001",
+                "images": [
+                    {
+                        "image_id": "photo_001",
+                        "filename": "sample.png",
+                        "source_hash": "hash-001",
+                        "timestamp": "2026-03-20T20:00:00",
+                        "original_image_url": raw_upload_url,
+                        "display_image_url": raw_upload_url,
+                        "boxed_image_url": raw_upload_url,
+                        "compressed_image_url": raw_upload_url,
+                        "location": {"city": "Shanghai"},
+                        "width": 64,
+                        "height": 64,
+                        "faces": [
+                            {
+                                "face_id": "face_001",
+                                "person_id": "Person_001",
+                                "score": 0.95,
+                                "similarity": 0.92,
+                                "faiss_id": 1,
+                                "bbox": [0, 0, 32, 32],
+                                "bbox_xywh": {"x": 0, "y": 0, "w": 32, "h": 32},
+                                "quality_score": 0.88,
+                                "match_decision": "strong_match",
+                                "match_reason": "primary",
+                            },
+                            {
+                                "face_id": "face_002",
+                                "person_id": "Person_002",
+                                "score": 0.91,
+                                "similarity": 0.89,
+                                "faiss_id": 2,
+                                "bbox": [32, 0, 32, 32],
+                                "bbox_xywh": {"x": 32, "y": 0, "w": 32, "h": 32},
+                                "quality_score": 0.84,
+                                "match_decision": "strong_match",
+                                "match_reason": "friend",
+                            },
+                        ],
+                    }
+                ],
+                "person_groups": [
+                    {
+                        "person_id": "Person_001",
+                        "is_primary": True,
+                        "photo_count": 1,
+                        "face_count": 1,
+                        "avg_score": 0.95,
+                        "avg_quality": 0.88,
+                        "high_quality_face_count": 1,
+                        "images": [{"image_id": "photo_001", "filename": "sample.png"}],
+                    },
+                    {
+                        "person_id": "Person_002",
+                        "is_primary": False,
+                        "photo_count": 1,
+                        "face_count": 1,
+                        "avg_score": 0.91,
+                        "avg_quality": 0.84,
+                        "high_quality_face_count": 1,
+                        "images": [{"image_id": "photo_001", "filename": "sample.png"}],
+                    },
+                ],
+            },
+            "memory": {
+                "vp1_observations": [
+                    {
+                        "photo_id": "photo_001",
+                        "filename": "sample.png",
+                        "timestamp": "2026-03-20T20:00:00",
+                        "vlm_analysis": {
+                            "summary": "Two friends enjoying a live concert.",
+                            "people": [
+                                {"person_id": "Person_001", "name": "primary", "confidence": 0.93},
+                                {"person_id": "Person_002", "name": "friend", "confidence": 0.88},
+                            ],
+                            "relations": [
+                                {
+                                    "source_person_id": "Person_001",
+                                    "target_person_id": "Person_002",
+                                    "relationship": "friend",
+                                    "confidence": 0.81,
+                                }
+                            ],
+                            "scene": {"location": "Shanghai", "environment": "indoor concert venue"},
+                            "event": {"activity": "concert"},
+                            "details": [{"text": "Holding drinks near the stage"}],
+                            "key_objects": ["stage", "drink"],
+                            "ocr_hits": ["LIVE"],
+                            "brands": ["MOET"],
+                            "place_candidates": ["Shanghai"],
+                        },
+                    }
+                ],
+                "lp1_events": [
+                    {
+                        "event_id": "EVT_001",
+                        "title": "Concert Night",
+                        "date": "2026-03-20",
+                        "time_range": {"start": "20:00:00", "end": "22:00:00"},
+                        "duration": "2h",
+                        "type": "concert",
+                        "location": {"city": "Shanghai"},
+                        "description": "An evening concert with a close friend.",
+                        "photo_count": 1,
+                        "confidence": 0.9,
+                        "reason": "Time and scene aligned across the dataset.",
+                        "narrative": "They attended a concert together.",
+                        "narrative_synthesis": "A night out at a live concert with a close friend.",
+                        "participants": ["Person_001", "Person_002"],
+                        "photo_ids": ["photo_001"],
+                        "tags": ["music", "nightlife"],
+                        "social_dynamics": {"mood": "close"},
+                        "persona_evidence": [{"signal": "social"}],
+                    }
+                ],
+                "lp1_events_raw": [
+                    {
+                        "source_temp_event_id": "tmp_evt_001",
+                        "supporting_photo_ids": ["photo_001"],
+                    }
+                ],
+                "lp2_relationships": [
+                    {
+                        "relationship_id": "REL_001",
+                        "person_id": "Person_002",
+                        "relationship_type": "close_friend",
+                        "intimacy_score": 0.83,
+                        "status": "active",
+                        "confidence": 0.87,
+                        "reasoning": "Repeated one-on-one nightlife events.",
+                        "evidence": {"photo_ids": ["photo_001"], "event_ids": ["EVT_001"]},
+                        "shared_events": [
+                            {
+                                "event_id": "EVT_001",
+                                "date": "2026-03-20",
+                                "narrative": "Concert Night",
+                            }
+                        ],
+                    }
+                ],
+                "lp3_profile": {
+                    "primary_person_id": "Person_001",
+                    "structured": {
+                        "long_term_facts": {
+                            "identity": {
+                                "name": {
+                                    "value": "Vigar",
+                                    "confidence": 0.88,
+                                    "reasoning": "Repeated naming signal in profile synthesis.",
+                                    "evidence": {"photo_ids": ["photo_001"]},
+                                }
+                            }
+                        }
+                    },
+                    "report": "# Profile\n\nConcert-heavy social life.",
+                    "summary": "Concert-heavy social life.",
+                    "consistency": {"summary": {"status": "ok"}},
+                    "debug": {"trace": ["lp3"]},
+                    "internal_artifacts": {
+                        "primary_decision": {"primary_person_id": "Person_001"},
+                        "relationship_dossiers": [
+                            {
+                                "person_id": "Person_002",
+                                "memory_value": "keep",
+                                "photo_count": 1,
+                            }
+                        ],
+                        "group_artifacts": [
+                            {
+                                "group_id": "GROUP_001",
+                                "members": ["Person_001", "Person_002"],
+                                "group_type_candidate": "friends",
+                                "confidence": 0.8,
+                                "reason": "Shared nightlife event",
+                            }
+                        ],
+                        "profile_fact_decisions": [
+                            {
+                                "field_key": "long_term_facts.identity.name",
+                                "draft": {
+                                    "value": "Vigar",
+                                    "confidence": 0.8,
+                                    "reasoning": "draft reasoning",
+                                    "evidence": {"photo_ids": ["photo_001"]},
+                                },
+                                "final": {
+                                    "value": "Vigar",
+                                    "confidence": 0.88,
+                                    "reasoning": "final reasoning",
+                                    "evidence": {"photo_ids": ["photo_001"]},
+                                },
+                            }
+                        ],
+                    },
                 },
             },
         }

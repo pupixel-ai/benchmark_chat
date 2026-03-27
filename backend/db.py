@@ -38,7 +38,17 @@ def ensure_schema() -> None:
     nullable_suffix = "" if DATABASE_URL.startswith("sqlite") else " NULL"
 
     add_task_column("user_id", f"VARCHAR(64){nullable_suffix}")
+    add_task_column("dataset_id", f"INTEGER{nullable_suffix}")
+    add_task_column("dataset_fingerprint", f"VARCHAR(64){nullable_suffix}")
     add_task_column("version", f"VARCHAR(16){nullable_suffix}")
+    add_task_column("pipeline_version", f"INTEGER{nullable_suffix}")
+    add_task_column("pipeline_channel", f"VARCHAR(32){nullable_suffix}")
+    add_task_column("face_version", f"INTEGER{nullable_suffix}")
+    add_task_column("vlm_version", f"INTEGER{nullable_suffix}")
+    add_task_column("lp1_version", f"INTEGER{nullable_suffix}")
+    add_task_column("lp2_version", f"INTEGER{nullable_suffix}")
+    add_task_column("lp3_version", f"INTEGER{nullable_suffix}")
+    add_task_column("judge_version", f"INTEGER{nullable_suffix}")
     add_task_column("options", f"JSON{nullable_suffix}")
     add_task_column("result_summary", f"JSON{nullable_suffix}")
     add_task_column("asset_manifest", f"JSON{nullable_suffix}")

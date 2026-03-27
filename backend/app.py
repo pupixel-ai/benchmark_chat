@@ -28,12 +28,16 @@ from backend.auth import (
     logout_current_session,
     register_user,
 )
+from backend.db import SessionLocal
 from backend.face_review_store import FaceReviewStore
+from backend.memory_db_sync import MemoryDBSyncService
+from backend.memory_models import FaceObservationRecord, PhotoRecord
 from backend.memory_full_retrieval import build_task_memory_core_payload
 from backend.memory_step_retrieval import build_task_memory_steps_payload
 from backend.progress_utils import append_terminal_error, append_terminal_info, merge_stage_progress
 from backend.task_download_bundle import build_task_analysis_bundle, describe_task_downloads
 from backend.task_store import TaskStore, normalize_task_options
+from backend.user_memory_retrieval import RetrievalFilters, UserMemoryRetrievalService
 from backend.upload_utils import (
     UPLOAD_FAILURES_FILENAME,
     is_live_photo_candidate,
@@ -76,6 +80,8 @@ artifact_catalog = ArtifactCatalogStore()
 worker_manager = WorkerManager()
 worker_client = WorkerClient()
 face_review_store = FaceReviewStore()
+memory_db_sync = MemoryDBSyncService(asset_store)
+user_memory_retrieval = UserMemoryRetrievalService()
 
 UPLOAD_BATCH_MAX_FILES = 50
 UPLOAD_BATCH_MAX_BYTES = 64 * 1024 * 1024
@@ -410,6 +416,11 @@ def _sync_task_from_worker(task: dict, user_id: str) -> dict:
                 remote_payload["asset_manifest"],
             )
     refreshed = task_store.get_task(task["task_id"], user_id=user_id)
+    if refreshed and refreshed.get("result"):
+        try:
+            memory_db_sync.sync_task_snapshot(refreshed)
+        except Exception:
+            logger.exception("DB mirror sync failed after worker refresh for task_id=%s", task["task_id"])
     return refreshed or task
 
 
@@ -526,6 +537,15 @@ def _run_pipeline_task(
         task_store.set_result_summary(task_id, result.get("summary"), manifest)
         if user_id:
             artifact_catalog.replace_task_artifacts(task_id, user_id, manifest)
+        completed_task = task_store.get_task(task_id, user_id=user_id) if user_id else None
+        if completed_task:
+            try:
+                memory_db_sync.sync_task_snapshot(
+                    completed_task,
+                    face_embedding_lookup=service.face_recognition.index_store.vector_at,
+                )
+            except Exception:
+                logger.exception("DB mirror sync failed after local completion for task_id=%s", task_id)
     except Exception as exc:
         logger.exception("Pipeline task failed for task_id=%s version=%s", task_id, task_version)
         failed_progress = append_terminal_error(
@@ -552,6 +572,57 @@ def _resolve_task_version_and_options(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     task_options = normalize_task_options({"normalize_live_photos": normalize_live_photos})
     return task_version, task_options
+
+
+def _assert_requested_user(requested_user_id: str, current_user: dict) -> None:
+    if requested_user_id != current_user["user_id"]:
+        raise HTTPException(status_code=403, detail="无权访问其他用户的数据")
+
+
+def _build_retrieval_filters(
+    *,
+    task_id: Optional[str] = None,
+    dataset_id: Optional[int] = None,
+    all: bool = False,
+    scope: str = "dataset",
+    pipeline_version: Optional[int] = None,
+    pipeline_channel: Optional[str] = None,
+    face_version: Optional[int] = None,
+    vlm_version: Optional[int] = None,
+    lp1_version: Optional[int] = None,
+    lp2_version: Optional[int] = None,
+    lp3_version: Optional[int] = None,
+    judge_version: Optional[int] = None,
+    updated_after: Optional[str] = None,
+    cursor: Optional[str] = None,
+    limit: int = 20,
+    include_raw: bool = False,
+    include_artifacts: bool = False,
+    include_traces: bool = False,
+) -> RetrievalFilters:
+    normalized_scope = (scope or "dataset").strip().lower() or "dataset"
+    if normalized_scope not in {"dataset", "user"}:
+        raise HTTPException(status_code=400, detail="scope 只支持 dataset 或 user")
+    return RetrievalFilters(
+        task_id=task_id,
+        dataset_id=dataset_id,
+        all=bool(all),
+        scope=normalized_scope,
+        pipeline_version=pipeline_version,
+        pipeline_channel=pipeline_channel,
+        face_version=face_version,
+        vlm_version=vlm_version,
+        lp1_version=lp1_version,
+        lp2_version=lp2_version,
+        lp3_version=lp3_version,
+        judge_version=judge_version,
+        updated_after=updated_after,
+        cursor=cursor,
+        limit=limit,
+        include_raw=include_raw,
+        include_artifacts=include_artifacts,
+        include_traces=include_traces,
+    )
 
 
 def _create_task_record(
@@ -1265,15 +1336,18 @@ def delete_task(task_id: str, response: Response, current_user: dict = Depends(g
         raise HTTPException(status_code=500, detail=f"删除本地任务文件失败: {exc}") from exc
 
     artifact_catalog.delete_task_artifacts(task_id, user_id=current_user["user_id"])
-    deleted = task_store.delete_task(task_id, user_id=current_user["user_id"])
+    deleted = memory_db_sync.delete_task_snapshot(
+        task_id,
+        current_user["user_id"],
+        delete_task_record=True,
+    )
     if not deleted:
         raise HTTPException(status_code=500, detail="删除任务记录失败")
 
     return {"status": "deleted", "task_id": task_id}
 
 
-@app.get(f"{ASSET_URL_PREFIX}" + "/{task_id}/{asset_path:path}")
-def get_asset(task_id: str, asset_path: str, current_user: dict = Depends(get_current_user)):
+def _serve_task_relative_asset(task_id: str, asset_path: str, current_user: dict) -> Response:
     task = task_store.get_task(task_id, user_id=current_user["user_id"])
     if not task:
         raise HTTPException(status_code=404, detail="任务不存在")
@@ -1303,6 +1377,404 @@ def get_asset(task_id: str, asset_path: str, current_user: dict = Depends(get_cu
         return _apply_no_store_headers(response)
 
     raise HTTPException(status_code=404, detail="资产不存在")
+
+
+def _photo_variant_relative_path(photo: PhotoRecord, variant: str) -> Optional[str]:
+    if variant == "raw":
+        return photo.raw_relative_path
+    if variant == "display":
+        return photo.display_relative_path or photo.boxed_relative_path or photo.compressed_relative_path or photo.raw_relative_path
+    if variant == "boxed":
+        return photo.boxed_relative_path or photo.display_relative_path or photo.compressed_relative_path or photo.raw_relative_path
+    if variant == "compressed":
+        return photo.compressed_relative_path or photo.display_relative_path or photo.raw_relative_path
+    return None
+
+
+@app.get("/api/users/{user_id}/datasets")
+def list_user_datasets(user_id: str, response: Response, current_user: dict = Depends(get_current_user)):
+    _apply_no_store_headers(response)
+    _assert_requested_user(user_id, current_user)
+    return user_memory_retrieval.list_datasets(user_id)
+
+
+@app.get("/api/users/{user_id}/tasks")
+def list_user_memory_tasks(
+    user_id: str,
+    response: Response,
+    task_id: Optional[str] = None,
+    dataset_id: Optional[int] = None,
+    all: bool = False,
+    scope: str = "dataset",
+    pipeline_version: Optional[int] = None,
+    pipeline_channel: Optional[str] = None,
+    face_version: Optional[int] = None,
+    vlm_version: Optional[int] = None,
+    lp1_version: Optional[int] = None,
+    lp2_version: Optional[int] = None,
+    lp3_version: Optional[int] = None,
+    judge_version: Optional[int] = None,
+    updated_after: Optional[str] = None,
+    cursor: Optional[str] = None,
+    limit: int = 20,
+    current_user: dict = Depends(get_current_user),
+):
+    _apply_no_store_headers(response)
+    _assert_requested_user(user_id, current_user)
+    filters = _build_retrieval_filters(
+        task_id=task_id,
+        dataset_id=dataset_id,
+        all=all,
+        scope=scope,
+        pipeline_version=pipeline_version,
+        pipeline_channel=pipeline_channel,
+        face_version=face_version,
+        vlm_version=vlm_version,
+        lp1_version=lp1_version,
+        lp2_version=lp2_version,
+        lp3_version=lp3_version,
+        judge_version=judge_version,
+        updated_after=updated_after,
+        cursor=cursor,
+        limit=limit,
+    )
+    return user_memory_retrieval.list_tasks(user_id, filters)
+
+
+@app.get("/api/users/{user_id}/versions")
+def list_user_versions(user_id: str, response: Response, current_user: dict = Depends(get_current_user)):
+    _apply_no_store_headers(response)
+    _assert_requested_user(user_id, current_user)
+    return user_memory_retrieval.list_versions(user_id)
+
+
+def _memory_response(
+    builder: str,
+    *,
+    user_id: str,
+    response: Response,
+    task_id: Optional[str],
+    dataset_id: Optional[int],
+    all: bool,
+    scope: str,
+    pipeline_version: Optional[int],
+    pipeline_channel: Optional[str],
+    face_version: Optional[int],
+    vlm_version: Optional[int],
+    lp1_version: Optional[int],
+    lp2_version: Optional[int],
+    lp3_version: Optional[int],
+    judge_version: Optional[int],
+    updated_after: Optional[str],
+    cursor: Optional[str],
+    limit: int,
+    include_raw: bool,
+    include_artifacts: bool,
+    include_traces: bool,
+    current_user: dict,
+):
+    _apply_no_store_headers(response)
+    _assert_requested_user(user_id, current_user)
+    filters = _build_retrieval_filters(
+        task_id=task_id,
+        dataset_id=dataset_id,
+        all=all,
+        scope=scope,
+        pipeline_version=pipeline_version,
+        pipeline_channel=pipeline_channel,
+        face_version=face_version,
+        vlm_version=vlm_version,
+        lp1_version=lp1_version,
+        lp2_version=lp2_version,
+        lp3_version=lp3_version,
+        judge_version=judge_version,
+        updated_after=updated_after,
+        cursor=cursor,
+        limit=limit,
+        include_raw=include_raw,
+        include_artifacts=include_artifacts,
+        include_traces=include_traces,
+    )
+    return getattr(user_memory_retrieval, builder)(user_id, filters)
+
+
+@app.get("/api/users/{user_id}/memory/faces")
+def get_user_memory_faces(
+    user_id: str,
+    response: Response,
+    task_id: Optional[str] = None,
+    dataset_id: Optional[int] = None,
+    all: bool = False,
+    scope: str = "dataset",
+    pipeline_version: Optional[int] = None,
+    pipeline_channel: Optional[str] = None,
+    face_version: Optional[int] = None,
+    vlm_version: Optional[int] = None,
+    lp1_version: Optional[int] = None,
+    lp2_version: Optional[int] = None,
+    lp3_version: Optional[int] = None,
+    judge_version: Optional[int] = None,
+    updated_after: Optional[str] = None,
+    cursor: Optional[str] = None,
+    limit: int = 20,
+    include_raw: bool = False,
+    include_artifacts: bool = False,
+    include_traces: bool = False,
+    current_user: dict = Depends(get_current_user),
+):
+    return _memory_response(
+        "build_faces",
+        user_id=user_id,
+        response=response,
+        task_id=task_id,
+        dataset_id=dataset_id,
+        all=all,
+        scope=scope,
+        pipeline_version=pipeline_version,
+        pipeline_channel=pipeline_channel,
+        face_version=face_version,
+        vlm_version=vlm_version,
+        lp1_version=lp1_version,
+        lp2_version=lp2_version,
+        lp3_version=lp3_version,
+        judge_version=judge_version,
+        updated_after=updated_after,
+        cursor=cursor,
+        limit=limit,
+        include_raw=include_raw,
+        include_artifacts=include_artifacts,
+        include_traces=include_traces,
+        current_user=current_user,
+    )
+
+
+@app.get("/api/users/{user_id}/memory/events")
+def get_user_memory_events(
+    user_id: str,
+    response: Response,
+    task_id: Optional[str] = None,
+    dataset_id: Optional[int] = None,
+    all: bool = False,
+    scope: str = "dataset",
+    pipeline_version: Optional[int] = None,
+    pipeline_channel: Optional[str] = None,
+    face_version: Optional[int] = None,
+    vlm_version: Optional[int] = None,
+    lp1_version: Optional[int] = None,
+    lp2_version: Optional[int] = None,
+    lp3_version: Optional[int] = None,
+    judge_version: Optional[int] = None,
+    updated_after: Optional[str] = None,
+    cursor: Optional[str] = None,
+    limit: int = 20,
+    include_raw: bool = False,
+    include_artifacts: bool = False,
+    include_traces: bool = False,
+    current_user: dict = Depends(get_current_user),
+):
+    return _memory_response("build_events", user_id=user_id, response=response, task_id=task_id, dataset_id=dataset_id, all=all, scope=scope, pipeline_version=pipeline_version, pipeline_channel=pipeline_channel, face_version=face_version, vlm_version=vlm_version, lp1_version=lp1_version, lp2_version=lp2_version, lp3_version=lp3_version, judge_version=judge_version, updated_after=updated_after, cursor=cursor, limit=limit, include_raw=include_raw, include_artifacts=include_artifacts, include_traces=include_traces, current_user=current_user)
+
+
+@app.get("/api/users/{user_id}/memory/vlm")
+def get_user_memory_vlm(
+    user_id: str,
+    response: Response,
+    task_id: Optional[str] = None,
+    dataset_id: Optional[int] = None,
+    all: bool = False,
+    scope: str = "dataset",
+    pipeline_version: Optional[int] = None,
+    pipeline_channel: Optional[str] = None,
+    face_version: Optional[int] = None,
+    vlm_version: Optional[int] = None,
+    lp1_version: Optional[int] = None,
+    lp2_version: Optional[int] = None,
+    lp3_version: Optional[int] = None,
+    judge_version: Optional[int] = None,
+    updated_after: Optional[str] = None,
+    cursor: Optional[str] = None,
+    limit: int = 20,
+    include_raw: bool = False,
+    include_artifacts: bool = False,
+    include_traces: bool = False,
+    current_user: dict = Depends(get_current_user),
+):
+    return _memory_response("build_vlm", user_id=user_id, response=response, task_id=task_id, dataset_id=dataset_id, all=all, scope=scope, pipeline_version=pipeline_version, pipeline_channel=pipeline_channel, face_version=face_version, vlm_version=vlm_version, lp1_version=lp1_version, lp2_version=lp2_version, lp3_version=lp3_version, judge_version=judge_version, updated_after=updated_after, cursor=cursor, limit=limit, include_raw=include_raw, include_artifacts=include_artifacts, include_traces=include_traces, current_user=current_user)
+
+
+@app.get("/api/users/{user_id}/memory/profiles")
+def get_user_memory_profiles(
+    user_id: str,
+    response: Response,
+    task_id: Optional[str] = None,
+    dataset_id: Optional[int] = None,
+    all: bool = False,
+    scope: str = "dataset",
+    pipeline_version: Optional[int] = None,
+    pipeline_channel: Optional[str] = None,
+    face_version: Optional[int] = None,
+    vlm_version: Optional[int] = None,
+    lp1_version: Optional[int] = None,
+    lp2_version: Optional[int] = None,
+    lp3_version: Optional[int] = None,
+    judge_version: Optional[int] = None,
+    updated_after: Optional[str] = None,
+    cursor: Optional[str] = None,
+    limit: int = 20,
+    include_raw: bool = False,
+    include_artifacts: bool = False,
+    include_traces: bool = False,
+    current_user: dict = Depends(get_current_user),
+):
+    return _memory_response("build_profiles", user_id=user_id, response=response, task_id=task_id, dataset_id=dataset_id, all=all, scope=scope, pipeline_version=pipeline_version, pipeline_channel=pipeline_channel, face_version=face_version, vlm_version=vlm_version, lp1_version=lp1_version, lp2_version=lp2_version, lp3_version=lp3_version, judge_version=judge_version, updated_after=updated_after, cursor=cursor, limit=limit, include_raw=include_raw, include_artifacts=include_artifacts, include_traces=include_traces, current_user=current_user)
+
+
+@app.get("/api/users/{user_id}/memory/relationships")
+def get_user_memory_relationships(
+    user_id: str,
+    response: Response,
+    task_id: Optional[str] = None,
+    dataset_id: Optional[int] = None,
+    all: bool = False,
+    scope: str = "dataset",
+    pipeline_version: Optional[int] = None,
+    pipeline_channel: Optional[str] = None,
+    face_version: Optional[int] = None,
+    vlm_version: Optional[int] = None,
+    lp1_version: Optional[int] = None,
+    lp2_version: Optional[int] = None,
+    lp3_version: Optional[int] = None,
+    judge_version: Optional[int] = None,
+    updated_after: Optional[str] = None,
+    cursor: Optional[str] = None,
+    limit: int = 20,
+    include_raw: bool = False,
+    include_artifacts: bool = False,
+    include_traces: bool = False,
+    current_user: dict = Depends(get_current_user),
+):
+    return _memory_response("build_relationships", user_id=user_id, response=response, task_id=task_id, dataset_id=dataset_id, all=all, scope=scope, pipeline_version=pipeline_version, pipeline_channel=pipeline_channel, face_version=face_version, vlm_version=vlm_version, lp1_version=lp1_version, lp2_version=lp2_version, lp3_version=lp3_version, judge_version=judge_version, updated_after=updated_after, cursor=cursor, limit=limit, include_raw=include_raw, include_artifacts=include_artifacts, include_traces=include_traces, current_user=current_user)
+
+
+@app.get("/api/users/{user_id}/memory/photos")
+def get_user_memory_photos(
+    user_id: str,
+    response: Response,
+    task_id: Optional[str] = None,
+    dataset_id: Optional[int] = None,
+    all: bool = False,
+    scope: str = "dataset",
+    pipeline_version: Optional[int] = None,
+    pipeline_channel: Optional[str] = None,
+    face_version: Optional[int] = None,
+    vlm_version: Optional[int] = None,
+    lp1_version: Optional[int] = None,
+    lp2_version: Optional[int] = None,
+    lp3_version: Optional[int] = None,
+    judge_version: Optional[int] = None,
+    updated_after: Optional[str] = None,
+    cursor: Optional[str] = None,
+    limit: int = 20,
+    include_raw: bool = False,
+    include_artifacts: bool = False,
+    include_traces: bool = False,
+    current_user: dict = Depends(get_current_user),
+):
+    return _memory_response("build_photos", user_id=user_id, response=response, task_id=task_id, dataset_id=dataset_id, all=all, scope=scope, pipeline_version=pipeline_version, pipeline_channel=pipeline_channel, face_version=face_version, vlm_version=vlm_version, lp1_version=lp1_version, lp2_version=lp2_version, lp3_version=lp3_version, judge_version=judge_version, updated_after=updated_after, cursor=cursor, limit=limit, include_raw=include_raw, include_artifacts=include_artifacts, include_traces=include_traces, current_user=current_user)
+
+
+@app.get("/api/users/{user_id}/memory/bundle")
+def get_user_memory_bundle(
+    user_id: str,
+    response: Response,
+    task_id: Optional[str] = None,
+    dataset_id: Optional[int] = None,
+    all: bool = False,
+    scope: str = "dataset",
+    pipeline_version: Optional[int] = None,
+    pipeline_channel: Optional[str] = None,
+    face_version: Optional[int] = None,
+    vlm_version: Optional[int] = None,
+    lp1_version: Optional[int] = None,
+    lp2_version: Optional[int] = None,
+    lp3_version: Optional[int] = None,
+    judge_version: Optional[int] = None,
+    updated_after: Optional[str] = None,
+    cursor: Optional[str] = None,
+    limit: int = 20,
+    include_raw: bool = False,
+    include_artifacts: bool = False,
+    include_traces: bool = False,
+    current_user: dict = Depends(get_current_user),
+):
+    return _memory_response("build_bundle", user_id=user_id, response=response, task_id=task_id, dataset_id=dataset_id, all=all, scope=scope, pipeline_version=pipeline_version, pipeline_channel=pipeline_channel, face_version=face_version, vlm_version=vlm_version, lp1_version=lp1_version, lp2_version=lp2_version, lp3_version=lp3_version, judge_version=judge_version, updated_after=updated_after, cursor=cursor, limit=limit, include_raw=include_raw, include_artifacts=include_artifacts, include_traces=include_traces, current_user=current_user)
+
+
+@app.get(f"{ASSET_URL_PREFIX}" + "/photos/{photo_id}/raw")
+def get_photo_raw_asset(photo_id: str, current_user: dict = Depends(get_current_user)):
+    with SessionLocal() as session:
+        photo = session.get(PhotoRecord, photo_id)
+        if photo is None or photo.user_id != current_user["user_id"]:
+            raise HTTPException(status_code=404, detail="照片不存在")
+        relative_path = _photo_variant_relative_path(photo, "raw")
+        task_id = photo.task_id
+    if not relative_path:
+        raise HTTPException(status_code=404, detail="照片原图不存在")
+    return _serve_task_relative_asset(task_id, relative_path, current_user)
+
+
+@app.get(f"{ASSET_URL_PREFIX}" + "/photos/{photo_id}/display")
+def get_photo_display_asset(photo_id: str, current_user: dict = Depends(get_current_user)):
+    with SessionLocal() as session:
+        photo = session.get(PhotoRecord, photo_id)
+        if photo is None or photo.user_id != current_user["user_id"]:
+            raise HTTPException(status_code=404, detail="照片不存在")
+        relative_path = _photo_variant_relative_path(photo, "display")
+        task_id = photo.task_id
+    if not relative_path:
+        raise HTTPException(status_code=404, detail="展示图不存在")
+    return _serve_task_relative_asset(task_id, relative_path, current_user)
+
+
+@app.get(f"{ASSET_URL_PREFIX}" + "/photos/{photo_id}/boxed")
+def get_photo_boxed_asset(photo_id: str, current_user: dict = Depends(get_current_user)):
+    with SessionLocal() as session:
+        photo = session.get(PhotoRecord, photo_id)
+        if photo is None or photo.user_id != current_user["user_id"]:
+            raise HTTPException(status_code=404, detail="照片不存在")
+        relative_path = _photo_variant_relative_path(photo, "boxed")
+        task_id = photo.task_id
+    if not relative_path:
+        raise HTTPException(status_code=404, detail="boxed 图不存在")
+    return _serve_task_relative_asset(task_id, relative_path, current_user)
+
+
+@app.get(f"{ASSET_URL_PREFIX}" + "/photos/{photo_id}/compressed")
+def get_photo_compressed_asset(photo_id: str, current_user: dict = Depends(get_current_user)):
+    with SessionLocal() as session:
+        photo = session.get(PhotoRecord, photo_id)
+        if photo is None or photo.user_id != current_user["user_id"]:
+            raise HTTPException(status_code=404, detail="照片不存在")
+        relative_path = _photo_variant_relative_path(photo, "compressed")
+        task_id = photo.task_id
+    if not relative_path:
+        raise HTTPException(status_code=404, detail="压缩图不存在")
+    return _serve_task_relative_asset(task_id, relative_path, current_user)
+
+
+@app.get(f"{ASSET_URL_PREFIX}" + "/faces/{face_id}/crop")
+def get_face_crop_asset(face_id: str, current_user: dict = Depends(get_current_user)):
+    payload = memory_db_sync.crop_face_bytes(current_user["user_id"], face_id)
+    if payload is None:
+        raise HTTPException(status_code=404, detail="人脸裁图不存在")
+    body, content_type = payload
+    response = Response(content=body, media_type=content_type)
+    return _apply_no_store_headers(response)
+
+
+@app.get(f"{ASSET_URL_PREFIX}" + "/{task_id}/{asset_path:path}")
+def get_asset(task_id: str, asset_path: str, current_user: dict = Depends(get_current_user)):
+    return _serve_task_relative_asset(task_id, asset_path, current_user)
 
 
 @app.get("/api/tasks/{task_id}/artifacts")
