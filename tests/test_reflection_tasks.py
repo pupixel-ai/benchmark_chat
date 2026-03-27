@@ -269,7 +269,6 @@ class ReflectionTaskPipelineTests(unittest.TestCase):
                     options=["field_cot", "tool_rule", "call_policy", "engineering_issue", "watch_only"],
                     recommended_option="field_cot",
                     status="new",
-                    feishu_status="not_triggered",
                     created_at="2026-03-26T10:00:00",
                     updated_at="2026-03-26T10:00:00",
                 )
@@ -1007,7 +1006,6 @@ class ReflectionTaskPipelineTests(unittest.TestCase):
                         "options": ["approve", "reject", "need_revision"],
                         "recommended_option": "approve",
                         "status": "new",
-                        "feishu_status": "not_triggered",
                         "proposal_id": "proposal_001",
                         "experiment_id": "exp_001",
                         "created_at": "2026-03-26T12:00:00Z",
@@ -1054,82 +1052,3 @@ class ReflectionTaskPipelineTests(unittest.TestCase):
         self.assertEqual(proposals[0]["proposal_id"], "proposal_001")
         self.assertEqual(tasks[0]["task_type"], "proposal_review")
 
-    def test_dispatch_strict_reflection_notifications_sends_new_tasks_and_difficult_cases_once(self) -> None:
-        from services.reflection import build_reflection_asset_paths
-        from services.reflection.tasks import dispatch_strict_reflection_notifications
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            paths = build_reflection_asset_paths(project_root=tmpdir, user_name="vigar")
-            Path(paths.root_dir).mkdir(parents=True, exist_ok=True)
-            Path(paths.tasks_path).write_text(
-                "\n".join(
-                    [
-                        json.dumps(
-                            {
-                                "task_id": "task_notify_001",
-                                "task_type": "proposal_review",
-                                "pattern_id": "pattern_001",
-                                "user_name": "vigar",
-                                "detail_url": "/review/task/task_notify_001",
-                                "status": "new",
-                                "feishu_status": "not_triggered",
-                            },
-                            ensure_ascii=False,
-                        ),
-                        json.dumps(
-                            {
-                                "task_id": "task_skip_001",
-                                "task_type": "upstream_decision_task",
-                                "pattern_id": "pattern_002",
-                                "user_name": "vigar",
-                                "detail_url": "/review/task/task_skip_001",
-                                "status": "approved",
-                                "feishu_status": "acted",
-                            },
-                            ensure_ascii=False,
-                        ),
-                    ]
-                )
-                + "\n",
-                encoding="utf-8",
-            )
-            Path(paths.difficult_cases_path).write_text(
-                json.dumps(
-                    {
-                        "case_id": "case_difficult_001",
-                        "user_name": "vigar",
-                        "detail_url": "/review/difficult-case/case_difficult_001",
-                        "resolution_route": "difficult_case",
-                        "accuracy_gap_status": "open",
-                        "feishu_status": "not_triggered",
-                    },
-                    ensure_ascii=False,
-                )
-                + "\n",
-                encoding="utf-8",
-            )
-
-            with patch("services.reflection.tasks.FEISHU_APPROVAL_RECEIVE_ID", "oc_approval_group_001"), patch(
-                "services.reflection.tasks.FEISHU_APPROVAL_RECEIVE_ID_TYPE", "chat_id"
-            ), patch(
-                "services.reflection.tasks.FEISHU_DIFFICULT_CASE_RECEIVE_ID", "oc_difficult_group_001"
-            ), patch(
-                "services.reflection.tasks.FEISHU_DIFFICULT_CASE_RECEIVE_ID_TYPE", "chat_id"
-            ), patch("services.reflection.feishu.send_reflection_task_card_for_task") as send_task, patch(
-                "services.reflection.feishu.send_difficult_case_alert_for_case"
-            ) as send_case:
-                send_task.return_value = {"message_id": "om_task"}
-                send_case.return_value = {"message_id": "om_case"}
-                result = dispatch_strict_reflection_notifications(
-                    project_root=tmpdir,
-                    user_name="vigar",
-                )
-
-        self.assertEqual(result["sent_task_count"], 1)
-        self.assertEqual(result["sent_difficult_case_count"], 1)
-        send_task.assert_called_once()
-        send_case.assert_called_once()
-        self.assertEqual(send_task.call_args.kwargs["receive_id"], "oc_approval_group_001")
-        self.assertEqual(send_task.call_args.kwargs["receive_id_type"], "chat_id")
-        self.assertEqual(send_case.call_args.kwargs["receive_id"], "oc_difficult_group_001")
-        self.assertEqual(send_case.call_args.kwargs["receive_id_type"], "chat_id")

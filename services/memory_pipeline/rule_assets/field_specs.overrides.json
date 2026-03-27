@@ -1,1 +1,14 @@
-{}
+{
+  "long_term_facts.social_identity.education": {
+    "null_preferred_when": [
+      "证据仅来自单事件窗口时输出 null",
+      "主体归属不清时输出 null"
+    ]
+  },
+  "long_term_facts.material.brand_preference": {
+    "null_preferred_when": [
+      "品牌线索仅出现在单次曝光时输出 null",
+      "品牌线索集中在 venue context 时输出 null"
+    ]
+  }
+}

@@ -26,6 +26,11 @@ def main() -> int:
         default="google/gemini-3.1-flash-lite-preview",
         help="仅 LP3 使用的画像模型",
     )
+    parser.add_argument(
+        "--user-name",
+        default=os.environ.get("MEMORY_USER_NAME", "default"),
+        help="trace 归属用户名（用于 memory/evolution 用户隔离）",
+    )
     args = parser.parse_args()
 
     result = run_precomputed_bundle_pipeline(
@@ -33,6 +38,7 @@ def main() -> int:
         output_dir=args.output_dir,
         profile_openrouter_key=args.profile_openrouter_key,
         profile_model=args.profile_model,
+        user_name=args.user_name,
     )
 
     print(f"[bundle pipeline] 输入: {args.bundle_dir}")
@@ -43,6 +49,7 @@ def main() -> int:
     print(f"[bundle pipeline] 画像: {result['structured_profile_path']}")
     print(f"[bundle pipeline] 下游审计: {result['downstream_audit_report_path']}")
     print(f"[bundle pipeline] 阶段汇报: {result['stage_reports_path']}")
+    print(f"[bundle pipeline] run trace: {result.get('run_trace_path')}")
     return 0
 
 

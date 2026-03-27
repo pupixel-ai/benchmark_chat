@@ -20,7 +20,6 @@ from config import (
     OPENROUTER_API_KEY,
     OPENROUTER_APP_NAME,
     OPENROUTER_BASE_URL,
-    OPENROUTER_SITE_URL,
 )
 
 
@@ -131,7 +130,7 @@ class EmbeddingProvider:
             timeout_seconds=MEMORY_EMBEDDING_TIMEOUT_SECONDS,
             openrouter_api_key=OPENROUTER_API_KEY or GEMINI_API_KEY,
             openrouter_base_url=OPENROUTER_BASE_URL,
-            openrouter_site_url=OPENROUTER_SITE_URL,
+            openrouter_site_url=OPENROUTER_BASE_URL,
             openrouter_app_name=OPENROUTER_APP_NAME,
             gemini_api_key=GEMINI_API_KEY,
         )

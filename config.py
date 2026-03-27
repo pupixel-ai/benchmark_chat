@@ -42,6 +42,45 @@ DEFAULT_TASK_VERSION = os.getenv("DEFAULT_TASK_VERSION", APP_VERSION).strip() or
 if DEFAULT_TASK_VERSION not in AVAILABLE_TASK_VERSIONS:
     DEFAULT_TASK_VERSION = TASK_VERSION_V0317
 
+# ─── 上传限制 ────────────────────────────────────────────────────
+MAX_UPLOAD_PHOTOS = int(os.getenv("MAX_UPLOAD_PHOTOS", "500"))
+DEFAULT_NORMALIZE_LIVE_PHOTOS = os.getenv("DEFAULT_NORMALIZE_LIVE_PHOTOS", "true").lower() == "true"
+
+# ─── VLM 并发与缓存刷新 ──────────────────────────────────────────
+VLM_MAX_CONCURRENCY = int(os.getenv("VLM_MAX_CONCURRENCY", "4"))
+VLM_ENABLE_PRIORITY_SCHEDULING = os.getenv("VLM_ENABLE_PRIORITY_SCHEDULING", "false").lower() == "true"
+VLM_CACHE_FLUSH_EVERY_N = int(os.getenv("VLM_CACHE_FLUSH_EVERY_N", "20"))
+VLM_CACHE_FLUSH_INTERVAL_SECONDS = float(os.getenv("VLM_CACHE_FLUSH_INTERVAL_SECONDS", "60.0"))
+
+# ─── LLM 提供商 ──────────────────────────────────────────────────
+MODEL_PROVIDER = os.getenv("MODEL_PROVIDER", "openrouter").strip().lower() or "openrouter"
+OPENROUTER_APP_NAME = os.getenv("OPENROUTER_APP_NAME", "benchmark_chat").strip()
+
+# ─── Memory Module — 嵌入向量 ────────────────────────────────────
+MEMORY_REAL_EMBEDDINGS_ENABLED = os.getenv("MEMORY_REAL_EMBEDDINGS_ENABLED", "false").lower() == "true"
+MEMORY_EMBEDDING_PROVIDER = os.getenv("MEMORY_EMBEDDING_PROVIDER", "").strip()
+MEMORY_EMBEDDING_MODEL = os.getenv("MEMORY_EMBEDDING_MODEL", "").strip()
+MEMORY_EMBEDDING_VERSION = os.getenv("MEMORY_EMBEDDING_VERSION", "v1").strip() or "v1"
+MEMORY_EMBEDDING_TIMEOUT_SECONDS = float(os.getenv("MEMORY_EMBEDDING_TIMEOUT_SECONDS", "30.0"))
+
+# ─── Memory Module — 外部存储（Milvus / Neo4j / Redis） ──────────
+MEMORY_EXTERNAL_SINKS_ENABLED = os.getenv("MEMORY_EXTERNAL_SINKS_ENABLED", "false").lower() == "true"
+MEMORY_MILVUS_URI = os.getenv("MEMORY_MILVUS_URI", "").strip()
+MEMORY_MILVUS_USER = os.getenv("MEMORY_MILVUS_USER", "").strip()
+MEMORY_MILVUS_PASSWORD = os.getenv("MEMORY_MILVUS_PASSWORD", "").strip()
+MEMORY_MILVUS_TOKEN = os.getenv("MEMORY_MILVUS_TOKEN", "").strip()
+MEMORY_MILVUS_DB_NAME = os.getenv("MEMORY_MILVUS_DB_NAME", "default").strip() or "default"
+MEMORY_MILVUS_COLLECTION = os.getenv("MEMORY_MILVUS_COLLECTION", "memory_units").strip() or "memory_units"
+MEMORY_MILVUS_EVIDENCE_COLLECTION = os.getenv("MEMORY_MILVUS_EVIDENCE_COLLECTION", "memory_evidence").strip() or "memory_evidence"
+MEMORY_MILVUS_UNITS_COLLECTION = os.getenv("MEMORY_MILVUS_UNITS_COLLECTION", "memory_units").strip() or "memory_units"
+MEMORY_MILVUS_VECTOR_DIM = int(os.getenv("MEMORY_MILVUS_VECTOR_DIM", "1536"))
+MEMORY_NEO4J_URI = os.getenv("MEMORY_NEO4J_URI", "").strip()
+MEMORY_NEO4J_USERNAME = os.getenv("MEMORY_NEO4J_USERNAME", "").strip()
+MEMORY_NEO4J_PASSWORD = os.getenv("MEMORY_NEO4J_PASSWORD", "").strip()
+MEMORY_NEO4J_DATABASE = os.getenv("MEMORY_NEO4J_DATABASE", "neo4j").strip() or "neo4j"
+MEMORY_REDIS_URL = os.getenv("MEMORY_REDIS_URL", "").strip()
+MEMORY_REDIS_PREFIX = os.getenv("MEMORY_REDIS_PREFIX", "mem:").strip() or "mem:"
+
 # ─── 通用 ────────────────────────────────────────────────────────
 MAX_PHOTOS = int(os.getenv("MAX_PHOTOS", "999999"))
 DEMO_MODE = True
@@ -78,7 +117,6 @@ FEISHU_APPROVAL_RECEIVE_ID_TYPE = os.getenv("FEISHU_APPROVAL_RECEIVE_ID_TYPE", "
 FEISHU_DIFFICULT_CASE_RECEIVE_ID = os.getenv("FEISHU_DIFFICULT_CASE_RECEIVE_ID", "").strip()
 FEISHU_DIFFICULT_CASE_RECEIVE_ID_TYPE = os.getenv("FEISHU_DIFFICULT_CASE_RECEIVE_ID_TYPE", "chat_id").strip() or "chat_id"
 REVIEW_BASE_URL = os.getenv("REVIEW_BASE_URL", "http://localhost:8080").strip() or "http://localhost:8080"
-REFLECTION_STRICT_NOTIFY_BEFORE_CHANGES = os.getenv("REFLECTION_STRICT_NOTIFY_BEFORE_CHANGES", "false").strip().lower() == "true"
 
 VLM_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
 LLM_MODEL = "gemini-2.5-flash"

@@ -129,7 +129,7 @@ class TaskApiTests(unittest.TestCase):
             response = self.client.post(
                 "/api/tasks/ingest",
                 data={
-                    "version": "v0323",
+                    "version": "v0317",
                     "max_photos": "2",
                     "use_cache": "false",
                     "normalize_live_photos": "true",
@@ -146,7 +146,7 @@ class TaskApiTests(unittest.TestCase):
         self.task_ids.append(task_id)
         self.assertEqual(payload["status"], "queued")
         self.assertEqual(payload["stage"], "queued")
-        self.assertEqual(payload["version"], "v0323")
+        self.assertEqual(payload["version"], "v0317")
         self.assertEqual(payload["accepted_count"], 2)
         self.assertEqual(payload["failed_count"], 0)
         self.assertEqual(payload["upload_count"], 2)
@@ -157,7 +157,7 @@ class TaskApiTests(unittest.TestCase):
         task = task_store.get_task(task_id, user_id=self.user_id)
         self.assertIsNotNone(task)
         assert task is not None
-        self.assertEqual(task["version"], "v0323")
+        self.assertEqual(task["version"], "v0317")
         self.assertEqual(task["status"], "queued")
         self.assertEqual(task["stage"], "queued")
         self.assertEqual(task["upload_count"], 2)
@@ -170,7 +170,7 @@ class TaskApiTests(unittest.TestCase):
             self.user_id,
             2,
             False,
-            "v0323",
+            "v0317",
             {
                 "normalize_live_photos": True,
                 "creation_source": "api",
@@ -255,7 +255,7 @@ class TaskApiTests(unittest.TestCase):
         create_response = self.client.post(
             "/api/tasks",
             json={
-                "version": "v0323",
+                "version": "v0317",
                 "normalize_live_photos": True,
                 "expected_upload_count": 2,
                 "requested_max_photos": 2,
@@ -297,7 +297,7 @@ class TaskApiTests(unittest.TestCase):
             self.user_id,
             2,
             False,
-            "v0323",
+            "v0317",
             {
                 "normalize_live_photos": True,
                 "creation_source": "manual",
@@ -311,7 +311,7 @@ class TaskApiTests(unittest.TestCase):
         create_response = self.client.post(
             "/api/tasks",
             json={
-                "version": "v0323",
+                "version": "v0317",
                 "normalize_live_photos": True,
                 "expected_upload_count": 769,
                 "requested_max_photos": 769,
@@ -326,7 +326,7 @@ class TaskApiTests(unittest.TestCase):
         self.assertTrue(payload["options"]["auto_start_on_upload_complete"])
 
     def test_upload_batches_can_backfill_auto_start_metadata_for_legacy_manual_task(self) -> None:
-        create_response = self.client.post("/api/tasks", json={"version": "v0323"})
+        create_response = self.client.post("/api/tasks", json={"version": "v0317"})
         self.assertEqual(create_response.status_code, 200)
         task_id = create_response.json()["task_id"]
         self.task_ids.append(task_id)
@@ -408,13 +408,13 @@ class TaskApiTests(unittest.TestCase):
         self.assertEqual(payload["default_task_version"], DEFAULT_TASK_VERSION)
         self.assertEqual(payload["available_task_versions"], list(AVAILABLE_TASK_VERSIONS))
 
-    def test_memory_steps_endpoint_returns_v0323_step_payload_for_failed_task(self) -> None:
-        create_response = self.client.post("/api/tasks", json={"version": "v0323"})
+    def test_memory_steps_endpoint_returns_v0317_step_payload_for_failed_task(self) -> None:
+        create_response = self.client.post("/api/tasks", json={"version": "v0317"})
         self.assertEqual(create_response.status_code, 200)
         task_id = create_response.json()["task_id"]
         self.task_ids.append(task_id)
 
-        family_dir = task_store.task_dir(task_id) / "v0323"
+        family_dir = task_store.task_dir(task_id) / "v0317"
         family_dir.mkdir(parents=True, exist_ok=True)
         (family_dir / "lp1_events_compact.json").write_text(
             json.dumps([{"event_id": "EVT_0001", "title": "Breakfast"}], ensure_ascii=False),
@@ -486,7 +486,7 @@ class TaskApiTests(unittest.TestCase):
         response = self.client.get(f"/api/tasks/{task_id}/memory/steps")
         self.assertEqual(response.status_code, 200)
         payload = response.json()
-        self.assertEqual(payload["pipeline_family"], "v0323")
+        self.assertEqual(payload["pipeline_family"], "v0317")
         self.assertEqual(payload["steps"]["lp1"]["status"], "completed")
         self.assertEqual(payload["steps"]["lp1"]["summary"]["attempt_count"], 2)
         self.assertEqual(payload["steps"]["lp1"]["summary"]["retry_count"], 1)
@@ -497,8 +497,8 @@ class TaskApiTests(unittest.TestCase):
         self.assertEqual(payload["steps"]["lp2"]["data"][0]["person_id"], "Person_002")
         self.assertEqual(payload["steps"]["lp2"]["failures"][0]["person_id"], "Person_003")
 
-    def test_completed_v0323_task_exposes_analysis_bundle_download(self) -> None:
-        create_response = self.client.post("/api/tasks", json={"version": "v0323"})
+    def test_completed_v0317_task_exposes_analysis_bundle_download(self) -> None:
+        create_response = self.client.post("/api/tasks", json={"version": "v0317"})
         self.assertEqual(create_response.status_code, 200)
         task_id = create_response.json()["task_id"]
         self.task_ids.append(task_id)
@@ -506,15 +506,15 @@ class TaskApiTests(unittest.TestCase):
         task_dir = task_store.task_dir(task_id)
         (task_dir / "cache" / "boxed_images").mkdir(parents=True, exist_ok=True)
         (task_dir / "cache" / "face_crops").mkdir(parents=True, exist_ok=True)
-        (task_dir / "v0323").mkdir(parents=True, exist_ok=True)
+        (task_dir / "v0317").mkdir(parents=True, exist_ok=True)
 
         (task_dir / "cache" / "face_recognition_output.json").write_text("{}", encoding="utf-8")
         (task_dir / "cache" / "face_recognition_state.json").write_text("{}", encoding="utf-8")
         (task_dir / "cache" / "boxed_images" / "photo_001_boxed.jpg").write_bytes(b"boxed")
         (task_dir / "cache" / "face_crops" / "face_001.jpg").write_bytes(b"crop")
-        (task_dir / "v0323" / "vp1_observations.json").write_text("[]", encoding="utf-8")
-        (task_dir / "v0323" / "lp1_events_compact.json").write_text("[]", encoding="utf-8")
-        (task_dir / "v0323" / "lp1_batch_outputs.jsonl").write_text("", encoding="utf-8")
+        (task_dir / "v0317" / "vp1_observations.json").write_text("[]", encoding="utf-8")
+        (task_dir / "v0317" / "lp1_events_compact.json").write_text("[]", encoding="utf-8")
+        (task_dir / "v0317" / "lp1_batch_outputs.jsonl").write_text("", encoding="utf-8")
 
         task_store.update_task(task_id, status="completed", stage="completed")
 
@@ -636,7 +636,7 @@ class TaskApiTests(unittest.TestCase):
         self.assertIn("hash-001", feedback["policies"])
 
     def test_task_detail_strips_bootstrap_fields_from_client_payload(self) -> None:
-        create_response = self.client.post("/api/tasks", json={"version": "v0321.3"})
+        create_response = self.client.post("/api/tasks", json={"version": DEFAULT_TASK_VERSION})
         self.assertEqual(create_response.status_code, 200)
         task_id = create_response.json()["task_id"]
         self.task_ids.append(task_id)
@@ -693,7 +693,7 @@ class TaskApiTests(unittest.TestCase):
         self.assertNotIn("bootstrap_source_task_id", payload.get("result_summary") or {})
 
     def test_memory_query_endpoint_returns_agent_answer(self) -> None:
-        create_response = self.client.post("/api/tasks", json={"version": "v0321.3"})
+        create_response = self.client.post("/api/tasks", json={"version": DEFAULT_TASK_VERSION})
         self.assertEqual(create_response.status_code, 200)
         task_id = create_response.json()["task_id"]
         self.task_ids.append(task_id)
@@ -752,7 +752,7 @@ class TaskApiTests(unittest.TestCase):
         self.assertNotIn("1. 时空锚点确认", overview_payload["answer"]["summary"])
 
     def test_memory_core_endpoint_returns_events_relationships_profile_with_photos(self) -> None:
-        create_response = self.client.post("/api/tasks", json={"version": "v0321.3"})
+        create_response = self.client.post("/api/tasks", json={"version": DEFAULT_TASK_VERSION})
         self.assertEqual(create_response.status_code, 200)
         task_id = create_response.json()["task_id"]
         self.task_ids.append(task_id)
@@ -811,7 +811,7 @@ class TaskApiTests(unittest.TestCase):
         self.assertEqual(vlm["person_ids"], ["Person_001"])
 
     def test_memory_core_endpoint_uses_task_scoped_delta_not_bootstrap_snapshot(self) -> None:
-        create_response = self.client.post("/api/tasks", json={"version": "v0321.3"})
+        create_response = self.client.post("/api/tasks", json={"version": DEFAULT_TASK_VERSION})
         self.assertEqual(create_response.status_code, 200)
         task_id = create_response.json()["task_id"]
         self.task_ids.append(task_id)
@@ -1189,7 +1189,7 @@ class TaskApiTests(unittest.TestCase):
                 ],
             },
             "memory": {
-                "pipeline_family": "v0321_3",
+                "pipeline_family": "v0317",
                 "event_revisions": [
                     {
                         "event_root_id": "event_root_001",

@@ -249,6 +249,9 @@ class PrecomputedBundlePipelineRunnerTests(unittest.TestCase):
             )
 
             with patch(
+                "services.memory_pipeline.precomputed_bundle_runner.inspect_profile_agent_runtime_health",
+                return_value={"status": "ok"},
+            ), patch(
                 "services.memory_pipeline.precomputed_bundle_runner.run_downstream_profile_agent_audit",
                 side_effect=RuntimeError("profile_agent unavailable"),
             ):
@@ -368,6 +371,12 @@ class PrecomputedBundlePipelineRunnerTests(unittest.TestCase):
                 result["pre_audit_structured_profile_path"],
                 str(output_dir / "pre_audit_snapshot" / "structured_profile.json"),
             )
+            self.assertTrue((output_dir / "memory_pipeline_run_trace.json").exists())
+            self.assertEqual(
+                result["run_trace_path"],
+                str(output_dir / "memory_pipeline_run_trace.json"),
+            )
+            self.assertIn("memory/evolution/traces", result["run_trace_ledger_path"])
 
     def test_run_precomputed_bundle_pipeline_preserves_initial_relationship_archive_when_protagonist_backflow_clears_final_output(
         self,
@@ -524,6 +533,9 @@ class PrecomputedBundlePipelineRunnerTests(unittest.TestCase):
                 "services.memory_pipeline.precomputed_bundle_runner.generate_structured_profile",
                 return_value={"structured": {}, "field_decisions": [], "consistency": {}, "llm_batch_debug": []},
             ), patch(
+                "services.memory_pipeline.precomputed_bundle_runner.inspect_profile_agent_runtime_health",
+                return_value={"status": "ok"},
+            ), patch(
                 "services.memory_pipeline.precomputed_bundle_runner.run_downstream_profile_agent_audit",
                 return_value=minimal_audit_report,
             ), patch(
@@ -671,6 +683,9 @@ class PrecomputedBundlePipelineRunnerTests(unittest.TestCase):
                 "services.memory_pipeline.precomputed_bundle_runner.generate_structured_profile",
                 return_value={"structured": {}, "field_decisions": [], "consistency": {}},
             ) as generate_profile, patch(
+                "services.memory_pipeline.precomputed_bundle_runner.inspect_profile_agent_runtime_health",
+                return_value={"status": "ok"},
+            ), patch(
                 "services.memory_pipeline.precomputed_bundle_runner.run_downstream_profile_agent_audit",
                 side_effect=RuntimeError("profile_agent unavailable"),
             ):

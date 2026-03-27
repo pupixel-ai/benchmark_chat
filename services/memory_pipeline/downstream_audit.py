@@ -5,9 +5,11 @@ from copy import deepcopy
 from datetime import datetime
 import importlib
 import importlib.util
+import json
 import os
 from pathlib import Path
 import sys
+import time
 from typing import Any, Dict, Iterable, List, Tuple
 
 from models import Relationship
@@ -26,6 +28,12 @@ from .profile_agent_adapter import (
     build_profile_agent_extractor_outputs,
 )
 from .types import RelationshipDossier
+
+DEFAULT_PROFILE_AGENT_MODEL_CANDIDATES = (
+    "google/gemini-3.1-flash-lite-preview",
+    "google/gemini-2.0-flash-exp:free",
+    "meta-llama/llama-3.3-70b-instruct:free",
+)
 
 
 class MainOutputExtractor:
@@ -463,6 +471,12 @@ def _load_profile_agent_runtime():
     _prepare_profile_agent_runtime_env()
     profile_agent_root = Path(PROFILE_AGENT_ROOT)
     _ensure_profile_agent_package_loaded(profile_agent_root)
+    api_module = importlib.import_module("profile_agent.api")
+    config_module = importlib.import_module("profile_agent.config")
+    _install_profile_agent_api_runtime_patch(
+        api_module=api_module,
+        config_module=config_module,
+    )
     Storage = importlib.import_module("profile_agent.storage").Storage
     CriticAgent = importlib.import_module("profile_agent.agents.critic").CriticAgent
     JudgeAgent = importlib.import_module("profile_agent.agents.judge").JudgeAgent
@@ -490,6 +504,123 @@ def _prepare_profile_agent_runtime_env() -> None:
         "GOOGLE_GEMINI_BASE_URL",
     ):
         os.environ.pop(legacy_key, None)
+
+
+def _install_profile_agent_api_runtime_patch(*, api_module: Any, config_module: Any) -> None:
+    model_candidates = _resolve_profile_agent_model_candidates(default_model=str(getattr(config_module, "OPENROUTER_MODEL", "") or ""))
+    max_retries = _read_positive_int_env("PROFILE_AGENT_REQUEST_MAX_RETRIES", default=1)
+    timeout_seconds = _read_positive_int_env("PROFILE_AGENT_REQUEST_TIMEOUT_SECONDS", default=45)
+    retry_delay = _read_positive_float_env("PROFILE_AGENT_REQUEST_RETRY_DELAY_SECONDS", default=1.0)
+    extract_text_fn = getattr(api_module, "_extract_text")
+
+    def _request_with_model_fallback(payload: dict) -> str | None:
+        api_key = (os.environ.get("OPENROUTER_API_KEY") or "").strip()
+        if not api_key:
+            raise ValueError("未配置 OPENROUTER_API_KEY")
+
+        base_url = (os.environ.get("OPENROUTER_BASE_URL") or "https://openrouter.ai/api/v1").strip() or "https://openrouter.ai/api/v1"
+        url = f"{base_url.rstrip('/')}/chat/completions"
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}",
+        }
+
+        base_payload = dict(payload or {})
+        requested_model = str(base_payload.get("model") or "").strip()
+        if requested_model:
+            per_call_models = _dedupe_preserve_order([requested_model, *model_candidates])
+        else:
+            per_call_models = list(model_candidates)
+
+        failure_samples: List[str] = []
+        for model in per_call_models:
+            model_payload = dict(base_payload)
+            model_payload["model"] = model
+            data = json.dumps(model_payload).encode("utf-8")
+
+            for attempt in range(1, max_retries + 1):
+                try:
+                    req = api_module.urllib.request.Request(url, data=data, headers=headers)
+                    with api_module.urllib.request.urlopen(req, timeout=timeout_seconds) as resp:
+                        result = json.loads(resp.read().decode("utf-8"))
+                    text = extract_text_fn(result)
+                    if text is not None:
+                        api_module.OPENROUTER_MODEL = model
+                        if hasattr(config_module, "OPENROUTER_MODEL"):
+                            config_module.OPENROUTER_MODEL = model
+                        return text
+                    failure_samples.append(f"{model}@attempt{attempt}:empty_response")
+                except Exception as exc:
+                    failure_samples.append(f"{model}@attempt{attempt}:{exc}")
+                if attempt < max_retries:
+                    if failure_samples and "429" in failure_samples[-1]:
+                        time.sleep(retry_delay * attempt)
+                    else:
+                        time.sleep(retry_delay)
+
+        if failure_samples:
+            preview = " | ".join(failure_samples[:6])
+            more = len(failure_samples) - 6
+            suffix = f" (+{more} more)" if more > 0 else ""
+            print(f"  [API] all model fallbacks failed: {preview}{suffix}")
+        return None
+
+    api_module._request = _request_with_model_fallback
+    api_module.MAX_RETRIES = max_retries
+    api_module.RETRY_DELAY = retry_delay
+    if model_candidates:
+        api_module.OPENROUTER_MODEL = model_candidates[0]
+        if hasattr(config_module, "OPENROUTER_MODEL"):
+            config_module.OPENROUTER_MODEL = model_candidates[0]
+
+
+def _resolve_profile_agent_model_candidates(*, default_model: str) -> List[str]:
+    configured = str(os.environ.get("PROFILE_AGENT_MODEL_CANDIDATES") or "").strip()
+    if configured:
+        configured_models = [
+            item.strip() for item in configured.split(",") if item.strip()
+        ]
+    else:
+        configured_models = []
+
+    ordered = _dedupe_preserve_order(
+        [default_model, *configured_models, *DEFAULT_PROFILE_AGENT_MODEL_CANDIDATES]
+    )
+    return [model for model in ordered if model]
+
+
+def _dedupe_preserve_order(items: Iterable[str]) -> List[str]:
+    seen = set()
+    result: List[str] = []
+    for item in items:
+        key = str(item or "").strip()
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        result.append(key)
+    return result
+
+
+def _read_positive_int_env(env_key: str, *, default: int) -> int:
+    raw_value = str(os.environ.get(env_key) or "").strip()
+    if not raw_value:
+        return default
+    try:
+        parsed = int(raw_value)
+    except ValueError:
+        return default
+    return parsed if parsed > 0 else default
+
+
+def _read_positive_float_env(env_key: str, *, default: float) -> float:
+    raw_value = str(os.environ.get(env_key) or "").strip()
+    if not raw_value:
+        return default
+    try:
+        parsed = float(raw_value)
+    except ValueError:
+        return default
+    return parsed if parsed > 0 else default
 
 
 def _ensure_profile_agent_package_loaded(profile_agent_root: Path) -> None:

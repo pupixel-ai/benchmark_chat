@@ -13,8 +13,10 @@ from .downstream_audit import (
     apply_downstream_profile_backflow,
     apply_downstream_protagonist_backflow,
     apply_downstream_relationship_backflow,
+    inspect_profile_agent_runtime_health,
     run_downstream_profile_agent_audit,
 )
+from .evolution import build_memory_run_trace, persist_memory_run_trace
 from .groups import detect_groups
 from .person_screening import screen_people
 from .precomputed_loader import load_precomputed_memory_state
@@ -35,6 +37,7 @@ def run_precomputed_bundle_pipeline(
     profile_llm_processor: Any | None = None,
     profile_openrouter_key: str | None = None,
     profile_model: str | None = None,
+    user_name: str = "default",
 ) -> Dict[str, Any]:
     bundle_path = Path(bundle_dir)
     if not bundle_path.exists():
@@ -184,6 +187,7 @@ def run_precomputed_bundle_pipeline(
         primary_decision=pipeline_result.get("internal_artifacts", {}).get("primary_decision"),
         relationships=pipeline_result.get("relationships", []),
         structured_profile=pipeline_result.get("structured"),
+        profile_fact_decisions=pipeline_result.get("internal_artifacts", {}).get("profile_fact_decisions", []),
     )
     audit_rounds = [_audit_round_snapshot("initial", downstream_audit_report)]
     reporter.emit(
@@ -230,6 +234,7 @@ def run_precomputed_bundle_pipeline(
             primary_decision=pipeline_result.get("internal_artifacts", {}).get("primary_decision"),
             relationships=pipeline_result.get("relationships", []),
             structured_profile=pipeline_result.get("structured"),
+            profile_fact_decisions=pipeline_result.get("internal_artifacts", {}).get("profile_fact_decisions", []),
         )
         audit_rounds.append(_audit_round_snapshot("after_protagonist_rerun", downstream_audit_report))
         reporter.emit(
@@ -266,6 +271,7 @@ def run_precomputed_bundle_pipeline(
             primary_decision=pipeline_result.get("internal_artifacts", {}).get("primary_decision"),
             relationships=pipeline_result.get("relationships", []),
             structured_profile=pipeline_result.get("structured"),
+            profile_fact_decisions=pipeline_result.get("internal_artifacts", {}).get("profile_fact_decisions", []),
         )
         audit_rounds.append(_audit_round_snapshot("after_relationship_rerun", downstream_audit_report))
         reporter.emit(
@@ -320,6 +326,31 @@ def run_precomputed_bundle_pipeline(
     )
     save_json(issue_log, str(output_path / "test_issue_log.json"))
 
+    run_trace_result = {}
+    try:
+        run_trace_payload = build_memory_run_trace(
+            run_type="precomputed_bundle",
+            user_name=user_name,
+            stage_reports=list(reporter.records),
+            downstream_audit_report=downstream_audit_report,
+            profile_llm_batch_debug=pipeline_result.get("internal_artifacts", {}).get("profile_llm_batch_debug", []),
+            test_issue_log=issue_log,
+            artifacts={
+                "structured_profile_path": str(output_path / "structured_profile.json"),
+                "profile_fact_decisions_path": str(output_path / "profile_fact_decisions.json"),
+                "downstream_audit_report_path": str(output_path / "downstream_audit_report.json"),
+                "stage_reports_path": str(reporter.path),
+                "test_issue_log_path": str(output_path / "test_issue_log.json"),
+            },
+        )
+        run_trace_result = persist_memory_run_trace(
+            project_root=str(Path(__file__).resolve().parents[2]),
+            output_dir=str(output_path),
+            trace_payload=run_trace_payload,
+        )
+    except Exception as exc:
+        print(f"[bundle pipeline][warn] memory run trace 写入失败: {exc}")
+
     return {
         "output_dir": str(output_path),
         "events_path": str(output_path / "events.json"),
@@ -340,6 +371,8 @@ def run_precomputed_bundle_pipeline(
         "final_primary_person_id": final_primary_person_id,
         "total_events": len(events),
         "total_relationships": len(relationships),
+        "run_trace_path": run_trace_result.get("trace_json_path", str(output_path / "memory_pipeline_run_trace.json")),
+        "run_trace_ledger_path": run_trace_result.get("trace_ledger_path", ""),
     }
 
 
@@ -531,13 +564,28 @@ def _run_downstream_audit_with_fallback(
     primary_decision: Dict | None,
     relationships: list | None,
     structured_profile: Dict | None,
+    profile_fact_decisions: List[Dict[str, Any]] | None = None,
 ) -> Dict[str, Any]:
+    runtime_health = inspect_profile_agent_runtime_health()
+    if runtime_health.get("status") != "ok":
+        return _build_skipped_downstream_audit_report(
+            album_id=album_id,
+            primary_decision=primary_decision or {},
+            relationships=relationships or [],
+            structured_profile=structured_profile or {},
+            runtime_health=runtime_health,
+            error=RuntimeError(
+                f"downstream_runtime_unhealthy:{runtime_health.get('error_code', 'runtime_unhealthy')}"
+            ),
+        )
     try:
         return run_downstream_profile_agent_audit(
             album_id=album_id,
             primary_decision=primary_decision,
             relationships=relationships or [],
             structured_profile=structured_profile,
+            profile_fact_decisions=profile_fact_decisions or [],
+            runtime_health=runtime_health,
         )
     except Exception as exc:
         return _build_skipped_downstream_audit_report(
@@ -545,6 +593,7 @@ def _run_downstream_audit_with_fallback(
             primary_decision=primary_decision or {},
             relationships=relationships or [],
             structured_profile=structured_profile or {},
+            runtime_health=runtime_health,
             error=exc,
         )
 
@@ -555,6 +604,7 @@ def _build_skipped_downstream_audit_report(
     primary_decision: Dict[str, Any],
     relationships: list,
     structured_profile: Dict[str, Any],
+    runtime_health: Dict[str, Any] | None = None,
     error: Exception,
 ) -> Dict[str, Any]:
     error_type = type(error).__name__
@@ -806,6 +856,7 @@ class _StageReporter:
     def __init__(self, output_path: Path) -> None:
         self.path = output_path / "stage_reports.jsonl"
         self.path.write_text("", encoding="utf-8")
+        self.records: List[Dict[str, Any]] = []
 
     def emit(
         self,
@@ -824,6 +875,7 @@ class _StageReporter:
             "artifacts": artifacts,
             "timestamp": datetime.now().isoformat(),
         }
+        self.records.append(payload)
         counts_preview = ", ".join(f"{key}={value}" for key, value in counts.items())
         print(f"[bundle pipeline][{stage}] {status} | {summary} | {counts_preview}")
         with self.path.open("a", encoding="utf-8") as fh:

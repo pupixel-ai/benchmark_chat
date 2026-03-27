@@ -247,8 +247,13 @@ class OutputArtifactsTests(unittest.TestCase):
         with (
             patch.object(main, "build_memory_state", return_value=fake_state) as build_state_mock,
             patch.object(main, "run_memory_pipeline", return_value=profile_result) as run_pipeline_mock,
+            patch.object(main, "inspect_profile_agent_runtime_health", return_value={"status": "ok"}),
             patch.object(main, "run_downstream_profile_agent_audit", return_value={"summary": {}, "backflow": {}}),
-            patch.object(main, "save_internal_artifact", side_effect=["/tmp/dossiers.json", "/tmp/groups.json", "/tmp/facts.json", "/tmp/audit.json"]),
+            patch.object(
+                main,
+                "save_internal_artifact",
+                side_effect=["/tmp/dossiers.json", "/tmp/groups.json", "/tmp/facts.json", "/tmp/capture.json", "/tmp/audit.json"],
+            ),
         ):
             result = main.run_memory_pipeline_entry(
                 llm=llm,
@@ -268,6 +273,65 @@ class OutputArtifactsTests(unittest.TestCase):
         self.assertEqual(result["relationship_dossiers_path"], "/tmp/dossiers.json")
         self.assertEqual(result["group_artifacts_path"], "/tmp/groups.json")
         self.assertEqual(result["profile_fact_decisions_path"], "/tmp/facts.json")
+
+    def test_run_memory_pipeline_entry_persists_memory_run_trace(self) -> None:
+        llm = object()
+        fake_state = SimpleNamespace(
+            primary_decision=None,
+            relationship_dossiers=[],
+            relationships=[],
+            groups=[],
+            profile_context=None,
+        )
+        profile_result = {
+            "events": ["event"],
+            "relationships": [],
+            "structured": {"long_term_facts": {}},
+            "report": "",
+            "debug": {},
+            "consistency": {},
+            "internal_artifacts": {
+                "relationship_dossiers": [],
+                "group_artifacts": [],
+                "profile_fact_decisions": [],
+                "profile_llm_batch_debug": [],
+            },
+        }
+
+        with (
+            patch.object(main, "build_memory_state", return_value=fake_state),
+            patch.object(main, "run_memory_pipeline", return_value=profile_result),
+            patch.object(main, "inspect_profile_agent_runtime_health", return_value={"status": "ok"}),
+            patch.object(main, "run_downstream_profile_agent_audit", return_value={"summary": {}, "backflow": {}}),
+            patch.object(
+                main,
+                "save_internal_artifact",
+                side_effect=["/tmp/dossiers.json", "/tmp/groups.json", "/tmp/facts.json", "/tmp/capture.json", "/tmp/audit.json"],
+            ),
+            patch.object(main, "build_memory_run_trace", return_value={"trace_id": "mrun_1"}, create=True) as build_trace_mock,
+            patch.object(
+                main,
+                "persist_memory_run_trace",
+                return_value={
+                    "trace_id": "mrun_1",
+                    "trace_json_path": "/tmp/memory_pipeline_run_trace.json",
+                    "trace_ledger_path": "/tmp/trace_ledger.jsonl",
+                },
+                create=True,
+            ) as persist_trace_mock,
+        ):
+            result = main.run_memory_pipeline_entry(
+                llm=llm,
+                photos=[],
+                face_db={"Person_001": {}},
+                vlm_results=[],
+                primary_person_id="Person_001",
+            )
+
+        build_trace_mock.assert_called_once()
+        persist_trace_mock.assert_called_once()
+        self.assertEqual(result["run_trace_path"], "/tmp/memory_pipeline_run_trace.json")
+        self.assertEqual(result["run_trace_ledger_path"], "/tmp/trace_ledger.jsonl")
 
     def test_run_memory_pipeline_entry_applies_profile_backflow_before_returning(self) -> None:
         llm = object()
@@ -359,8 +423,13 @@ class OutputArtifactsTests(unittest.TestCase):
         with (
             patch.object(main, "build_memory_state", return_value=fake_state),
             patch.object(main, "run_memory_pipeline", return_value=profile_result),
+            patch.object(main, "inspect_profile_agent_runtime_health", return_value={"status": "ok"}),
             patch.object(main, "run_downstream_profile_agent_audit", return_value=downstream_report),
-            patch.object(main, "save_internal_artifact", side_effect=["/tmp/dossiers.json", "/tmp/groups.json", "/tmp/facts.json", "/tmp/audit.json"]),
+            patch.object(
+                main,
+                "save_internal_artifact",
+                side_effect=["/tmp/dossiers.json", "/tmp/groups.json", "/tmp/facts.json", "/tmp/capture.json", "/tmp/audit.json"],
+            ),
         ):
             result = main.run_memory_pipeline_entry(
                 llm=llm,
@@ -498,6 +567,7 @@ class OutputArtifactsTests(unittest.TestCase):
         with (
             patch.object(main, "build_memory_state", return_value=fake_state),
             patch.object(main, "run_memory_pipeline", return_value=initial_profile_result),
+            patch.object(main, "inspect_profile_agent_runtime_health", return_value={"status": "ok"}),
             patch.object(
                 main,
                 "run_downstream_profile_agent_audit",
@@ -505,7 +575,11 @@ class OutputArtifactsTests(unittest.TestCase):
             ) as audit_mock,
             patch.object(main, "rerun_pipeline_from_primary_backflow", return_value=after_primary_rerun) as rerun_primary_mock,
             patch.object(main, "rerun_pipeline_from_relationship_backflow", return_value=after_primary_rerun) as rerun_relationship_mock,
-            patch.object(main, "save_internal_artifact", side_effect=["/tmp/dossiers.json", "/tmp/groups.json", "/tmp/facts.json", "/tmp/audit.json"]),
+            patch.object(
+                main,
+                "save_internal_artifact",
+                side_effect=["/tmp/dossiers.json", "/tmp/groups.json", "/tmp/facts.json", "/tmp/capture.json", "/tmp/audit.json"],
+            ),
         ):
             result = main.run_memory_pipeline_entry(
                 llm=llm,
@@ -563,6 +637,7 @@ class OutputArtifactsTests(unittest.TestCase):
         with (
             patch.object(main, "build_memory_state", return_value=fake_state),
             patch.object(main, "run_memory_pipeline", return_value=profile_result),
+            patch.object(main, "inspect_profile_agent_runtime_health", return_value={"status": "ok"}),
             patch.object(main, "run_downstream_profile_agent_audit", side_effect=RuntimeError("judge init failed")),
             patch.object(main, "save_internal_artifact", side_effect=_capture_artifact),
         ):

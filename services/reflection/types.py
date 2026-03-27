@@ -171,9 +171,6 @@ class DecisionReviewItem:
     options: List[str]
     recommended_option: str
     status: str = "new"
-    feishu_status: str = "not_triggered"
-    feishu_message_id: str = ""
-    feishu_last_sent_at: str = ""
     resolved_option: str = ""
     reviewer_note: str = ""
     reviewed_by: str = ""
@@ -231,9 +228,6 @@ class DifficultCaseRecord:
     resolution_route: str = "difficult_case"
     trace_payload_path: str = ""
     evidence_refs: List[Dict[str, Any]] = field(default_factory=list)
-    feishu_status: str = "not_triggered"
-    feishu_message_id: str = ""
-    feishu_last_sent_at: str = ""
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -288,9 +282,6 @@ class ProposalReviewRecord:
     experiment_report_path: str = ""
     validation_summary: Dict[str, Any] = field(default_factory=dict)
     proposal_status: str = "pending_review"
-    feishu_status: str = "not_triggered"
-    feishu_message_id: str = ""
-    feishu_last_sent_at: str = ""
     resolved_option: str = ""
     reviewer_note: str = ""
     reviewed_by: str = ""
@@ -326,9 +317,6 @@ class EngineeringChangeRequest:
     evidence_refs: List[Dict[str, Any]] = field(default_factory=list)
     patch_preview: Dict[str, Any] = field(default_factory=dict)
     status: str = "pending_review"
-    feishu_status: str = "not_triggered"
-    feishu_message_id: str = ""
-    feishu_last_sent_at: str = ""
     reviewer_note: str = ""
     reviewed_by: str = ""
     last_action_type: str = ""

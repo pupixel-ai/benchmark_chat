@@ -19,8 +19,10 @@ from .downstream_audit import (
     apply_downstream_profile_backflow,
     apply_downstream_protagonist_backflow,
     apply_downstream_relationship_backflow,
+    inspect_profile_agent_runtime_health,
     run_downstream_profile_agent_audit,
 )
+from .evolution import build_memory_run_trace, persist_memory_run_trace
 from .orchestrator import (
     rerun_pipeline_from_primary_backflow,
     rerun_pipeline_from_relationship_backflow,
@@ -36,6 +38,7 @@ def run_reusable_smoke_pipeline(
     output_dir: str | Path | None = None,
     run_id: str | None = None,
     llm_processor: Any | None = None,
+    user_name: str = "default",
 ) -> Dict[str, Any]:
     load_result = load_reusable_smoke_case(case_dir)
     effective_run_id = str(run_id or datetime.now().strftime("%Y%m%d_%H%M%S"))
@@ -52,6 +55,21 @@ def run_reusable_smoke_pipeline(
         llm_processor=effective_llm_processor,
         fallback_primary_person_id=load_result.fallback_primary_person_id,
     )
+    stage_reports: List[Dict[str, Any]] = [
+        {
+            "stage": "mainline_pipeline",
+            "status": "ok",
+            "counts": {
+                "events": len(pipeline_result.get("events", []) or []),
+                "relationships": len(pipeline_result.get("relationships", []) or []),
+                "field_decisions": len(
+                    (pipeline_result.get("internal_artifacts", {}) or {}).get("profile_fact_decisions", []) or []
+                ),
+            },
+            "summary": "reusable smoke 主链运行完成。",
+            "artifacts": {},
+        }
+    ]
 
     audit_album_id = f"reusable_smoke_{load_result.case_path.name}_{effective_run_id}"
     downstream_audit_report = _run_downstream_audit_with_fallback(
@@ -59,6 +77,18 @@ def run_reusable_smoke_pipeline(
         primary_decision=pipeline_result.get("internal_artifacts", {}).get("primary_decision"),
         relationships=pipeline_result.get("relationships", []),
         structured_profile=pipeline_result.get("structured"),
+        profile_fact_decisions=pipeline_result.get("internal_artifacts", {}).get("profile_fact_decisions", []),
+    )
+    stage_reports.append(
+        {
+            "stage": "downstream_audit",
+            "status": "ok"
+            if str((downstream_audit_report.get("metadata") or {}).get("audit_status") or "ok") != "skipped_init_failure"
+            else "warn",
+            "counts": dict(downstream_audit_report.get("summary", {}) or {}),
+            "summary": "reusable smoke 下游审计完成。",
+            "artifacts": {},
+        }
     )
     audit_rounds = [_audit_round_snapshot("initial", downstream_audit_report)]
 
@@ -88,8 +118,18 @@ def run_reusable_smoke_pipeline(
             primary_decision=pipeline_result.get("internal_artifacts", {}).get("primary_decision"),
             relationships=pipeline_result.get("relationships", []),
             structured_profile=pipeline_result.get("structured"),
+            profile_fact_decisions=pipeline_result.get("internal_artifacts", {}).get("profile_fact_decisions", []),
         )
         audit_rounds.append(_audit_round_snapshot(rerun_stage, downstream_audit_report))
+        stage_reports.append(
+            {
+                "stage": rerun_stage,
+                "status": "ok",
+                "counts": dict(downstream_audit_report.get("summary", {}) or {}),
+                "summary": "主角回流后重跑完成。",
+                "artifacts": {},
+            }
+        )
 
     updated_relationships, updated_dossiers, relationship_changed = apply_downstream_relationship_backflow(
         pipeline_result.get("relationships", []),
@@ -108,8 +148,18 @@ def run_reusable_smoke_pipeline(
             primary_decision=pipeline_result.get("internal_artifacts", {}).get("primary_decision"),
             relationships=pipeline_result.get("relationships", []),
             structured_profile=pipeline_result.get("structured"),
+            profile_fact_decisions=pipeline_result.get("internal_artifacts", {}).get("profile_fact_decisions", []),
         )
         audit_rounds.append(_audit_round_snapshot("after_relationship_rerun", downstream_audit_report))
+        stage_reports.append(
+            {
+                "stage": "after_relationship_rerun",
+                "status": "ok",
+                "counts": dict(downstream_audit_report.get("summary", {}) or {}),
+                "summary": "关系回流后重跑完成。",
+                "artifacts": {},
+            }
+        )
 
     updated_structured_profile, updated_profile_fact_decisions = apply_downstream_profile_backflow(
         pipeline_result.get("structured"),
@@ -174,6 +224,56 @@ def run_reusable_smoke_pipeline(
     save_json(comparison_summary, str(output_path / "comparison_summary.json"))
     save_json(comparison_diff, str(output_path / "comparison_diff.json"))
 
+    run_trace_result = {}
+    try:
+        profile_llm_batch_debug = list(
+            (pipeline_result.get("internal_artifacts", {}) or {}).get("profile_llm_batch_debug", []) or []
+        )
+        fallback_batch_count = sum(
+            1
+            for item in profile_llm_batch_debug
+            if item.get("used_offline_fallback")
+            or item.get("fallback_reason")
+            or item.get("raw_result_parseable") is False
+        )
+        issue_count = 0
+        high_risk_issue_count = 0
+        if str((downstream_audit_report.get("metadata") or {}).get("audit_status") or "ok") == "skipped_init_failure":
+            issue_count += 1
+            high_risk_issue_count += 1
+        if fallback_batch_count > 0:
+            issue_count += 1
+            if fallback_batch_count >= 2:
+                high_risk_issue_count += 1
+
+        run_trace_payload = build_memory_run_trace(
+            run_type="reusable_smoke",
+            user_name=user_name,
+            stage_reports=stage_reports,
+            downstream_audit_report=downstream_audit_report,
+            profile_llm_batch_debug=profile_llm_batch_debug,
+            test_issue_log={
+                "summary": {
+                    "issue_count": issue_count,
+                    "high_risk_issue_count": high_risk_issue_count,
+                }
+            },
+            artifacts={
+                "relationships_path": str(output_path / "relationships.json"),
+                "structured_profile_path": str(output_path / "structured_profile.json"),
+                "profile_fact_decisions_path": str(output_path / "profile_fact_decisions.json"),
+                "downstream_audit_report_path": str(output_path / "downstream_audit_report.json"),
+                "comparison_summary_path": str(output_path / "comparison_summary.json"),
+            },
+        )
+        run_trace_result = persist_memory_run_trace(
+            project_root=str(Path(__file__).resolve().parents[2]),
+            output_dir=str(output_path),
+            trace_payload=run_trace_payload,
+        )
+    except Exception as exc:
+        print(f"[reusable smoke][warn] memory run trace 写入失败: {exc}")
+
     return {
         "output_dir": str(output_path),
         "final_primary_person_id": final_primary_person_id,
@@ -184,6 +284,8 @@ def run_reusable_smoke_pipeline(
         "comparison_diff_path": str(output_path / "comparison_diff.json"),
         "total_events": len(events),
         "total_relationships": len(relationships),
+        "run_trace_path": run_trace_result.get("trace_json_path", str(output_path / "memory_pipeline_run_trace.json")),
+        "run_trace_ledger_path": run_trace_result.get("trace_ledger_path", ""),
     }
 
 
@@ -363,13 +465,28 @@ def _run_downstream_audit_with_fallback(
     primary_decision: Dict[str, Any] | None,
     relationships: list | None,
     structured_profile: Dict[str, Any] | None,
+    profile_fact_decisions: List[Dict[str, Any]] | None = None,
 ) -> Dict[str, Any]:
+    runtime_health = inspect_profile_agent_runtime_health()
+    if runtime_health.get("status") != "ok":
+        return _build_skipped_downstream_audit_report(
+            album_id=album_id,
+            primary_decision=primary_decision or {},
+            relationships=relationships or [],
+            structured_profile=structured_profile or {},
+            runtime_health=runtime_health,
+            error=RuntimeError(
+                f"downstream_runtime_unhealthy:{runtime_health.get('error_code', 'runtime_unhealthy')}"
+            ),
+        )
     try:
         return run_downstream_profile_agent_audit(
             album_id=album_id,
             primary_decision=primary_decision,
             relationships=relationships or [],
             structured_profile=structured_profile,
+            profile_fact_decisions=profile_fact_decisions or [],
+            runtime_health=runtime_health,
         )
     except Exception as exc:
         return _build_skipped_downstream_audit_report(
@@ -377,6 +494,7 @@ def _run_downstream_audit_with_fallback(
             primary_decision=primary_decision or {},
             relationships=relationships or [],
             structured_profile=structured_profile or {},
+            runtime_health=runtime_health,
             error=exc,
         )
 
@@ -387,6 +505,7 @@ def _build_skipped_downstream_audit_report(
     primary_decision: Dict[str, Any],
     relationships: list,
     structured_profile: Dict[str, Any],
+    runtime_health: Dict[str, Any] | None = None,
     error: Exception,
 ) -> Dict[str, Any]:
     error_type = type(error).__name__

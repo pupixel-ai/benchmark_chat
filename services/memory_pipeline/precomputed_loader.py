@@ -28,6 +28,7 @@ CANONICAL_PERSON_ID_PATTERN = re.compile(r"Person_\d{3}")
 
 def load_precomputed_memory_state(base_dir: str | Path) -> MemoryState:
     base_path = Path(base_dir)
+    snapshot_primary_person_id = _load_snapshot_primary_person_id(base_path)
     if _looks_like_bundle_layout(base_path):
         face_file = base_path / "face" / "face_recognition_output.json"
         vlm_file = base_path / "vlm" / "vp1_observations.json"
@@ -41,9 +42,10 @@ def load_precomputed_memory_state(base_dir: str | Path) -> MemoryState:
                 "face_recognition_output.json",
                 "*_face_recognition_output.json",
                 "*_face_recognition.json",
+                "face_db.json",
             ],
         )
-        vlm_file = _resolve_file(
+        vlm_file = _resolve_file_optional(
             base_path,
             [
                 "vlm_results.json",
@@ -56,6 +58,7 @@ def load_precomputed_memory_state(base_dir: str | Path) -> MemoryState:
         event_file = _resolve_file(
             base_path,
             [
+                "events.json",
                 "final_events.json",
                 "lp1_events_compact.json",
                 "*_events.json",
@@ -64,12 +67,13 @@ def load_precomputed_memory_state(base_dir: str | Path) -> MemoryState:
         )
 
     face_payload = json.loads(face_file.read_text(encoding="utf-8"))
-    vlm_payload = json.loads(vlm_file.read_text(encoding="utf-8"))
+    vlm_payload = json.loads(vlm_file.read_text(encoding="utf-8")) if vlm_file else []
     event_payload = json.loads(event_file.read_text(encoding="utf-8"))
     primary_person_id = (
         face_payload.get("primary_person_id")
         or face_payload.get("face_recognition", {}).get("primary_person_id")
         or face_payload.get("metadata", {}).get("primary_person_id")
+        or snapshot_primary_person_id
     )
     if _looks_like_bundle_layout(base_path) and not primary_person_id:
         primary_person_id = "主角"
@@ -126,6 +130,32 @@ def _resolve_file(base_path: Path, patterns: List[str]) -> Path:
             if filepath.exists():
                 return filepath
     raise FileNotFoundError(f"无法找到文件，尝试的模式: {patterns}")
+
+
+def _resolve_file_optional(base_path: Path, patterns: List[str]) -> Path | None:
+    try:
+        return _resolve_file(base_path, patterns)
+    except FileNotFoundError:
+        return None
+
+
+def _load_snapshot_primary_person_id(base_path: Path) -> str | None:
+    for snapshot_file in ("internal_artifacts.json", "normalized_state_snapshot.json"):
+        file_path = base_path / snapshot_file
+        if not file_path.exists():
+            continue
+        try:
+            payload = json.loads(file_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        primary_person_id = (
+            payload.get("primary_decision", {}).get("primary_person_id")
+            if isinstance(payload, dict)
+            else None
+        )
+        if primary_person_id:
+            return primary_person_id
+    return None
 
 
 def _load_vlm_results(
@@ -190,6 +220,8 @@ def _load_face_db(face_payload: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
     persons = face_payload.get("face_recognition", {}).get("persons", [])
     if not persons:
         persons = face_payload.get("persons", [])
+    if not persons:
+        return _load_flat_face_db(face_payload)
     face_db: Dict[str, Dict[str, Any]] = {}
     for person in persons:
         person_id = person.get("person_id")
@@ -202,6 +234,26 @@ def _load_face_db(face_payload: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
             "avg_confidence": float(person.get("avg_score", 0.0) or 0.0),
             "avg_quality": float(person.get("avg_quality", 0.0) or 0.0),
             "name": person.get("label", ""),
+        }
+    return face_db
+
+
+def _load_flat_face_db(face_payload: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
+    face_db: Dict[str, Dict[str, Any]] = {}
+    for person_id, stats in (face_payload or {}).items():
+        if not isinstance(person_id, str) or not isinstance(stats, dict):
+            continue
+        if not CANONICAL_PERSON_ID_PATTERN.fullmatch(person_id):
+            continue
+        face_db[person_id] = {
+            "photo_count": int(stats.get("photo_count", 0) or 0),
+            "first_seen": _parse_datetime(stats.get("first_seen")),
+            "last_seen": _parse_datetime(stats.get("last_seen")),
+            "avg_confidence": float(
+                stats.get("avg_confidence", stats.get("avg_score", 0.0)) or 0.0
+            ),
+            "avg_quality": float(stats.get("avg_quality", 0.0) or 0.0),
+            "name": stats.get("name", stats.get("label", "")),
         }
     return face_db
 

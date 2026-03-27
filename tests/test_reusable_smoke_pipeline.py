@@ -312,6 +312,9 @@ class ReusableSmokeRunnerTests(unittest.TestCase):
             _write_reusable_case(case_dir)
 
             with patch(
+                "services.memory_pipeline.reusable_smoke_runner.inspect_profile_agent_runtime_health",
+                return_value={"status": "ok"},
+            ), patch(
                 "services.memory_pipeline.reusable_smoke_runner.run_downstream_profile_agent_audit",
                 side_effect=RuntimeError("profile_agent unavailable"),
             ) as audit_mock:
@@ -337,6 +340,7 @@ class ReusableSmokeRunnerTests(unittest.TestCase):
                 "downstream_audit_report.json",
                 "comparison_summary.json",
                 "comparison_diff.json",
+                "memory_pipeline_run_trace.json",
             ):
                 self.assertTrue((output_dir / filename).exists(), filename)
 
@@ -354,6 +358,11 @@ class ReusableSmokeRunnerTests(unittest.TestCase):
                     for item in mapping_debug["ignored_reference_inputs"]
                 )
             )
+            self.assertEqual(
+                result["run_trace_path"],
+                str(output_dir / "memory_pipeline_run_trace.json"),
+            )
+            self.assertIn("memory/evolution/traces", result["run_trace_ledger_path"])
 
     def test_cli_forwards_args_to_isolated_runner(self) -> None:
         script_path = Path(__file__).resolve().parents[1] / "scripts" / "run_reusable_smoke_test.py"

@@ -108,6 +108,68 @@ class DownstreamProfileAgentIntegrationTests(unittest.TestCase):
         self.assertEqual(captured["payload"]["model"], "google/gemini-3.1-flash-lite-preview")
         self.assertEqual(captured["payload"]["messages"][-1]["content"], "hello world")
 
+    def test_loaded_profile_agent_api_switches_to_free_model_after_primary_forbidden(self) -> None:
+        import services.memory_pipeline.downstream_audit as audit
+
+        class FakeHTTPResponse:
+            def __init__(self, payload: dict[str, typing.Any]):
+                self._payload = payload
+
+            def read(self) -> bytes:
+                return json.dumps(self._payload, ensure_ascii=False).encode("utf-8")
+
+            def __enter__(self) -> "FakeHTTPResponse":
+                return self
+
+            def __exit__(self, exc_type, exc, tb) -> bool:
+                return False
+
+        attempts: list[tuple[str, int]] = []
+
+        def fake_urlopen(req, timeout=180):
+            payload = json.loads(req.data.decode("utf-8"))
+            model = str(payload.get("model") or "")
+            attempts.append((model, timeout))
+            if model == "google/gemini-3.1-flash-lite-preview":
+                raise RuntimeError("HTTP Error 403: Forbidden")
+            return FakeHTTPResponse(
+                {
+                    "choices": [
+                        {
+                            "message": {
+                                "content": "{\"status\":\"fallback_ok\"}",
+                            }
+                        }
+                    ]
+                }
+            )
+
+        with patch.dict(
+            os.environ,
+            {
+                "OPENROUTER_API_KEY": "sk-or-test",
+                "OPENROUTER_BASE_URL": "https://openrouter.ai/api/v1",
+                "PROFILE_AGENT_MODEL_CANDIDATES": "google/gemini-3.1-flash-lite-preview,google/gemini-2.0-flash-exp:free",
+                "PROFILE_AGENT_REQUEST_MAX_RETRIES": "1",
+                "PROFILE_AGENT_REQUEST_TIMEOUT_SECONDS": "33",
+            },
+            clear=True,
+        ):
+            audit._prepare_profile_agent_runtime_env()
+            self._clear_profile_agent_modules()
+            audit._load_profile_agent_runtime()
+
+            import profile_agent.api as api
+
+            with patch.object(api.urllib.request, "urlopen", side_effect=fake_urlopen):
+                result = api.call_gemini("switch to free")
+
+        self.assertEqual(result, "{\"status\":\"fallback_ok\"}")
+        self.assertEqual(attempts[0][0], "google/gemini-3.1-flash-lite-preview")
+        self.assertEqual(attempts[1][0], "google/gemini-2.0-flash-exp:free")
+        self.assertEqual(attempts[0][1], 33)
+        self.assertEqual(attempts[1][1], 33)
+
     def test_profile_adapter_maps_only_selected_facts_dimensions(self) -> None:
         from services.memory_pipeline.profile_agent_adapter import build_profile_agent_extractor_outputs
 

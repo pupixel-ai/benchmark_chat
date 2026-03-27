@@ -5,7 +5,9 @@ import json
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Sequence
 
-from services.v0321_3.retrieval_shadow import build_profile_truth_v1
+def build_profile_truth_v1(**kwargs: Any) -> dict:
+    """Stub: retrieval_shadow module removed."""
+    return {}
 
 
 def _unique(values: Iterable[Any]) -> List[Any]:
@@ -177,7 +179,7 @@ def _resolve_task_photo_ids(original_photo_ids: Sequence[Any], photo_catalog: Di
 
 
 def _build_events(memory_payload: dict, photo_catalog: Dict[str, dict], vlm_items: Sequence[dict]) -> List[dict]:
-    if memory_payload.get("pipeline_family") == "v0323" or memory_payload.get("lp1_events"):
+    if memory_payload.get("lp1_events"):
         return _build_lp_snapshot_events(memory_payload, photo_catalog, vlm_items)
     events: List[dict] = []
     event_source = list(memory_payload.get("delta_event_revisions", []) or [])
@@ -226,7 +228,7 @@ def _build_events(memory_payload: dict, photo_catalog: Dict[str, dict], vlm_item
 
 
 def _build_relationships(memory_payload: dict, events: Sequence[dict], photo_catalog: Dict[str, dict]) -> List[dict]:
-    if memory_payload.get("pipeline_family") == "v0323" or memory_payload.get("lp2_relationships"):
+    if memory_payload.get("lp2_relationships"):
         return _build_lp_snapshot_relationships(memory_payload, events, photo_catalog)
     relationships: List[dict] = []
     relationship_source = list(memory_payload.get("delta_relationship_revisions", []) or [])
@@ -255,7 +257,7 @@ def _build_relationships(memory_payload: dict, events: Sequence[dict], photo_cat
 
 
 def _build_profile(memory_payload: dict, photo_catalog: Dict[str, dict], *, user_id: str, pipeline_family: str) -> dict:
-    if memory_payload.get("pipeline_family") == "v0323" or memory_payload.get("lp3_profile"):
+    if memory_payload.get("lp3_profile"):
         lp3_profile = copy.deepcopy(memory_payload.get("lp3_profile") or {})
         structured = copy.deepcopy(lp3_profile.get("structured") or {})
         return {
@@ -287,7 +289,7 @@ def _build_profile(memory_payload: dict, photo_catalog: Dict[str, dict], *, user
 def _build_task_vlm(task: dict, photo_catalog: Dict[str, dict]) -> List[dict]:
     result = task.get("result") or {}
     memory_payload = result.get("memory") or {}
-    if memory_payload.get("pipeline_family") == "v0323" or memory_payload.get("vp1_observations"):
+    if memory_payload.get("vp1_observations"):
         vlm_items: List[dict] = []
         for item in list(memory_payload.get("vp1_observations", []) or []):
             if not isinstance(item, dict):

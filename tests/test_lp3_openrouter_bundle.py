@@ -94,6 +94,64 @@ class OpenRouterProfileLLMProcessorTests(unittest.TestCase):
         self.assertTrue(debug_info["raw_response_preview"].startswith('{"choices"'))
         self.assertFalse(debug_info["raw_response_truncated"])
 
+    def test_profile_llm_switches_to_fallback_model_after_http_error(self) -> None:
+        from services.memory_pipeline.profile_llm import OpenRouterProfileLLMProcessor
+
+        class ForbiddenResponse:
+            status_code = 403
+
+            def json(self):
+                return {"error": {"message": "forbidden"}}
+
+            @property
+            def text(self) -> str:
+                return json.dumps(self.json(), ensure_ascii=False)
+
+        class SuccessResponse:
+            status_code = 200
+
+            def json(self):
+                return {
+                    "choices": [
+                        {
+                            "message": {
+                                "content": "{\"value\":\"fallback_ok\"}"
+                            }
+                        }
+                    ]
+                }
+
+            @property
+            def text(self) -> str:
+                return json.dumps(self.json(), ensure_ascii=False)
+
+        with patch.dict(
+            "os.environ",
+            {
+                "PROFILE_LLM_MODEL_CANDIDATES": "google/gemini-3.1-flash-lite-preview,google/gemma-3-12b-it:free",
+                "PROFILE_LLM_REQUEST_MAX_RETRIES": "1",
+                "PROFILE_LLM_REQUEST_TIMEOUT_SECONDS": "20",
+            },
+            clear=False,
+        ):
+            with patch(
+                "services.memory_pipeline.profile_llm.requests.post",
+                side_effect=[ForbiddenResponse(), SuccessResponse()],
+            ) as post:
+                processor = OpenRouterProfileLLMProcessor(
+                    api_key="sk-test",
+                    base_url="https://openrouter.ai/api/v1",
+                    primary_person_id="Person_001",
+                )
+                result = processor._call_llm_via_official_api(
+                    "Return JSON",
+                    response_mime_type="application/json",
+                )
+
+        self.assertEqual(result["value"], "fallback_ok")
+        self.assertEqual(post.call_args_list[0].kwargs["json"]["model"], "google/gemini-3.1-flash-lite-preview")
+        self.assertEqual(post.call_args_list[1].kwargs["json"]["model"], "google/gemma-3-12b-it:free")
+
 
 class BundleLoaderTests(unittest.TestCase):
     def test_load_precomputed_memory_state_supports_face_vlm_lp1_bundle_layout(self) -> None:
@@ -262,6 +320,74 @@ class BundleLoaderTests(unittest.TestCase):
         self.assertEqual(state.primary_decision["primary_person_id"], "Person_004")
         self.assertEqual(len(state.vlm_results), 1)
         self.assertEqual(state.vlm_results[0]["vlm_analysis"]["people"][0]["person_id"], "Person_004")
+        self.assertEqual(len(state.events), 1)
+        self.assertEqual(state.events[0].participants, ["Person_004"])
+
+    def test_load_precomputed_memory_state_supports_pipeline_snapshot_bundle_without_vlm_file(self) -> None:
+        from services.memory_pipeline.precomputed_loader import load_precomputed_memory_state
+
+        with TemporaryDirectory() as temp_dir:
+            base = Path(temp_dir)
+            (base / "face_db.json").write_text(
+                json.dumps(
+                    {
+                        "Person_004": {
+                            "photo_count": 6,
+                            "first_seen": "2026-03-01T09:00:00",
+                            "last_seen": "2026-03-05T11:00:00",
+                            "avg_confidence": 0.93,
+                            "avg_quality": 0.81,
+                            "name": "Person_004",
+                        }
+                    }
+                ),
+                encoding="utf-8",
+            )
+            (base / "events.json").write_text(
+                json.dumps(
+                    [
+                        {
+                            "event_id": "EVT_0001",
+                            "date": "2026-03-01",
+                            "time_range": "10:00-10:30",
+                            "title": "公园散步",
+                            "type": "休闲娱乐",
+                            "participants": ["Person_004"],
+                            "location": "公园",
+                            "description": "主角在公园散步。",
+                            "photo_count": 2,
+                            "confidence": 0.82,
+                            "reason": "多张照片与时间一致",
+                            "meta_info": {"title": "公园散步", "location_context": "公园", "photo_count": 2},
+                            "objective_fact": {"scene_description": "主角在公园散步。", "participants": ["Person_004"]},
+                            "narrative_synthesis": "一次轻松的公园散步。",
+                            "social_dynamics": [],
+                            "persona_evidence": {"behavioral": []},
+                            "tags": ["#散步"],
+                        }
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            (base / "internal_artifacts.json").write_text(
+                json.dumps(
+                    {
+                        "primary_decision": {
+                            "mode": "person_id",
+                            "primary_person_id": "Person_004",
+                            "confidence": 0.91,
+                        }
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            state = load_precomputed_memory_state(base)
+
+        self.assertEqual(state.primary_decision["primary_person_id"], "Person_004")
+        self.assertEqual(len(state.face_db), 1)
+        self.assertEqual(state.face_db["Person_004"]["photo_count"], 6)
+        self.assertEqual(len(state.vlm_results), 0)
         self.assertEqual(len(state.events), 1)
         self.assertEqual(state.events[0].participants, ["Person_004"])
 

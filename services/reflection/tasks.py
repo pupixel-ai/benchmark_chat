@@ -7,15 +7,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Tuple
 
-from config import (
-    FEISHU_APPROVAL_RECEIVE_ID,
-    FEISHU_APPROVAL_RECEIVE_ID_TYPE,
-    FEISHU_DEFAULT_RECEIVE_ID,
-    FEISHU_DEFAULT_RECEIVE_ID_TYPE,
-    FEISHU_DIFFICULT_CASE_RECEIVE_ID,
-    FEISHU_DIFFICULT_CASE_RECEIVE_ID_TYPE,
-    REFLECTION_STRICT_NOTIFY_BEFORE_CHANGES,
-)
+
 from services.memory_pipeline.profile_fields import FIELD_SPECS
 from services.memory_pipeline.rule_asset_loader import load_repo_rule_assets
 from .gt import apply_profile_field_gt, auto_generate_pseudo_gt, load_profile_field_gt
@@ -116,7 +108,6 @@ def build_decision_tasks(pattern_clusters: Iterable[PatternCluster | Dict[str, A
                 options=options,
                 recommended_option=pattern.recommended_option,
                 status="new",
-                feishu_status="not_triggered",
                 created_at=now,
                 updated_at=now,
                 why_blocked=pattern.why_blocked,
@@ -295,7 +286,6 @@ def persist_reflection_tasks(
         id_key="proposal_id",
         preserve_fields={
             "status": {"keep_existing_when_incoming": {"pending_review", "new"}},
-            "feishu_status": {"keep_existing_when_incoming": {"not_triggered"}},
         },
     )
     _write_jsonl_snapshot(paths.proposals_path, merged_proposals)
@@ -305,7 +295,6 @@ def persist_reflection_tasks(
         id_key="change_request_id",
         preserve_fields={
             "status": {"keep_existing_when_incoming": {"pending_review", "new"}},
-            "feishu_status": {"keep_existing_when_incoming": {"not_triggered"}},
         },
     )
     _write_jsonl_snapshot(paths.engineering_change_requests_path, merged_engineering_change_requests)
@@ -322,8 +311,6 @@ def persist_reflection_tasks(
             merged["created_at"] = previous["created_at"]
         if previous.get("status") and incoming.get("status") == "new":
             merged["status"] = previous["status"]
-        if previous.get("feishu_status") and incoming.get("feishu_status") == "not_triggered":
-            merged["feishu_status"] = previous["feishu_status"]
         existing_tasks[task_id] = merged
 
     ordered_tasks = sorted(
@@ -408,118 +395,9 @@ def run_reflection_task_generation(*, project_root: str, user_name: str) -> Dict
     persisted["gt_comparisons_path"] = paths.gt_comparisons_path
     persisted["written_gt_comparison_count"] = len(gt_comparisons)
     persisted["case_facts_path"] = paths.case_facts_path
-    if REFLECTION_STRICT_NOTIFY_BEFORE_CHANGES:
-        persisted["strict_notification_result"] = dispatch_strict_reflection_notifications(
-            project_root=project_root,
-            user_name=user_name,
-        )
     return persisted
 
 
-def dispatch_strict_reflection_notifications(
-    *,
-    project_root: str,
-    user_name: str,
-    receive_id: str = "",
-    receive_id_type: str = "",
-    difficult_case_receive_id: str = "",
-    difficult_case_receive_id_type: str = "",
-) -> Dict[str, Any]:
-    paths = build_reflection_asset_paths(project_root=project_root, user_name=user_name)
-    ensure_reflection_root(paths)
-
-    approval_receive_id = str(receive_id or FEISHU_APPROVAL_RECEIVE_ID or FEISHU_DEFAULT_RECEIVE_ID or "").strip()
-    approval_receive_id_type = str(receive_id_type or FEISHU_APPROVAL_RECEIVE_ID_TYPE or FEISHU_DEFAULT_RECEIVE_ID_TYPE or "open_id").strip() or "open_id"
-    difficult_receive_id = str(
-        difficult_case_receive_id
-        or FEISHU_DIFFICULT_CASE_RECEIVE_ID
-        or FEISHU_DEFAULT_RECEIVE_ID
-        or receive_id
-        or ""
-    ).strip()
-    difficult_receive_id_type = str(
-        difficult_case_receive_id_type
-        or FEISHU_DIFFICULT_CASE_RECEIVE_ID_TYPE
-        or FEISHU_DEFAULT_RECEIVE_ID_TYPE
-        or receive_id_type
-        or "open_id"
-    ).strip() or "open_id"
-
-    if not approval_receive_id or not difficult_receive_id:
-        fallback = _resolve_last_notification_receiver(paths)
-        fallback_id = str(fallback.get("receive_id") or "").strip()
-        fallback_type = str(fallback.get("receive_id_type") or "open_id").strip() or "open_id"
-        if not approval_receive_id:
-            approval_receive_id = fallback_id
-            approval_receive_id_type = fallback_type
-        if not difficult_receive_id:
-            difficult_receive_id = fallback_id
-            difficult_receive_id_type = fallback_type
-    if not approval_receive_id and not difficult_receive_id:
-        return {
-            "status": "skipped_no_receiver",
-            "sent_task_count": 0,
-            "sent_difficult_case_count": 0,
-        }
-
-    from .feishu import send_difficult_case_alert_for_case, send_reflection_task_card_for_task
-
-    tasks = _read_jsonl_records(paths.tasks_path)
-    difficult_cases = _read_jsonl_records(paths.difficult_cases_path)
-    sent_task_count = 0
-    sent_difficult_case_count = 0
-
-    for task in tasks:
-        task_id = str(task.get("task_id") or "").strip()
-        task_type = str(task.get("task_type") or "").strip()
-        status = str(task.get("status") or "").strip().lower()
-        feishu_status = str(task.get("feishu_status") or "").strip().lower()
-        if not task_id or task_type not in {"upstream_decision_task", "downstream_decision_task", "proposal_review", "engineering_execute_review"}:
-            continue
-        if status not in {"new", "pending", ""}:
-            continue
-        if feishu_status in {"sent", "acted"}:
-            continue
-        if not approval_receive_id:
-            continue
-        send_reflection_task_card_for_task(
-            project_root=project_root,
-            user_name=user_name,
-            task_id=task_id,
-            receive_id=approval_receive_id,
-            receive_id_type=approval_receive_id_type,
-        )
-        sent_task_count += 1
-
-    for case_payload in difficult_cases:
-        case_id = str(case_payload.get("case_id") or "").strip()
-        accuracy_gap_status = str(case_payload.get("accuracy_gap_status") or "").strip().lower()
-        resolution_route = str(case_payload.get("resolution_route") or "").strip().lower()
-        feishu_status = str(case_payload.get("feishu_status") or "").strip().lower()
-        if not case_id:
-            continue
-        if accuracy_gap_status not in {"open", ""} or resolution_route != "difficult_case":
-            continue
-        if feishu_status in {"sent", "acted"}:
-            continue
-        if not difficult_receive_id:
-            continue
-        send_difficult_case_alert_for_case(
-            project_root=project_root,
-            user_name=user_name,
-            case_id=case_id,
-            receive_id=difficult_receive_id,
-            receive_id_type=difficult_receive_id_type,
-        )
-        sent_difficult_case_count += 1
-
-    return {
-        "status": "ok",
-        "approval_receive_id_type": approval_receive_id_type,
-        "difficult_case_receive_id_type": difficult_receive_id_type,
-        "sent_task_count": sent_task_count,
-        "sent_difficult_case_count": sent_difficult_case_count,
-    }
 
 
 def _apply_upstream_agent_reflection(*, project_root: str, case_facts: Iterable[CaseFact]) -> List[CaseFact]:
@@ -688,7 +566,7 @@ def load_difficult_cases(*, project_root: str, user_name: str) -> List[Dict[str,
     paths = build_reflection_asset_paths(project_root=project_root, user_name=user_name)
     difficult_cases = _read_jsonl_records(paths.difficult_cases_path)
     difficult_cases.sort(
-        key=lambda payload: (_timestamp_rank(payload.get("feishu_last_sent_at")), str(payload.get("case_id") or "")),
+        key=lambda payload: (_timestamp_rank(payload.get("updated_at")), str(payload.get("case_id") or "")),
         reverse=True,
     )
     return difficult_cases
@@ -1448,33 +1326,6 @@ def _write_jsonl_snapshot(path: str, payloads: List[Dict[str, Any]]) -> None:
             handle.write(json.dumps(payload, ensure_ascii=False) + "\n")
 
 
-def _resolve_last_notification_receiver(paths: Any) -> Dict[str, str]:
-    candidates: List[Dict[str, str]] = []
-    for path in (paths.proposal_actions_path, paths.task_actions_path, paths.difficult_case_actions_path):
-        for payload in _read_jsonl_records(path):
-            open_id = str(payload.get("operator_open_id") or "").strip()
-            user_id = str(payload.get("operator_user_id") or "").strip()
-            submitted_at = str(payload.get("submitted_at") or "").strip()
-            if open_id:
-                candidates.append(
-                    {
-                        "receive_id": open_id,
-                        "receive_id_type": "open_id",
-                        "submitted_at": submitted_at,
-                    }
-                )
-            elif user_id:
-                candidates.append(
-                    {
-                        "receive_id": user_id,
-                        "receive_id_type": "user_id",
-                        "submitted_at": submitted_at,
-                    }
-                )
-    if not candidates:
-        return {}
-    candidates.sort(key=lambda item: item.get("submitted_at") or "", reverse=True)
-    return candidates[0]
 
 
 def _coerce_case_fact(payload: CaseFact | Dict[str, Any]) -> CaseFact:

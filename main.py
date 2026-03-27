@@ -57,6 +57,10 @@ from services.memory_pipeline.orchestrator import (
     rerun_pipeline_from_relationship_backflow,
     run_memory_pipeline,
 )
+from services.memory_pipeline.evolution import (
+    build_memory_run_trace,
+    persist_memory_run_trace,
+)
 from services.reflection import (
     persist_downstream_audit_reflection_assets,
     persist_mainline_reflection_assets,
@@ -422,6 +426,91 @@ def run_memory_pipeline_entry(
         total_audited_tags=downstream_audit_report.get("summary", {}).get("total_audited_tags", 0),
         rejected_count=downstream_audit_report.get("summary", {}).get("rejected_count", 0),
     )
+    run_trace_path = None
+    run_trace_ledger_path = None
+    try:
+        stage_reports = [
+            {
+                "stage": "relationships",
+                "status": "ok",
+                "counts": {
+                    "relationships": len(relationships),
+                    "dossiers": len(profile_result.get("internal_artifacts", {}).get("relationship_dossiers", [])),
+                },
+            },
+            {
+                "stage": "profile_lp3",
+                "status": "ok",
+                "counts": {
+                    "field_decisions": len(profile_result.get("internal_artifacts", {}).get("profile_fact_decisions", [])),
+                    "groups": len(profile_result.get("internal_artifacts", {}).get("group_artifacts", [])),
+                },
+            },
+            {
+                "stage": "downstream_audit",
+                "status": "ok"
+                if str((downstream_audit_report.get("metadata") or {}).get("audit_status") or "ok") != "skipped_init_failure"
+                else "warn",
+                "counts": dict(downstream_audit_report.get("summary", {}) or {}),
+            },
+        ]
+        for round_payload in audit_rounds[1:]:
+            stage_reports.append(
+                {
+                    "stage": str(round_payload.get("stage") or "audit_rerun"),
+                    "status": "ok",
+                    "counts": dict((round_payload.get("summary") or {})),
+                }
+            )
+        profile_llm_batch_debug = list(
+            profile_result.get("internal_artifacts", {}).get("profile_llm_batch_debug", []) or []
+        )
+        fallback_batch_count = sum(
+            1
+            for item in profile_llm_batch_debug
+            if item.get("used_offline_fallback")
+            or item.get("fallback_reason")
+            or item.get("raw_result_parseable") is False
+        )
+        issue_count = 0
+        high_risk_issue_count = 0
+        if str((downstream_audit_report.get("metadata") or {}).get("audit_status") or "ok") == "skipped_init_failure":
+            issue_count += 1
+            high_risk_issue_count += 1
+        if fallback_batch_count > 0:
+            issue_count += 1
+            if fallback_batch_count >= 2:
+                high_risk_issue_count += 1
+        run_trace_payload = build_memory_run_trace(
+            run_type="mainline",
+            user_name=USER_NAME,
+            stage_reports=stage_reports,
+            downstream_audit_report=downstream_audit_report,
+            profile_llm_batch_debug=profile_llm_batch_debug,
+            test_issue_log={
+                "summary": {
+                    "issue_count": issue_count,
+                    "high_risk_issue_count": high_risk_issue_count,
+                }
+            },
+            artifacts={
+                "structured_profile_path": PROFILE_STRUCTURED_PATH,
+                "profile_fact_decisions_path": profile_fact_decisions_path,
+                "downstream_audit_report_path": downstream_audit_report_path,
+                "relationship_dossiers_path": relationship_dossiers_path,
+                "group_artifacts_path": group_artifacts_path,
+                "reflection_capture_status_path": reflection_capture_status_path,
+            },
+        )
+        run_trace_result = persist_memory_run_trace(
+            project_root=PROJECT_ROOT,
+            output_dir=USER_OUTPUT_DIR,
+            trace_payload=run_trace_payload,
+        )
+        run_trace_path = run_trace_result.get("trace_json_path")
+        run_trace_ledger_path = run_trace_result.get("trace_ledger_path")
+    except Exception as exc:
+        print(f"    [warn] memory run trace 写入失败: {exc}")
     print(f"    提取了 {len(events)} 个事件")
     print(f"    推断了 {len(relationships)} 个关系")
     print(f"    生成了 {len(profile_result.get('internal_artifacts', {}).get('group_artifacts', []))} 个圈层 artifact")
@@ -437,6 +526,8 @@ def run_memory_pipeline_entry(
         "reflection_observation_cases_path": reflection_observation_cases_path,
         "reflection_case_facts_path": reflection_case_facts_path,
         "reflection_capture_status_path": reflection_capture_status_path,
+        "run_trace_path": run_trace_path,
+        "run_trace_ledger_path": run_trace_ledger_path,
     }
 
 

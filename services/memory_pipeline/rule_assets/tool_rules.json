@@ -1,1 +1,11 @@
-{}
+{
+  "long_term_facts.material.brand_preference": {
+    "max_refs_per_source": 20
+  },
+  "short_term_facts.recent_interests": {
+    "max_refs_per_source": 20
+  },
+  "long_term_facts.geography.location_anchors": {
+    "max_refs_per_source": 20
+  }
+}
