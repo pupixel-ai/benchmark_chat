@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import hashlib
+import os
 from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any, Dict, List
@@ -27,6 +28,7 @@ from .harness_types import (
     MissingCapability,
 )
 from .difficult_case_taxonomy import detect_diseases, DifficultDisease
+from .engineering_critic import EngineeringCritic
 
 
 REFLECTION_DIR = Path("memory") / "reflection"
@@ -79,12 +81,19 @@ def run_harness_engineering(
         total_users=len(resolved_users),
     )
 
-    # 5. Build report
+    # 5. Run EngineeringCritic on top patterns (O(M) LLM calls)
+    critic_reports = _run_critic_on_patterns(
+        patterns=patterns,
+        total_users=len(resolved_users),
+        rule_assets=rule_assets,
+    )
+
+    # 6. Build report
     report = HarnessEngineeringReport(
         total_users=len(resolved_users),
         total_case_facts=len(all_case_facts),
         cross_user_patterns=patterns,
-        critic_reports=[],  # Phase 3b
+        critic_reports=critic_reports,
         missing_capabilities=missing,
         summary=_build_summary(patterns, missing, resolved_users, diseases),
     )
@@ -332,6 +341,42 @@ def detect_missing_capabilities(
 # ────────────────────────────────────────────────────────────────────
 # Helpers
 # ────────────────────────────────────────────────────────────────────
+
+
+MAX_CRITIC_PATTERNS = int(os.environ.get("MAX_CRITIC_PATTERNS", "10"))
+
+
+def _run_critic_on_patterns(
+    *,
+    patterns: List[CrossUserPattern],
+    total_users: int,
+    rule_assets: Dict[str, Any],
+) -> List[CriticReport]:
+    """Run EngineeringCritic on top-N patterns. Skip if no API key configured."""
+    from config import ANTHROPIC_API_KEY, OPENROUTER_API_KEY
+
+    if not ANTHROPIC_API_KEY and not OPENROUTER_API_KEY:
+        print("[harness] No LLM API key configured, skipping Critic analysis")
+        return []
+
+    critic = EngineeringCritic()
+    reports: List[CriticReport] = []
+
+    # Only analyze top patterns (sorted by user_coverage desc already)
+    top_patterns = patterns[:MAX_CRITIC_PATTERNS]
+    # Skip patterns that are all "unknown" failure_mode with 0 confidence
+    top_patterns = [p for p in top_patterns if p.failure_mode != "ok"]
+
+    for i, pattern in enumerate(top_patterns):
+        print(f"  [critic {i+1}/{len(top_patterns)}] {pattern.dimension} ({pattern.failure_mode})")
+        report = critic.analyze_pattern(
+            pattern=pattern.to_dict(),
+            total_users=total_users,
+            rule_assets=rule_assets,
+        )
+        reports.append(report)
+
+    return reports
 
 
 def _discover_users(root: Path) -> List[str]:
