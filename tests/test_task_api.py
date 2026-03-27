@@ -1169,6 +1169,13 @@ class TaskApiTests(unittest.TestCase):
         )
         self.assertEqual(len(profile_payload["profiles"][0]["field_decisions"]), 1)
 
+        photos_response = self.client.get(f"/api/users/{self.user_id}/memory/photos", params={"task_id": task_id})
+        self.assertEqual(photos_response.status_code, 200)
+        photos_payload = photos_response.json()["tasks"][0]
+        self.assertEqual(len(photos_payload["photos"]), 1)
+        self.assertNotIn("events", photos_payload)
+        self.assertTrue(photos_payload["photos"][0]["urls"]["compressed"].startswith("/api/assets/photos/"))
+
     def test_user_memory_dataset_and_version_filters_follow_latest_and_all_rules(self) -> None:
         task_shared_old = self.client.post("/api/tasks", json={"version": "v0325"}).json()["task_id"]
         self.task_ids.append(task_shared_old)
@@ -1230,12 +1237,40 @@ class TaskApiTests(unittest.TestCase):
         self.assertEqual(filtered_tasks.status_code, 200)
         self.assertEqual(filtered_tasks.json()["tasks"][0]["task_id"], task_shared_new)
 
+        updated_after = datetime.now().isoformat()
+        time.sleep(0.02)
+
+        task_user_scope_new = self.client.post("/api/tasks", json={"version": "v0327-exp"}).json()["task_id"]
+        self.task_ids.append(task_user_scope_new)
+        self._append_uploaded_sample(task_user_scope_new, source_hash="hash-user-scope", color="yellow")
+        task_store.update_task(
+            task_user_scope_new,
+            result=self._synthetic_v0327_memory_result(task_user_scope_new),
+            status="completed",
+            stage="completed",
+        )
+
+        updated_tasks = self.client.get(
+            f"/api/users/{self.user_id}/tasks",
+            params={"scope": "user", "all": "true", "updated_after": updated_after},
+        )
+        self.assertEqual(updated_tasks.status_code, 200)
+        self.assertEqual([item["task_id"] for item in updated_tasks.json()["tasks"]], [task_user_scope_new])
+
         versions_response = self.client.get(f"/api/users/{self.user_id}/versions")
         self.assertEqual(versions_response.status_code, 200)
         versions_payload = versions_response.json()
         self.assertEqual(versions_payload["pipeline_versions"], [325, 327])
         self.assertEqual(versions_payload["pipeline_channels"], ["exp"])
         self.assertIn(latest_dataset_id, [item["dataset_id"] for item in datasets])
+
+    def test_user_memory_tasks_reject_invalid_updated_after(self) -> None:
+        response = self.client.get(
+            f"/api/users/{self.user_id}/tasks",
+            params={"updated_after": "not-a-time"},
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("updated_after", response.json()["detail"])
 
     def test_delete_task_removes_db_backed_memory_snapshot(self) -> None:
         create_response = self.client.post("/api/tasks", json={"version": "v0327-exp"})

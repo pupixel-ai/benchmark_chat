@@ -603,6 +603,15 @@ def _build_retrieval_filters(
     normalized_scope = (scope or "dataset").strip().lower() or "dataset"
     if normalized_scope not in {"dataset", "user"}:
         raise HTTPException(status_code=400, detail="scope 只支持 dataset 或 user")
+    parsed_updated_after: Optional[datetime] = None
+    if updated_after:
+        candidate = updated_after.strip()
+        try:
+            parsed_updated_after = datetime.fromisoformat(candidate.replace("Z", "+00:00"))
+            if parsed_updated_after.tzinfo is not None:
+                parsed_updated_after = parsed_updated_after.astimezone().replace(tzinfo=None)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail="updated_after 必须是合法的 ISO8601 时间") from exc
     return RetrievalFilters(
         task_id=task_id,
         dataset_id=dataset_id,
@@ -616,7 +625,7 @@ def _build_retrieval_filters(
         lp2_version=lp2_version,
         lp3_version=lp3_version,
         judge_version=judge_version,
-        updated_after=updated_after,
+        updated_after=parsed_updated_after,
         cursor=cursor,
         limit=limit,
         include_raw=include_raw,

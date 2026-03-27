@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import copy
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy import desc, func, select
@@ -46,7 +47,7 @@ class RetrievalFilters:
     lp2_version: Optional[int] = None
     lp3_version: Optional[int] = None
     judge_version: Optional[int] = None
-    updated_after: Optional[str] = None
+    updated_after: Optional[datetime] = None
     cursor: Optional[str] = None
     limit: int = 20
     include_raw: bool = False
@@ -220,7 +221,7 @@ class UserMemoryRetrievalService:
             ):
                 if value is not None:
                     stmt = stmt.where(getattr(TaskRecord, field_name) == value)
-            if filters.updated_after:
+            if filters.updated_after is not None:
                 stmt = stmt.where(TaskRecord.updated_at >= filters.updated_after)
             stmt = stmt.order_by(desc(TaskRecord.created_at), desc(TaskRecord.task_id))
             offset = int(filters.cursor or "0") if str(filters.cursor or "").isdigit() else 0
@@ -455,6 +456,7 @@ class UserMemoryRetrievalService:
                 "lp2_version": filters.lp2_version,
                 "lp3_version": filters.lp3_version,
                 "judge_version": filters.judge_version,
+                "updated_after": filters.updated_after.isoformat() if filters.updated_after else None,
             },
         }
 
