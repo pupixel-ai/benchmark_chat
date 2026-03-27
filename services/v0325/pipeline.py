@@ -65,6 +65,7 @@ from services.v0323.pipeline import (
 PIPELINE_FAMILY_V0325 = "v0325"
 PIPELINE_VERSION_V0325 = "v0325"
 SCHEMA_ALIGNMENT_VERSION_V0327_EXP = "v0327-exp"
+SCHEMA_ALIGNMENT_VERSION_V0327_DB = "v0327-db"
 LP1_PROMPT_VERSION_V0325 = "v0325.lp1.v0139_two_step.v2"
 LP1_CONTRACT_VERSION_V0325 = "v0325.lp1.output_window.v1"
 
@@ -1024,10 +1025,11 @@ def _wrap_internal_artifact(
     *,
     primary_person_id: str | None = None,
     extra_metadata: Dict[str, Any] | None = None,
+    schema_version: str | None = None,
 ) -> Dict[str, Any]:
     metadata = {
         "generated_at": datetime.now().isoformat(),
-        "version": SCHEMA_ALIGNMENT_VERSION_V0327_EXP,
+        "version": schema_version or SCHEMA_ALIGNMENT_VERSION_V0327_EXP,
     }
     if primary_person_id is not None:
         metadata["primary_person_id"] = primary_person_id
@@ -1043,17 +1045,25 @@ def _build_relationships_artifact(
     relationships: Sequence[Any],
     *,
     primary_person_id: str | None = None,
+    schema_version: str | None = None,
 ) -> Dict[str, Any]:
     relationship_items = _schema_relationship_payloads(relationships)
     return {
         "metadata": {
             "generated_at": datetime.now().isoformat(),
-            "version": SCHEMA_ALIGNMENT_VERSION_V0327_EXP,
+            "version": schema_version or SCHEMA_ALIGNMENT_VERSION_V0327_EXP,
             "primary_person_id": primary_person_id,
             "total_relationships": len(relationship_items),
         },
         "relationships": relationship_items,
     }
+
+
+def _resolve_schema_alignment_version(task_version: str | None) -> str:
+    normalized = str(task_version or "").strip()
+    if normalized in {SCHEMA_ALIGNMENT_VERSION_V0327_EXP, SCHEMA_ALIGNMENT_VERSION_V0327_DB}:
+        return normalized
+    return SCHEMA_ALIGNMENT_VERSION_V0327_EXP
 
 
 def _coerce_raw_lp1_events_to_runtime(
@@ -1200,6 +1210,7 @@ class V0325PipelineFamily(V0323PipelineFamily):
         self.memory_snapshot_path = self.family_dir / "memory_snapshot.json"
         self.raw_manifest_path = self.family_dir / "raw_upstream_manifest.json"
         self.raw_index_path = self.family_dir / "raw_upstream_index.json"
+        self.schema_alignment_version = _resolve_schema_alignment_version(getattr(llm_processor, "task_version", None))
 
     def _lp1_hard_output_contract_lines(self) -> List[str]:
         return [
@@ -1304,6 +1315,7 @@ class V0325PipelineFamily(V0323PipelineFamily):
                 "structured_profile",
                 compact_structured,
                 primary_person_id=primary_person_id,
+                schema_version=self.schema_alignment_version,
             ),
             str(self.structured_profile_path),
         )
@@ -1312,6 +1324,7 @@ class V0325PipelineFamily(V0323PipelineFamily):
                 "relationship_dossiers",
                 relationship_dossiers,
                 primary_person_id=primary_person_id,
+                schema_version=self.schema_alignment_version,
             ),
             str(self.relationship_dossiers_path),
         )
@@ -1320,6 +1333,7 @@ class V0325PipelineFamily(V0323PipelineFamily):
                 "group_artifacts",
                 group_artifacts,
                 primary_person_id=primary_person_id,
+                schema_version=self.schema_alignment_version,
             ),
             str(self.group_artifacts_path),
         )
@@ -1328,6 +1342,7 @@ class V0325PipelineFamily(V0323PipelineFamily):
                 "profile_fact_decisions",
                 list(field_decisions),
                 primary_person_id=primary_person_id,
+                schema_version=self.schema_alignment_version,
             ),
             str(self.profile_fact_decisions_path),
         )
@@ -1337,6 +1352,7 @@ class V0325PipelineFamily(V0323PipelineFamily):
                 audit_payload,
                 primary_person_id=primary_person_id,
                 extra_metadata=dict(audit_payload.get("metadata", {}) or {}),
+                schema_version=self.schema_alignment_version,
             ),
             str(self.downstream_audit_report_path),
         )
@@ -2109,6 +2125,7 @@ class V0325PipelineFamily(V0323PipelineFamily):
             _build_relationships_artifact(
                 state.relationships,
                 primary_person_id=(state.primary_decision or {}).get("primary_person_id"),
+                schema_version=self.schema_alignment_version,
             ),
             str(self.lp2_relationships_path),
         )

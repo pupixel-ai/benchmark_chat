@@ -1071,7 +1071,7 @@ class TaskApiTests(unittest.TestCase):
         self.assertTrue(artifact["asset_url"].endswith("/uploads/001_one.png"))
 
     def test_user_memory_faces_endpoint_returns_stable_urls_and_assets(self) -> None:
-        create_response = self.client.post("/api/tasks", json={"version": "v0327-exp"})
+        create_response = self.client.post("/api/tasks", json={"version": "v0327-db"})
         self.assertEqual(create_response.status_code, 200)
         task_id = create_response.json()["task_id"]
         self.task_ids.append(task_id)
@@ -1092,7 +1092,7 @@ class TaskApiTests(unittest.TestCase):
         self.assertEqual(len(payload["tasks"]), 1)
         task_payload = payload["tasks"][0]
         self.assertEqual(task_payload["pipeline_version"], 327)
-        self.assertEqual(task_payload["pipeline_channel"], "exp")
+        self.assertEqual(task_payload["pipeline_channel"], "db")
         self.assertEqual(task_payload["stage_versions"]["face"], 327)
         self.assertEqual(len(task_payload["identities"]), 2)
         self.assertEqual(len(task_payload["faces"]), 2)
@@ -1114,7 +1114,7 @@ class TaskApiTests(unittest.TestCase):
         self.assertEqual(crop_response.headers["content-type"], "image/webp")
 
     def test_user_memory_endpoints_return_task_scoped_structured_payloads(self) -> None:
-        create_response = self.client.post("/api/tasks", json={"version": "v0327-exp"})
+        create_response = self.client.post("/api/tasks", json={"version": "v0327-db"})
         self.assertEqual(create_response.status_code, 200)
         task_id = create_response.json()["task_id"]
         self.task_ids.append(task_id)
@@ -1177,7 +1177,7 @@ class TaskApiTests(unittest.TestCase):
         self.assertTrue(photos_payload["photos"][0]["urls"]["compressed"].startswith("/api/assets/photos/"))
 
     def test_user_memory_photos_prefers_raw_exif_time_string_over_iso_timestamp(self) -> None:
-        create_response = self.client.post("/api/tasks", json={"version": "v0327-exp"})
+        create_response = self.client.post("/api/tasks", json={"version": "v0327-db"})
         self.assertEqual(create_response.status_code, 200)
         task_id = create_response.json()["task_id"]
         self.task_ids.append(task_id)
@@ -1216,7 +1216,7 @@ class TaskApiTests(unittest.TestCase):
 
         time.sleep(0.02)
 
-        task_shared_new = self.client.post("/api/tasks", json={"version": "v0327-exp"}).json()["task_id"]
+        task_shared_new = self.client.post("/api/tasks", json={"version": "v0327-db"}).json()["task_id"]
         self.task_ids.append(task_shared_new)
         self._append_uploaded_sample(task_shared_new, source_hash="hash-shared", color="blue")
         task_store.update_task(
@@ -1259,7 +1259,7 @@ class TaskApiTests(unittest.TestCase):
 
         filtered_tasks = self.client.get(
             f"/api/users/{self.user_id}/tasks",
-            params={"pipeline_version": 327, "pipeline_channel": "exp", "scope": "user"},
+            params={"pipeline_version": 327, "pipeline_channel": "db", "scope": "user"},
         )
         self.assertEqual(filtered_tasks.status_code, 200)
         self.assertEqual(filtered_tasks.json()["tasks"][0]["task_id"], task_shared_new)
@@ -1267,7 +1267,7 @@ class TaskApiTests(unittest.TestCase):
         updated_after = datetime.now().isoformat()
         time.sleep(0.02)
 
-        task_user_scope_new = self.client.post("/api/tasks", json={"version": "v0327-exp"}).json()["task_id"]
+        task_user_scope_new = self.client.post("/api/tasks", json={"version": "v0327-db"}).json()["task_id"]
         self.task_ids.append(task_user_scope_new)
         self._append_uploaded_sample(task_user_scope_new, source_hash="hash-user-scope", color="yellow")
         task_store.update_task(
@@ -1288,7 +1288,7 @@ class TaskApiTests(unittest.TestCase):
         self.assertEqual(versions_response.status_code, 200)
         versions_payload = versions_response.json()
         self.assertEqual(versions_payload["pipeline_versions"], [325, 327])
-        self.assertEqual(versions_payload["pipeline_channels"], ["exp"])
+        self.assertEqual(versions_payload["pipeline_channels"], ["db"])
         self.assertIn(latest_dataset_id, [item["dataset_id"] for item in datasets])
 
     def test_user_memory_tasks_reject_invalid_updated_after(self) -> None:
@@ -1300,7 +1300,7 @@ class TaskApiTests(unittest.TestCase):
         self.assertIn("updated_after", response.json()["detail"])
 
     def test_delete_task_removes_db_backed_memory_snapshot(self) -> None:
-        create_response = self.client.post("/api/tasks", json={"version": "v0327-exp"})
+        create_response = self.client.post("/api/tasks", json={"version": "v0327-db"})
         self.assertEqual(create_response.status_code, 200)
         task_id = create_response.json()["task_id"]
         self.task_ids.append(task_id)

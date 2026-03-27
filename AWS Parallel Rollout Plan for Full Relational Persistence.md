@@ -15,10 +15,10 @@
 - `task_id` 是唯一结果键
 - `dataset_id` 是同一组照片的固定集合键
 - 每次重跑都创建一个新的 `task`
-- `version` 仍保留原始文本，例如 `v0327-exp`
+- `version` 仍保留原始文本，例如 `v0327-db`
 - 数据库里额外保存数字版版本矩阵：
   - `pipeline_version = 327`
-  - `pipeline_channel = "exp"`
+  - `pipeline_channel = "db"`
   - `face_version / vlm_version / lp1_version / lp2_version / lp3_version / judge_version`
 - 阶段级镜像表使用 `task_stage_records`
 - 不再使用：
@@ -180,7 +180,7 @@ worker 完成后：
 - `judge_version`
 
 解析规则示例：
-- `v0327-exp -> pipeline_version=327, pipeline_channel="exp"`
+- `v0327-db -> pipeline_version=327, pipeline_channel="db"`
 - `v0325 -> pipeline_version=325`
 
 当前实现里，各阶段数字版默认从 task 的 pipeline version 派生；后续如果阶段独立版本真正拆开，可以直接复用同一列而不用改 API 形态。
