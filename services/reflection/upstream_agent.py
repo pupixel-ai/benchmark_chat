@@ -1642,7 +1642,7 @@ class CoverageProbe:
         if not allowed_sources:
             gap_type = "tool_rule_blocked"
             detail = "allowed_sources is empty"
-        elif int(field_tool_rule.get("max_refs_per_source") or -1) == 0:
+        elif field_tool_rule.get("max_refs_per_source") is not None and int(field_tool_rule["max_refs_per_source"]) == 0:
             gap_type = "tool_rule_blocked"
             detail = f"tool_rules[{field_key}].max_refs_per_source == 0"
 
