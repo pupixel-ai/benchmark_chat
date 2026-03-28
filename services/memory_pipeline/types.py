@@ -11,6 +11,7 @@ class PersonScreening:
     memory_value: str
     screening_refs: List[Dict[str, Any]] = field(default_factory=list)
     block_reasons: List[str] = field(default_factory=list)
+    no_contact_ratio: float = 0.0
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -120,6 +121,7 @@ class FieldSpec:
     reflection_questions: List[str]
     reflection_rounds: int
     requires_social_media: bool = False
+    requires_protagonist_face: bool = False
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)

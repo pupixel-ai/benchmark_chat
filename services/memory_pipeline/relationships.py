@@ -394,6 +394,8 @@ def _build_relationship_prompt(dossier: RelationshipDossier) -> str:
             )
         )
 
+    block_reasons_str = ", ".join(dossier.block_reasons) if dossier.block_reasons else "none"
+
     prompt = f"""你是关系分析专家，请对主角与目标人物的关系做结构化判断，只返回 JSON。
 
 目标人物：{dossier.person_id}
@@ -405,6 +407,9 @@ dominant_scene_ratio={dossier.scene_profile.get("dominant_scene_ratio", 0.0)}
 with_user_only={dossier.scene_profile.get("with_user_only", False)}
 scenes={dossier.scene_profile.get("scenes", [])}
 interaction_signals={dossier.interaction_signals[:20]}
+person_kind={dossier.person_kind}
+memory_value={dossier.memory_value}
+block_reasons={block_reasons_str}
 
 shared events:
 {chr(10).join(event_lines) if event_lines else "- none"}
@@ -416,6 +421,8 @@ family, romantic, bestie, close_friend, friend, classmate_colleague, activity_bu
 1) romantic/family 需要硬信号，否则降级。
 2) 单次活动或单场景不能直接升格高亲密关系。
 3) 如果证据弱，优先输出 acquaintance。
+4) 真实性守卫：先判断目标人物是否是主角的真实线下社交对象。以下情形说明此人很可能不是真实社交对象：person_kind 不是 real_person；所有共现场景均为屏幕/海报/印刷品/游戏/直播/视频通话等介质环境；没有任何面对面的物理互动证据（如合影、身体接触、共同参与活动）；此人在照片中的呈现方式更像是被拍摄的客体（名人、公众人物、广告人物）而非互动对象。如果判定为非真实社交对象，relationship_type 输出 acquaintance，confidence ≤ 30，并在 reasoning 中说明判断依据。
+5) 场景人物保留：即使此人只出现一次，但如果出现在有明确故事价值的事件中（如聚会、婚礼、毕业典礼、旅行、团体活动、演出现场等），且有面对面的互动证据（非 no_contact），仍应如实判定关系类型，不要因为频次低就直接降级为 acquaintance。
 
 输出：
 {{
@@ -526,6 +533,20 @@ def _build_relationship_reasoning(
     return base
 
 
+_NO_INTERACTION_CONTACT_TYPES = {"no_contact", "standing_near"}
+
+
+def _is_story_worthy_single_contact(dossier: RelationshipDossier) -> bool:
+    """单次出现但有故事价值：有共享事件 + 有互动证据。"""
+    if not dossier.shared_events:
+        return False
+    has_interaction = any(
+        str(signal or "").lower().strip() not in _NO_INTERACTION_CONTACT_TYPES
+        for signal in dossier.interaction_signals
+    )
+    return has_interaction
+
+
 def _determine_retention(dossier: RelationshipDossier, relationship: Relationship) -> Tuple[str, str]:
     if dossier.person_kind in {"service_person", "mediated_person"}:
         return "suppress", f"person_kind={dossier.person_kind}"
@@ -536,6 +557,8 @@ def _determine_retention(dossier: RelationshipDossier, relationship: Relationshi
     if dossier.photo_count == 0:
         return "suppress", "no_supporting_photos"
     if dossier.photo_count <= 1 and not strong_signal:
+        if _is_story_worthy_single_contact(dossier):
+            return "keep", "story_worthy_scene_contact"
         return "suppress", "single_photo_without_strong_signal"
     if (
         relationship.relationship_type in LOW_SIGNAL_RELATIONSHIP_TYPES

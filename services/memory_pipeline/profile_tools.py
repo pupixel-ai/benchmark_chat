@@ -232,6 +232,24 @@ EXPLICIT_AGE_ROLE_KEYWORDS = (
     "teacher",
     "employee",
     "游客",
+    "硕士",
+    "博士",
+    "研究生",
+    "master",
+    "phd",
+    "graduate",
+    "freshman",
+    "sophomore",
+    "junior",
+    "senior",
+    "dorm",
+    "宿舍",
+    "实习生",
+    "freelancer",
+    "自由职业",
+    "university",
+    "high school",
+    "中学",
 )
 
 CAREER_SIGNAL_KEYWORDS = SCHOOL_WORK_PLACE_KEYWORDS + (
@@ -2066,6 +2084,19 @@ def _build_compact_evidence_payload(evidence_bundle: Dict[str, Any]) -> Dict[str
     }
 
 
+def _extract_top_signals(supporting_refs: Dict[str, List[Dict[str, Any]]], *, limit: int = 3) -> List[str]:
+    """从 supporting_refs 中提取出现频次最高的具体信号词。"""
+    from collections import Counter
+    counter: Counter = Counter()
+    for bucket_refs in supporting_refs.values():
+        for ref in (bucket_refs if isinstance(bucket_refs, list) else []):
+            for key in ("signal", "activity", "location", "title"):
+                val = str(ref.get(key) or "").strip()
+                if val and len(val) > 2 and len(val) < 80:
+                    counter[val] += 1
+    return [signal for signal, _ in counter.most_common(limit)]
+
+
 def _build_compact_summary(
     field_key: str,
     top_candidates: List[Dict[str, Any]],
@@ -2081,6 +2112,9 @@ def _build_compact_summary(
         names = [item.get("topic_name") for item in top_candidates if item.get("topic_name")]
         return f"近期主题候选集中在: {', '.join(names[:3])}"
     support_count = len(flatten_ref_buckets(supporting_refs))
+    top_signals = _extract_top_signals(supporting_refs, limit=3)
+    if top_signals:
+        return f"已收敛 {support_count} 条高相关证据，核心信号: {', '.join(top_signals)}"
     return f"已收敛 {support_count} 条高相关证据。"
 
 
@@ -2114,21 +2148,27 @@ def _representative_photo_summaries(vlm_refs: List[Dict[str, Any]]) -> List[Dict
         if not photo_id or photo_id in seen:
             continue
         seen.add(photo_id)
-        summaries.append(
-            {
-                "photo_id": photo_id,
-                "summary": _truncate_summary(
-                    ref.get("signal")
-                    or ref.get("location")
-                    or ref.get("activity")
-                    or photo_id
-                ),
-            }
-        )
+        detail_parts = list(ref.get("details", []) or [])[:2] + list(ref.get("ocr_hits", []) or [])[:2]
+        detail_snippet = _truncate_summary(
+            " | ".join(str(d) for d in detail_parts if d),
+            limit=150,
+        ) if detail_parts else ""
+        entry: Dict[str, Any] = {
+            "photo_id": photo_id,
+            "summary": _truncate_summary(
+                ref.get("signal")
+                or ref.get("location")
+                or ref.get("activity")
+                or photo_id
+            ),
+        }
+        if detail_snippet:
+            entry["detail_snippet"] = detail_snippet
+        summaries.append(entry)
     return summaries
 
 
-def _truncate_summary(text: str, limit: int = 80) -> str:
+def _truncate_summary(text: str, limit: int = 200) -> str:
     normalized = str(text or "").strip()
     if len(normalized) <= limit:
         return normalized
@@ -2532,7 +2572,7 @@ def _build_focus_profile(
     return {
         "keywords": tuple(keywords or ()),
         "require_match": require_match,
-        "limits": limits or {"events": 3, "vlm_observations": 4, "relationships": 0, "group_artifacts": 0, "feature_refs": 0},
+        "limits": limits or {"events": 5, "vlm_observations": 6, "relationships": 0, "group_artifacts": 0, "feature_refs": 0},
         "preferred_structured_clues": tuple(preferred_structured_clues or ()),
         "preferred_buckets": tuple(preferred_buckets or ()),
     }
@@ -2783,7 +2823,7 @@ def _resolve_focus_profile(field_key: str) -> Dict[str, Any] | None:
         return _build_focus_profile(
             keywords=keywords,
             require_match=True,
-            limits={"events": 1, "vlm_observations": 3, "relationships": 0, "group_artifacts": 0, "feature_refs": 1},
+            limits={"events": 3, "vlm_observations": 5, "relationships": 0, "group_artifacts": 0, "feature_refs": 1},
             preferred_structured_clues=("subject_binding",),
             preferred_buckets=("events", "vlm_observations"),
         )
@@ -2799,9 +2839,9 @@ def _resolve_focus_profile(field_key: str) -> Dict[str, Any] | None:
         return _build_focus_profile(
             keywords=CAREER_SIGNAL_KEYWORDS,
             require_match=True,
-            limits={"events": 4, "vlm_observations": 0, "relationships": 0, "group_artifacts": 0, "feature_refs": 2},
+            limits={"events": 6, "vlm_observations": 3, "relationships": 0, "group_artifacts": 0, "feature_refs": 2},
             preferred_structured_clues=("work_signals", "subject_binding"),
-            preferred_buckets=("events", "feature_refs"),
+            preferred_buckets=("events", "vlm_observations", "feature_refs"),
         )
     if field_key in EVENT_DRIVEN_GEO_FIELDS:
         return _build_focus_profile(
@@ -2890,7 +2930,7 @@ def _resolve_focus_profile(field_key: str) -> Dict[str, Any] | None:
         return _build_focus_profile(
             keywords=ACTIVITY_INTEREST_QUERY_KEYWORDS,
             require_match=True,
-            limits={"events": 4 if field_key.endswith(".interests") else 5, "vlm_observations": 5 if field_key.endswith(".interests") else 0, "relationships": 0, "group_artifacts": 0, "feature_refs": 1},
+            limits={"events": 6 if field_key.endswith(".interests") else 6, "vlm_observations": 5 if field_key.endswith(".interests") else 3, "relationships": 0, "group_artifacts": 0, "feature_refs": 1},
             preferred_structured_clues=("normalized_topics", "activity_tags", "subject_binding"),
             preferred_buckets=("events", "vlm_observations"),
         )

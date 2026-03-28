@@ -33,6 +33,7 @@ class PrimaryDecision:
     confidence: float
     evidence: Dict[str, Any]
     reasoning: str
+    runner_up_person_id: str | None = None
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -283,7 +284,11 @@ def _build_primary_decision(
     screening: Dict[str, PersonScreening],
 ) -> Tuple[PrimaryDecision, Dict[str, Any]]:
     candidate_by_id = {candidate["person_id"]: candidate for candidate in ranked_candidates}
+    runner_up_id = None
     if llm_result:
+        llm_runner_up = llm_result.get("runner_up") or {}
+        if isinstance(llm_runner_up, dict):
+            runner_up_id = str(llm_runner_up.get("person_id") or "").strip() or None
         selected_id = str(llm_result.get("primary_person_id") or "").strip()
         if selected_id in candidate_by_id:
             candidate = candidate_by_id[selected_id]
@@ -299,6 +304,7 @@ def _build_primary_decision(
                     photo_ids=candidate["supporting_photo_ids"],
                     feature_names=feature_names or ["llm_primary_selection"],
                     reasoning=reasoning,
+                    runner_up_person_id=runner_up_id,
                 ),
                 {"source": "llm", "selected_person_id": selected_id},
             )
@@ -382,6 +388,7 @@ def _build_primary_decision(
         )
 
     confidence = min(0.9, max(0.62, 0.65 + min(top_score / 20.0, 0.22)))
+    fallback_runner_up = second["person_id"] if second else None
     return (
         _person_primary_decision(
             person_id=top["person_id"],
@@ -392,6 +399,7 @@ def _build_primary_decision(
                 f"{top['person_id']} 在自拍、身份锚点和主角标签等综合信号中领先，"
                 "因此判定为相册主角。"
             ),
+            runner_up_person_id=fallback_runner_up,
         ),
         {"source": "fallback", "selected_person_id": top["person_id"]},
     )
@@ -515,6 +523,7 @@ def _person_primary_decision(
     photo_ids: List[str],
     feature_names: List[str],
     reasoning: str,
+    runner_up_person_id: str | None = None,
 ) -> PrimaryDecision:
     evidence = build_evidence_payload(
         photo_ids=photo_ids,
@@ -527,6 +536,7 @@ def _person_primary_decision(
         confidence=confidence,
         evidence=evidence,
         reasoning=reasoning,
+        runner_up_person_id=runner_up_person_id,
     )
 
 

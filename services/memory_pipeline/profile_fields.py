@@ -22,7 +22,8 @@ def _default_cot_steps(field_key: str, strong_evidence: List[str]) -> List[str]:
     return [
         f"先看该字段允许证据源里的主线信号，优先确认 {primary_requirement}",
         "再确认这些信号稳定绑定主角本人，而不是同框人物、环境信息、截图内容或外部上下文",
-        "最后只在强证据成立且没有命中硬阻断时输出非 null 标签",
+        "当证据支持更细粒度的子类时，优先输出子类标签（如 college_student 而非 student，rock_music 而非 music，digital_photography 而非 photography）；泛类标签只在无法区分子类时使用",
+        "只有在无法区分子类或证据不足以支撑任何标签时才输出泛化标签或 null",
     ]
 
 
@@ -81,6 +82,7 @@ FIELD_COT_OVERRIDES: Dict[str, Dict[str, List[str]]] = {
         "cot_steps": [
             "先看跨事件校园/课堂主线，确认不是一次路过学校或临时活动",
             "再看校名、课程、课堂、作业等证据是否能稳定绑定到主角本人",
+            "当证据支持时，尽量输出具体的教育信息：学校名称、专业方向、学历阶段（如'某大学计算机专业本科'而非仅'大学'）",
             "最后只有在校园主线连续成立时才输出教育标签",
         ],
         "owner_resolution_steps": [
@@ -229,6 +231,56 @@ FIELD_COT_OVERRIDES: Dict[str, Dict[str, List[str]]] = {
             "只有近期社交能量模式稳定时才输出 social_energy",
         ],
     },
+    "long_term_facts.identity.role": {
+        "cot_steps": [
+            "先确认主角是否有明确的校园/工作主线证据（至少 2 条跨事件）",
+            "role 只输出身份类别（student / employee / freelancer 等），不输出专业、学历或具体职业名称——那些属于 education 和 career 字段",
+            "若校园和工作证据并存，选跨事件证据更强的那一面作为主标签",
+            "证据不足以区分具体身份类别时才输出 null",
+        ],
+        "owner_resolution_steps": [
+            "校园/工作线索是否明确指向主角本人而非同框他人",
+            "他人大学录取通知书、他人工牌不能算主角的 role 证据",
+        ],
+    },
+    "long_term_facts.hobbies.interests": {
+        "cot_steps": [
+            "先读 top_candidates 列表和 detail_snippet 中的具体兴趣主题，确认跨事件重复性",
+            "如果证据中有具体的活动名称、器材、品牌、场地类型等细节，输出到能区分的最细粒度（如证据显示吉他+摇滚T恤→输出具体音乐类型，而非'音乐'）",
+            "用器材、服装、场景细节和 OCR 文字作为细化依据，但不要猜测证据中没有的子类",
+            "只有当细节证据完全缺失时才输出泛化兴趣标签",
+        ],
+    },
+    "long_term_facts.hobbies.frequent_activities": {
+        "cot_steps": [
+            "先读长期事件统计里的 top 活动及具体活动场景",
+            "如果证据中有具体的活动场景和频次细节，输出到能区分的最细粒度，而非宽泛分类",
+            "再过滤最近窗口的噪声活动，避免把偶然高频写成长期高频",
+            "只有稳定 top 活动成立时才输出",
+        ],
+    },
+    "long_term_facts.material.asset_level": {
+        "cot_steps": [
+            "先看跨事件的消费场景、品牌层次和生活条件证据",
+            "输出的标签应体现这个人的实际资产特征，而非套用通用社会阶层标签",
+            "只有跨事件社经证据稳定时才输出，一次性体验不算",
+        ],
+    },
+    "long_term_facts.material.spending_style": {
+        "cot_steps": [
+            "先看跨事件的消费场景等级和品牌层次",
+            "用 detail_snippet 中的品牌名、价格线索和场景等级来判断具体的消费偏好方向",
+            "只有跨事件消费模式稳定时才输出，礼物和借用物不算",
+        ],
+    },
+    "long_term_facts.time.life_rhythm": {
+        "cot_steps": [
+            "先看事件时间戳分布，识别是否有稳定的活动时间模式",
+            "关注工作日 vs 周末、日间 vs 夜间的活动分布差异",
+            "只有时间模式在多个事件中稳定重复时才输出具体节奏标签",
+            "单日数据不能推断长期作息模式",
+        ],
+    },
 }
 
 
@@ -249,6 +301,7 @@ def _spec(
     reflection_questions: List[str] | None = None,
     reflection_rounds: int = 1,
     requires_social_media: bool = False,
+    requires_protagonist_face: bool = False,
 ) -> FieldSpec:
     overrides = FIELD_COT_OVERRIDES.get(field_key, {})
     resolved_owner_checks = owner_checks or []
@@ -271,15 +324,16 @@ def _spec(
         reflection_questions=reflection_questions or [],
         reflection_rounds=reflection_rounds,
         requires_social_media=requires_social_media,
+        requires_protagonist_face=requires_protagonist_face,
     )
 
 
 FIELD_SPECS: Dict[str, FieldSpec] = {
     "long_term_facts.identity.name": _spec("long_term_facts.identity.name", "P1", ["vlm", "feature"], ["实名或稳定昵称"]),
-    "long_term_facts.identity.gender": _spec("long_term_facts.identity.gender", "P1", ["vlm"], ["多次稳定主角外观"]),
-    "long_term_facts.identity.age_range": _spec("long_term_facts.identity.age_range", "P1", ["vlm", "event", "feature"], ["跨事件年龄阶段线索"]),
+    "long_term_facts.identity.gender": _spec("long_term_facts.identity.gender", "P1", ["vlm"], ["多次稳定主角外观"], requires_protagonist_face=True),
+    "long_term_facts.identity.age_range": _spec("long_term_facts.identity.age_range", "P1", ["vlm", "event", "feature"], ["跨事件年龄阶段线索"], requires_protagonist_face=True),
     "long_term_facts.identity.role": _spec("long_term_facts.identity.role", "P0", ["event", "vlm", "feature"], ["至少2条校园/工作主线证据"], hard_blocks=["主体归属不清"]),
-    "long_term_facts.identity.race": _spec("long_term_facts.identity.race", "P0", ["vlm", "event"], ["多事件稳定外观"], hard_blocks=["单张外貌"]),
+    "long_term_facts.identity.race": _spec("long_term_facts.identity.race", "P0", ["vlm", "event"], ["多事件稳定外观"], hard_blocks=["单张外貌"], requires_protagonist_face=True),
     "long_term_facts.identity.nationality": _spec("long_term_facts.identity.nationality", "P0", ["vlm", "event", "feature"], ["长期地点与文化线索"], hard_blocks=["只靠城市或外貌"]),
     "long_term_facts.social_identity.education": _spec("long_term_facts.social_identity.education", "P0", ["event", "vlm", "feature"], ["至少2条跨事件校园/课堂证据"], hard_blocks=["路过学校"]),
     "long_term_facts.social_identity.career": _spec("long_term_facts.social_identity.career", "P0", ["event", "feature"], ["多事件工作场景闭环"], hard_blocks=["一次性项目"]),
@@ -297,15 +351,15 @@ FIELD_SPECS: Dict[str, FieldSpec] = {
     "long_term_facts.time.life_rhythm": _spec("long_term_facts.time.life_rhythm", "P1", ["event", "feature"], ["稳定作息模式"]),
     "long_term_facts.time.event_cycles": _spec("long_term_facts.time.event_cycles", "P1", ["event", "feature"], ["重复事件模式"]),
     "long_term_facts.time.sleep_pattern": _spec("long_term_facts.time.sleep_pattern", "P1", ["event", "feature"], ["持续深夜/清晨重复"]),
-    "long_term_facts.relationships.intimate_partner": _spec("long_term_facts.relationships.intimate_partner", "P0", ["relationship", "feature"], ["LP2稳定 romantic"], hard_blocks=["画像自行补伴侣"]),
-    "long_term_facts.relationships.close_circle_size": _spec("long_term_facts.relationships.close_circle_size", "P0", ["relationship", "feature"], ["LP2核心关系统计"], hard_blocks=["画像自由改写"]),
-    "long_term_facts.relationships.social_groups": _spec("long_term_facts.relationships.social_groups", "P1", ["group", "relationship", "event", "feature"], ["GroupArtifact稳定群组"], hard_blocks=["只凭多人同框"]),
+    "long_term_facts.relationships.intimate_partner": _spec("long_term_facts.relationships.intimate_partner", "P0", ["relationship", "feature"], ["LP2稳定 romantic"], hard_blocks=["画像自行补伴侣"], requires_protagonist_face=True),
+    "long_term_facts.relationships.close_circle_size": _spec("long_term_facts.relationships.close_circle_size", "P0", ["relationship", "feature"], ["LP2核心关系统计"], hard_blocks=["画像自由改写"], requires_protagonist_face=True),
+    "long_term_facts.relationships.social_groups": _spec("long_term_facts.relationships.social_groups", "P1", ["group", "relationship", "event", "feature"], ["GroupArtifact稳定群组"], hard_blocks=["只凭多人同框"], requires_protagonist_face=True),
     "long_term_facts.relationships.pets": _spec("long_term_facts.relationships.pets", "P0", ["vlm", "event", "feature"], ["动物跨事件 + 居家/照护线索"], hard_blocks=["朋友宠物"]),
     "long_term_facts.relationships.parenting": _spec("long_term_facts.relationships.parenting", "P0", ["event", "vlm", "relationship", "feature"], ["连续照护行为 + family线索"], hard_blocks=["朋友孩子"]),
     "long_term_facts.relationships.living_situation": _spec("long_term_facts.relationships.living_situation", "P0", ["event", "relationship", "feature"], ["重复居家事件 + 稳定同住线索"], hard_blocks=["酒店/宿舍/临住"]),
     "long_term_facts.hobbies.interests": _spec("long_term_facts.hobbies.interests", "P1", ["event", "vlm", "feature"], ["同类活动跨事件重复"]),
     "long_term_facts.hobbies.frequent_activities": _spec("long_term_facts.hobbies.frequent_activities", "P1", ["event", "feature"], ["长期 top 活动"]),
-    "long_term_facts.hobbies.solo_vs_social": _spec("long_term_facts.hobbies.solo_vs_social", "P1", ["event", "relationship", "feature"], ["事件规模 + 关系结果"]),
+    "long_term_facts.hobbies.solo_vs_social": _spec("long_term_facts.hobbies.solo_vs_social", "P1", ["event", "relationship", "feature"], ["事件规模 + 关系结果"], requires_protagonist_face=True),
     "long_term_facts.physiology.fitness_level": _spec("long_term_facts.physiology.fitness_level", "P1", ["event", "vlm", "feature"], ["持续运动事件"]),
     "long_term_facts.physiology.diet_mode": _spec("long_term_facts.physiology.diet_mode", "P1", ["event", "vlm", "feature"], ["稳定饮食模式"]),
     "short_term_facts.life_events": _spec("short_term_facts.life_events", "P1", ["event", "relationship", "feature"], ["近期窗口重大事件"]),

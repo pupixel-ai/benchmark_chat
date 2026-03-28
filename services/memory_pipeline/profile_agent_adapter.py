@@ -31,6 +31,70 @@ PROFILE_DIMENSION_FIELD_PATHS = {
 }
 
 
+def _build_cross_layer_summary(
+    agent_type: str,
+    primary_decision: Dict[str, Any] | None,
+    relationship_list: List[Dict[str, Any] | Relationship],
+    structured_profile: Dict[str, Any] | None,
+) -> str:
+    """为指定 agent_type 生成其他两层的摘要，注入 reasoning_trace。"""
+    pd = primary_decision or {}
+    sp = structured_profile or {}
+    parts: List[str] = []
+
+    def _protagonist_summary() -> str:
+        mode = pd.get("mode", "unknown")
+        pid = pd.get("primary_person_id", "unknown")
+        conf = pd.get("confidence", 0)
+        ev = pd.get("evidence") or {}
+        selfie = int(ev.get("selfie_count", 0) or 0)
+        anchor = int(ev.get("identity_anchor_count", 0) or 0)
+        return f"主角: {pid} (mode={mode}, confidence={conf:.2f}, selfie={selfie}, anchor={anchor})"
+
+    def _relationship_summary() -> str:
+        rel_parts: List[str] = []
+        for rel in relationship_list:
+            r = _coerce_relationship_dict(rel)
+            rtype = r.get("relationship_type")
+            if rtype in RELATIONSHIP_DIMENSION_MAP:
+                pid = r.get("person_id", "?")
+                conf = r.get("confidence", 0)
+                rel_parts.append(f"{pid}({rtype},conf={conf})")
+        if not rel_parts:
+            return "关系层: 无核心关系"
+        return f"关系层: {', '.join(rel_parts[:5])}，共 {len(relationship_list)} 段关系"
+
+    def _profile_summary() -> str:
+        fields: List[str] = []
+        for field_key in ("long_term_facts.identity.role", "long_term_facts.social_identity.education",
+                          "long_term_facts.geography.location_anchors", "long_term_facts.hobbies.interests"):
+            obj = _get_nested_value(sp, field_key)
+            if isinstance(obj, dict) and obj.get("value") is not None:
+                fields.append(f"{field_key.split('.')[-1]}={obj['value']}")
+        return f"画像层: {', '.join(fields)}" if fields else "画像层: 无已确认字段"
+
+    if agent_type == "protagonist":
+        parts.append(_relationship_summary())
+        parts.append(_profile_summary())
+    elif agent_type == "relationship":
+        parts.append(_protagonist_summary())
+        parts.append(_profile_summary())
+    elif agent_type == "profile":
+        parts.append(_protagonist_summary())
+        parts.append(_relationship_summary())
+
+    return "\n[跨层上下文]\n" + "\n".join(f"- {p}" for p in parts) if parts else ""
+
+
+def _get_nested_value(d: Dict[str, Any], dotted_key: str) -> Any:
+    current: Any = d
+    for key in dotted_key.split("."):
+        if not isinstance(current, dict):
+            return None
+        current = current.get(key)
+    return current
+
+
 def build_profile_agent_extractor_outputs(
     *,
     primary_decision: Dict[str, Any] | None,
@@ -42,29 +106,37 @@ def build_profile_agent_extractor_outputs(
     relationship_tags = _build_relationship_tags(relationship_list)
     profile_tags = _build_profile_tags(structured_profile or {})
 
+    protagonist_trace = str(primary_decision.get("reasoning") or "") if primary_decision else ""
+    relationship_trace = "\n".join(
+        _coerce_relationship_dict(relationship).get("reasoning", "")
+        for relationship in relationship_list
+        if _coerce_relationship_dict(relationship).get("relationship_type") in RELATIONSHIP_DIMENSION_MAP
+    ).strip()
+    profile_trace = "\n".join(
+        f"[{tag['dimension']}] {tag.get('reasoning', '')}".strip()
+        for tag in profile_tags
+        if tag.get("reasoning")
+    ).strip()
+
+    protagonist_cross = _build_cross_layer_summary("protagonist", primary_decision, relationship_list, structured_profile)
+    relationship_cross = _build_cross_layer_summary("relationship", primary_decision, relationship_list, structured_profile)
+    profile_cross = _build_cross_layer_summary("profile", primary_decision, relationship_list, structured_profile)
+
     return {
         "protagonist": {
             "agent_type": "protagonist",
             "tags": protagonist_tags,
-            "reasoning_trace": str(primary_decision.get("reasoning") or "") if primary_decision else "",
+            "reasoning_trace": f"{protagonist_trace}{protagonist_cross}" if protagonist_cross else protagonist_trace,
         },
         "relationship": {
             "agent_type": "relationship",
             "tags": relationship_tags,
-            "reasoning_trace": "\n".join(
-                _coerce_relationship_dict(relationship).get("reasoning", "")
-                for relationship in relationship_list
-                if _coerce_relationship_dict(relationship).get("relationship_type") in RELATIONSHIP_DIMENSION_MAP
-            ).strip(),
+            "reasoning_trace": f"{relationship_trace}{relationship_cross}" if relationship_cross else relationship_trace,
         },
         "profile": {
             "agent_type": "profile",
             "tags": profile_tags,
-            "reasoning_trace": "\n".join(
-                f"[{tag['dimension']}] {tag.get('reasoning', '')}".strip()
-                for tag in profile_tags
-                if tag.get("reasoning")
-            ).strip(),
+            "reasoning_trace": f"{profile_trace}{profile_cross}" if profile_cross else profile_trace,
         },
     }
 
@@ -76,9 +148,35 @@ def _build_protagonist_tags(primary_decision: Dict[str, Any]) -> List[Dict[str, 
     if not value:
         return []
     reasoning = str(primary_decision.get("reasoning") or "")
-    evidence = _build_downstream_evidence(primary_decision.get("evidence") or {}, reasoning)
+    raw_evidence = primary_decision.get("evidence") or {}
+    evidence = _build_downstream_evidence(raw_evidence, reasoning)
     if not evidence:
         return []
+    stats_parts = []
+    selfie_count = int(raw_evidence.get("selfie_count", 0) or 0)
+    anchor_count = int(raw_evidence.get("identity_anchor_count", 0) or 0)
+    photo_count = int(raw_evidence.get("photo_count", 0) or 0)
+    label_count = int(raw_evidence.get("protagonist_label_count", 0) or 0)
+    if selfie_count:
+        stats_parts.append(f"自拍 {selfie_count} 次")
+    if anchor_count:
+        stats_parts.append(f"身份锚点 {anchor_count} 个")
+    if photo_count:
+        stats_parts.append(f"出现在 {photo_count} 张照片中")
+    if label_count:
+        stats_parts.append(f"VLM 主角标记 {label_count} 次")
+    if stats_parts:
+        evidence.append(
+            _normalize_evidence_item(
+                {
+                    "description": f"主角识别统计: {', '.join(stats_parts)}",
+                    "evidence_type": "direct",
+                    "inference_depth": 1,
+                    "feature_names": ["selfie_count", "identity_anchor_count", "photo_count", "protagonist_label_count"],
+                }
+            )
+        )
+        reasoning = f"{reasoning}\n[统计] {', '.join(stats_parts)}" if reasoning else f"[统计] {', '.join(stats_parts)}"
     return [
         _tag_payload(
             dimension="主角>身份确认",
@@ -86,7 +184,7 @@ def _build_protagonist_tags(primary_decision: Dict[str, Any]) -> List[Dict[str, 
             confidence=_scale_confidence(primary_decision.get("confidence")),
             stability="long_term",
             evidence=evidence,
-            extraction_gap=_derive_extraction_gap(primary_decision.get("evidence") or {}, primary_decision.get("confidence"), reasoning),
+            extraction_gap=_derive_extraction_gap(raw_evidence, primary_decision.get("confidence"), reasoning),
             reasoning=reasoning,
         )
     ]
@@ -301,7 +399,15 @@ def _derive_extraction_gap(evidence: Dict[str, Any], confidence: Any, reasoning:
         return "；".join(str(note) for note in constraint_notes if note)
     scaled = _scale_confidence(confidence)
     if scaled and scaled < 70:
-        return f"当前标签置信度为 {scaled}，仍需更多稳定证据。"
+        selfie_count = int(evidence.get("selfie_count", 0) or 0)
+        anchor_count = int(evidence.get("identity_anchor_count", 0) or 0)
+        basis_parts = []
+        if selfie_count:
+            basis_parts.append(f"自拍 {selfie_count} 次")
+        if anchor_count:
+            basis_parts.append(f"身份锚点 {anchor_count} 个")
+        basis = f"，基于 {', '.join(basis_parts)}" if basis_parts else ""
+        return f"当前标签置信度为 {scaled}{basis}。"
     if reasoning and "不足" in reasoning:
         return reasoning
     return ""

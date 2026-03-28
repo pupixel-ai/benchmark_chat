@@ -5,6 +5,7 @@ __pycache__/
 *.pyc
 cache/
 output/
+datasets/
 runtime/models/*.task
 .DS_Store
 past-test/

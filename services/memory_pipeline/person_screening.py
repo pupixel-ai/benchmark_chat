@@ -17,10 +17,16 @@ def screen_people(state: MemoryState) -> Dict[str, PersonScreening]:
         person_kind = "real_person"
         memory_value = "candidate"
 
+        no_contact_ratio = stats.get("no_contact_ratio", 0.0)
+
         if stats.get("mediated_ratio", 0.0) >= 0.8:
             person_kind = "mediated_person"
             memory_value = "block"
             blocked.append("mostly_screen_or_poster")
+        elif stats.get("mediated_ratio", 0.0) >= 0.5 and no_contact_ratio >= 0.9:
+            person_kind = "mediated_person"
+            memory_value = "block"
+            blocked.append("mediated_with_no_contact")
         elif stats.get("service_ratio", 0.0) >= 0.7:
             person_kind = "service_person"
             memory_value = "block"
@@ -37,6 +43,7 @@ def screen_people(state: MemoryState) -> Dict[str, PersonScreening]:
             memory_value=memory_value,
             screening_refs=refs,
             block_reasons=blocked,
+            no_contact_ratio=no_contact_ratio,
         )
 
     return screenings
@@ -55,8 +62,11 @@ def _collect_person_vlm_stats(vlm_results: List[Dict[str, Any]]) -> Dict[str, Di
             person_id = person.get("person_id")
             if not person_id:
                 continue
-            bucket = stats.setdefault(person_id, {"total": 0, "mediated": 0, "service": 0, "group_only": 0, "refs": []})
+            bucket = stats.setdefault(person_id, {"total": 0, "mediated": 0, "service": 0, "group_only": 0, "no_contact": 0, "refs": []})
             bucket["total"] += 1
+            contact_type = str(person.get("contact_type", "") or "").lower().strip()
+            if contact_type in ("no_contact", ""):
+                bucket["no_contact"] += 1
             if any(keyword in summary for keyword in ("poster", "screenshot", "screen", "tv", "电视", "海报")):
                 bucket["mediated"] += 1
             if any(keyword in social_context for keyword in ("staff", "cashier", "waiter", "服务员", "店员")):
@@ -70,6 +80,7 @@ def _collect_person_vlm_stats(vlm_results: List[Dict[str, Any]]) -> Dict[str, Di
         bucket["mediated_ratio"] = round(bucket["mediated"] / total, 2)
         bucket["service_ratio"] = round(bucket["service"] / total, 2)
         bucket["group_only_ratio"] = round(bucket["group_only"] / total, 2)
+        bucket["no_contact_ratio"] = round(bucket["no_contact"] / total, 2)
     return stats
 
 

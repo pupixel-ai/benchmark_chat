@@ -261,30 +261,76 @@ def run_memory_pipeline_entry(
         downstream_audit_report,
     )
     if protagonist_changed:
-        memory_state.primary_decision = updated_primary_decision
+        original_primary = profile_result.get("internal_artifacts", {}).get("primary_decision") or {}
+        runner_up_id = original_primary.get("runner_up_person_id")
+
+        if runner_up_id and runner_up_id in memory_state.face_db:
+            updated_primary_decision["mode"] = "person_id"
+            updated_primary_decision["primary_person_id"] = runner_up_id
+            updated_primary_decision["confidence"] = 0.65
+            existing_reason = str(updated_primary_decision.get("reasoning") or "")
+            updated_primary_decision["reasoning"] = f"{existing_reason}\n[回流] 第一候选被推翻，尝试第二候选人 {runner_up_id}。".strip()
+            memory_state.primary_decision = updated_primary_decision
+            profile_result = rerun_pipeline_from_primary_backflow(
+                state=memory_state,
+                llm_processor=llm,
+            )
+            rerun_stage = "after_protagonist_runner_up_rerun"
+            downstream_audit_report = _run_downstream_audit_with_fallback(
+                album_id=audit_album_id,
+                primary_decision=profile_result.get("internal_artifacts", {}).get("primary_decision"),
+                relationships=profile_result.get("relationships", []),
+                structured_profile=profile_result.get("structured"),
+                profile_fact_decisions=profile_result.get("internal_artifacts", {}).get("profile_fact_decisions", []),
+            )
+            audit_rounds.append(_audit_round_snapshot(rerun_stage, downstream_audit_report))
+
+            _, runner_up_also_rejected = apply_downstream_protagonist_backflow(
+                profile_result.get("internal_artifacts", {}).get("primary_decision"),
+                downstream_audit_report,
+            )
+            if runner_up_also_rejected:
+                updated_primary_decision["mode"] = "photographer_mode"
+                updated_primary_decision["primary_person_id"] = None
+                updated_primary_decision["confidence"] = 0.0
+                existing_reason2 = str(updated_primary_decision.get("reasoning") or "")
+                updated_primary_decision["reasoning"] = f"{existing_reason2}\n[回流] 第二候选人也被推翻，终局为 photographer_mode。".strip()
+        else:
+            runner_up_id = None
+
         if updated_primary_decision.get("mode") == "photographer_mode":
-            memory_state.relationships = []
-            memory_state.relationship_dossiers = []
+            for rel in memory_state.relationships:
+                if hasattr(rel, 'relationship_type'):
+                    rel.relationship_type = "observed_without_protagonist"
+                    rel.confidence = min(rel.confidence, 0.3)
+                elif isinstance(rel, dict):
+                    rel["relationship_type"] = "observed_without_protagonist"
+                    rel["confidence"] = min(float(rel.get("confidence", 0)), 0.3)
+            for dossier in memory_state.relationship_dossiers:
+                dossier.group_eligible = False
             memory_state.groups = []
             profile_result = rerun_pipeline_from_relationship_backflow(
                 state=memory_state,
                 llm_processor=llm,
             )
             rerun_stage = "after_protagonist_photographer_rerun"
-        else:
+        elif not runner_up_id:
+            memory_state.primary_decision = updated_primary_decision
             profile_result = rerun_pipeline_from_primary_backflow(
                 state=memory_state,
                 llm_processor=llm,
             )
             rerun_stage = "after_protagonist_rerun"
-        downstream_audit_report = _run_downstream_audit_with_fallback(
-            album_id=audit_album_id,
-            primary_decision=profile_result.get("internal_artifacts", {}).get("primary_decision"),
-            relationships=profile_result.get("relationships", []),
-            structured_profile=profile_result.get("structured"),
-            profile_fact_decisions=profile_result.get("internal_artifacts", {}).get("profile_fact_decisions", []),
-        )
-        audit_rounds.append(_audit_round_snapshot(rerun_stage, downstream_audit_report))
+
+        if not runner_up_id or updated_primary_decision.get("mode") == "photographer_mode":
+            downstream_audit_report = _run_downstream_audit_with_fallback(
+                album_id=audit_album_id,
+                primary_decision=profile_result.get("internal_artifacts", {}).get("primary_decision"),
+                relationships=profile_result.get("relationships", []),
+                structured_profile=profile_result.get("structured"),
+                profile_fact_decisions=profile_result.get("internal_artifacts", {}).get("profile_fact_decisions", []),
+            )
+            audit_rounds.append(_audit_round_snapshot(rerun_stage, downstream_audit_report))
 
     updated_relationships, updated_dossiers, relationship_changed = apply_downstream_relationship_backflow(
         profile_result.get("relationships", []),
@@ -685,6 +731,29 @@ def _build_skipped_downstream_audit_report(
     }
 
 
+def _cleanup_old_output_runs(user_name: str, max_runs: int) -> None:
+    """保留最新 max_runs 个运行目录，删除更早的。"""
+    if max_runs <= 0:
+        return
+    prefix = f"{user_name}_记忆测试_"
+    try:
+        all_dirs = sorted(
+            [
+                d for d in os.listdir(OUTPUT_DIR)
+                if d.startswith(prefix) and os.path.isdir(os.path.join(OUTPUT_DIR, d))
+            ]
+        )
+    except FileNotFoundError:
+        return
+    if len(all_dirs) <= max_runs:
+        return
+    to_remove = all_dirs[: len(all_dirs) - max_runs]
+    for d in to_remove:
+        target = os.path.join(OUTPUT_DIR, d)
+        print(f"  [cleanup] 删除旧运行: {d}")
+        shutil.rmtree(target, ignore_errors=True)
+
+
 def reset_cache():
     """重置缓存（清空 cache/ 和 output/）"""
     for path in (USER_CACHE_DIR, USER_OUTPUT_DIR):
@@ -710,6 +779,10 @@ def main():
     print(f"人脸引擎: InsightFace/{FACE_MODEL_NAME}")
     print(f"person_id 格式: Person_001/Person_002...")
     print("=" * 50)
+
+    # 在实际运行时才创建 output 目录（不在 import config 时创建）
+    os.makedirs(USER_OUTPUT_DIR, exist_ok=True)
+    _cleanup_old_output_runs(USER_NAME, MAX_OUTPUT_RUNS_PER_USER)
 
     if args.reset_cache:
         print("\n[重置] 清空缓存...")

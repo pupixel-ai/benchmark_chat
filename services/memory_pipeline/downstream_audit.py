@@ -142,14 +142,46 @@ class MainOutputExtractor:
                 fallback_description="主角判定补证",
             )
             primary_person_id = str(self._primary_decision.get("primary_person_id") or "")
+            selfie_count = int(payload.get("selfie_count", 0) or 0)
+            anchor_count = int(payload.get("identity_anchor_count", 0) or 0)
+            photo_count = int(payload.get("photo_count", 0) or 0)
+            label_count = int(payload.get("protagonist_label_count", 0) or 0)
+            stats_parts = []
+            if selfie_count:
+                stats_parts.append(f"自拍 {selfie_count} 次")
+            if anchor_count:
+                stats_parts.append(f"身份锚点 {anchor_count} 个")
+            if photo_count:
+                stats_parts.append(f"出现在 {photo_count} 张照片中")
+            if label_count:
+                stats_parts.append(f"VLM 主角标记 {label_count} 次")
             if primary_person_id:
+                stats_desc = f"主角识别统计: {', '.join(stats_parts)}" if stats_parts else f"主角候选 {primary_person_id}"
                 supplemental.append(
                     _normalize_evidence_item(
                         {
                             "person_id": primary_person_id,
-                            "description": "主角候选来自主工程 primary_decision",
-                            "evidence_type": "inferred",
+                            "description": stats_desc,
+                            "evidence_type": "direct",
+                            "inference_depth": 1,
+                            "feature_names": ["selfie_count", "identity_anchor_count", "photo_count", "protagonist_label_count"],
+                        }
+                    )
+                )
+            rel_cross_parts: List[str] = []
+            for rel in self._relationships:
+                r = _coerce_relationship_dict(rel)
+                rtype = r.get("relationship_type")
+                if rtype in {"romantic", "family", "bestie", "close_friend"}:
+                    rel_cross_parts.append(f"{r.get('person_id', '?')}({rtype})")
+            if rel_cross_parts:
+                supplemental.append(
+                    _normalize_evidence_item(
+                        {
+                            "description": f"[跨层参考] 关系层核心关系: {', '.join(rel_cross_parts[:5])}",
+                            "evidence_type": "cross_layer_reference",
                             "inference_depth": 2,
+                            "feature_names": ["relationship_cross_reference"],
                         }
                     )
                 )
@@ -181,6 +213,24 @@ class MainOutputExtractor:
                             "description": f"关系候选人物 {person_id} 定向补证",
                             "evidence_type": "inferred",
                             "inference_depth": 2,
+                        }
+                    )
+                )
+            profile_cross_parts: List[str] = []
+            for fk in ("long_term_facts.identity.role", "long_term_facts.social_identity.education"):
+                obj = self._structured_profile
+                for seg in fk.split("."):
+                    obj = obj.get(seg) if isinstance(obj, dict) else None
+                if isinstance(obj, dict) and obj.get("value") is not None:
+                    profile_cross_parts.append(f"{fk.split('.')[-1]}={obj['value']}")
+            if profile_cross_parts:
+                supplemental.append(
+                    _normalize_evidence_item(
+                        {
+                            "description": f"[跨层参考] 画像层: {', '.join(profile_cross_parts)}",
+                            "evidence_type": "cross_layer_reference",
+                            "inference_depth": 2,
+                            "feature_names": ["profile_cross_reference"],
                         }
                     )
                 )
@@ -230,6 +280,38 @@ class MainOutputExtractor:
                             "feature_names": ["challenge_targeted_refinement"],
                             "evidence_type": "inferred",
                             "inference_depth": 2,
+                        }
+                    )
+                )
+            rel_cross_parts_profile: List[str] = []
+            for rel in self._relationships:
+                r = _coerce_relationship_dict(rel)
+                rtype = r.get("relationship_type")
+                if rtype in {"romantic", "family", "bestie", "close_friend"}:
+                    pid = r.get("person_id", "?")
+                    conf = r.get("confidence", 0)
+                    rel_cross_parts_profile.append(f"{pid}({rtype},conf={conf})")
+            if rel_cross_parts_profile:
+                supplemental.append(
+                    _normalize_evidence_item(
+                        {
+                            "description": f"[跨层参考] 关系层: {', '.join(rel_cross_parts_profile[:5])}",
+                            "evidence_type": "cross_layer_reference",
+                            "inference_depth": 2,
+                            "feature_names": ["relationship_cross_reference"],
+                        }
+                    )
+                )
+            primary_mode = str(self._primary_decision.get("mode") or "")
+            primary_pid = str(self._primary_decision.get("primary_person_id") or "")
+            if primary_pid:
+                supplemental.append(
+                    _normalize_evidence_item(
+                        {
+                            "description": f"[跨层参考] 主角: {primary_pid} (mode={primary_mode})",
+                            "evidence_type": "cross_layer_reference",
+                            "inference_depth": 2,
+                            "feature_names": ["protagonist_cross_reference"],
                         }
                     )
                 )
@@ -305,6 +387,76 @@ def run_downstream_profile_agent_audit(
         storage_saved=storage_saved,
         runtime_health=runtime_health,
     )
+
+
+def _detect_cross_domain_issues(
+    *,
+    primary_decision: Dict[str, Any] | None,
+    relationships: List[Dict[str, Any]],
+    structured_profile: Dict[str, Any] | None,
+) -> List[Dict[str, str]]:
+    """纯代码跨域一致性检查（遵循'代码做重活'原则）。"""
+    issues: List[Dict[str, str]] = []
+    sp = structured_profile or {}
+
+    def _nested(d: Any, dotted: str) -> Any:
+        cur = d
+        for seg in dotted.split("."):
+            cur = cur.get(seg) if isinstance(cur, dict) else None
+        return cur
+
+    rel_types = {
+        _coerce_relationship_dict(r).get("relationship_type")
+        for r in relationships
+    }
+    rel_by_type: Dict[str, List[str]] = {}
+    for r in relationships:
+        rd = _coerce_relationship_dict(r)
+        rtype = rd.get("relationship_type")
+        if rtype:
+            rel_by_type.setdefault(rtype, []).append(str(rd.get("person_id", "")))
+
+    education_obj = _nested(sp, "long_term_facts.social_identity.education")
+    education_val = education_obj.get("value") if isinstance(education_obj, dict) else None
+    role_obj = _nested(sp, "long_term_facts.identity.role")
+    role_val = role_obj.get("value") if isinstance(role_obj, dict) else None
+    partner_obj = _nested(sp, "long_term_facts.relationships.intimate_partner")
+    partner_val = partner_obj.get("value") if isinstance(partner_obj, dict) else None
+
+    if education_val and "classmate" not in rel_types and "classmate_colleague" not in rel_types:
+        if any(kw in str(education_val).lower() for kw in ("college", "university", "大学", "高中", "school")):
+            issues.append({
+                "type": "education_without_classmate",
+                "detail": f"画像 education={education_val}，但关系层无 classmate/classmate_colleague 类型关系",
+            })
+
+    if role_val and str(role_val).lower() in ("employee", "freelancer", "worker"):
+        school_rel_count = len(rel_by_type.get("classmate", []) + rel_by_type.get("classmate_colleague", []))
+        work_rel_count = 0
+        if school_rel_count > 0 and work_rel_count == 0:
+            issues.append({
+                "type": "role_relationship_mismatch",
+                "detail": f"画像 role={role_val}，但关系层只有 {school_rel_count} 段 classmate 关系，无工作关系",
+            })
+
+    if partner_val:
+        romantic_pids = rel_by_type.get("romantic", [])
+        if partner_val not in romantic_pids:
+            issues.append({
+                "type": "partner_relationship_conflict",
+                "detail": f"画像 intimate_partner={partner_val}，但关系层无该 person_id 的 romantic 关系",
+            })
+
+    if "romantic" in rel_types:
+        living_obj = _nested(sp, "long_term_facts.relationships.living_situation")
+        living_val = living_obj.get("value") if isinstance(living_obj, dict) else None
+        if living_val and "alone" in str(living_val).lower():
+            issues.append({
+                "type": "living_romantic_conflict",
+                "detail": f"画像 living_situation={living_val}，但关系层存在 romantic 关系",
+            })
+
+    return issues
 
 
 def build_downstream_audit_report(
@@ -408,6 +560,11 @@ def build_downstream_audit_report(
             "audit_flags": profile_flags,
             "not_audited": profile_not_audited,
         },
+        "cross_domain_issues": _detect_cross_domain_issues(
+            primary_decision=primary_decision,
+            relationships=relationship_list,
+            structured_profile=structured_profile,
+        ),
     }
 
 
@@ -999,6 +1156,21 @@ def _apply_profile_backflow_to_decision(
     }
 
 
+def _should_execute_protagonist_nullify(primary_decision: Dict[str, Any], judge_action: Dict[str, Any]) -> bool:
+    """代码硬门槛 — Judge 可以自由质疑，但执行推翻必须过关。"""
+    evidence = primary_decision.get("evidence") or {}
+    if int(evidence.get("selfie_count", 0) or 0) >= 3:
+        return False
+    if int(evidence.get("identity_anchor_count", 0) or 0) >= 1:
+        return False
+    if float(primary_decision.get("confidence", 0) or 0) >= 0.80:
+        return False
+    reason = str(judge_action.get("judge_reason") or "").strip()
+    if len(reason) < 10:
+        return False
+    return True
+
+
 def apply_downstream_protagonist_backflow(
     primary_decision: Dict[str, Any] | None,
     downstream_audit_report: Dict[str, Any] | None,
@@ -1011,6 +1183,21 @@ def apply_downstream_protagonist_backflow(
         action for action in actions if str(action.get("verdict") or "accept") in {"nullify", "downgrade"}
     ]
     if not triggered_actions:
+        return current, False
+
+    executable_actions = [a for a in triggered_actions if _should_execute_protagonist_nullify(current, a)]
+    blocked_actions = [a for a in triggered_actions if a not in executable_actions]
+
+    if blocked_actions:
+        blocked_report = current.setdefault("protagonist_nullify_blocked", [])
+        for action in blocked_actions:
+            blocked_report.append({
+                "verdict": str(action.get("verdict") or ""),
+                "judge_reason": str(action.get("judge_reason") or ""),
+                "blocked_by": "code_gate",
+            })
+
+    if not executable_actions:
         return current, False
 
     evidence = current.get("evidence")
@@ -1026,7 +1213,7 @@ def apply_downstream_protagonist_backflow(
         evidence["rejected_primary_person_id"] = original_primary_person_id
 
     summary_reasons: List[str] = []
-    for action in triggered_actions:
+    for action in executable_actions:
         verdict = str(action.get("verdict") or "accept")
         reason = str(action.get("judge_reason") or "").strip()
         note = f"downstream_judge:{verdict}" + (f":{reason}" if reason else "")

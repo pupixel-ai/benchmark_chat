@@ -60,6 +60,7 @@ def load_precomputed_memory_state(base_dir: str | Path) -> MemoryState:
             [
                 "events.json",
                 "final_events.json",
+                "lp1_events.json",
                 "lp1_events_compact.json",
                 "*_events.json",
                 "*_events_compact.json",

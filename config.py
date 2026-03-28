@@ -180,12 +180,20 @@ JPEG_QUALITY = int(os.getenv("JPEG_QUALITY", "85"))
 USER_NAME = os.environ.get('MEMORY_USER_NAME', 'default')
 RUN_TIMESTAMP = datetime.now().strftime("%Y%m%d_%H%M%S")
 
+# ─── 运行产物保留上限 ────────────────────────────────────────────
+MAX_OUTPUT_RUNS_PER_USER = int(os.getenv("MAX_OUTPUT_RUNS_PER_USER", "20"))
+
 # ─── 用户专属目录 ────────────────────────────────────────────────
 USER_CACHE_DIR = os.path.join(CACHE_DIR, USER_NAME)
 USER_OUTPUT_DIR = os.path.join(OUTPUT_DIR, f"{USER_NAME}_记忆测试_{RUN_TIMESTAMP}")
 
+# 数据集目录（用户测试数据与项目代码隔离）
+DATASETS_DIR = os.path.join(PROJECT_ROOT, "datasets")
+TASKS_DIR = OUTPUT_DIR  # 向后兼容 backend/app.py 的 TASKS_DIR 引用
+
 os.makedirs(USER_CACHE_DIR, exist_ok=True)
-os.makedirs(USER_OUTPUT_DIR, exist_ok=True)
+# 注意：不再在 import 时自动创建 USER_OUTPUT_DIR
+# 只在实际运行 pipeline 时才创建，避免产生大量空目录
 
 # ─── 缓存路径（用户隔离） ────────────────────────────────────────
 VLM_CACHE_PATH = os.path.join(USER_CACHE_DIR, f"{USER_NAME}.json")

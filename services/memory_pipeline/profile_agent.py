@@ -184,6 +184,20 @@ class ProfileAgent:
                 )
                 continue
 
+            if spec.requires_protagonist_face and not context.get("primary_person_id"):
+                final = self._build_silent_null(field_key, evidence_bundle)
+                self._record_field_result(
+                    domain_spec=domain_spec,
+                    batch_name=f"{domain_spec['display_name']}::silent",
+                    spec=spec,
+                    tool_trace=tool_trace,
+                    draft=final,
+                    final=final,
+                    null_reason="silent_by_photographer_mode",
+                    profile_state=profile_state,
+                )
+                continue
+
             deterministic = self._deterministic_field_value(field_key, context)
             if deterministic is not None:
                 final = self._build_deterministic_final(field_key, deterministic, evidence_bundle)
@@ -667,7 +681,10 @@ class ProfileAgent:
         resolved_facts_summary = profile_state.resolved_facts_summary
         resolved_clause = ""
         if resolved_facts_summary:
-            resolved_clause = f"\nResolved Facts Summary:\n{resolved_facts_summary}\n"
+            resolved_clause = (
+                f"\n# Resolved Facts (已确定的上游字段)\n"
+                f"{resolved_facts_summary}\n"
+            )
 
         field_units = []
         for unit in batch:
@@ -708,8 +725,9 @@ Current fields: {[unit['field_key'] for unit in batch]}
 # Reasoning Protocol
 Step 1: 先基于字段级 COT 形成草案，分析所有可用证据。
 Step 2: High Weight Signals / Stats / Counter 只作为证据权重与置信度加权依据，而不是硬门槛。
-Step 3: 只要存在任何可靠支持证据，就先输出最佳推断值（value）并用 confidence 表达不确定性；不要因为证据不完美而默认 null。
-Step 4: 只有在完全没有相关证据时，或者全部证据都只能指向他人/背景/噪声而无法回到主角本人时，才输出 null。
+Step 3: 只要存在任何可靠支持证据，就先输出最佳推断值（value）并用 confidence 表达不确定性；不要因为证据不完美而默认 null。如果证据中包含具体的子类线索（如 top_candidates、detail_snippet 中的品牌名、学校类型、活动子类型），应在推断时充分利用这些线索来区分子类，而不是直接归并为泛类。
+Step 4: 同一组字段之间以及 Resolved Facts 中已确定的字段，构成当前字段判断的上下文。你输出的标签应在这个人的已知身份和生活状态下有意义。如果当前字段的草案与已确定字段存在明显冲突或不协调，应在 reasoning 中说明并调整。
+Step 5: 只有在完全没有相关证据时，或者全部证据都只能指向他人/背景/噪声而无法回到主角本人时，才输出 null。
 
 # Field Units
 {chr(10).join(field_units)}
@@ -735,7 +753,8 @@ Step 4: 只有在完全没有相关证据时，或者全部证据都只能指向
 3. **关键指令**：忽略 High Weight Signals 的严格要求。只要有任何可靠的支持证据（即使不完美），就输出该值和相应的 confidence 评分。
 4. 如果证据偏弱、时间跨度不足、跨事件重复不够或存在轻微反证，不要直接输出 null，而是降低 confidence。
 5. 只有在完全零证据或主体归属明显错误时才输出 null。
-6. 证据引用只需要可追溯锚点（event_id/photo_id/person_id/feature_name），不要重复展开整包原始证据。"""
+6. 证据引用只需要可追溯锚点（event_id/photo_id/person_id/feature_name），不要重复展开整包原始证据。
+7. reasoning 中必须引用至少 1 条具体证据细节（如品牌名、地点名、活动子类型、学校名），不得只写概括性描述。"""
 
     def _split_batches(self, prompt_units: List[Dict[str, Any]]) -> List[List[Dict[str, Any]]]:
         batches: List[List[Dict[str, Any]]] = []
