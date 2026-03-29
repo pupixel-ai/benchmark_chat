@@ -290,7 +290,7 @@ class QueryEngineV1:
             semantic_plan["detail_clues"] = self._unique(list(clause_plan.get("detail_clues") or []) + fact_texts)
             semantic_plan["rewrites"] = self._unique(list(clause_plan.get("rewrites") or []) + fact_texts)
             matched_event_bundles = self._semantic_event_candidates(semantic_plan, prepared=prepared)
-        matched_events = [self._serialize_matched_event(item) for item in matched_event_bundles]
+        matched_events = [self._serialize_matched_event(item, prepared["photos_by_id"]) for item in matched_event_bundles]
         supporting_evidence = self._serialize_supporting_evidence(matched_event_bundles)
         supporting_photos = self._supporting_photos(matched_event_bundles, prepared["photos_by_id"])
         supporting_facts = [self._serialize_fact(item) for item in facts]
@@ -352,7 +352,7 @@ class QueryEngineV1:
             prepared=prepared,
             fact_weight=max((float(item.get("score") or 0.0) for item in candidates), default=0.0),
         )
-        matched_events = [self._serialize_matched_event(item) for item in matched_event_bundles]
+        matched_events = [self._serialize_matched_event(item, prepared["photos_by_id"]) for item in matched_event_bundles]
         supporting_evidence = self._serialize_supporting_evidence(matched_event_bundles)
         supporting_photos = self._supporting_photos(matched_event_bundles, prepared["photos_by_id"])
         supporting_relationships = [self._serialize_graph_entity(item) for item in candidates]
@@ -395,7 +395,7 @@ class QueryEngineV1:
         prepared: Dict[str, Any],
     ) -> Dict[str, Any]:
         matched_event_bundles = self._semantic_event_candidates(clause_plan, prepared=prepared)
-        matched_events = [self._serialize_matched_event(item) for item in matched_event_bundles]
+        matched_events = [self._serialize_matched_event(item, prepared["photos_by_id"]) for item in matched_event_bundles]
         supporting_evidence = self._serialize_supporting_evidence(matched_event_bundles)
         supporting_photos = self._supporting_photos(matched_event_bundles, prepared["photos_by_id"])
         intent = str(clause.get("intent") or "lookup")
@@ -903,16 +903,45 @@ class QueryEngineV1:
                 if not photo_id or photo_id in seen:
                     continue
                 seen.add(photo_id)
-                payload = dict(photos_by_id.get(photo_id) or {"photo_id": photo_id})
-                payload["supporting_event_id"] = event_bundle["event"].get("event_id")
+                payload = self._serialize_photo(
+                    photos_by_id.get(photo_id) or {"photo_id": photo_id},
+                    supporting_event_id=event_bundle["event"].get("event_id"),
+                )
                 rows.append(payload)
         return rows
 
-    def _serialize_matched_event(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+    def _serialize_matched_event(self, payload: Dict[str, Any], photos_by_id: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
         event = dict(payload["event"])
-        photo_ids = [str(item.get("photo_id") or "") for item in payload.get("event_photos", []) if item.get("photo_id")]
+        photo_rows: List[Dict[str, Any]] = []
+        seen_photo_ids = set()
+        cover_photo_id = str(event.get("cover_photo_id") or "").strip()
+        for event_photo in list(payload.get("event_photos") or []):
+            photo_id = str(event_photo.get("photo_id") or "").strip()
+            if not photo_id or photo_id in seen_photo_ids:
+                continue
+            seen_photo_ids.add(photo_id)
+            photo_payload = self._serialize_photo(
+                photos_by_id.get(photo_id) or {"photo_id": photo_id},
+                supporting_event_id=event.get("event_id"),
+            )
+            photo_payload["is_cover"] = bool(event_photo.get("is_cover")) or (bool(cover_photo_id) and photo_id == cover_photo_id)
+            photo_payload["support_strength"] = event_photo.get("support_strength")
+            photo_payload["sort_order"] = event_photo.get("sort_order")
+            photo_rows.append(photo_payload)
+        photo_ids = [str(item.get("photo_id") or "") for item in photo_rows if item.get("photo_id")]
+        photo_urls = [str(item.get("photo_url") or "") for item in photo_rows if str(item.get("photo_url") or "").strip()]
         person_ids = [str(item.get("person_id") or "") for item in payload.get("event_people", []) if item.get("person_id")]
         place_refs = [str(item.get("place_ref") or "") for item in payload.get("event_places", []) if item.get("place_ref")]
+        resolved_cover_photo_url = next(
+            (
+                str(item.get("photo_url") or "")
+                for item in photo_rows
+                if str(item.get("photo_id") or "").strip() == cover_photo_id and str(item.get("photo_url") or "").strip()
+            ),
+            "",
+        )
+        if not resolved_cover_photo_url and photo_rows:
+            resolved_cover_photo_url = str((photo_rows[0] or {}).get("photo_url") or "")
         return {
             "event_id": event.get("event_id"),
             "title": event.get("title"),
@@ -920,12 +949,54 @@ class QueryEngineV1:
             "start_ts": event.get("start_ts"),
             "end_ts": event.get("end_ts"),
             "photo_ids": self._unique(photo_ids),
+            "photo_urls": self._unique(photo_urls),
+            "photos": photo_rows,
+            "cover_photo_id": cover_photo_id or (photo_ids[0] if photo_ids else None),
+            "cover_photo_url": resolved_cover_photo_url or None,
             "person_ids": self._unique(person_ids),
             "place_refs": self._unique(place_refs),
             "confidence": event.get("confidence"),
             "score": round(float(payload.get("event_score") or 0.0), 4),
             "reasons": list(payload.get("reasons") or []),
         }
+
+    def _serialize_photo(
+        self,
+        photo: Dict[str, Any],
+        *,
+        supporting_event_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        payload = dict(photo or {})
+        photo_url = self._photo_url(payload)
+        return {
+            "photo_id": payload.get("photo_id") or payload.get("image_id"),
+            "photo_url": photo_url,
+            "asset_url": payload.get("asset_url") or photo_url,
+            "object_key": payload.get("object_key"),
+            "captured_at": payload.get("captured_at"),
+            "content_type": payload.get("content_type"),
+            "width": payload.get("width"),
+            "height": payload.get("height"),
+            "supporting_event_id": supporting_event_id,
+        }
+
+    def _photo_url(self, photo: Dict[str, Any]) -> Optional[str]:
+        payload = dict((photo or {}).get("photo_payload") or {})
+        candidates = [
+            photo.get("asset_url"),
+            payload.get("display_image_url"),
+            payload.get("original_image_url"),
+            payload.get("url"),
+            payload.get("preview_url"),
+        ]
+        object_key = str(photo.get("object_key") or "").strip()
+        if object_key.startswith("/"):
+            candidates.append(object_key)
+        for candidate in candidates:
+            normalized = str(candidate or "").strip()
+            if normalized:
+                return normalized
+        return None
 
     def _serialize_supporting_evidence(self, verified_events: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
         rows: List[Dict[str, Any]] = []
@@ -1004,6 +1075,7 @@ class QueryEngineV1:
                 if item.get("relationship_id")
             ],
             "supporting_photo_ids": [item.get("photo_id") for item in list(result.get("supporting_photos") or []) if item.get("photo_id")],
+            "supporting_photo_urls": [item.get("photo_url") for item in list(result.get("supporting_photos") or []) if item.get("photo_url")],
             "judgement_status": result.get("judgement_status"),
             "abstain_reason": result.get("abstain_reason"),
             "aggregation_result": result.get("aggregation_result"),
@@ -1196,8 +1268,14 @@ class QueryEngineV1:
                 current["score"] = round(max(float(current.get("score") or 0.0), float(item.get("score") or 0.0)), 4)
                 current["reasons"] = self._unique(list(current.get("reasons") or []) + list(item.get("reasons") or []))
                 current["photo_ids"] = self._unique(list(current.get("photo_ids") or []) + list(item.get("photo_ids") or []))
+                current["photo_urls"] = self._unique(list(current.get("photo_urls") or []) + list(item.get("photo_urls") or []))
+                current["photos"] = self._merge_photo_rows(current.get("photos"), item.get("photos"))
                 current["person_ids"] = self._unique(list(current.get("person_ids") or []) + list(item.get("person_ids") or []))
                 current["place_refs"] = self._unique(list(current.get("place_refs") or []) + list(item.get("place_refs") or []))
+                if not current.get("cover_photo_id") and item.get("cover_photo_id"):
+                    current["cover_photo_id"] = item.get("cover_photo_id")
+                if not current.get("cover_photo_url") and item.get("cover_photo_url"):
+                    current["cover_photo_url"] = item.get("cover_photo_url")
                 current["clause_ids"] = self._unique(list(current.get("clause_ids") or []) + ([clause_id] if clause_id else []))
         result = list(merged.values())
         result.sort(key=lambda item: (-float(item.get("score") or 0.0), str(item.get("start_ts") or "")))
@@ -1291,8 +1369,25 @@ class QueryEngineV1:
             "started_at": event.get("start_ts"),
             "ended_at": event.get("end_ts"),
             "original_photo_ids": list(event.get("photo_ids") or []),
+            "original_photo_urls": list(event.get("photo_urls") or []),
+            "cover_photo_url": event.get("cover_photo_url"),
             "confidence": event.get("confidence"),
         }
+
+    def _merge_photo_rows(self, left: Optional[Sequence[Dict[str, Any]]], right: Optional[Sequence[Dict[str, Any]]]) -> List[Dict[str, Any]]:
+        merged: Dict[str, Dict[str, Any]] = {}
+        for row in list(left or []) + list(right or []):
+            photo_id = str((row or {}).get("photo_id") or "").strip()
+            if not photo_id:
+                continue
+            current = merged.get(photo_id)
+            if current is None:
+                merged[photo_id] = dict(row)
+                continue
+            for key, value in dict(row).items():
+                if value not in (None, "", []):
+                    current[key] = value
+        return list(merged.values())
 
     def _group_rows(self, rows: Sequence[Dict[str, Any]], key: str) -> Dict[str, List[Dict[str, Any]]]:
         grouped: Dict[str, List[Dict[str, Any]]] = defaultdict(list)

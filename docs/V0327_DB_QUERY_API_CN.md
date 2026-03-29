@@ -19,6 +19,7 @@
 ### 2.1 权威召回结果
 
 `matched_events` 是权威召回结果。
+下游渲染图片时，应优先使用 API 直接返回的 `photo_url`，不要自行拼接图片地址。
 
 这意味着：
 
@@ -233,6 +234,7 @@
 | `matched_event_count` | 命中事件数 |
 | `matched_event_ids` | 命中事件 ID 列表 |
 | `top_event_ids_for_summary` | 用于摘要生成的 top event IDs |
+| `supporting_photos` | 扁平化照片证据列表，含 `photo_id + photo_url` |
 | `supporting_facts` | 命中的事实 |
 | `supporting_relationships` | 命中的关系 |
 | `judgement_status` | `supported / contradicted / insufficient_evidence` |
@@ -273,6 +275,28 @@
   "start_ts": "2026-02-26",
   "end_ts": "",
   "photo_ids": ["photo_559", "photo_019", "photo_563"],
+  "photo_urls": [
+    "/api/assets/5570845cce1a47819227b3d89fcec9cb/uploads/559.jpg",
+    "/api/assets/5570845cce1a47819227b3d89fcec9cb/uploads/019.jpg"
+  ],
+  "photos": [
+    {
+      "photo_id": "photo_559",
+      "photo_url": "/api/assets/5570845cce1a47819227b3d89fcec9cb/uploads/559.jpg",
+      "asset_url": "/api/assets/5570845cce1a47819227b3d89fcec9cb/uploads/559.jpg",
+      "object_key": "tasks/5570845cce1a47819227b3d89fcec9cb/uploads/559.jpg",
+      "captured_at": "2026-02-26T20:13:11",
+      "content_type": "image/jpeg",
+      "width": 3024,
+      "height": 4032,
+      "supporting_event_id": "EVT_0132",
+      "is_cover": true,
+      "support_strength": 1.0,
+      "sort_order": 0
+    }
+  ],
+  "cover_photo_id": "photo_559",
+  "cover_photo_url": "/api/assets/5570845cce1a47819227b3d89fcec9cb/uploads/559.jpg",
   "person_ids": [],
   "place_refs": ["私人住宅客厅"],
   "confidence": 0.9,
@@ -288,7 +312,15 @@
 
 1. 直接展示 top N 事件
 2. 保留完整 `matched_events` 供“查看更多”或二次筛选
-3. 结合 `supporting_photos` 渲染证据图
+3. 事件卡片优先使用 `cover_photo_url`
+4. 证据图或图库优先使用 `supporting_photos[].photo_url`
+
+### 10.4 图片字段使用建议
+
+- 如果你在渲染事件卡片：优先使用 `matched_events[].cover_photo_url`
+- 如果你在渲染单个事件的全部相关图：使用 `matched_events[].photos[]`
+- 如果你在做全局证据画廊：使用 `supporting_photos[]`
+- 不要只拿 `photo_id` 后再去猜 URL；API 已直接返回 `photo_url`
 
 ## 11. `supporting_facts`
 
@@ -330,6 +362,26 @@
 }
 ```
 
+## 12.1 `supporting_photos`
+
+适用于下游直接渲染证据图，不需要再次拼接图片地址。
+
+示例结构：
+
+```json
+{
+  "photo_id": "photo_003",
+  "photo_url": "/assets/uploads/003_exhibition.png",
+  "asset_url": "/assets/uploads/003_exhibition.png",
+  "object_key": "uploads/003_exhibition.png",
+  "captured_at": "2026-01-18T15:00:00",
+  "content_type": "image/png",
+  "width": 1200,
+  "height": 900,
+  "supporting_event_id": "EVT_EXHIBITION_001"
+}
+```
+
 ## 13. `clause_results`
 
 `clause_results` 用于解释多子句题如何被拆解和执行。
@@ -346,6 +398,7 @@
 | `supporting_fact_keys` | 本子句命中的事实字段 |
 | `supporting_relationship_ids` | 本子句命中的关系 ID |
 | `supporting_photo_ids` | 本子句相关照片 |
+| `supporting_photo_urls` | 本子句相关照片 URL |
 | `judgement_status` | 本子句判断结果 |
 | `abstain_reason` | 本子句保守原因 |
 | `aggregation_result` | 本子句聚合结果 |

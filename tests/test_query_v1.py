@@ -135,6 +135,9 @@ class QueryV1Tests(unittest.TestCase):
             self.assertGreaterEqual(payload["answer"]["matched_event_count"], 1)
             self.assertEqual(payload["matched_events"][0]["event_id"], "EVT_HOME_001")
             self.assertGreaterEqual(len(payload["answer"]["supporting_photos"]), 1)
+            self.assertEqual(payload["answer"]["supporting_photos"][0]["photo_url"], "/assets/uploads/004_cat.png")
+            self.assertEqual(payload["matched_events"][0]["cover_photo_url"], "/assets/uploads/004_cat.png")
+            self.assertEqual(payload["matched_events"][0]["photos"][0]["photo_url"], "/assets/uploads/004_cat.png")
 
     def test_query_engine_relationship_rank_returns_photo_backed_events(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -154,6 +157,7 @@ class QueryV1Tests(unittest.TestCase):
             self.assertGreaterEqual(len(payload["matched_events"]), 1)
             self.assertIn(payload["matched_events"][0]["event_id"], {"EVT_CONCERT_001", "EVT_EXHIBITION_001"})
             self.assertIn("photo_001", payload["answer"]["original_photo_ids"])
+            self.assertTrue(any(str(item.get("photo_url") or "").startswith("/assets/uploads/") for item in payload["answer"]["supporting_photos"]))
 
     def test_query_engine_hybrid_judgement_returns_contradicted_for_already_working(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -334,6 +338,9 @@ class QueryV1Tests(unittest.TestCase):
         self.assertIn("clause_results", payload["answer"])
         self.assertGreaterEqual(payload["answer"]["matched_event_count"], 1)
         self.assertEqual(payload["answer"]["supporting_facts"][0]["field_key"], "long_term_facts.relationships.pets")
+        self.assertEqual(payload["answer"]["supporting_photos"][0]["photo_url"], "/assets/uploads/004_cat.png")
+        self.assertEqual(payload["matched_events"][0]["photos"][0]["photo_url"], "/assets/uploads/004_cat.png")
+        self.assertIn("supporting_photo_urls", payload["answer"]["clause_results"][0])
 
     def _engine(self) -> QueryEngineV1:
         planner = StructuredQueryPlanner(now=datetime(2026, 3, 29, 12, 0, 0))
