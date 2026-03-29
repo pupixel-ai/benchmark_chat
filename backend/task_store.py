@@ -119,6 +119,16 @@ class TaskStore:
 
     def list_tasks(self, user_id: str, limit: int = 20) -> List[Dict]:
         with SessionLocal() as session:
+            id_stmt = (
+                select(TaskRecord.task_id)
+                .where(TaskRecord.user_id == user_id)
+                .order_by(desc(TaskRecord.created_at))
+                .limit(limit)
+            )
+            task_ids = session.execute(id_stmt).scalars().all()
+            if not task_ids:
+                return []
+
             stmt = (
                 select(TaskRecord)
                 .options(
@@ -145,12 +155,14 @@ class TaskStore:
                         TaskRecord.last_worker_sync_at,
                     )
                 )
-                .where(TaskRecord.user_id == user_id)
-                .order_by(desc(TaskRecord.created_at))
-                .limit(limit)
+                .where(TaskRecord.task_id.in_(task_ids))
             )
             records = session.execute(stmt).scalars().all()
-            return [self._serialize(record, include_details=False) for record in records]
+            by_id = {
+                record.task_id: self._serialize(record, include_details=False)
+                for record in records
+            }
+            return [by_id[task_id] for task_id in task_ids if task_id in by_id]
 
     def update_task(self, task_id: str, **updates) -> Dict:
         with SessionLocal() as session:
