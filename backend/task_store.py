@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from sqlalchemy import delete, desc, or_, select
+from sqlalchemy.orm import load_only
 
 from backend.db import Base, SessionLocal, engine, ensure_schema
 from backend.models import TaskRecord
@@ -120,6 +121,30 @@ class TaskStore:
         with SessionLocal() as session:
             stmt = (
                 select(TaskRecord)
+                .options(
+                    load_only(
+                        TaskRecord.task_id,
+                        TaskRecord.user_id,
+                        TaskRecord.version,
+                        TaskRecord.status,
+                        TaskRecord.stage,
+                        TaskRecord.upload_count,
+                        TaskRecord.task_dir,
+                        TaskRecord.options,
+                        TaskRecord.result_summary,
+                        TaskRecord.asset_manifest,
+                        TaskRecord.error,
+                        TaskRecord.worker_instance_id,
+                        TaskRecord.worker_private_ip,
+                        TaskRecord.worker_status,
+                        TaskRecord.delete_state,
+                        TaskRecord.created_at,
+                        TaskRecord.updated_at,
+                        TaskRecord.expires_at,
+                        TaskRecord.deleted_at,
+                        TaskRecord.last_worker_sync_at,
+                    )
+                )
                 .where(TaskRecord.user_id == user_id)
                 .order_by(desc(TaskRecord.created_at))
                 .limit(limit)
