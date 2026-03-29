@@ -489,6 +489,13 @@ export type FullMemoryEvent = {
 export type FullMemoryRelationship = {
   person_id?: string;
   photo_ids: string[];
+  relationship_type?: string;
+  status?: string;
+  confidence?: number;
+  intimacy_score?: number;
+  reasoning?: string;
+  shared_events?: Array<Record<string, unknown>>;
+  evidence?: Record<string, unknown>;
 };
 
 export type FullMemoryProfile = {
