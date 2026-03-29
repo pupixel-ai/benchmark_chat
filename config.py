@@ -13,6 +13,12 @@ TASKS_DIR = os.path.join(RUNTIME_DIR, "tasks")
 BUNDLED_FACE_RECOGNITION_SRC_PATH = os.path.join(PROJECT_ROOT, "vendor", "face_recognition_src")
 
 try:
+    from vendor.face_recognition_src.face_recognition.config import PipelineConfig as PipelineConfig
+except Exception:
+    class PipelineConfig:  # pragma: no cover - optional legacy shim
+        pass
+
+try:
     from dotenv import load_dotenv
 except Exception:
     load_dotenv = None
@@ -91,6 +97,10 @@ BACKEND_HOST = os.getenv("BACKEND_HOST", "0.0.0.0")
 BACKEND_PORT = int(os.getenv("PORT", os.getenv("BACKEND_PORT", "8000")))
 BACKEND_RELOAD = os.getenv("BACKEND_RELOAD", "false").lower() == "true"
 FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "http://localhost:3000")
+CONTROL_PLANE_INTERNAL_ORIGIN = (
+    os.getenv("CONTROL_PLANE_INTERNAL_ORIGIN", f"http://127.0.0.1:{BACKEND_PORT}").strip()
+    or f"http://127.0.0.1:{BACKEND_PORT}"
+)
 RUNS_URL_PREFIX = "/runs"
 ASSET_URL_PREFIX = "/api/assets"
 AUTH_SESSION_COOKIE_NAME = os.getenv("AUTH_SESSION_COOKIE_NAME", "memory_session")
@@ -121,6 +131,29 @@ WORKER_TASK_ROOT = os.getenv("WORKER_TASK_ROOT", "/mnt/secure-tasks").strip() or
 RESULT_TTL_HOURS = int(os.getenv("RESULT_TTL_HOURS", "24"))
 WORKER_POLL_SECONDS = int(os.getenv("WORKER_POLL_SECONDS", "3"))
 WORKER_BOOT_TIMEOUT_SECONDS = int(os.getenv("WORKER_BOOT_TIMEOUT_SECONDS", "300"))
+KAFKA_ENABLED = os.getenv("KAFKA_ENABLED", "false").lower() == "true"
+KAFKA_BOOTSTRAP_SERVERS = tuple(
+    item
+    for item in (part.strip() for part in os.getenv("KAFKA_BOOTSTRAP_SERVERS", "").split(","))
+    if item
+)
+KAFKA_TERMINAL_TOPIC = (
+    os.getenv("KAFKA_TERMINAL_TOPIC", "memory.task.terminal.v1").strip()
+    or "memory.task.terminal.v1"
+)
+KAFKA_CLIENT_ID = (
+    os.getenv("KAFKA_CLIENT_ID", "memory-engineering-terminal-publisher").strip()
+    or "memory-engineering-terminal-publisher"
+)
+KAFKA_SECURITY_PROTOCOL = os.getenv("KAFKA_SECURITY_PROTOCOL", "").strip()
+KAFKA_SASL_MECHANISM = os.getenv("KAFKA_SASL_MECHANISM", "").strip()
+KAFKA_SASL_USERNAME = os.getenv("KAFKA_SASL_USERNAME", "").strip()
+KAFKA_SASL_PASSWORD = os.getenv("KAFKA_SASL_PASSWORD", "").strip()
+KAFKA_MESSAGE_MAX_BYTES = int(os.getenv("KAFKA_MESSAGE_MAX_BYTES", "1048576"))
+KAFKA_PUBLISHER_BATCH_SIZE = int(os.getenv("KAFKA_PUBLISHER_BATCH_SIZE", "50"))
+KAFKA_PUBLISHER_POLL_SECONDS = float(os.getenv("KAFKA_PUBLISHER_POLL_SECONDS", "2"))
+KAFKA_PUBLISHER_LOCK_SECONDS = int(os.getenv("KAFKA_PUBLISHER_LOCK_SECONDS", "120"))
+KAFKA_PUBLISHER_RETRY_SECONDS = int(os.getenv("KAFKA_PUBLISHER_RETRY_SECONDS", "30"))
 
 
 def normalize_task_version(value: str | None, *, fallback: str = DEFAULT_TASK_VERSION) -> str:
