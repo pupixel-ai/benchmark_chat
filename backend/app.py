@@ -13,9 +13,9 @@ from contextlib import contextmanager
 from datetime import datetime
 import fcntl
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
-from fastapi import BackgroundTasks, Cookie, Depends, FastAPI, File, Form, HTTPException, Response, UploadFile
+from fastapi import BackgroundTasks, Cookie, Depends, FastAPI, File, Form, Header, HTTPException, Response, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -29,12 +29,15 @@ from backend.auth import (
     logout_current_session,
     register_user,
 )
+from backend.db import SessionLocal
 from backend.face_review_store import FaceReviewStore
 from backend.memory_full_retrieval import build_task_memory_core_payload
 from backend.memory_step_retrieval import build_task_memory_steps_payload
+from backend.models import TaskRecord
 from backend.progress_utils import append_terminal_error, append_terminal_info, merge_stage_progress
 from backend.query_v1 import QueryEngineV1
 from backend.task_download_bundle import build_task_analysis_bundle, describe_task_downloads
+from backend.task_terminal_events import build_fallback_terminal_event_payload, build_terminal_event_payload
 from backend.task_store import TaskStore, normalize_task_options
 from backend.upload_utils import (
     UPLOAD_FAILURES_FILENAME,
@@ -68,6 +71,7 @@ from config import (
     TASK_VERSION_V0327_DB_QUERY,
     TASK_VERSION_V0327_EXP,
     TASKS_DIR,
+    WORKER_SHARED_TOKEN,
     normalize_task_version,
 )
 from memory_module import MemoryQueryService
@@ -88,6 +92,7 @@ face_review_store = FaceReviewStore()
 UPLOAD_BATCH_MAX_FILES = 50
 TASK_RESULT_RELATIVE_PATH = "output/result.json"
 UPLOAD_BATCH_MAX_BYTES = 64 * 1024 * 1024
+_UNSET = object()
 
 app.add_middleware(
     CORSMiddleware,
@@ -136,11 +141,32 @@ class MemoryQueryPayload(BaseModel):
     answer_shape_hint: Optional[str] = None
 
 
+class WorkerTerminalUpdatePayload(BaseModel):
+    status: str
+    stage: str
+    progress: Optional[Dict[str, Any]] = None
+    result: Optional[Dict[str, Any]] = None
+    result_summary: Optional[Dict[str, Any]] = None
+    asset_manifest: Optional[Dict[str, Any]] = None
+    error: Optional[str] = None
+    worker_status: Optional[str] = None
+    version: Optional[str] = None
+    options: Optional[Dict[str, Any]] = None
+
+
 def _apply_no_store_headers(response: Response) -> Response:
     response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0, private"
     response.headers["Pragma"] = "no-cache"
     response.headers["Expires"] = "0"
     return response
+
+
+def _require_internal_worker_token(authorization: str | None = Header(default=None)) -> None:
+    if not WORKER_SHARED_TOKEN:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="worker token 未配置")
+    expected = f"Bearer {WORKER_SHARED_TOKEN}"
+    if authorization != expected:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="无效的内部访问凭证")
 
 
 def _load_task_json_artifact(task: dict, relative_path: str) -> Optional[dict]:
@@ -200,6 +226,118 @@ def _task_source_hashes(task: dict) -> set[str]:
         if source_hash:
             hashes.add(source_hash)
     return hashes
+
+
+def _get_task_by_id(task_id: str) -> Optional[dict]:
+    with SessionLocal() as session:
+        record = session.get(TaskRecord, task_id)
+        if record is None:
+            return None
+        return task_store._serialize(record)
+
+
+def _value_or_unset(payload: dict, key: str):
+    return payload[key] if key in payload else _UNSET
+
+
+def _build_task_asset_manifest_safely(task_id: str, task_dir: Path) -> Optional[dict]:
+    try:
+        return build_task_asset_manifest(task_id, task_dir, asset_store)
+    except Exception:
+        logger.exception("Failed to build asset manifest for task_id=%s", task_id)
+        return None
+
+
+def _merge_task_snapshot(task: dict, **updates) -> dict:
+    snapshot = copy.deepcopy(task)
+    for key, value in updates.items():
+        if value is _UNSET:
+            continue
+        snapshot[key] = value
+    snapshot["updated_at"] = datetime.now().isoformat()
+    return snapshot
+
+
+def _build_terminal_outbox_event(task: dict) -> Optional[dict]:
+    if not task_store.outbox_store.enabled:
+        return None
+    hydrated = _hydrate_task_payloads(copy.deepcopy(task))
+    try:
+        return build_terminal_event_payload(
+            hydrated,
+            face_review_store=face_review_store,
+            asset_url_builder=lambda resolved_task_id, relative_path: asset_store.asset_url(resolved_task_id, relative_path),
+        )
+    except Exception as exc:
+        logger.exception("Failed to build full terminal event payload for task_id=%s", task.get("task_id"))
+        return build_fallback_terminal_event_payload(hydrated, reason=str(exc))
+
+
+def _finalize_task_terminal_state(
+    task_id: str,
+    user_id: Optional[str],
+    *,
+    status: str,
+    stage: str,
+    progress: dict | None,
+    result: Any = _UNSET,
+    event_result: Any = _UNSET,
+    error: Any = _UNSET,
+    result_summary: Any = _UNSET,
+    asset_manifest: Any = _UNSET,
+    event_asset_manifest: Any = _UNSET,
+    worker_status: Any = _UNSET,
+    last_worker_sync_at: Any = _UNSET,
+    version: Any = _UNSET,
+    options: Any = _UNSET,
+) -> dict:
+    stored_task = task_store.get_task(task_id, user_id=user_id) if user_id else _get_task_by_id(task_id)
+    if stored_task is None:
+        raise KeyError(f"任务不存在: {task_id}")
+
+    snapshot_result = event_result if event_result is not _UNSET else result
+    snapshot_asset_manifest = asset_manifest if asset_manifest is not _UNSET else event_asset_manifest
+    snapshot = _merge_task_snapshot(
+        stored_task,
+        status=status,
+        stage=stage,
+        progress=progress,
+        result=snapshot_result,
+        error=error,
+        result_summary=result_summary,
+        asset_manifest=snapshot_asset_manifest,
+        worker_status=worker_status,
+        version=version,
+        options=options,
+    )
+    outbox_event = _build_terminal_outbox_event(snapshot)
+    finalize_kwargs = {
+        "status": status,
+        "stage": stage,
+        "progress": progress,
+        "outbox_event": outbox_event,
+    }
+    if result is not _UNSET:
+        finalize_kwargs["result"] = result
+    if error is not _UNSET:
+        finalize_kwargs["error"] = error
+    if result_summary is not _UNSET:
+        finalize_kwargs["result_summary"] = result_summary
+    if asset_manifest is not _UNSET:
+        finalize_kwargs["asset_manifest"] = asset_manifest
+    if worker_status is not _UNSET:
+        finalize_kwargs["worker_status"] = worker_status
+    if last_worker_sync_at is not _UNSET:
+        finalize_kwargs["last_worker_sync_at"] = last_worker_sync_at
+    if version is not _UNSET:
+        finalize_kwargs["version"] = version
+    if options is not _UNSET:
+        finalize_kwargs["options"] = options
+
+    finalized = task_store.finalize_task(task_id, **finalize_kwargs)
+    if user_id and asset_manifest is not _UNSET and isinstance(asset_manifest, dict):
+        artifact_catalog.replace_task_artifacts(task_id, user_id, asset_manifest)
+    return finalized
 
 
 def _existing_upload_failures(task_dir: Path) -> List[dict]:
@@ -442,6 +580,32 @@ def _sync_task_from_worker(task: dict, user_id: str) -> dict:
     except Exception:
         return task
 
+    terminal_status = str(remote_payload.get("status") or "").strip()
+    if terminal_status in {"completed", "failed"}:
+        persisted_asset_manifest = (
+            _value_or_unset(remote_payload, "asset_manifest") if terminal_status == "completed" else _UNSET
+        )
+        event_asset_manifest = (
+            _value_or_unset(remote_payload, "asset_manifest") if terminal_status != "completed" else _UNSET
+        )
+        refreshed = _finalize_task_terminal_state(
+            task["task_id"],
+            user_id,
+            status=terminal_status,
+            stage=str(remote_payload.get("stage") or terminal_status).strip() or terminal_status,
+            progress=remote_payload.get("progress"),
+            result=_value_or_unset(remote_payload, "result"),
+            error=_value_or_unset(remote_payload, "error"),
+            result_summary=_value_or_unset(remote_payload, "result_summary"),
+            asset_manifest=persisted_asset_manifest,
+            event_asset_manifest=event_asset_manifest,
+            worker_status=remote_payload.get("worker_status", instance.state),
+            last_worker_sync_at=datetime.now(),
+            version=_value_or_unset(remote_payload, "version"),
+            options=_value_or_unset(remote_payload, "options"),
+        )
+        return refreshed or task
+
     updates = {}
     for key in ("status", "stage", "progress", "result", "error", "version", "options"):
         if key in remote_payload:
@@ -566,8 +730,10 @@ def _run_pipeline_task(
             use_cache=use_cache,
             progress_callback=progress_callback,
         )
-        task_store.update_task(
+        manifest = build_task_asset_manifest(task_id, task_dir, asset_store)
+        _finalize_task_terminal_state(
             task_id,
+            user_id,
             status="completed",
             stage="completed",
             progress=copy.deepcopy(
@@ -577,13 +743,13 @@ def _run_pipeline_task(
                     message="任务执行完成",
                 )
             ),
-            result=None,
             error=None,
+            result_summary=result.get("summary"),
+            asset_manifest=manifest,
+            version=task_version,
+            options=task_options,
+            event_result=result,
         )
-        manifest = build_task_asset_manifest(task_id, task_dir, asset_store)
-        task_store.set_result_summary(task_id, result.get("summary"), manifest)
-        if user_id:
-            artifact_catalog.replace_task_artifacts(task_id, user_id, manifest)
     except Exception as exc:
         logger.exception("Pipeline task failed for task_id=%s version=%s", task_id, task_version)
         failed_progress = append_terminal_error(
@@ -591,12 +757,16 @@ def _run_pipeline_task(
             stage="failed",
             error=str(exc),
         )
-        task_store.update_task(
+        _finalize_task_terminal_state(
             task_id,
+            user_id,
             status="failed",
             stage="failed",
             progress=copy.deepcopy(failed_progress),
             error=str(exc),
+            event_asset_manifest=_build_task_asset_manifest_safely(task_id, task_dir),
+            version=task_version,
+            options=task_options,
         )
 
 
@@ -887,6 +1057,53 @@ def healthcheck(response: Response):
         "object_storage_enabled": asset_store.enabled,
         "object_storage_bucket": asset_store.bucket or None,
         "worker_orchestration_enabled": _remote_worker_mode_enabled(),
+    }
+
+
+@app.post("/internal/tasks/{task_id}/terminal-update")
+def receive_worker_terminal_update(
+    task_id: str,
+    payload: WorkerTerminalUpdatePayload,
+    response: Response,
+    _: None = Depends(_require_internal_worker_token),
+):
+    _apply_no_store_headers(response)
+    terminal_status = str(payload.status or "").strip()
+    if terminal_status not in {"completed", "failed"}:
+        raise HTTPException(status_code=400, detail="仅支持 terminal 状态回调")
+
+    stored_task = _get_task_by_id(task_id)
+    if stored_task is None:
+        raise HTTPException(status_code=404, detail="任务不存在")
+
+    payload_dict = payload.model_dump(exclude_unset=True) if hasattr(payload, "model_dump") else payload.dict(exclude_unset=True)
+    persisted_asset_manifest = (
+        _value_or_unset(payload_dict, "asset_manifest") if terminal_status == "completed" else _UNSET
+    )
+    event_asset_manifest = (
+        _value_or_unset(payload_dict, "asset_manifest") if terminal_status != "completed" else _UNSET
+    )
+    finalized = _finalize_task_terminal_state(
+        task_id,
+        stored_task.get("user_id"),
+        status=terminal_status,
+        stage=str(payload.stage or terminal_status).strip() or terminal_status,
+        progress=payload.progress,
+        result=_value_or_unset(payload_dict, "result"),
+        error=_value_or_unset(payload_dict, "error"),
+        result_summary=_value_or_unset(payload_dict, "result_summary"),
+        asset_manifest=persisted_asset_manifest,
+        event_asset_manifest=event_asset_manifest,
+        worker_status=_value_or_unset(payload_dict, "worker_status"),
+        last_worker_sync_at=datetime.now(),
+        version=_value_or_unset(payload_dict, "version"),
+        options=_value_or_unset(payload_dict, "options"),
+    )
+    return {
+        "status": "ok",
+        "task_id": task_id,
+        "task_status": finalized.get("status"),
+        "event_enqueued": bool(task_store.outbox_store.enabled),
     }
 
 

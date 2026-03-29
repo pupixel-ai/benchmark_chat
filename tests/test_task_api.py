@@ -14,10 +14,11 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 from PIL import Image
-from sqlalchemy import delete
+from sqlalchemy import delete, select
 
-from backend.app import _task_upload_lock, app, task_store
+from backend.app import _run_pipeline_task, _task_upload_lock, app, task_store
 from backend.db import SessionLocal
+from backend.task_event_outbox import build_terminal_dedupe_key
 from backend.task_store import normalize_task_options
 from config import APP_VERSION, AVAILABLE_TASK_VERSIONS, DEFAULT_NORMALIZE_LIVE_PHOTOS, DEFAULT_TASK_VERSION
 from backend.models import (
@@ -25,6 +26,7 @@ from backend.models import (
     FaceRecognitionImagePolicyRecord,
     FaceReviewRecord,
     SessionRecord,
+    TaskEventOutboxRecord,
     TaskRecord,
     UserRecord,
 )
@@ -43,11 +45,13 @@ class TaskApiTests(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.user_id = response.json()["user"]["user_id"]
+        self._original_outbox_enabled = task_store.outbox_store.enabled
 
     def tearDown(self) -> None:
         for task_id in self.task_ids:
             shutil.rmtree(task_store.task_dir(task_id), ignore_errors=True)
 
+        task_store.outbox_store.enabled = self._original_outbox_enabled
         with SessionLocal() as session:
             session.execute(delete(ArtifactRecord).where(ArtifactRecord.user_id == self.user_id))
             session.execute(delete(FaceReviewRecord).where(FaceReviewRecord.user_id == self.user_id))
@@ -56,6 +60,8 @@ class TaskApiTests(unittest.TestCase):
                     FaceRecognitionImagePolicyRecord.user_id == self.user_id
                 )
             )
+            if self.task_ids:
+                session.execute(delete(TaskEventOutboxRecord).where(TaskEventOutboxRecord.task_id.in_(self.task_ids)))
             session.execute(delete(SessionRecord).where(SessionRecord.user_id == self.user_id))
             session.execute(delete(TaskRecord).where(TaskRecord.user_id == self.user_id))
             session.execute(delete(UserRecord).where(UserRecord.user_id == self.user_id))
@@ -625,6 +631,141 @@ class TaskApiTests(unittest.TestCase):
         self.assertTrue(payload["steps"]["lp3"]["artifacts"]["raw_upstream_manifest"]["exists"])
         self.assertTrue(payload["steps"]["lp3"]["artifacts"]["raw_upstream_index"]["exists"])
         self.assertEqual(payload["steps"]["lp3"]["failures"][0]["field_key"], "long_term_facts.identity.role")
+
+    def test_memory_steps_endpoint_accepts_v0327_db_query_tasks(self) -> None:
+        create_response = self.client.post("/api/tasks", json={"version": "v0327-db-query"})
+        self.assertEqual(create_response.status_code, 200)
+        task_id = create_response.json()["task_id"]
+        self.task_ids.append(task_id)
+
+        family_dir = task_store.task_dir(task_id) / "v0325"
+        family_dir.mkdir(parents=True, exist_ok=True)
+        (family_dir / "lp1_events_compact.json").write_text(
+            json.dumps([{"event_id": "EVT_0001", "title": "Query Event"}], ensure_ascii=False),
+            encoding="utf-8",
+        )
+        (family_dir / "lp2_relationships.json").write_text("[]", encoding="utf-8")
+        (family_dir / "lp3_profile.json").write_text("{}", encoding="utf-8")
+
+        task_store.update_task(
+            task_id,
+            result={
+                "memory": {
+                    "pipeline_family": "v0325",
+                    "lp1_events": [],
+                    "lp2_relationships": [],
+                    "lp3_profile": {},
+                }
+            },
+            status="completed",
+            stage="completed",
+        )
+
+        response = self.client.get(f"/api/tasks/{task_id}/memory/steps")
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["pipeline_family"], "v0325")
+
+    def test_local_pipeline_terminal_finalize_enqueues_outbox_for_v0327_db_query(self) -> None:
+        task_store.outbox_store.enabled = True
+        create_response = self.client.post("/api/tasks", json={"version": "v0327-db-query"})
+        self.assertEqual(create_response.status_code, 200)
+        task_id = create_response.json()["task_id"]
+        self.task_ids.append(task_id)
+
+        task_store.append_uploads(
+            task_id,
+            [
+                {
+                    "image_id": "photo_001",
+                    "filename": "sample.png",
+                    "stored_filename": "001_sample.png",
+                    "path": "uploads/001_sample.png",
+                    "url": None,
+                    "preview_url": None,
+                    "content_type": "image/png",
+                    "width": 48,
+                    "height": 48,
+                    "source_hash": "hash-001",
+                }
+            ],
+            status="draft",
+            stage="draft",
+        )
+
+        class _FakePipelineService:
+            def __init__(self, **_: object) -> None:
+                pass
+
+            def run(self, *, max_photos: int, use_cache: bool, progress_callback):
+                del max_photos, use_cache
+                progress_callback("memory", {"substage": "lp1"})
+                return self_result
+
+        self_result = self._synthetic_result(task_id)
+        with patch("backend.app.MemoryPipelineService", _FakePipelineService), patch(
+            "backend.app.build_task_asset_manifest",
+            return_value={"artifact_count": 1, "files": [], "named_urls": {"report_url": "/asset/report.json"}},
+        ):
+            _run_pipeline_task(
+                task_id,
+                self.user_id,
+                1,
+                False,
+                "v0327-db-query",
+                normalize_task_options({"normalize_live_photos": True}),
+            )
+
+        task = task_store.get_task(task_id, user_id=self.user_id)
+        self.assertIsNotNone(task)
+        assert task is not None
+        self.assertEqual(task["status"], "completed")
+        self.assertEqual(task["result_summary"]["primary_person_id"], "person_001")
+        self.assertIsNone(task["result"])
+
+        outbox = task_store.get_outbox_record(
+            build_terminal_dedupe_key(task_id, "task.completed")
+        )
+        self.assertIsNotNone(outbox)
+        assert outbox is not None
+        self.assertEqual(outbox["payload_json"]["task_version"], "v0327-db-query")
+        self.assertEqual(outbox["payload_json"]["event_type"], "task.completed")
+
+    def test_internal_worker_terminal_callback_is_idempotent_for_v0327_db_query(self) -> None:
+        task_store.outbox_store.enabled = True
+        create_response = self.client.post("/api/tasks", json={"version": "v0327-db-query"})
+        self.assertEqual(create_response.status_code, 200)
+        task_id = create_response.json()["task_id"]
+        self.task_ids.append(task_id)
+
+        payload = {
+            "status": "completed",
+            "stage": "completed",
+            "result": self._synthetic_result(task_id),
+            "result_summary": {"primary_person_id": "person_001"},
+            "asset_manifest": {"artifact_count": 0, "files": [], "named_urls": {}},
+            "version": "v0327-db-query",
+        }
+
+        with patch("backend.app.WORKER_SHARED_TOKEN", "worker-secret"):
+            first = self.client.post(
+                f"/internal/tasks/{task_id}/terminal-update",
+                json=payload,
+                headers={"Authorization": "Bearer worker-secret"},
+            )
+            second = self.client.post(
+                f"/internal/tasks/{task_id}/terminal-update",
+                json=payload,
+                headers={"Authorization": "Bearer worker-secret"},
+            )
+
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(second.status_code, 200)
+        with SessionLocal() as session:
+            rows = session.execute(
+                select(TaskEventOutboxRecord).where(TaskEventOutboxRecord.task_id == task_id)
+            ).scalars().all()
+        self.assertEqual(len(rows), 1)
 
     def test_completed_v0323_task_exposes_analysis_bundle_download(self) -> None:
         create_response = self.client.post("/api/tasks", json={"version": "v0323"})

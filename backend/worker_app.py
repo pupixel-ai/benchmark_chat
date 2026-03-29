@@ -14,6 +14,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from backend.artifact_store import build_task_asset_manifest
+from backend.control_plane_client import ControlPlaneClient
 from backend.progress_utils import append_terminal_error, append_terminal_info, merge_stage_progress
 from backend.upload_utils import (
     UPLOAD_FAILURES_FILENAME,
@@ -40,6 +41,7 @@ from utils import load_json, save_json
 app = FastAPI(title="Memory Engineering Worker", version="1.0.0")
 logger = logging.getLogger(__name__)
 asset_store = TaskAssetStore()
+control_plane_client = ControlPlaneClient()
 worker_root = Path(WORKER_TASK_ROOT)
 STATUS_FILENAME = "worker_status.json"
 UPLOAD_BATCH_MAX_FILES = 50
@@ -94,6 +96,35 @@ def _update_status(task_id: str, **updates) -> dict:
     return _write_status(task_id, current)
 
 
+def _build_task_asset_manifest_safely(task_id: str, task_dir: Path) -> dict | None:
+    try:
+        return build_task_asset_manifest(task_id, task_dir, asset_store)
+    except Exception:
+        logger.exception("Failed to build worker asset manifest for task_id=%s", task_id)
+        return None
+
+
+def _notify_control_plane_terminal_update(task_id: str, payload: dict) -> None:
+    if not control_plane_client.enabled:
+        return
+    callback_payload = {
+        "status": payload.get("status"),
+        "stage": payload.get("stage"),
+        "progress": payload.get("progress"),
+        "result": payload.get("result"),
+        "result_summary": payload.get("result_summary"),
+        "asset_manifest": payload.get("asset_manifest"),
+        "error": payload.get("error"),
+        "worker_status": payload.get("worker_status"),
+        "version": payload.get("version"),
+        "options": payload.get("options"),
+    }
+    try:
+        control_plane_client.publish_terminal_update(task_id, callback_payload)
+    except Exception:
+        logger.exception("Failed to notify control-plane terminal update for task_id=%s", task_id)
+
+
 def _run_pipeline_task(task_id: str, max_photos: int, use_cache: bool, task_version: str, task_options: dict | None) -> None:
     task_dir = _task_dir(task_id)
 
@@ -127,7 +158,7 @@ def _run_pipeline_task(task_id: str, max_photos: int, use_cache: bool, task_vers
             use_cache=use_cache,
             progress_callback=progress_callback,
         )
-        _update_status(
+        terminal_payload = _update_status(
             task_id,
             status="completed",
             stage="completed",
@@ -143,9 +174,10 @@ def _run_pipeline_task(task_id: str, max_photos: int, use_cache: bool, task_vers
             worker_status="running",
             version=task_version,
         )
+        _notify_control_plane_terminal_update(task_id, terminal_payload)
     except Exception as exc:
         logger.exception("Worker pipeline task failed for task_id=%s version=%s", task_id, task_version)
-        _update_status(
+        terminal_payload = _update_status(
             task_id,
             status="failed",
             stage="failed",
@@ -155,8 +187,10 @@ def _run_pipeline_task(task_id: str, max_photos: int, use_cache: bool, task_vers
                 error=str(exc),
             ),
             error=str(exc),
+            asset_manifest=_build_task_asset_manifest_safely(task_id, task_dir),
             worker_status="running",
         )
+        _notify_control_plane_terminal_update(task_id, terminal_payload)
 
 
 @app.get("/internal/health")

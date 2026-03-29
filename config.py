@@ -131,12 +131,12 @@ WORKER_TASK_ROOT = os.getenv("WORKER_TASK_ROOT", "/mnt/secure-tasks").strip() or
 RESULT_TTL_HOURS = int(os.getenv("RESULT_TTL_HOURS", "24"))
 WORKER_POLL_SECONDS = int(os.getenv("WORKER_POLL_SECONDS", "3"))
 WORKER_BOOT_TIMEOUT_SECONDS = int(os.getenv("WORKER_BOOT_TIMEOUT_SECONDS", "300"))
-KAFKA_ENABLED = os.getenv("KAFKA_ENABLED", "false").lower() == "true"
 KAFKA_BOOTSTRAP_SERVERS = tuple(
     item
     for item in (part.strip() for part in os.getenv("KAFKA_BOOTSTRAP_SERVERS", "").split(","))
     if item
 )
+KAFKA_ENABLED = os.getenv("KAFKA_ENABLED", "true").lower() == "true" and bool(KAFKA_BOOTSTRAP_SERVERS)
 KAFKA_TERMINAL_TOPIC = (
     os.getenv("KAFKA_TERMINAL_TOPIC", "memory.task.terminal.v1").strip()
     or "memory.task.terminal.v1"
@@ -147,13 +147,13 @@ KAFKA_CLIENT_ID = (
 )
 KAFKA_SECURITY_PROTOCOL = os.getenv("KAFKA_SECURITY_PROTOCOL", "").strip()
 KAFKA_SASL_MECHANISM = os.getenv("KAFKA_SASL_MECHANISM", "").strip()
-KAFKA_SASL_USERNAME = os.getenv("KAFKA_SASL_USERNAME", "").strip()
-KAFKA_SASL_PASSWORD = os.getenv("KAFKA_SASL_PASSWORD", "").strip()
-KAFKA_MESSAGE_MAX_BYTES = int(os.getenv("KAFKA_MESSAGE_MAX_BYTES", "1048576"))
-KAFKA_PUBLISHER_BATCH_SIZE = int(os.getenv("KAFKA_PUBLISHER_BATCH_SIZE", "50"))
+KAFKA_SASL_USERNAME = _first_nonempty_env("KAFKA_SASL_USERNAME", "KAFKA_USERNAME")
+KAFKA_SASL_PASSWORD = _first_nonempty_env("KAFKA_SASL_PASSWORD", "KAFKA_PASSWORD")
+KAFKA_MESSAGE_MAX_BYTES = int(os.getenv("KAFKA_MESSAGE_MAX_BYTES", str(800 * 1024)))
+KAFKA_PUBLISHER_BATCH_SIZE = int(os.getenv("KAFKA_PUBLISHER_BATCH_SIZE", "20"))
 KAFKA_PUBLISHER_POLL_SECONDS = float(os.getenv("KAFKA_PUBLISHER_POLL_SECONDS", "2"))
-KAFKA_PUBLISHER_LOCK_SECONDS = int(os.getenv("KAFKA_PUBLISHER_LOCK_SECONDS", "120"))
-KAFKA_PUBLISHER_RETRY_SECONDS = int(os.getenv("KAFKA_PUBLISHER_RETRY_SECONDS", "30"))
+KAFKA_PUBLISHER_LOCK_SECONDS = int(os.getenv("KAFKA_PUBLISHER_LOCK_SECONDS", "60"))
+KAFKA_PUBLISHER_RETRY_SECONDS = int(os.getenv("KAFKA_PUBLISHER_RETRY_SECONDS", "10"))
 
 
 def normalize_task_version(value: str | None, *, fallback: str = DEFAULT_TASK_VERSION) -> str:

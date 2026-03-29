@@ -79,6 +79,31 @@ class ArtifactRecord(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
 
 
+class TaskEventOutboxRecord(Base):
+    __tablename__ = "task_event_outbox"
+    __table_args__ = (
+        UniqueConstraint("event_id", name="uq_task_event_outbox_event_id"),
+        UniqueConstraint("dedupe_key", name="uq_task_event_outbox_dedupe_key"),
+    )
+
+    outbox_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    event_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    topic: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    event_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    task_id: Mapped[str] = mapped_column(ForeignKey("tasks.task_id"), nullable=False, index=True)
+    event_key: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    dedupe_key: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    payload_json: Mapped[dict] = mapped_column("payload", JSON, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    available_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
+    locked_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, index=True)
+    locked_by: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    published_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, index=True)
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
+
+
 class FaceReviewRecord(Base):
     __tablename__ = "face_reviews"
     __table_args__ = (UniqueConstraint("user_id", "task_id", "face_id", name="uq_face_review_user_task_face"),)

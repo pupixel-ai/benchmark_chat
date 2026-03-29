@@ -1,12 +1,39 @@
-# v0327-db Kafka 下游自动推送对接文档
+# v0327-db-query Kafka 下游自动推送对接文档
 
 ## 1. 文档目标
 
-本文档用于说明 `v0327-db` 生产环境的 Kafka 终态推送集成方式，供下游系统进行消费、落库、告警和二次处理。
+本文档用于说明 `v0327-db-query` 在生产环境中的 Kafka 终态推送集成方式，供下游系统、自动化脚本、AI Agent 进行消费、落库、告警和二次处理。
 
 本文档覆盖的是“任务终态自动推送”链路，不包含 `memory/query` 在线召回接口。在线召回接口请使用另一份文档：
 
 - [V0327_DB_QUERY_API_CN.md](/Users/ziyan/Downloads/memory_engineering_v1.0.1_20260310_v0327_db_query/docs/V0327_DB_QUERY_API_CN.md)
+
+## 1.1 给 AI / Agent 的快速摘要
+
+如果你是 AI Agent、自动化脚本或辅助开发工具，先按下面这组规则消费：
+
+```yaml
+topic: prod.memory.task.terminal.v1
+contract: terminal-event-only
+event_types:
+  - task.completed
+  - task.failed
+filter:
+  task_version: v0327-db-query
+dedupe_key: event_id
+shared_topic_note: topic 内可能包含其他 task_version，消费时必须先过滤 task_version
+required_fields:
+  - event_id
+  - event_type
+  - task_id
+  - task_version
+  - payload.task
+  - payload.summary
+nullable_fields:
+  - payload.memory_core
+  - payload.steps
+  - payload.failure
+```
 
 ## 2. 适用范围
 
@@ -15,11 +42,13 @@
 - 当前 control-plane backend 地址：`http://10.60.1.243:8000`
 - 当前 frontend 地址：`http://10.60.1.243:3000`
 - 当前 Kafka topic：`prod.memory.task.terminal.v1`
+- 当前推荐消费过滤条件：`task_version == "v0327-db-query"`
 
 说明：
 
 - 对 Kafka 下游消费者来说，`app-v0317` 的服务地址不是“消费接入必填项”。
 - 但建议在对接文档中保留该地址，作为联调、回查、问题定位时的生产者来源信息。
+- 当前 topic 是共享 topic，不只承载 `v0327-db-query`，也可能承载其他任务版本的 terminal event。
 
 ## 3. 链路概览
 
@@ -35,6 +64,7 @@
 
 - Kafka 是对下游公开的集成面
 - control-plane HTTP 地址是内部排障面
+- `task_version` 是下游识别业务版本的正式过滤字段
 
 ## 4. 是否需要写入 `app-v0317` 服务地址
 
@@ -76,6 +106,12 @@
 prod.memory.task.terminal.v1
 ```
 
+推荐下游把 consumer 侧过滤写成：
+
+```text
+task_version == "v0327-db-query"
+```
+
 ## 6. 消息模型
 
 ### 6.1 事件类型
@@ -84,6 +120,11 @@ prod.memory.task.terminal.v1
 
 - `task.completed`
 - `task.failed`
+
+注意：
+
+- 这两类事件都可能出现在共享 topic 中的其他 task version 上
+- 如果你的业务只处理 `v0327-db-query`，必须同时判断 `task_version`
 
 ### 6.2 顶层 envelope
 
@@ -277,4 +318,6 @@ Memory Engineering 在任务终态时会向 Kafka topic `prod.memory.task.termin
 
 当前生产者服务为 `app-v0317`，backend 地址 `http://10.60.1.243:8000`。
 该地址用于联调与排障，不是 Kafka 消费接入的必填参数。
+
+如需只消费 `v0327-db-query`，请在 consumer 侧按 `task_version == "v0327-db-query"` 过滤。
 ```

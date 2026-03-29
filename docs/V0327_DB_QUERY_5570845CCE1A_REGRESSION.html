@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>v0327-db-query Regression Report - 5570845cce1a</title>
+  <style>
+    :root {
+      --bg: #f4efe7;
+      --paper: #fffdf8;
+      --ink: #1f2933;
+      --muted: #66788a;
+      --line: #dbcdb8;
+      --accent: #a64628;
+      --accent-soft: rgba(166, 70, 40, 0.10);
+      --olive: #5f6b2f;
+      --olive-soft: rgba(95, 107, 47, 0.12);
+      --blue: #27566b;
+      --blue-soft: rgba(39, 86, 107, 0.12);
+      --amber: #b76a12;
+      --amber-soft: rgba(183, 106, 18, 0.12);
+      --shadow: 0 18px 50px rgba(54, 41, 24, 0.10);
+      --radius: 22px;
+      --mono: "SFMono-Regular", "Menlo", "Monaco", "Consolas", monospace;
+      --sans: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", "Georgia", serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(166, 70, 40, 0.08), transparent 36%),
+        radial-gradient(circle at top right, rgba(39, 86, 107, 0.09), transparent 28%),
+        linear-gradient(180deg, #f8f3eb 0%, var(--bg) 100%);
+      font-family: var(--sans);
+      line-height: 1.6;
+    }
+
+    .shell {
+      width: min(1200px, calc(100vw - 40px));
+      margin: 32px auto 56px;
+    }
+
+    .hero {
+      background: linear-gradient(135deg, rgba(255, 253, 248, 0.96), rgba(248, 240, 228, 0.98));
+      border: 1px solid rgba(122, 92, 50, 0.14);
+      border-radius: 28px;
+      box-shadow: var(--shadow);
+      padding: 34px 36px 28px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero::after {
+      content: "";
+      position: absolute;
+      inset: auto -80px -90px auto;
+      width: 260px;
+      height: 260px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(166, 70, 40, 0.13), transparent 68%);
+      pointer-events: none;
+    }
+
+    .eyebrow {
+      margin: 0 0 10px;
+      font-size: 12px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--accent);
+      font-family: var(--mono);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(30px, 4vw, 52px);
+      line-height: 1.08;
+      letter-spacing: -0.03em;
+    }
+
+    .subtitle {
+      margin: 14px 0 0;
+      max-width: 860px;
+      color: #3f4d59;
+      font-size: 18px;
+    }
+
+    .meta-grid,
+    .summary-grid,
+    .cards {
+      display: grid;
+      gap: 18px;
+    }
+
+    .meta-grid {
+      margin-top: 28px;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    }
+
+    .meta-card,
+    .summary-card,
+    .qa-card {
+      background: var(--paper);
+      border: 1px solid rgba(114, 94, 66, 0.14);
+      border-radius: var(--radius);
+      box-shadow: 0 10px 28px rgba(66, 51, 34, 0.06);
+    }
+
+    .meta-card {
+      padding: 18px 20px;
+    }
+
+    .meta-label {
+      margin: 0 0 8px;
+      color: var(--muted);
+      font-size: 12px;
+      letter-spacing: 0.10em;
+      text-transform: uppercase;
+      font-family: var(--mono);
+    }
+
+    .meta-value {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 700;
+      word-break: break-word;
+    }
+
+    .meta-value code {
+      font-family: var(--mono);
+      font-size: 0.92em;
+    }
+
+    .section {
+      margin-top: 28px;
+    }
+
+    .section-title {
+      margin: 0 0 14px;
+      font-size: 22px;
+      letter-spacing: -0.02em;
+    }
+
+    .summary-grid {
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    }
+
+    .summary-card {
+      padding: 20px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(255,249,241,1));
+    }
+
+    .summary-number {
+      margin: 0;
+      font-size: 38px;
+      line-height: 1;
+      font-weight: 800;
+      letter-spacing: -0.05em;
+    }
+
+    .summary-label {
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .cards {
+      grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+    }
+
+    .qa-card {
+      padding: 22px 22px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .qa-top {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 5px 10px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      border: 1px solid transparent;
+      font-family: var(--mono);
+    }
+
+    .pill.pass {
+      color: var(--olive);
+      background: var(--olive-soft);
+      border-color: rgba(95, 107, 47, 0.18);
+    }
+
+    .pill.partial {
+      color: var(--amber);
+      background: var(--amber-soft);
+      border-color: rgba(183, 106, 18, 0.18);
+    }
+
+    .pill.diff {
+      color: var(--blue);
+      background: var(--blue-soft);
+      border-color: rgba(39, 86, 107, 0.18);
+    }
+
+    .question {
+      margin: 0;
+      font-size: 22px;
+      line-height: 1.25;
+      letter-spacing: -0.02em;
+    }
+
+    .answer {
+      margin: 0;
+      color: #30404d;
+      font-size: 16px;
+    }
+
+    .kv {
+      display: grid;
+      gap: 8px;
+      margin: 0;
+    }
+
+    .kv div {
+      display: flex;
+      gap: 8px;
+      align-items: baseline;
+      flex-wrap: wrap;
+    }
+
+    .kv dt {
+      color: var(--muted);
+      font-size: 12px;
+      letter-spacing: 0.10em;
+      text-transform: uppercase;
+      font-family: var(--mono);
+    }
+
+    .kv dd {
+      margin: 0;
+      font-size: 15px;
+      color: #24313b;
+    }
+
+    details {
+      border-top: 1px dashed var(--line);
+      padding-top: 12px;
+    }
+
+    details summary {
+      cursor: pointer;
+      color: var(--accent);
+      font-weight: 700;
+      list-style: none;
+    }
+
+    details summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .chip {
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 12px;
+      background: rgba(39, 86, 107, 0.08);
+      color: var(--blue);
+      border: 1px solid rgba(39, 86, 107, 0.10);
+    }
+
+    .footnote {
+      margin-top: 26px;
+      padding: 18px 20px;
+      border-radius: 18px;
+      background: rgba(255, 253, 248, 0.75);
+      border: 1px solid rgba(114, 94, 66, 0.14);
+      color: #42515d;
+    }
+
+    code {
+      font-family: var(--mono);
+      font-size: 0.92em;
+    }
+
+    @media (max-width: 720px) {
+      .shell {
+        width: min(100vw - 20px, 100%);
+        margin: 16px auto 28px;
+      }
+
+      .hero {
+        padding: 24px 18px 20px;
+      }
+
+      .qa-card {
+        padding: 18px 16px 16px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <p class="eyebrow">Memory Engineering / v0327-db-query / Regression</p>
+      <h1>5570845cce1a Query 回归结果</h1>
+      <p class="subtitle">
+        面向下游联调的一页式回归报告。此页基于 <code>app-v0317</code> 的真实接口调用结果整理，默认版本为
+        <code>v0327-db-query</code>，重点验证 Query API 在真实任务上的问答、事件召回与证据返回表现。
+      </p>
+
+      <div class="meta-grid">
+        <article class="meta-card">
+          <p class="meta-label">Backend Base URL</p>
+          <p class="meta-value"><code>http://10.60.1.243:8000</code></p>
+        </article>
+        <article class="meta-card">
+          <p class="meta-label">Task ID</p>
+          <p class="meta-value"><code>5570845cce1a47819227b3d89fcec9cb</code></p>
+        </article>
+        <article class="meta-card">
+          <p class="meta-label">Default Version</p>
+          <p class="meta-value"><code>v0327-db-query</code></p>
+        </article>
+        <article class="meta-card">
+          <p class="meta-label">Default Test Account</p>
+          <p class="meta-value"><code>vigar_heavy_0319</code></p>
+        </article>
+        <article class="meta-card">
+          <p class="meta-label">Credentials</p>
+          <p class="meta-value">由服务 owner 单独分发，不写入联调文档</p>
+        </article>
+        <article class="meta-card">
+          <p class="meta-label">Response Principle</p>
+          <p class="meta-value">保留原始输出，并增量追加 <code>photo_url</code> 等图片字段</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2 class="section-title">总体结论</h2>
+      <div class="summary-grid">
+        <article class="summary-card">
+          <p class="summary-number">10</p>
+          <p class="summary-label">真实问题总数</p>
+        </article>
+        <article class="summary-card">
+          <p class="summary-number">7</p>
+          <p class="summary-label">通过</p>
+        </article>
+        <article class="summary-card">
+          <p class="summary-number">3</p>
+          <p class="summary-label">部分符合</p>
+        </article>
+        <article class="summary-card">
+          <p class="summary-number">0</p>
+          <p class="summary-label">明确失败</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2 class="section-title">10 个问题与答案</h2>
+      <div class="cards">
+        <article class="qa-card">
+          <div class="qa-top">
+            <span class="pill diff">简单 / Q1</span>
+            <span class="pill pass">通过</span>
+          </div>
+          <h3 class="question">主角的伴侣是谁？</h3>
+          <p class="answer">根据多张合影和亲密互动，主角的伴侣为 <code>Person_012</code>，同时也存在与 <code>Person_034</code> 的浪漫关系记录。</p>
+          <dl class="kv">
+            <div><dt>Route</dt><dd><code>relationship-first</code></dd></div>
+            <div><dt>Judgement</dt><dd><code>supported</code></dd></div>
+            <div><dt>Matched Events</dt><dd>9</dd></div>
+            <div><dt>Key Relationships</dt><dd><code>REL_Person_012</code>, <code>REL_Person_034</code></dd></div>
+          </dl>
+          <details>
+            <summary>关键命中事件</summary>
+            <div class="chips">
+              <span class="chip">游览建德严州古城</span>
+              <span class="chip">体验Tufting手工制作</span>
+              <span class="chip">参与陶艺DIY体验</span>
+              <span class="chip">餐厅约会自拍</span>
+              <span class="chip">咖啡厅休闲自拍</span>
+            </div>
+          </details>
+        </article>
+
+        <article class="qa-card">
+          <div class="qa-top">
+            <span class="pill diff">简单 / Q2</span>
+            <span class="pill pass">通过</span>
+          </div>
+          <h3 class="question">主角养什么宠物？</h3>
+          <p class="answer"><code>structured_profile.long_term_facts.relationships.pets</code> 的结果是 <strong>猫</strong>。</p>
+          <dl class="kv">
+            <div><dt>Route</dt><dd><code>fact-first</code></dd></div>
+            <div><dt>Judgement</dt><dd><code>supported</code></dd></div>
+            <div><dt>Matched Events</dt><dd>1</dd></div>
+            <div><dt>Fact Key</dt><dd><code>structured_profile.long_term_facts.relationships.pets</code></dd></div>
+          </dl>
+          <details>
+            <summary>关键命中事件</summary>
+            <div class="chips">
+              <span class="chip">记录猫用化毛膏信息</span>
+            </div>
+          </details>
+        </article>
+
+        <article class="qa-card">
+          <div class="qa-top">
+            <span class="pill diff">中等 / Q3</span>
+            <span class="pill partial">部分符合</span>
+          </div>
+          <h3 class="question">主角长期兴趣有哪些？</h3>
+          <p class="answer">当前 summary 给出的答案是“探索未知领域、持续学习和个人成长”。系统召回到了相关事件，但还没有稳定收敛成更贴近人工预期的长期兴趣清单。</p>
+          <dl class="kv">
+            <div><dt>Route</dt><dd><code>event-first</code></dd></div>
+            <div><dt>Judgement</dt><dd><code>supported</code></dd></div>
+            <div><dt>Matched Events</dt><dd>50</dd></div>
+            <div><dt>Note</dt><dd>该题仍建议后续优先接入 <code>profile_facts</code> 直答。</dd></div>
+          </dl>
+          <details>
+            <summary>关键命中事件</summary>
+            <div class="chips">
+              <span class="chip">夜间高强度运动自拍</span>
+              <span class="chip">展示定制打火机</span>
+              <span class="chip">线下美妆店购物比价</span>
+              <span class="chip">餐厅约会自拍</span>
+              <span class="chip">观看大型演唱会</span>
+            </div>
+          </details>
+        </article>
+
+        <article class="qa-card">
+          <div class="qa-top">
+            <span class="pill diff">中等 / Q4</span>
+            <span class="pill pass">通过</span>
+          </div>
+          <h3 class="question">主角的地点锚点在哪里？</h3>
+          <p class="answer">主角的地点锚点位于 <strong>上海宝山区</strong>。</p>
+          <dl class="kv">
+            <div><dt>Route</dt><dd><code>fact-first</code></dd></div>
+            <div><dt>Judgement</dt><dd><code>supported</code></dd></div>
+            <div><dt>Matched Events</dt><dd>2</dd></div>
+            <div><dt>Fact Key</dt><dd><code>structured_profile.long_term_facts.geography.location_anchors</code></dd></div>
+          </dl>
+          <details>
+            <summary>关键命中事件</summary>
+            <div class="chips">
+              <span class="chip">记录消费者试验产品信息</span>
+              <span class="chip">整理球衣与球鞋</span>
+            </div>
+          </details>
+        </article>
+
+        <article class="qa-card">
+          <div class="qa-top">
+            <span class="pill diff">中等 / Q5</span>
+            <span class="pill pass">通过</span>
+          </div>
+          <h3 class="question">主角的亲密圈大小是多少？</h3>
+          <p class="answer"><code>structured_profile.long_term_facts.relationships.close_circle_size</code> 的结果是 <strong>3</strong>。</p>
+          <dl class="kv">
+            <div><dt>Route</dt><dd><code>fact-first</code></dd></div>
+            <div><dt>Judgement</dt><dd><code>supported</code></dd></div>
+            <div><dt>Matched Events</dt><dd>22</dd></div>
+            <div><dt>Fact Key</dt><dd><code>structured_profile.long_term_facts.relationships.close_circle_size</code></dd></div>
+          </dl>
+          <details>
+            <summary>关键命中事件</summary>
+            <div class="chips">
+              <span class="chip">万圣节游乐园夜场打卡</span>
+              <span class="chip">快餐店休息观察</span>
+              <span class="chip">观看大型演唱会</span>
+              <span class="chip">艺术展厅休息与观展</span>
+              <span class="chip">参观Smile Park潮流艺术展</span>
+            </div>
+          </details>
+        </article>
+
+        <article class="qa-card">
+          <div class="qa-top">
+            <span class="pill diff">中等 / Q6</span>
+            <span class="pill pass">通过</span>
+          </div>
+          <h3 class="question">2026年1月18日主角做了哪些事情？</h3>
+          <p class="answer">2026 年 1 月 18 日，主角与同伴在千岛湖休闲观景，随后室内随性自拍；傍晚游览建德严州古城并拍照留念，夜晚在湖景阳台放空，同时也刷抖音关注社会话题。</p>
+          <dl class="kv">
+            <div><dt>Route</dt><dd><code>event-first</code></dd></div>
+            <div><dt>Judgement</dt><dd><code>supported</code></dd></div>
+            <div><dt>Matched Events</dt><dd>5</dd></div>
+            <div><dt>Time Handling</dt><dd>已正确标准化到单日时间窗。</dd></div>
+          </dl>
+          <details>
+            <summary>关键命中事件</summary>
+            <div class="chips">
+              <span class="chip">千岛湖休闲观景</span>
+              <span class="chip">室内随性自拍</span>
+              <span class="chip">湖景阳台放空</span>
+              <span class="chip">游览建德严州古城</span>
+              <span class="chip">浏览抖音短视频</span>
+            </div>
+          </details>
+        </article>
+
+        <article class="qa-card">
+          <div class="qa-top">
+            <span class="pill diff">困难 / Q7</span>
+            <span class="pill partial">部分符合</span>
+          </div>
+          <h3 class="question">主角和 Person_012 一起经历过哪些事件？请按事件说。</h3>
+          <p class="answer">当前 summary 已给出核心共同事件，包括餐厅约会自拍、准备发布情人节动态，以及 EVT_0021、EVT_0081、EVT_0098、EVT_0033、EVT_0043 等；但由于系统保留全量相关事件，当前 top-event 排序仍偏宽。</p>
+          <dl class="kv">
+            <div><dt>Route</dt><dd><code>composite</code></dd></div>
+            <div><dt>Judgement</dt><dd><code>supported</code></dd></div>
+            <div><dt>Matched Events</dt><dd>139</dd></div>
+            <div><dt>Note</dt><dd>后续建议继续收紧 same-person 过滤后的 top-event 选择。</dd></div>
+          </dl>
+          <details>
+            <summary>当前摘要显式点到的事件</summary>
+            <div class="chips">
+              <span class="chip">餐厅约会自拍</span>
+              <span class="chip">准备发布情人节动态</span>
+              <span class="chip">EVT_0021</span>
+              <span class="chip">EVT_0081</span>
+              <span class="chip">EVT_0098</span>
+              <span class="chip">EVT_0033</span>
+              <span class="chip">EVT_0043</span>
+            </div>
+          </details>
+        </article>
+
+        <article class="qa-card">
+          <div class="qa-top">
+            <span class="pill diff">困难 / Q8</span>
+            <span class="pill partial">部分符合</span>
+          </div>
+          <h3 class="question">主角既看过演唱会也看过展览吗？分别是什么？</h3>
+          <p class="answer">双子句拆分已经成功，但当前 composer 还没有稳定把“演唱会”和“展览”分别收束到最优答案，导致 summary 里混入了无关高分事件。</p>
+          <dl class="kv">
+            <div><dt>Route</dt><dd><code>composite</code></dd></div>
+            <div><dt>Judgement</dt><dd><code>supported</code></dd></div>
+            <div><dt>Matched Events</dt><dd>140</dd></div>
+            <div><dt>Note</dt><dd>后续建议把 <code>and_then_enumerate</code> 的 top-event 选择改成按子句独立收敛。</dd></div>
+          </dl>
+          <details>
+            <summary>当前系统命中的代表事件</summary>
+            <div class="chips">
+              <span class="chip">艺术展厅休息与观展</span>
+              <span class="chip">游玩《地铁跑酷》</span>
+              <span class="chip">使用手机导航出行</span>
+              <span class="chip">万圣节游乐园夜场打卡</span>
+              <span class="chip">拍摄通行二维码</span>
+            </div>
+          </details>
+        </article>
+
+        <article class="qa-card">
+          <div class="qa-top">
+            <span class="pill diff">非常困难 / Q9</span>
+            <span class="pill pass">通过</span>
+          </div>
+          <h3 class="question">这份记忆里是否存在不止一条 romantic 线索？分别涉及谁，证据事件有哪些？</h3>
+          <p class="answer">是的，存在不止一条 romantic 线索。主要涉及 <code>Person_012</code>，证据事件包括 <code>EVT_0021</code>、<code>EVT_0033</code>、<code>EVT_0043</code>；另一条涉及 <code>Person_034</code>，证据事件包括 <code>EVT_0099</code>。</p>
+          <dl class="kv">
+            <div><dt>Route</dt><dd><code>composite</code></dd></div>
+            <div><dt>Judgement</dt><dd><code>supported</code></dd></div>
+            <div><dt>Matched Events</dt><dd>141</dd></div>
+            <div><dt>Key Relationships</dt><dd><code>REL_Person_012</code>, <code>REL_Person_034</code></dd></div>
+          </dl>
+          <details>
+            <summary>关键命中事件</summary>
+            <div class="chips">
+              <span class="chip">游览建德严州古城</span>
+              <span class="chip">体验Tufting手工制作</span>
+              <span class="chip">参与陶艺DIY体验</span>
+              <span class="chip">餐厅约会自拍</span>
+              <span class="chip">咖啡厅休闲自拍</span>
+            </div>
+          </details>
+        </article>
+
+        <article class="qa-card">
+          <div class="qa-top">
+            <span class="pill diff">非常困难 / Q10</span>
+            <span class="pill pass">通过</span>
+          </div>
+          <h3 class="question">如果只看可审计证据，能不能判断主角已经工作？如果不能，请说明为什么。</h3>
+          <p class="answer">根据可审计证据，主角的身份角色为“学生”，职业阶段为“学生阶段”，职业字段为空，收入模式为“家庭支持/生活费”。相关事件主要是休闲旅游、艺术展览与非工作场景，因此不能判断主角已经工作；相反，证据更倾向其仍处于学生状态。</p>
+          <dl class="kv">
+            <div><dt>Route</dt><dd><code>hybrid-judgement</code></dd></div>
+            <div><dt>Judgement</dt><dd><code>contradicted</code></dd></div>
+            <div><dt>Matched Events</dt><dd>144</dd></div>
+            <div><dt>Key Facts</dt><dd><code>identity.role</code>, <code>career_phase</code>, <code>income_model</code>, <code>career</code></dd></div>
+          </dl>
+          <details>
+            <summary>关键命中事件</summary>
+            <div class="chips">
+              <span class="chip">万圣节游乐园夜场打卡</span>
+              <span class="chip">快餐店休息观察</span>
+              <span class="chip">艺术展厅休息与观展</span>
+              <span class="chip">早晨通勤防寒记录</span>
+              <span class="chip">千岛湖休闲观景</span>
+            </div>
+          </details>
+        </article>
+      </div>
+    </section>
+
+    <section class="footnote">
+      <strong>下游联调建议：</strong>
+      直接以 <code>matched_events</code> 作为权威召回结果；图片渲染优先使用
+      <code>matched_events[].cover_photo_url</code>、<code>matched_events[].photos[]</code> 或
+      <code>supporting_photos[].photo_url</code>，不要再自行根据 <code>photo_id</code> 拼接图片地址。
+    </section>
+  </main>
+</body>
+</html>

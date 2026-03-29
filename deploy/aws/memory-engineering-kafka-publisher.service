@@ -1,0 +1,18 @@
+[Unit]
+Description=Memory Engineering Kafka Terminal Publisher
+After=network.target memory-engineering-backend.service
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/opt/memory_engineering
+Environment=PYTHONUNBUFFERED=1
+EnvironmentFile=/opt/memory_engineering/.env
+ExecStart=/opt/memory_engineering/.venv/bin/python -m backend.kafka_terminal_publisher
+Restart=always
+RestartSec=5
+TimeoutStopSec=60
+
+[Install]
+WantedBy=multi-user.target

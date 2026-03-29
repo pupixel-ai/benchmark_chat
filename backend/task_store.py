@@ -3,6 +3,7 @@ SQL-backed task state store.
 """
 from __future__ import annotations
 
+from typing import Any
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -11,8 +12,16 @@ from sqlalchemy import delete, desc, or_, select
 from sqlalchemy.orm import load_only
 
 from backend.db import Base, SessionLocal, engine, ensure_schema
-from backend.models import TaskRecord
+from backend.models import TaskEventOutboxRecord, TaskRecord
+from backend.task_event_outbox import TaskEventOutboxStore
 from config import DEFAULT_NORMALIZE_LIVE_PHOTOS, TASKS_DIR, DEFAULT_TASK_VERSION
+
+
+_UNSET = object()
+
+
+def _is_unset(value: Any) -> bool:
+    return value is _UNSET or value.__class__ is object
 
 
 def normalize_task_options(options: dict | None) -> dict:
@@ -52,6 +61,7 @@ class TaskStore:
         self.tasks_root.mkdir(parents=True, exist_ok=True)
         ensure_schema()
         Base.metadata.create_all(bind=engine)
+        self.outbox_store = TaskEventOutboxStore()
 
     def task_dir(self, task_id: str) -> Path:
         return self.tasks_root / task_id
@@ -243,6 +253,62 @@ class TaskStore:
     def set_result_summary(self, task_id: str, result_summary: dict | None, asset_manifest: dict | None) -> Dict:
         return self.update_task(task_id, result_summary=result_summary, asset_manifest=asset_manifest)
 
+    def finalize_task(
+        self,
+        task_id: str,
+        *,
+        status: str,
+        stage: str,
+        progress: dict | None,
+        result: Any = _UNSET,
+        error: Any = _UNSET,
+        result_summary: Any = _UNSET,
+        asset_manifest: Any = _UNSET,
+        worker_status: Any = _UNSET,
+        last_worker_sync_at: Any = _UNSET,
+        version: Any = _UNSET,
+        options: Any = _UNSET,
+        outbox_event: dict | None = None,
+    ) -> Dict:
+        with SessionLocal() as session:
+            record = session.get(TaskRecord, task_id)
+            if record is None:
+                raise KeyError(f"任务不存在: {task_id}")
+
+            record.status = status
+            record.stage = stage
+            record.progress = progress
+            if not _is_unset(result):
+                record.result = result
+            if not _is_unset(error):
+                record.error = error
+            if not _is_unset(result_summary):
+                record.result_summary = result_summary
+            if not _is_unset(asset_manifest):
+                record.asset_manifest = asset_manifest
+            if not _is_unset(worker_status):
+                record.worker_status = worker_status
+            if not _is_unset(last_worker_sync_at):
+                record.last_worker_sync_at = last_worker_sync_at
+            if not _is_unset(version):
+                record.version = version
+            if not _is_unset(options):
+                record.options = normalize_task_options(options if isinstance(options, dict) else None)
+            record.updated_at = datetime.now()
+
+            if outbox_event is not None:
+                self.outbox_store.enqueue_terminal_event(
+                    session,
+                    task_id=task_id,
+                    event_type=str(outbox_event.get("event_type") or ""),
+                    payload_json=outbox_event,
+                )
+
+            session.add(record)
+            session.commit()
+            session.refresh(record)
+            return self._serialize(record)
+
     def mark_delete_requested(self, task_id: str, user_id: str) -> Optional[Dict]:
         task = self.get_task(task_id, user_id=user_id)
         if task is None:
@@ -294,6 +360,32 @@ class TaskStore:
             )
             records = session.execute(stmt).scalars().all()
             return [self._serialize(record) for record in records]
+
+    def get_outbox_record(self, dedupe_key: str) -> Optional[Dict[str, Any]]:
+        with SessionLocal() as session:
+            record = session.execute(
+                select(TaskEventOutboxRecord).where(TaskEventOutboxRecord.dedupe_key == dedupe_key)
+            ).scalar_one_or_none()
+            if record is None:
+                return None
+            return {
+                "outbox_id": record.outbox_id,
+                "event_id": record.event_id,
+                "topic": record.topic,
+                "event_type": record.event_type,
+                "task_id": record.task_id,
+                "event_key": record.event_key,
+                "dedupe_key": record.dedupe_key,
+                "payload_json": dict(record.payload_json or {}),
+                "status": record.status,
+                "attempt_count": int(record.attempt_count or 0),
+                "available_at": record.available_at.isoformat(),
+                "locked_at": record.locked_at.isoformat() if record.locked_at else None,
+                "locked_by": record.locked_by,
+                "published_at": record.published_at.isoformat() if record.published_at else None,
+                "last_error": record.last_error,
+                "created_at": record.created_at.isoformat(),
+            }
 
     def _serialize(self, record: TaskRecord, include_details: bool = True) -> Dict:
         return {

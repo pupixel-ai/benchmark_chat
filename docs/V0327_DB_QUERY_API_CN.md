@@ -14,6 +14,13 @@
 
 因此，**推荐下游始终以 `v0327-db-query` 作为任务版本默认值**。
 
+同时，本版本在原有输出基础上做的是**增量增强**：
+
+- 原有字段继续保留
+- `photo_id / photo_ids / original_photo_ids` 不删除
+- 新增 `photo_url / photo_urls / cover_photo_url / photos[]`
+- 下游若已有旧解析逻辑，可以继续工作；若要直接渲染图片，优先消费新增 URL 字段
+
 ## 2. 关键原则
 
 ### 2.1 权威召回结果
@@ -56,6 +63,21 @@
 | Frontend | `http://10.60.1.243:3000` |
 | 推荐版本 | `v0327-db-query` |
 
+### 3.1 推荐联调账号
+
+当前线上已验证可用的默认测试账号：
+
+| 项目 | 当前值 |
+| --- | --- |
+| Username | `vigar_heavy_0319` |
+| Password | 由服务 owner 单独分发 |
+
+说明：
+
+- `app-v0317` 当前仅内网可访问
+- 如果下游只是联调 Query API，建议直接使用该默认账号
+- 若后续需要固定密码写入交付文档，可再补充
+
 ## 4. 鉴权
 
 当前 API 使用 cookie session 鉴权。
@@ -75,6 +97,8 @@
 
 成功后服务端会设置 `memory_session` cookie。  
 后续请求应携带该 cookie。
+
+联调时推荐直接先登录默认测试账号，再调用 Query API。
 
 ### 4.2 登录态确认
 
@@ -256,6 +280,15 @@
 - `supporting_facts`
 - `supporting_relationships`
 - `clause_results`
+
+### 9.3 输出兼容性
+
+本版本对响应做的是**只增不减**的增强：
+
+- 旧字段仍可继续使用
+- 新增图片 URL 字段仅用于降低下游拼接成本
+- 如果下游原先只依赖 `photo_id`，不需要改也不会报错
+- 如果下游希望直接展示图片，请改为优先使用 `photo_url`
 
 ## 10. `matched_events`
 
