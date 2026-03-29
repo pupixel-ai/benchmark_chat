@@ -36,6 +36,17 @@ def _fallback_load_dotenv(dotenv_path: str) -> None:
             os.environ[key] = value
 
 
+def _first_nonempty_env(*names: str, default: str = "") -> str:
+    for name in names:
+        value = os.getenv(name)
+        if value is None:
+            continue
+        normalized = value.strip()
+        if normalized:
+            return normalized
+    return default
+
+
 if load_dotenv is not None:
     load_dotenv(os.path.join(PROJECT_ROOT, ".env"))
 else:
@@ -54,6 +65,8 @@ TASK_VERSION_V0321_3 = "v0321.3"
 TASK_VERSION_V0323 = "v0323"
 TASK_VERSION_V0325 = "v0325"
 TASK_VERSION_V0327_EXP = "v0327-exp"
+TASK_VERSION_V0327_DB = "v0327-db"
+TASK_VERSION_V0327_DB_QUERY = "v0327-db-query"
 AVAILABLE_TASK_VERSIONS = (
     TASK_VERSION_V0312,
     TASK_VERSION_V0315,
@@ -64,6 +77,8 @@ AVAILABLE_TASK_VERSIONS = (
     TASK_VERSION_V0323,
     TASK_VERSION_V0325,
     TASK_VERSION_V0327_EXP,
+    TASK_VERSION_V0327_DB,
+    TASK_VERSION_V0327_DB_QUERY,
 )
 APP_VERSION = os.getenv("APP_VERSION", TASK_VERSION_V0317).strip() or TASK_VERSION_V0317
 DEFAULT_TASK_VERSION = os.getenv("DEFAULT_TASK_VERSION", TASK_VERSION_V0317).strip() or TASK_VERSION_V0317
@@ -174,11 +189,11 @@ DATABASE_URL = _normalize_database_url(
 SQL_ECHO = os.getenv("SQL_ECHO", "false").lower() == "true"
 
 # 对象存储配置（Railway Bucket / S3 兼容）
-OBJECT_STORAGE_BUCKET = os.getenv("BUCKET", os.getenv("OBJECT_STORAGE_BUCKET", ""))
-OBJECT_STORAGE_ENDPOINT = os.getenv("ENDPOINT", os.getenv("OBJECT_STORAGE_ENDPOINT", ""))
-OBJECT_STORAGE_REGION = os.getenv("REGION", os.getenv("OBJECT_STORAGE_REGION", "auto"))
-OBJECT_STORAGE_ACCESS_KEY_ID = os.getenv("ACCESS_KEY_ID", os.getenv("OBJECT_STORAGE_ACCESS_KEY_ID", ""))
-OBJECT_STORAGE_SECRET_ACCESS_KEY = os.getenv("SECRET_ACCESS_KEY", os.getenv("OBJECT_STORAGE_SECRET_ACCESS_KEY", ""))
+OBJECT_STORAGE_BUCKET = _first_nonempty_env("BUCKET", "OBJECT_STORAGE_BUCKET")
+OBJECT_STORAGE_ENDPOINT = _first_nonempty_env("ENDPOINT", "OBJECT_STORAGE_ENDPOINT")
+OBJECT_STORAGE_REGION = _first_nonempty_env("REGION", "OBJECT_STORAGE_REGION", default="auto")
+OBJECT_STORAGE_ACCESS_KEY_ID = _first_nonempty_env("ACCESS_KEY_ID", "OBJECT_STORAGE_ACCESS_KEY_ID")
+OBJECT_STORAGE_SECRET_ACCESS_KEY = _first_nonempty_env("SECRET_ACCESS_KEY", "OBJECT_STORAGE_SECRET_ACCESS_KEY")
 OBJECT_STORAGE_PREFIX = os.getenv("OBJECT_STORAGE_PREFIX", "tasks")
 OBJECT_STORAGE_ADDRESSING_STYLE = os.getenv("OBJECT_STORAGE_ADDRESSING_STYLE", "auto")
 
@@ -203,6 +218,14 @@ MEMORY_MILVUS_EVIDENCE_COLLECTION = (
     os.getenv("MEMORY_MILVUS_EVIDENCE_COLLECTION", "memory_evidence_v2").strip() or "memory_evidence_v2"
 )
 MEMORY_MILVUS_VECTOR_DIM = int(os.getenv("MEMORY_MILVUS_VECTOR_DIM", "512"))
+MEMORY_QUERY_V1_ENABLED = os.getenv("MEMORY_QUERY_V1_ENABLED", "true").lower() == "true"
+MEMORY_QUERY_V1_SHADOW_COMPARE = os.getenv("MEMORY_QUERY_V1_SHADOW_COMPARE", "false").lower() == "true"
+MEMORY_QUERY_V1_EVENT_COLLECTION = (
+    os.getenv("MEMORY_QUERY_V1_EVENT_COLLECTION", "event_views_v1").strip() or "event_views_v1"
+)
+MEMORY_QUERY_V1_EVIDENCE_COLLECTION = (
+    os.getenv("MEMORY_QUERY_V1_EVIDENCE_COLLECTION", "evidence_docs_v1").strip() or "evidence_docs_v1"
+)
 MEMORY_REAL_EMBEDDINGS_ENABLED = os.getenv("MEMORY_REAL_EMBEDDINGS_ENABLED", "false").lower() == "true"
 MEMORY_EMBEDDING_PROVIDER = os.getenv("MEMORY_EMBEDDING_PROVIDER", "auto").strip().lower() or "auto"
 MEMORY_EMBEDDING_MODEL = os.getenv("MEMORY_EMBEDDING_MODEL", "").strip()

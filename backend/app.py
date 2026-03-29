@@ -4,6 +4,7 @@ FastAPI backend entrypoint.
 from __future__ import annotations
 
 import copy
+import json
 import logging
 import os
 import shutil
@@ -32,6 +33,7 @@ from backend.face_review_store import FaceReviewStore
 from backend.memory_full_retrieval import build_task_memory_core_payload
 from backend.memory_step_retrieval import build_task_memory_steps_payload
 from backend.progress_utils import append_terminal_error, append_terminal_info, merge_stage_progress
+from backend.query_v1 import QueryEngineV1
 from backend.task_download_bundle import build_task_analysis_bundle, describe_task_downloads
 from backend.task_store import TaskStore, normalize_task_options
 from backend.upload_utils import (
@@ -59,6 +61,12 @@ from config import (
     FRONTEND_ORIGIN,
     HIGH_SECURITY_MODE,
     MAX_UPLOAD_PHOTOS,
+    MEMORY_QUERY_V1_ENABLED,
+    MEMORY_QUERY_V1_SHADOW_COMPARE,
+    TASK_VERSION_V0325,
+    TASK_VERSION_V0327_DB,
+    TASK_VERSION_V0327_DB_QUERY,
+    TASK_VERSION_V0327_EXP,
     TASKS_DIR,
     normalize_task_version,
 )
@@ -78,6 +86,7 @@ worker_client = WorkerClient()
 face_review_store = FaceReviewStore()
 
 UPLOAD_BATCH_MAX_FILES = 50
+TASK_RESULT_RELATIVE_PATH = "output/result.json"
 UPLOAD_BATCH_MAX_BYTES = 64 * 1024 * 1024
 
 app.add_middleware(
@@ -132,6 +141,41 @@ def _apply_no_store_headers(response: Response) -> Response:
     response.headers["Pragma"] = "no-cache"
     response.headers["Expires"] = "0"
     return response
+
+
+def _load_task_json_artifact(task: dict, relative_path: str) -> Optional[dict]:
+    task_dir_value = str(task.get("task_dir") or "").strip()
+    if task_dir_value:
+        local_path = Path(task_dir_value) / relative_path
+        if local_path.exists():
+            try:
+                payload = load_json(str(local_path))
+            except Exception:
+                logger.exception("Failed to load task artifact from local file task_id=%s path=%s", task.get("task_id"), local_path)
+                return None
+            return payload if isinstance(payload, dict) else None
+
+    task_id = str(task.get("task_id") or "").strip()
+    if not task_id or not asset_store.enabled:
+        return None
+
+    try:
+        if not asset_store.has_object(task_id, relative_path):
+            return None
+        body, _ = asset_store.read_bytes(task_id, relative_path)
+        payload = json.loads(body.decode("utf-8"))
+    except Exception:
+        logger.exception("Failed to load task artifact from object storage task_id=%s path=%s", task_id, relative_path)
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def _hydrate_task_payloads(task: dict) -> dict:
+    hydrated = copy.deepcopy(task)
+    artifact_result = _load_task_json_artifact(hydrated, TASK_RESULT_RELATIVE_PATH)
+    if isinstance(artifact_result, dict):
+        hydrated["result"] = artifact_result
+    return hydrated
 
 
 def _remote_worker_mode_enabled() -> bool:
@@ -313,9 +357,8 @@ def _merge_feedback(task: dict, user_id: str) -> dict:
 
 
 def _hydrate_task(task: dict, user_id: str) -> dict:
-    synced = _sync_task_from_worker(task, user_id)
-    merged = _merge_feedback(synced, user_id)
-    return _sanitize_task_for_client(merged)
+    synced = _hydrate_task_payloads(_sync_task_from_worker(task, user_id))
+    return _merge_feedback(synced, user_id)
 
 
 def _strip_bootstrap_fields(payload):
@@ -335,6 +378,19 @@ def _strip_bootstrap_fields(payload):
     return payload
 
 
+def _strip_heavy_memory_snapshot_fields(memory: dict) -> dict:
+    stripped = copy.deepcopy(memory)
+    for key in (
+        "vp1_observations",
+        "lp1_events",
+        "lp1_batches",
+        "lp2_relationships",
+        "lp3_profile",
+    ):
+        stripped.pop(key, None)
+    return stripped
+
+
 def _sanitize_task_for_client(task: dict) -> dict:
     sanitized = copy.deepcopy(task)
     downloads = describe_task_downloads(sanitized)
@@ -346,7 +402,7 @@ def _sanitize_task_for_client(task: dict) -> dict:
     if isinstance(result, dict):
         memory = result.get("memory")
         if isinstance(memory, dict):
-            result["memory"] = _strip_bootstrap_fields(memory)
+            result["memory"] = _strip_heavy_memory_snapshot_fields(_strip_bootstrap_fields(memory))
     return sanitized
 
 
@@ -492,6 +548,8 @@ def _run_pipeline_task(
             status="running",
             stage="starting",
             progress=copy.deepcopy(progress_state),
+            result=None,
+            result_summary=None,
             error=None,
         )
         service = MemoryPipelineService(
@@ -519,7 +577,7 @@ def _run_pipeline_task(
                     message="任务执行完成",
                 )
             ),
-            result=result,
+            result=None,
             error=None,
         )
         manifest = build_task_asset_manifest(task_id, task_dir, asset_store)
@@ -1069,7 +1127,7 @@ def get_task(task_id: str, response: Response, current_user: dict = Depends(get_
     task = task_store.get_task(task_id, user_id=current_user["user_id"])
     if not task:
         raise HTTPException(status_code=404, detail="任务不存在")
-    return _hydrate_task(task, current_user["user_id"])
+    return _sanitize_task_for_client(_hydrate_task(task, current_user["user_id"]))
 
 
 @app.get("/api/tasks/{task_id}/downloads/analysis-bundle")
@@ -1110,6 +1168,45 @@ def query_task_memory(
         raise HTTPException(status_code=404, detail="任务不存在")
     hydrated = _hydrate_task(task, current_user["user_id"])
     memory_payload = (hydrated.get("result") or {}).get("memory")
+    if MEMORY_QUERY_V1_ENABLED and str(hydrated.get("version") or "").strip() in {
+        TASK_VERSION_V0325,
+        TASK_VERSION_V0327_EXP,
+        TASK_VERSION_V0327_DB,
+        TASK_VERSION_V0327_DB_QUERY,
+    }:
+        engine = QueryEngineV1()
+        try:
+            answer = engine.answer_task(
+                hydrated,
+                payload.question,
+                user_id=current_user["user_id"],
+                context_hints=payload.context_hints or {},
+                time_hint=payload.time_hint,
+                answer_shape_hint=payload.answer_shape_hint,
+            )
+        except Exception:
+            logger.exception("query_v1 engine failed for task_id=%s", task_id)
+        else:
+            if MEMORY_QUERY_V1_SHADOW_COMPARE and isinstance(memory_payload, dict):
+                try:
+                    legacy = MemoryQueryService().answer(
+                        memory_payload,
+                        payload.question,
+                        user_id=current_user["user_id"],
+                        context_hints=payload.context_hints or {},
+                        time_hint=payload.time_hint,
+                        answer_shape_hint=payload.answer_shape_hint,
+                    )
+                except Exception:
+                    logger.exception("legacy shadow compare failed for task_id=%s", task_id)
+                else:
+                    answer["shadow_compare"] = {
+                        "legacy_plan_type": ((legacy.get("query_plan") or {}).get("plan_type")),
+                        "legacy_answer_type": ((legacy.get("answer") or {}).get("answer_type")),
+                        "legacy_supporting_unit_count": len(list(legacy.get("supporting_units") or [])),
+                        "legacy_supporting_evidence_count": len(list(legacy.get("supporting_evidence") or [])),
+                    }
+            return answer
     if not isinstance(memory_payload, dict):
         raise HTTPException(status_code=404, detail="当前任务没有 memory 输出")
     return MemoryQueryService().answer(
@@ -1149,8 +1246,14 @@ def get_task_memory_steps(
     task = task_store.get_task(task_id, user_id=current_user["user_id"])
     if not task:
         raise HTTPException(status_code=404, detail="任务不存在")
-    hydrated = _sync_task_from_worker(task, current_user["user_id"])
-    if str(hydrated.get("version") or "").strip() not in {"v0323", "v0325"}:
+    hydrated = _hydrate_task_payloads(_sync_task_from_worker(task, current_user["user_id"]))
+    if str(hydrated.get("version") or "").strip() not in {
+        "v0323",
+        TASK_VERSION_V0325,
+        TASK_VERSION_V0327_EXP,
+        TASK_VERSION_V0327_DB,
+        TASK_VERSION_V0327_DB_QUERY,
+    }:
         raise HTTPException(status_code=404, detail="当前任务没有 LP steps 输出")
     return build_task_memory_steps_payload(
         hydrated,
@@ -1164,10 +1267,11 @@ def get_task_reviews(task_id: str, response: Response, current_user: dict = Depe
     task = task_store.get_task(task_id, user_id=current_user["user_id"])
     if not task:
         raise HTTPException(status_code=404, detail="任务不存在")
+    hydrated = _hydrate_task_payloads(_sync_task_from_worker(task, current_user["user_id"]))
     return face_review_store.get_task_feedback(
         task_id=task_id,
         user_id=current_user["user_id"],
-        source_hashes=_task_source_hashes(task),
+        source_hashes=_task_source_hashes(hydrated),
     )
 
 

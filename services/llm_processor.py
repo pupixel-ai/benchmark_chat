@@ -60,6 +60,8 @@ from config import (
     RETRY_DELAY,
     TASK_VERSION_V0323,
     TASK_VERSION_V0325,
+    TASK_VERSION_V0327_DB,
+    TASK_VERSION_V0327_DB_QUERY,
     TASK_VERSION_V0327_EXP,
     TASK_VERSION_V0317_HEAVY,
     V0323_OPENROUTER_MODEL,
@@ -85,9 +87,9 @@ class LLMProcessor:
     def __init__(self, task_version: str = DEFAULT_TASK_VERSION):
         self.task_version = task_version
         self.use_heavy_pipeline = self.task_version == TASK_VERSION_V0317_HEAVY
-        self.provider = "openrouter" if self.task_version in {TASK_VERSION_V0323, TASK_VERSION_V0325, TASK_VERSION_V0327_EXP} else LLM_PROVIDER
+        self.provider = "openrouter" if self.task_version in {TASK_VERSION_V0323, TASK_VERSION_V0325, TASK_VERSION_V0327_EXP, TASK_VERSION_V0327_DB, TASK_VERSION_V0327_DB_QUERY} else LLM_PROVIDER
         self.relationship_follows_main_llm = RELATIONSHIP_FOLLOWS_MAIN_LLM
-        if self.task_version in {TASK_VERSION_V0323, TASK_VERSION_V0325, TASK_VERSION_V0327_EXP}:
+        if self.task_version in {TASK_VERSION_V0323, TASK_VERSION_V0325, TASK_VERSION_V0327_EXP, TASK_VERSION_V0327_DB, TASK_VERSION_V0327_DB_QUERY}:
             self.relationship_provider = self.provider
         else:
             self.relationship_provider = RELATIONSHIP_PROVIDER if not self.relationship_follows_main_llm else self.provider
@@ -99,7 +101,7 @@ class LLMProcessor:
         self.relationship_use_bedrock = self.relationship_provider == "bedrock"
         if self.task_version == TASK_VERSION_V0323:
             self.model = V0323_OPENROUTER_MODEL
-        elif self.task_version in {TASK_VERSION_V0325, TASK_VERSION_V0327_EXP}:
+        elif self.task_version in {TASK_VERSION_V0325, TASK_VERSION_V0327_EXP, TASK_VERSION_V0327_DB, TASK_VERSION_V0327_DB_QUERY}:
             self.model = V0325_OPENROUTER_LLM_MODEL
         else:
             self.model = OPENROUTER_LLM_MODEL if self.use_openrouter else LLM_MODEL
@@ -174,7 +176,7 @@ class LLMProcessor:
         if self.relationship_use_openrouter:
             if self.task_version == TASK_VERSION_V0323:
                 self.relationship_model = V0323_OPENROUTER_MODEL
-            elif self.task_version in {TASK_VERSION_V0325, TASK_VERSION_V0327_EXP}:
+            elif self.task_version in {TASK_VERSION_V0325, TASK_VERSION_V0327_EXP, TASK_VERSION_V0327_DB, TASK_VERSION_V0327_DB_QUERY}:
                 self.relationship_model = V0325_OPENROUTER_LLM_MODEL
             else:
                 self.relationship_model = OPENROUTER_LLM_MODEL

@@ -19,7 +19,7 @@ LP_SNAPSHOT_FAMILIES = {"v0323", "v0325"}
 
 def _family_name(version: str) -> str:
     normalized = str(version or "").strip()
-    if normalized == "v0327-exp":
+    if normalized in {"v0327-exp", "v0327-db", "v0327-db-query"}:
         return "v0325"
     if normalized in LP_SNAPSHOT_FAMILIES:
         return normalized

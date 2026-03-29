@@ -33,9 +33,10 @@ const UPLOAD_BATCH_RETRY_LIMIT = 3;
 const UPLOAD_RETRY_BASE_DELAY_MS = 1200;
 const GALLERY_PREVIEW_LIMIT = 120;
 const FACE_RECOGNITION_STAGES = new Set(["queued", "starting", "loading", "converting", "face_recognition", "face_visualization"]);
-const FALLBACK_TASK_VERSIONS = ["v0317-Heavy", "v0317", "v0315", "v0312"];
+const FALLBACK_TASK_VERSIONS = ["v0327-db-query", "v0327-db", "v0327-exp", "v0325", "v0323", "v0317-Heavy", "v0317", "v0315", "v0312"];
 const FALLBACK_DEFAULT_TASK_VERSION = FALLBACK_TASK_VERSIONS[0];
 const LEGACY_TASK_VERSION = FALLBACK_TASK_VERSIONS[FALLBACK_TASK_VERSIONS.length - 1];
+const LP_SNAPSHOT_TASK_VERSIONS = new Set(["v0323", "v0325", "v0327-exp", "v0327-db", "v0327-db-query"]);
 
 type PendingUpload = {
   id: string;
@@ -1396,6 +1397,199 @@ function compactConfidence(value: unknown) {
   return parsed == null ? "n/a" : parsed.toFixed(2);
 }
 
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function formatStructuredLabel(value: string) {
+  return value
+    .split(".")
+    .pop()
+    ?.replace(/_/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase()) ?? value;
+}
+
+function formatStructuredValue(value: unknown) {
+  if (value == null) {
+    return "null";
+  }
+  if (Array.isArray(value)) {
+    if (value.length === 0) {
+      return "[]";
+    }
+    return value.map((item) => (typeof item === "string" ? item : JSON.stringify(item))).join(" · ");
+  }
+  if (typeof value === "string") {
+    return value || "null";
+  }
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
+}
+
+function isStructuredTagObject(value: unknown): value is Record<string, unknown> {
+  if (!isObjectRecord(value)) {
+    return false;
+  }
+  return "value" in value && "confidence" in value && ("evidence" in value || "reasoning" in value);
+}
+
+type StructuredTagEntry = {
+  path: string;
+  sectionKey: string;
+  groupKey: string;
+  fieldKey: string;
+  tag: Record<string, unknown>;
+};
+
+function collectStructuredTagEntries(node: unknown, path: string[] = []): StructuredTagEntry[] {
+  if (isStructuredTagObject(node)) {
+    const sectionKey = path[0] ?? "structured";
+    const groupKey = path[1] ?? sectionKey;
+    const fieldKey = path[path.length - 1] ?? groupKey;
+    return [
+      {
+        path: path.join("."),
+        sectionKey,
+        groupKey,
+        fieldKey,
+        tag: node,
+      },
+    ];
+  }
+  if (!isObjectRecord(node)) {
+    return [];
+  }
+  const entries: StructuredTagEntry[] = [];
+  for (const [key, value] of Object.entries(node)) {
+    entries.push(...collectStructuredTagEntries(value, [...path, key]));
+  }
+  return entries;
+}
+
+function summarizeStructuredEvidence(value: unknown) {
+  if (!isObjectRecord(value)) {
+    return [];
+  }
+  const chips: string[] = [];
+  const photoIds = Array.isArray(value.photo_ids) ? value.photo_ids.length : 0;
+  const eventIds = Array.isArray(value.event_ids) ? value.event_ids.length : 0;
+  const personIds = Array.isArray(value.person_ids) ? value.person_ids.length : 0;
+  const groupIds = Array.isArray(value.group_ids) ? value.group_ids.length : 0;
+  const featureNames = Array.isArray(value.feature_names) ? value.feature_names.length : 0;
+  const supportingCount = readNumericValue(value.supporting_ref_count);
+  const contradictingCount = readNumericValue(value.contradicting_ref_count);
+  if (photoIds > 0) {
+    chips.push(`${photoIds} photos`);
+  }
+  if (eventIds > 0) {
+    chips.push(`${eventIds} events`);
+  }
+  if (personIds > 0) {
+    chips.push(`${personIds} persons`);
+  }
+  if (groupIds > 0) {
+    chips.push(`${groupIds} groups`);
+  }
+  if (featureNames > 0) {
+    chips.push(`${featureNames} features`);
+  }
+  if (supportingCount != null) {
+    chips.push(`${supportingCount} support refs`);
+  }
+  if (contradictingCount != null && contradictingCount > 0) {
+    chips.push(`${contradictingCount} contradictions`);
+  }
+  return chips;
+}
+
+function StructuredProfilePresenter({
+  structured,
+  reportMarkdown,
+  emptyText,
+}: {
+  structured: unknown;
+  reportMarkdown?: string | null;
+  emptyText?: string;
+}) {
+  const entries = collectStructuredTagEntries(structured);
+  const resolvedEntries = entries.filter((entry) => hasDisplayValue(entry.tag.value));
+  const grouped = new Map<string, { sectionKey: string; groupKey: string; items: StructuredTagEntry[] }>();
+  for (const entry of resolvedEntries) {
+    const groupId = `${entry.sectionKey}.${entry.groupKey}`;
+    if (!grouped.has(groupId)) {
+      grouped.set(groupId, { sectionKey: entry.sectionKey, groupKey: entry.groupKey, items: [] });
+    }
+    grouped.get(groupId)?.items.push(entry);
+  }
+
+  return (
+    <div className="space-y-4">
+      {resolvedEntries.length > 0 ? (
+        <>
+          <div className="rounded-[10px] bg-white px-4 py-3 text-xs text-[#6f5847]">
+            resolved {resolvedEntries.length} / total {entries.length} fields
+          </div>
+          <div className="space-y-4">
+            {Array.from(grouped.values()).map((group) => (
+              <section key={`${group.sectionKey}.${group.groupKey}`} className="rounded-[12px] border border-[#ddcebb] bg-[#fbf5ed] p-4">
+                <div className="mb-3">
+                  <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-black/42">{formatStructuredLabel(group.sectionKey)}</p>
+                  <h4 className="mt-2 text-base font-semibold text-ink">{formatStructuredLabel(group.groupKey)}</h4>
+                </div>
+                <div className="grid gap-3 lg:grid-cols-2">
+                  {group.items.map((entry) => {
+                    const evidence = isObjectRecord(entry.tag.evidence) ? entry.tag.evidence : null;
+                    const evidenceChips = summarizeStructuredEvidence(evidence);
+                    const reasoning = typeof entry.tag.reasoning === "string" ? entry.tag.reasoning : "";
+                    const evidenceSummary = evidence && typeof evidence.summary === "string" ? evidence.summary : "";
+                    return (
+                      <article key={entry.path} className="rounded-[10px] bg-white px-4 py-4 text-sm text-[#5f4e42] shadow-[inset_0_0_0_1px_rgba(120,91,66,0.08)]">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-black/42">{formatStructuredLabel(entry.fieldKey)}</p>
+                            <p className="mt-2 text-base font-medium text-ink">{formatStructuredValue(entry.tag.value)}</p>
+                          </div>
+                          <div className="rounded-[10px] bg-[#f6eee3] px-3 py-2 text-xs text-[#6f5847]">
+                            conf {compactConfidence(entry.tag.confidence)}
+                          </div>
+                        </div>
+                        {reasoning ? <p className="mt-3 text-sm leading-6 text-[#5f4e42]">{reasoning}</p> : null}
+                        {evidenceChips.length > 0 ? (
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {evidenceChips.map((chip) => (
+                              <span key={chip} className="rounded-full bg-[#f6eee3] px-3 py-1 text-[11px] text-[#6f5847]">
+                                {chip}
+                              </span>
+                            ))}
+                          </div>
+                        ) : null}
+                        {evidenceSummary ? <p className="mt-3 text-xs leading-5 text-black/45">{evidenceSummary}</p> : null}
+                      </article>
+                    );
+                  })}
+                </div>
+              </section>
+            ))}
+          </div>
+        </>
+      ) : (
+        <p className="text-sm text-black/56">{emptyText ?? "当前还没有可展示的结构化画像字段。"}</p>
+      )}
+      {reportMarkdown ? (
+        <pre className="max-h-[420px] overflow-auto whitespace-pre-wrap rounded-[10px] bg-[#f6eee3] p-3 text-sm leading-6 text-[#5f4e42]">
+          {reportMarkdown}
+        </pre>
+      ) : null}
+    </div>
+  );
+}
+
 function PhotoStrip({
   photos,
   emptyText = "当前没有原始照片回挂。"
@@ -1464,6 +1658,12 @@ function RecallEventCard({ event }: { event: FullMemoryEvent }) {
 }
 
 function RecallRelationshipCard({ relationship }: { relationship: FullMemoryRelationship }) {
+  const badges = [
+    relationship.relationship_type ? `type ${relationship.relationship_type}` : "",
+    relationship.status ? `status ${relationship.status}` : "",
+    readNumericValue(relationship.confidence) != null ? `confidence ${compactConfidence(relationship.confidence)}` : "",
+    readNumericValue(relationship.intimacy_score) != null ? `intimacy ${compactConfidence(relationship.intimacy_score)}` : "",
+  ].filter(Boolean);
   return (
     <article className="rounded-[12px] border border-[#ddcebb] bg-[#fbf5ed] p-4">
       <div className="space-y-3">
@@ -1473,9 +1673,22 @@ function RecallRelationshipCard({ relationship }: { relationship: FullMemoryRela
         </div>
         <div className="rounded-[10px] bg-white px-4 py-3 text-xs text-[#6f5847]">
           photos {(relationship.photo_ids ?? []).length}
+          {Array.isArray(relationship.shared_events) ? ` · events ${relationship.shared_events.length}` : ""}
         </div>
+        {badges.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {badges.map((badge) => (
+              <span key={badge} className="rounded-full bg-white px-3 py-1 text-[11px] text-[#6f5847]">
+                {badge}
+              </span>
+            ))}
+          </div>
+        ) : null}
+        {relationship.reasoning ? <p className="text-sm leading-6 text-[#5f4e42]">{relationship.reasoning}</p> : null}
       </div>
       <JsonDetails title="photo_ids" value={relationship.photo_ids} />
+      {hasDisplayValue(relationship.shared_events) ? <JsonDetails title="shared_events" value={relationship.shared_events} /> : null}
+      {hasDisplayValue(relationship.evidence) ? <JsonDetails title="evidence" value={relationship.evidence} /> : null}
     </article>
   );
 }
@@ -1592,18 +1805,16 @@ function MemoryPanel({
         <MetricCard label="VLM" value={fullMemory.vlm.length} detail="photo-level understanding" />
         <MetricCard label="Events" value={fullMemory.events.length} detail="task finalized events" />
         <MetricCard label="Relationships" value={fullMemory.relationships.length} detail="task relationship results" />
-        <MetricCard label="Profile" value={profile.report_markdown ? "ready" : "pending"} detail="task profile output" />
+        <MetricCard label="Profile" value={profile.report_markdown || hasDisplayValue(profile.structured) ? "ready" : "pending"} detail="task profile output" />
       </div>
 
       <div className="mt-5 space-y-4">
         <FoldableStageCard title="Profile / 用户画像">
-          {profile.report_markdown ? (
-            <pre className="max-h-[420px] overflow-auto whitespace-pre-wrap rounded-[10px] bg-[#f6eee3] p-3 text-sm leading-6 text-[#5f4e42]">
-              {profile.report_markdown}
-            </pre>
-          ) : (
-            <p className="text-sm text-black/56">当前画像报告尚未生成。</p>
-          )}
+          <StructuredProfilePresenter
+            structured={profile.structured}
+            reportMarkdown={profile.report_markdown}
+            emptyText="当前画像报告尚未生成。"
+          />
         </FoldableStageCard>
 
         <FoldableStageCard title="Full Relationships / 全量人物关系" meta={`${fullMemory.relationships.length} relationships`}>
@@ -1803,13 +2014,17 @@ function MemoryStepsPanel({
         </FoldableStageCard>
 
         <FoldableStageCard title="LP2 / 关系推断" meta={buildMeta("lp2")} loading={Boolean(steps?.lp2?.status === "running")} loadingLabel="LP2">
-          {hasDisplayValue(steps?.lp2?.data) ? (
+          {Array.isArray(steps?.lp2?.data) && steps.lp2.data.length > 0 ? (
             <>
-              <pre className="max-h-[320px] overflow-auto whitespace-pre-wrap break-all rounded-[10px] bg-[#f6eee3] p-3 text-xs leading-6 text-[#5f4e42]">
-                {formatJson(steps?.lp2?.data)}
-              </pre>
-              <div className="mt-3 flex justify-end">
-                <JsonCopyButton value={steps?.lp2?.data} ariaLabel="复制 LP2 输出" />
+              <div className="h-[min(62vh,38rem)] overflow-auto pr-1">
+                <div className="space-y-3">
+                  {steps.lp2.data.map((relationship, index) => (
+                    <RecallRelationshipCard key={`${String((relationship as Record<string, unknown>).person_id ?? "relationship")}-${index}`} relationship={relationship as FullMemoryRelationship} />
+                  ))}
+                </div>
+              </div>
+              <div className="mt-3">
+                <JsonDetails title="LP2 Raw" value={steps.lp2.data} />
               </div>
             </>
           ) : (
@@ -1821,11 +2036,13 @@ function MemoryStepsPanel({
         <FoldableStageCard title="LP3 / 画像生成" meta={buildMeta("lp3")} loading={Boolean(steps?.lp3?.status === "running")} loadingLabel="LP3">
           {hasDisplayValue(steps?.lp3?.data) ? (
             <>
-              <pre className="max-h-[320px] overflow-auto whitespace-pre-wrap break-all rounded-[10px] bg-[#f6eee3] p-3 text-xs leading-6 text-[#5f4e42]">
-                {formatJson(steps?.lp3?.data)}
-              </pre>
-              <div className="mt-3 flex justify-end">
-                <JsonCopyButton value={steps?.lp3?.data} ariaLabel="复制 LP3 输出" />
+              <StructuredProfilePresenter
+                structured={isObjectRecord(steps?.lp3?.data) ? steps.lp3.data.structured : null}
+                reportMarkdown={isObjectRecord(steps?.lp3?.data) && typeof steps.lp3.data.report_markdown === "string" ? steps.lp3.data.report_markdown : ""}
+                emptyText="当前还没有 LP3 结构化画像。"
+              />
+              <div className="mt-3">
+                <JsonDetails title="LP3 Raw" value={steps?.lp3?.data} />
               </div>
             </>
           ) : (
@@ -2432,7 +2649,7 @@ export default function HomePage() {
       const payload = (await response.json()) as TaskState;
       setCurrentTask(payload);
       setIsDraftView(false);
-      if ((payload.version === "v0323" || payload.version === "v0325") && payload.status !== "draft" && payload.status !== "uploading") {
+      if (LP_SNAPSHOT_TASK_VERSIONS.has(payload.version ?? "") && payload.status !== "draft" && payload.status !== "uploading") {
         void fetchTaskMemorySteps(payload.task_id);
       } else {
         setMemoryStepsByTask((previous) => ({
@@ -3418,7 +3635,7 @@ export default function HomePage() {
             />
           ) : null}
 
-          {!isDraftView && currentTask && (currentTask.version === "v0323" || currentTask.version === "v0325") ? (
+          {!isDraftView && currentTask && LP_SNAPSHOT_TASK_VERSIONS.has(currentTask.version ?? "") ? (
             <MemoryStepsPanel
               stepsPayload={currentMemorySteps}
               loading={currentMemoryStepsLoading}
