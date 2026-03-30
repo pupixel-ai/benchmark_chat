@@ -29,24 +29,58 @@ def load_profile_field_gt(path: str) -> List[Dict[str, Any]]:
 
 
 def apply_profile_field_gt(case_facts: Iterable[CaseFact], gt_records: Iterable[Dict[str, Any]]) -> Tuple[List[CaseFact], List[Dict[str, Any]]]:
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
     gt_by_key = {
         _gt_lookup_key(str(record.get("album_id") or ""), str(record.get("field_key") or "")): dict(record)
         for record in gt_records
         if str(record.get("album_id") or "").strip() and str(record.get("field_key") or "").strip()
     }
 
+    # 分离需要 GT 对比的 facts 和不需要的
+    profile_facts: List[Tuple[int, CaseFact, Dict]] = []
+    all_facts = list(case_facts)
+    for i, fact in enumerate(all_facts):
+        if fact.signal_source == "mainline_profile" and fact.entity_type == "profile_field":
+            gt_payload = gt_by_key.get(_gt_lookup_key(fact.album_id, fact.dimension), {})
+            profile_facts.append((i, fact, gt_payload))
+
+    # 并行执行 GT 对比（含 LLM 语义匹配）
+    gt_results: Dict[int, Tuple[CaseFact, Dict | None]] = {}
+    max_workers = min(8, len(profile_facts)) if profile_facts else 1
+
+    def _compare_one(item: Tuple[int, CaseFact, Dict]) -> Tuple[int, CaseFact, Dict | None]:
+        idx, fact, gt_payload = item
+        updated_fact, comp = _apply_single_gt(fact, gt_payload)
+        return idx, updated_fact, comp
+
+    if max_workers > 1:
+        with ThreadPoolExecutor(max_workers=max_workers) as pool:
+            futures = {pool.submit(_compare_one, item): item for item in profile_facts}
+            for future in as_completed(futures):
+                try:
+                    idx, updated_fact, comp = future.result()
+                    gt_results[idx] = (updated_fact, comp)
+                except Exception:
+                    item = futures[future]
+                    gt_results[item[0]] = (item[1], None)
+    else:
+        for item in profile_facts:
+            idx, updated_fact, comp = _compare_one(item)
+            gt_results[idx] = (updated_fact, comp)
+
+    # 按原始顺序组装结果
     updated: List[CaseFact] = []
     comparisons: List[Dict[str, Any]] = []
-    for fact in case_facts:
-        if fact.signal_source != "mainline_profile" or fact.entity_type != "profile_field":
+    for i, fact in enumerate(all_facts):
+        if i in gt_results:
+            updated_fact, comp = gt_results[i]
+            updated.append(updated_fact)
+            if comp:
+                comparisons.append(comp)
+        else:
             updated.append(fact)
-            continue
 
-        gt_payload = gt_by_key.get(_gt_lookup_key(fact.album_id, fact.dimension), {})
-        updated_fact, comparison_payload = _apply_single_gt(fact, gt_payload)
-        updated.append(updated_fact)
-        if comparison_payload:
-            comparisons.append(comparison_payload)
     return updated, comparisons
 
 
@@ -55,6 +89,34 @@ def _apply_single_gt(case_fact: CaseFact, gt_payload: Dict[str, Any]) -> Tuple[C
     pre_audit_present = bool(case_fact.pre_audit_output)
     pre_audit_value = case_fact.pre_audit_output.get("value") if pre_audit_present else None
     if upstream_value in (None, "", []):
+        gt_val = gt_payload.get("gt_value") if gt_payload else None
+        gt_also_empty = gt_val in (None, "", [])
+
+        if gt_also_empty:
+            # GT 和输出都为空 → 一致，不是 badcase
+            case_fact.badcase_source = ""
+            case_fact.badcase_kind = ""
+            case_fact.accuracy_gap_status = "resolved"
+            if not gt_payload:
+                return case_fact, None
+            comparison_result = _build_comparison_payload(
+                upstream_value=upstream_value,
+                gt_value=gt_val,
+                comparison={
+                    "grade": "exact_match",
+                    "score": 1.0,
+                    "method": "rule_both_null_match",
+                },
+                confidence=case_fact.auto_confidence,
+            )
+            case_fact.gt_payload = dict(gt_payload)
+            case_fact.comparison_result = dict(comparison_result)
+            case_fact.comparison_grade = "exact_match"
+            case_fact.comparison_score = 1.0
+            case_fact.comparison_method = "rule_both_null_match"
+            _apply_pre_audit_comparison(case_fact, None)
+            return case_fact, comparison_result
+
         case_fact.badcase_source = "empty_output_candidate"
         case_fact.badcase_kind = "missing_value"
         case_fact.accuracy_gap_status = "open"
@@ -62,7 +124,7 @@ def _apply_single_gt(case_fact: CaseFact, gt_payload: Dict[str, Any]) -> Tuple[C
             return case_fact, None
         comparison_result = _build_comparison_payload(
             upstream_value=upstream_value,
-            gt_value=gt_payload.get("gt_value"),
+            gt_value=gt_val,
             comparison={
                 "grade": "missing_prediction",
                 "score": 0.0,

@@ -467,17 +467,25 @@ class UpstreamReflectionAgent:
 7. GT 对比与反思资产：case_fact / comparison_result / pre_audit_comparison_result
 8. 下游裁决产物：downstream_audit_report
 
+核心原则（必须遵守）：
+- 严禁通过 GT 答案直接限制或指导输出方向。GT 只用于发现问题，不用于推导答案。
+- 你必须假设自己不知道 GT 的具体值，思考"如果没有 GT，系统应该从哪些证据中发现正确的规律"。
+- 你的提案必须是通用规则改进，不能针对让系统输出某个特定值。
+- 如果系统输出和 GT 都是对的（比如都是 null），不要强行提修改建议。
+
 你要优先回答的问题：
-1. 这条 badcase 最可能是哪里出错了？
-2. 这个错误更像哪类根因？
+1. 系统的推理链路（COT）哪里走偏了？是证据不够，还是证据够了但归纳逻辑有问题？
+2. 如果不看 GT 答案，仅从现有证据出发，系统应该能发现什么它错过了的线索？
 3. 下一步最合理的改面是什么？
 4. 为什么是这个改面，而不是另外两个常见改面？
 5. 你的结论是否已经足够稳定，如果不稳定就进入 difficult_case / 人工判断
 
 你定位 badcase 时，必须按这个顺序思考：
-第一步：先看 GT 对比
-- 关注 comparison_result 里的 gt_value、output_value、grade
-- 先判断当前输出和 GT 的差距是什么：空了、偏了、只覆盖一部分、还是语义方向跑偏
+第一步：先看问题是什么
+- 关注 comparison_result 里的 output_value、grade、score（GT 具体值已遮蔽，你只知道偏差程度）
+- grade 告诉你偏差类型：mismatch=完全不对，partial_match=只覆盖一部分，missing_prediction=系统没输出但应该有值
+- 你的任务是分析系统的推理链路哪里走偏了，而不是猜测 GT 答案然后倒推规则
+- 注意：如果 grade 是 exact_match 或 close_match，不需要提修改建议
 
 第二步：先排除“不是上游”的情况
 - 如果 causality_route 是 downstream_caused 或 downstream_exacerbated，说明更像下游裁决把结果改坏了
@@ -510,6 +518,7 @@ class UpstreamReflectionAgent:
 - 你要判断：
   - 是不是证据已经够了，但字段 COT 把语义归纳错了
   - 还是 prompt / field spec 本身对这个字段的边界定义就有问题
+- 关键：你要思考的是"如果没有 GT 答案，系统基于现有证据和规则，应该怎么改才能自己发现正确的方向"。不要反推"因为 GT 是 X，所以规则应该往 X 方向改"。
 
 你判断根因时，使用这些标准：
 - field_reasoning：关键证据已经在，tool 也不是明显没调，但最终字段值语义归纳错了、过度发挥了、或和 GT 的标签口径不一致
@@ -556,17 +565,45 @@ class UpstreamReflectionAgent:
   ],
   "why_this_surface_zh": "为什么是这个改面。",
   "why_not_other_surfaces_zh": "为什么不是另外两个常见改面。",
-  "patch_intent": {{
-    "field_key": "字段 key",
-    "fix_surface": "{' | '.join(allowed_fix_surfaces)}",
-    "change_summary_zh": "只说想改什么策略，不要写代码 diff。"
+  “patch_intent”: {{
+    “field_key”: “字段 key”,
+    “fix_surface”: “{' | '.join(allowed_fix_surfaces)}”,
+    “change_summary_zh”: “用人话说想改什么策略。”,
+    “rule_patch”: {{
+      “field_spec_overrides”: {{
+        “字段key”: {{
+          “null_preferred_when”: [“条件1”, “条件2”]
+        }}
+      }},
+      “tool_rules”: {{
+        “字段key”: {{
+          “max_refs_per_source”: 20
+        }}
+      }},
+      “call_policies”: {{
+        “字段key”: {{
+          “append_allowed_sources”: [“event”, “vlm_observations”, “relationship”]
+        }}
+      }}
+    }}
   }}
 }}
+
+rule_patch 要求：
+- rule_patch 是你的具体修改方案，会被直接合并到规则文件中，必须是可执行的 JSON
+- rule_patch 里只写你需要改的部分，不需要改的留空对象 {{}}
+- field_spec_overrides: 修改字段的判断口径（什么时候输出 null、怎么理解这个字段）
+- tool_rules: 修改证据召回规则（max_refs_per_source 等）
+- call_policies: 修改数据来源调用策略（append_allowed_sources 等）
+- 如果 fix_surface 是 field_cot，重点写 field_spec_overrides（判断口径的修改）
+- 如果 fix_surface 是 tool_rule，重点写 tool_rules
+- 如果 fix_surface 是 call_policy，重点写 call_policies
+- 具体的条件描述用自然语言中文写，不要写代码
 
 输出要求：
 - 所有解释性文字必须是简体中文
 - 请用通俗易懂的人话，像在给不懂技术的人解释结论
-- 不要解释术语，也不要直接复述 field_cot、tool_rule、call_policy 这类词；直接说“判断口径”“找证据规则”“调用时机”
+- 不要解释术语，也不要直接复述 field_cot、tool_rule、call_policy 这类词；直接说”判断口径””找证据规则””调用时机”
 - 不要输出 retrieval_hit_count、comparison_score、comparison_method、stats_bundle_keys 之类的低价值调试信息
 - 不要把日志当结论复述
 - 重点写：
@@ -576,6 +613,12 @@ class UpstreamReflectionAgent:
   - 为什么判断是这一层问题
   - 为什么不是另外几个常见改面
 - 如果判断不稳定，输出 needs_review，并更偏 watch_only / difficult_case
+
+严格禁止：
+- 禁止根据单个用户或单个字段的特殊情况做硬编码优化
+- 规则修改必须是通用的，适用于所有用户
+- 不要在 null_preferred_when 里写具体的人名、地名、品牌名
+- 不要在 rule_patch 里引用具体的 photo_id、EVT_id、Person_id
 
 这是当前 case card：
 {json.dumps(compact_packet, ensure_ascii=False)}"""
@@ -595,17 +638,23 @@ class UpstreamReflectionAgent:
   "key_evidence_zh": ["2-3 条关键证据"],
   "why_this_surface_zh": "为什么是这个改面",
   "why_not_other_surfaces_zh": "为什么不是另外两个常见改面",
-  "patch_intent": {{
-    "field_key": "字段 key",
-    "fix_surface": "{' | '.join(allowed_fix_surfaces)}",
-    "change_summary_zh": "只说想改什么策略"
+  “patch_intent”: {{
+    “field_key”: “字段 key”,
+    “fix_surface”: “{' | '.join(allowed_fix_surfaces)}”,
+    “change_summary_zh”: “用人话说想改什么策略”,
+    “rule_patch”: {{
+      “field_spec_overrides”: {{}},
+      “tool_rules”: {{}},
+      “call_policies”: {{}}
+    }}
   }}
 }}
 
+rule_patch 只写需要改的部分，格式同上一轮说明。禁止根据单个用户/字段做硬编码优化，规则必须通用。
+
 仍然要求：
 - 所有解释性文字必须是简体中文
-- 请用通俗易懂的人话，像在给不懂技术的人解释结论
-- 不要解释术语，也不要直接复述 field_cot、tool_rule、call_policy 这类词；直接说“判断口径”“找证据规则”“调用时机”
+- 用通俗人话，不复述术语
 - 不要输出低价值调试字段
 - 重点写 GT、当前输出、关键线索、改面判断和排除理由
 
@@ -1430,12 +1479,14 @@ def _build_compact_prompt_packet(packet: Dict[str, Any]) -> Dict[str, Any]:
 
 def _compact_comparison_result(payload: Any) -> Dict[str, Any]:
     result = dict(payload or {})
+    gt_val = result.get("gt_value")
     return {
         "grade": str(result.get("grade") or ""),
         "score": _safe_float(result.get("score"), 0.0),
         "severity": str(result.get("severity") or ""),
         "output_value": _truncate_text(result.get("output_value"), limit=120),
-        "gt_value": _truncate_text(result.get("gt_value"), limit=120),
+        # gt_value 遮蔽：只告诉 LLM GT 是否有值，不暴露具体内容
+        "gt_has_value": gt_val not in (None, "", []),
         "method": str(result.get("method") or ""),
     }
 

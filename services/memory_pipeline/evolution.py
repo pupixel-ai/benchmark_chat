@@ -12,7 +12,7 @@ from typing import Any, Dict, Iterable, List, Tuple
 from config import PROJECT_ROOT
 from services.reflection.engine.field_diagnostics import diagnose_field as engine_diagnose_field
 from services.reflection.engine.signal_extractor import extract_signals as engine_extract_signals
-from services.reflection.engine.patch_planner import plan_patch as engine_plan_patch
+from services.reflection.engine.patch_verifier import compute_patch_effect
 from .rule_asset_loader import apply_repo_rule_patch
 
 
@@ -44,7 +44,7 @@ _FIELD_RISK_PRIORITY = {
     "short_term_expression.stress_signal": 16.0,
 }
 
-_RESOLVED_GRADES = {"exact_match", "close_match"}
+_RESOLVED_GRADES = {"exact_match", "close_match", "improved"}
 
 
 def build_memory_run_trace(
@@ -736,6 +736,123 @@ def _merge_nightly_insights(
     return merged
 
 
+# ── Reflection agent integration ──
+
+_REFLECTION_AGENT_CACHE = None
+
+
+def _get_or_create_reflection_agent(project_root: str):
+    """Lazy-init the UpstreamReflectionAgent (expensive LLM processor inside)."""
+    global _REFLECTION_AGENT_CACHE
+    if _REFLECTION_AGENT_CACHE is None:
+        try:
+            from services.reflection.upstream_agent import UpstreamReflectionAgent
+            _REFLECTION_AGENT_CACHE = UpstreamReflectionAgent(project_root=project_root)
+        except Exception:
+            _REFLECTION_AGENT_CACHE = None
+    return _REFLECTION_AGENT_CACHE
+
+
+def _load_case_facts_by_field(project_root: str, user_name: str) -> Dict[str, Dict[str, Any]]:
+    """Load case_facts indexed by dimension (field_key), profile fields only."""
+    path = Path(project_root) / REFLECTION_RELATIVE_DIR / f"case_facts_{user_name}.jsonl"
+    result: Dict[str, Dict[str, Any]] = {}
+    for rec in _load_jsonl_records(path):
+        dim = str(rec.get("dimension") or "").strip()
+        if not dim:
+            continue
+        # Only profile fields (skip primary/relationship case_facts)
+        src = str(rec.get("signal_source") or "")
+        if "profile" not in src and rec.get("entity_type") != "profile_field":
+            continue
+        result[dim] = rec
+    return result
+
+
+def _try_reflect_field(
+    field_key: str,
+    case_facts_by_field: Dict[str, Dict[str, Any]],
+    project_root: str,
+) -> Dict[str, Any] | None:
+    """Attempt LLM reflection on a field. Returns reflect result or None on failure."""
+    cf = case_facts_by_field.get(field_key)
+    if not cf or not cf.get("trace_payload_path"):
+        return None
+    agent = _get_or_create_reflection_agent(project_root)
+    if agent is None:
+        return None
+    try:
+        from services.reflection.upstream_agent import BadcasePacketAssembler
+        assembler = BadcasePacketAssembler(project_root=project_root)
+        packet = assembler.assemble(cf)
+        result = agent.reflect(packet)
+        if result.get("status") == "failed":
+            return None
+        return result
+    except Exception as exc:
+        print(f"  [reflect] {field_key} failed: {exc}")
+        return None
+
+
+def _load_vlm_summaries(*, project_root: str, user_name: str) -> Dict[str, str]:
+    """Load photo_id → short summary from vlm_cache.json for evidence search."""
+    source_dir = Path(project_root) / "datasets" / user_name / "source"
+    for filename in ("vlm_cache.json", "vp1_observations.json"):
+        path = source_dir / filename
+        if not path.exists():
+            continue
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        items = data if isinstance(data, list) else data.get("photos", []) if isinstance(data, dict) else []
+        index: Dict[str, str] = {}
+        for item in items:
+            pid = str(item.get("photo_id") or "").strip()
+            if not pid:
+                continue
+            vlm = item.get("vlm_analysis") or {}
+            summary = str(vlm.get("summary") or "").strip()
+            if not summary:
+                scene = vlm.get("scene") or {}
+                loc = scene.get("location_detected", "") if isinstance(scene, dict) else ""
+                activity = ((vlm.get("event") or {}).get("activity", "")) if isinstance(vlm.get("event"), dict) else ""
+                summary = " ".join(filter(None, [loc, activity]))
+            if summary:
+                index[pid] = summary[:200]
+        if index:
+            return index
+    return {}
+
+
+def _load_event_summaries(*, project_root: str, user_name: str) -> Dict[str, str]:
+    """Load event_id → description from events data for evidence search."""
+    source_dir = Path(project_root) / "datasets" / user_name / "source"
+    for filename in ("lp1_events.json", "lp1_events_compact.json"):
+        path = source_dir / filename
+        if not path.exists():
+            continue
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        if not isinstance(data, list):
+            continue
+        index: Dict[str, str] = {}
+        for item in data:
+            eid = str(item.get("event_id") or "").strip()
+            if not eid:
+                continue
+            title = str(item.get("title") or "").strip()
+            narrative = str(item.get("narrative_synthesis") or "").strip()
+            desc = narrative[:200] if narrative else title
+            if desc:
+                index[eid] = desc
+        if index:
+            return index
+    return {}
+
+
 def _run_gt_field_loop(
     *,
     project_root: str,
@@ -759,6 +876,14 @@ def _run_gt_field_loop(
         field_state=field_state,
     )
     assets = _load_repo_rule_assets_safe(project_root=project_root)
+
+    # Load VLM + event summaries for evidence-based signal extraction
+    vlm_summaries = _load_vlm_summaries(project_root=project_root, user_name=user_name)
+    event_summaries = _load_event_summaries(project_root=project_root, user_name=user_name)
+
+    # Load case_facts for reflect() — indexed by field_key
+    case_facts_by_field = _load_case_facts_by_field(project_root, user_name)
+
     field_cycles, field_insights, field_proposals, next_state = _build_gt_field_cycles(
         date_str=date_str,
         user_name=user_name,
@@ -768,7 +893,40 @@ def _run_gt_field_loop(
         field_state=field_state,
         current_assets=assets,
         policy=policy,
+        vlm_summaries=vlm_summaries,
+        event_summaries=event_summaries,
+        case_facts_by_field=case_facts_by_field,
+        project_root=project_root,
     )
+    # 补全非焦点字段的状态（让热力图能看到所有 GT 对比过的字段）
+    all_fields_in_state = next_state.get("fields") or {}
+    for comp in comparisons:
+        fk = str(comp.get("field_key") or "").strip()
+        if not fk or fk in all_fields_in_state:
+            continue
+        cr = comp.get("comparison_result") or {}
+        grade = str(cr.get("grade") or "").strip()
+        if not grade:
+            continue
+        all_fields_in_state[fk] = {
+            "cycle_count": 0,
+            "last_grade": grade,
+            "last_issue_score": 0.0,
+            "last_status": "monitoring" if grade in ("exact_match", "close_match", "improved") else "not_focused",
+            "last_signal_key": "",
+            "seen_signal_keys": [],
+            "no_new_signal_streak": 0,
+            "cooldown_remaining": 0,
+            "throttled_round_count": 0,
+            "issue_score_history": [],
+            "score_trend": "",
+            "last_patch_grade": None,
+            "last_patch_score": None,
+            "reflect_fail_streak": 0,
+            "last_updated": datetime.now().isoformat(),
+        }
+    next_state["fields"] = all_fields_in_state
+
     _persist_field_loop_state(path=state_path, state_payload=next_state)
 
     summary = {
@@ -849,7 +1007,10 @@ def _select_focus_fields_by_gt(
         if not field_key:
             continue
         comparison_result = dict(row.get("comparison_result") or {})
+        # 人工修正的 grade 优先于机器判定
         grade = str(comparison_result.get("grade") or "mismatch")
+        if comparison_result.get("human_override"):
+            grade = str(comparison_result.get("grade") or grade)
         score = float(comparison_result.get("score") or 0.0)
         severity = str(comparison_result.get("severity") or "medium").strip().lower()
         issue_score = _score_gt_issue(
@@ -894,6 +1055,7 @@ def _select_focus_fields_by_gt(
         candidate["cooldown_remaining"] = cooldown_remaining
         candidate["no_new_signal_streak"] = no_new_signal_streak
         candidate["recent_gain"] = last_status in {"new_rule_candidate", "new_insight_found"}
+        candidate["reflect_fail_streak"] = int(saved_state.get("reflect_fail_streak") or 0)
         focus_candidates.append(candidate)
     focus_candidates.sort(
         key=lambda item: (float(item.get("issue_score") or 0.0), int(item.get("badcase_count") or 0)),
@@ -933,6 +1095,7 @@ def _select_focus_fields_by_gt(
     throttled_candidates = [item for item in focus_candidates if item.get("throttled")]
     active_candidates.sort(
         key=lambda item: (
+            -int(item.get("reflect_fail_streak") or 0),  # reflect 连续失败的排后面
             int(bool(item.get("recent_gain"))),
             -int(item.get("no_new_signal_streak") or 0),
             float(item.get("issue_score") or 0.0),
@@ -995,6 +1158,10 @@ def _build_gt_field_cycles(
     field_state: Dict[str, Any],
     current_assets: Dict[str, Dict[str, Any]],
     policy: Dict[str, int],
+    vlm_summaries: Dict[str, str] | None = None,
+    event_summaries: Dict[str, str] | None = None,
+    case_facts_by_field: Dict[str, Dict[str, Any]] | None = None,
+    project_root: str = "",
 ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]], List[Dict[str, Any]], Dict[str, Any]]:
     gt_by_field = {
         str(item.get("field_key") or "").strip(): dict(item)
@@ -1084,6 +1251,7 @@ def _build_gt_field_cycles(
         failure_mode = diagnosis.failure_mode
 
         seen_signals = [str(item or "").strip() for item in list(previous_state.get("seen_signal_keys") or []) if str(item or "").strip()]
+        rejected_signals = [str(item or "").strip() for item in list(previous_state.get("rejected_signal_keys") or []) if str(item or "").strip()]
         signal_result = engine_extract_signals(
             field_key=field_key,
             output_value=output_value,
@@ -1092,6 +1260,9 @@ def _build_gt_field_cycles(
             evidence_summary=str(gt_row.get("evidence_summary") or ""),
             accuracy_note=str(gt_row.get("accuracy_note") or ""),
             seen_signal_keys=seen_signals,
+            vlm_summaries=vlm_summaries,
+            event_summaries=event_summaries,
+            excluded_signal_keys=rejected_signals,
         )
         overlooked_signals = signal_result.signals
         signal_key = signal_result.signal_key
@@ -1099,20 +1270,64 @@ def _build_gt_field_cycles(
         if new_signal_found:
             seen_signals.append(signal_key)
 
-        patch_plan = engine_plan_patch(
-            field_key=field_key,
-            diagnosis=diagnosis,
-            signals=signal_result,
-            current_assets=current_assets,
-        )
-        patch_preview = patch_plan.patch_preview
-        proposal_type = patch_plan.proposal_type
         no_new_signal_streak = 0 if new_signal_found else previous_streak + 1
+
+        # ── LLM 反思（唯一的提案来源）──
+        reflect_result = _try_reflect_field(
+            field_key, case_facts_by_field or {}, project_root,
+        )
+        cf = (case_facts_by_field or {}).get(field_key, {})
+        original_reasoning = str((cf.get("decision_trace") or {}).get("reasoning") or "")
+
+        has_valid_proposal = (
+            reflect_result is not None
+            and reflect_result.get("status") == "ok"
+            and reflect_result.get("confidence", 0) >= 0.6
+        )
+
+        # reflect fail streak — 连续无法反思就换字段
+        prev_reflect_fail_streak = int(previous_state.get("reflect_fail_streak") or 0)
+        if has_valid_proposal:
+            reflect_fail_streak = 0
+        elif reflect_result is None:
+            reflect_fail_streak = prev_reflect_fail_streak + 1
+        else:
+            reflect_fail_streak = prev_reflect_fail_streak + 1
+
+        if has_valid_proposal:
+            patch_intent = reflect_result.get("patch_intent") or {}
+            # rule_patch 是可执行的规则修改（field_spec_overrides/tool_rules/call_policies）
+            rule_patch = patch_intent.get("rule_patch") or {}
+            # patch_preview 包含完整信息：可执行 patch + 方向说明
+            patch_preview = {
+                **patch_intent,
+                # 确保 rule_patch 里的三个 key 存在（apply_repo_rule_patch 需要）
+                "field_spec_overrides": rule_patch.get("field_spec_overrides") or {},
+                "tool_rules": rule_patch.get("tool_rules") or {},
+                "call_policies": rule_patch.get("call_policies") or {},
+            }
+            proposal_type = reflect_result.get("recommended_fix_surface", "field_cot")
+        else:
+            patch_preview = {}
+            proposal_type = ""
+
+        # P2: issue_score 时间序列 + 趋势分类
+        current_score = float(focus.get("issue_score") or 0.0)
+        previous_history = list(previous_state.get("issue_score_history") or [])
+        issue_score_history = (previous_history + [current_score])[-8:]
+        score_trend = _classify_score_trend(issue_score_history)
+
+        # P2: 收敛逻辑增强
         cooldown_remaining = 0
-        if not new_signal_found and no_new_signal_streak >= no_signal_streak_threshold:
+        if score_trend == "stable" and no_new_signal_streak >= 1:
+            cooldown_remaining = throttle_cooldown_rounds
+        elif score_trend == "rising" and new_signal_found:
+            no_new_signal_streak = 0
+            cooldown_remaining = 0
+        elif not new_signal_found and no_new_signal_streak >= no_signal_streak_threshold:
             cooldown_remaining = throttle_cooldown_rounds
         cycle_status = "needs_next_cycle"
-        if new_signal_found and patch_preview:
+        if has_valid_proposal:
             cycle_status = "new_rule_candidate"
         elif new_signal_found:
             cycle_status = "new_insight_found"
@@ -1132,6 +1347,7 @@ def _build_gt_field_cycles(
             "signal_key": signal_key,
             "overlooked_signals": overlooked_signals,
             "cycle_status": cycle_status,
+            "patch_preview": dict(patch_preview) if patch_preview else {},
             "rationale": str(focus.get("rationale") or ""),
             "no_new_signal_streak": no_new_signal_streak,
             "cooldown_remaining": cooldown_remaining,
@@ -1145,6 +1361,13 @@ def _build_gt_field_cycles(
                 failure_mode=failure_mode,
                 overlooked_signals=overlooked_signals,
             ),
+            # reflect 结论
+            "judgment_summary_zh": (reflect_result or {}).get("judgment_summary_zh", ""),
+            "original_reasoning": original_reasoning,
+            "proposed_reasoning_direction": (reflect_result or {}).get("patch_intent", {}).get("change_summary_zh", ""),
+            "key_evidence_zh": (reflect_result or {}).get("key_evidence_zh", []),
+            "root_cause_family": (reflect_result or {}).get("root_cause_family", failure_mode),
+            "why_this_surface_zh": (reflect_result or {}).get("why_this_surface_zh", ""),
         }
         cycles.append(cycle_entry)
         insights.append(
@@ -1154,12 +1377,13 @@ def _build_gt_field_cycles(
                 "field_key": field_key,
                 "detail": (
                     f"[{field_key}] cycle={cycle_index} grade={grade} "
-                    f"failure_mode={failure_mode} overlooked={', '.join(overlooked_signals[:3]) or 'none'} "
+                    f"failure_mode={failure_mode} reflect={'ok' if has_valid_proposal else 'no'} "
                     f"streak={no_new_signal_streak} cooldown={cooldown_remaining}"
                 ),
             }
         )
-        if patch_preview and new_signal_found:
+        # 提案：仅在 reflect 成功时生成
+        if has_valid_proposal:
             proposals.append(
                 {
                     "proposal_id": f"proposal_{date_str.replace('-', '')}_{index:03d}_{_slug_field(field_key)}",
@@ -1168,27 +1392,55 @@ def _build_gt_field_cycles(
                     "status": "proposal_only",
                     "proposal_type": proposal_type,
                     "field_key": field_key,
-                    "title": f"字段循环修正：{field_key}",
-                    "reason": (
-                        f"cycle={cycle_index}, grade={grade}, failure_mode={failure_mode}, "
-                        f"new_signal={new_signal_found}"
-                    ),
-                    "overlooked_signals": overlooked_signals,
+                    "title": reflect_result.get("judgment_summary_zh", f"字段反思：{field_key}"),
+                    "reason": reflect_result.get("why_this_surface_zh", ""),
+                    "original_reasoning": original_reasoning,
+                    "proposed_reasoning_direction": reflect_result.get("patch_intent", {}).get("change_summary_zh", ""),
+                    "judgment_summary_zh": reflect_result.get("judgment_summary_zh", ""),
+                    "key_evidence_zh": reflect_result.get("key_evidence_zh", []),
+                    "why_this_surface_zh": reflect_result.get("why_this_surface_zh", ""),
+                    "root_cause_family": reflect_result.get("root_cause_family", ""),
+                    "confidence": reflect_result.get("confidence", 0),
                     "patch_preview": patch_preview,
                     "approval_required": True,
                 }
             )
 
+        # P3: 补丁效果自动验证
+        patch_effect = None
+        last_patch_grade = previous_state.get("last_patch_grade")
+        last_patch_score = previous_state.get("last_patch_score")
+        if last_patch_grade and grade:
+            patch_effect = compute_patch_effect(
+                before_grade=last_patch_grade,
+                before_score=float(last_patch_score or 0.0),
+                after_grade=grade,
+                after_score=float(comparison_result.get("score") or 0.0),
+            )
+            cycle_entry["patch_effect"] = patch_effect
+
+        # P3: 记录补丁基线（当生成了 patch_preview 时）
+        new_patch_grade = previous_state.get("last_patch_grade")
+        new_patch_score = previous_state.get("last_patch_score")
+        if cycle_status == "new_rule_candidate":
+            new_patch_grade = grade
+            new_patch_score = float(comparison_result.get("score") or 0.0)
+
         per_field_state[field_key] = {
             "cycle_count": cycle_index,
             "last_grade": grade,
-            "last_issue_score": float(focus.get("issue_score") or 0.0),
+            "last_issue_score": current_score,
             "last_status": cycle_status,
             "last_signal_key": signal_key,
             "seen_signal_keys": seen_signals,
             "no_new_signal_streak": no_new_signal_streak,
             "cooldown_remaining": cooldown_remaining,
             "throttled_round_count": int(previous_state.get("throttled_round_count") or 0),
+            "issue_score_history": issue_score_history,
+            "score_trend": score_trend,
+            "last_patch_grade": new_patch_grade,
+            "last_patch_score": new_patch_score,
+            "reflect_fail_streak": reflect_fail_streak,
             "last_updated": datetime.now().isoformat(),
         }
 
@@ -1201,7 +1453,8 @@ def _build_gt_field_cycles(
 # --- Old functions removed: _infer_failure_mode, _extract_overlooked_signals,
 #     _propose_field_rule_patch, _infer_source_hints, _extract_structured_refs,
 #     _tokenize_signal_text, _is_value_empty
-# Now provided by services.reflection.engine (diagnose_field, extract_signals, plan_patch)
+# Diagnostics and signal extraction via services.reflection.engine.
+# Proposals now exclusively via UpstreamReflectionAgent.reflect() (no engine_plan_patch).
 #
 
 
@@ -1372,3 +1625,48 @@ def _derive_date(value: str) -> str:
 
 def _clip01(value: float) -> float:
     return max(0.0, min(1.0, float(value)))
+
+
+def _classify_score_trend(history: List[float]) -> str:
+    """P2: 从 issue_score 时间序列分类趋势。"""
+    if len(history) < 3:
+        return "insufficient"
+
+    recent = history[-3:]
+
+    # stable: max-min < 5.0
+    if max(recent) - min(recent) < 5.0:
+        return "stable"
+
+    # 方向变化检测
+    diffs = [recent[i + 1] - recent[i] for i in range(len(recent) - 1)]
+    direction_changes = sum(1 for i in range(len(diffs) - 1) if diffs[i] * diffs[i + 1] < 0)
+
+    # oscillating: 4+ 条中方向变化 >= 2 次
+    if len(history) >= 4:
+        full_diffs = [history[i + 1] - history[i] for i in range(len(history) - 1)]
+        full_changes = sum(1 for i in range(len(full_diffs) - 1) if full_diffs[i] * full_diffs[i + 1] < 0)
+        if full_changes >= 2:
+            return "oscillating"
+
+    # declining: 单调不增 or 线性回归斜率 < -2.0
+    if all(d <= 0 for d in diffs):
+        return "declining"
+
+    # rising: 单调不减 or 斜率 > 2.0
+    if all(d >= 0 for d in diffs):
+        return "rising"
+
+    # 线性回归斜率
+    n = len(history)
+    x_mean = (n - 1) / 2.0
+    y_mean = sum(history) / n
+    numerator = sum((i - x_mean) * (y - y_mean) for i, y in enumerate(history))
+    denominator = sum((i - x_mean) ** 2 for i in range(n))
+    slope = numerator / denominator if denominator > 0 else 0.0
+
+    if slope < -2.0:
+        return "declining"
+    if slope > 2.0:
+        return "rising"
+    return "stable"

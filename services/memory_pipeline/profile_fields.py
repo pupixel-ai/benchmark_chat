@@ -100,6 +100,8 @@ FIELD_COT_OVERRIDES: Dict[str, Dict[str, List[str]]] = {
     },
     "long_term_facts.social_identity.career": {
         "cot_steps": [
+            "career 输出具体的职业方向或专业领域（如 design / software_engineering / marketing / logistics），不输出 student——student 属于 role 字段",
+            "如果主角是学生且没有明确的职业/兼职方向，career 应输出 null 而非 student",
             "先看是否存在多事件重复的工作/职业场景主线",
             "再看设备、时间投入、成果或重复参与是否能形成职业闭环",
             "没有连续职业主线时不输出 career",
@@ -110,6 +112,13 @@ FIELD_COT_OVERRIDES: Dict[str, Dict[str, List[str]]] = {
             "先看同一品牌是否跨事件重复出现",
             "再核验该品牌是否明确属于主角长期拥有或长期使用",
             "广告、商品截图、他人物品不能直接升格为品牌偏好",
+        ],
+    },
+    "long_term_facts.geography.cross_border": {
+        "cot_steps": [
+            "cross_border 输出跨境活动模式（如 domestic_only / occasional_international / frequent_traveler），不要输出字符串 'none'——没有证据时输出 JSON null",
+            "有跨境证据（护照、国外地名、外币、国际航班）才输出具体模式",
+            "所有证据都指向国内活动时输出 domestic_only，不要输出 null（这本身就是有意义的判断）",
         ],
     },
     "long_term_facts.geography.location_anchors": {
@@ -163,16 +172,42 @@ FIELD_COT_OVERRIDES: Dict[str, Dict[str, List[str]]] = {
     },
     "short_term_facts.current_displacement": {
         "cot_steps": [
-            "先看最近窗口是否连续指向同一类临时位移状态",
-            "再判断这是临时位移、搬迁还是普通家校通勤/城市内活动",
-            "如果只是通勤或短途出行，保守输出 null",
+            "current_displacement 只在主角近期离开了常驻地时才输出（如出差、旅行、搬迁），格式为'从 A 到 B'或目的地描述",
+            "如果主角一直在常驻城市活动（如 location_anchors 中的城市），不算位移，输出 null",
+            "普通家校通勤、城市内移动不算 displacement",
+            "不要输出当前所在城市名——那属于 location_anchors 字段",
         ],
     },
     "short_term_facts.recent_interests": {
         "cot_steps": [
+            "recent_interests 输出近期关注的话题/领域（如 skincare_brands / cruise_travel / indie_music），是注意力层面的关注方向",
+            "与 recent_habits 的边界：interests 是主题（在关注什么），habits 是行为（在反复做什么）。例：对护肤品牌的研究是 interest，每天护肤是 habit",
             "先看最近新增主题是否在多个近期事件里重复出现",
             "再排除单张截图、一次跟风和短期热点带来的噪声",
-            "只有近期重复主题成立时才输出 recent_interests",
+        ],
+    },
+    "short_term_facts.recent_habits": {
+        "cot_steps": [
+            "recent_habits 输出近期反复出现的具体行为模式（如 weekly_date_nights / daily_skincare_routine / frequent_cafe_visits），强调'反复做的事'",
+            "与 recent_interests 的边界：habits 是行为层面的重复动作，interests 是主题层面的关注方向",
+            "与 phase_change 的边界：habits 是持续的重复行为，phase_change 是一次性的阶段转折",
+            "不要输出泛标签（social_dating 太泛），要输出具体行为模式",
+        ],
+    },
+    "short_term_facts.phase_change": {
+        "cot_steps": [
+            "phase_change 输出近期生活阶段的转折点（如 entering_relationship / started_new_job / moved_to_new_city），是低频的大事件",
+            "不要输出当前状态描述（skincare_focus 不是阶段变化——那属于 recent_interests 或 recent_habits）",
+            "必须体现'变化'：从什么状态转到了什么状态",
+            "如果近期没有明显的阶段转折，输出 null",
+        ],
+    },
+    "short_term_expression.motivation_shift": {
+        "cot_steps": [
+            "motivation_shift 输出近期内驱力的方向转变（如 from_solo_exploration_to_relationship_building / from_academic_to_career_preparation），必须体现'从 A 到 B'的变化",
+            "不要输出当前状态标签（relationship_focused 没有体现变化——那属于 current_mood 或 mental_state）",
+            "与 phase_change 的边界：phase_change 是外部生活阶段变化，motivation_shift 是内部驱动力方向变化",
+            "如果没有明显的动机转变，输出 null",
         ],
     },
     "long_term_expression.personality_mbti": {
@@ -205,16 +240,18 @@ FIELD_COT_OVERRIDES: Dict[str, Dict[str, List[str]]] = {
     },
     "short_term_expression.current_mood": {
         "cot_steps": [
-            "先看近期窗口内的表情、活动氛围和互动语境是否指向一致情绪",
-            "再排除单张表情、单次聚会和滤镜造成的噪声",
-            "只有近期多条信号一致时才输出 current_mood",
+            "current_mood 输出当前的情绪基调（如 happy / anxious / relaxed / romantic / stressed），是短期的情感状态",
+            "与 mental_state 的边界：mood 是'感觉怎么样'（情绪），mental_state 是'精神状态如何'（认知/能量）",
+            "不要输出行为描述（socially_active 不是 mood，是行为模式——那属于 social_energy）",
+            "只有近期多条信号一致时才输出",
         ],
     },
     "short_term_expression.mental_state": {
         "cot_steps": [
-            "先看近期作息、活动强度、关系变化和情绪线索是否形成一致心理状态",
-            "再排除单次忙碌、单次低落或旅行疲惫造成的短期噪声",
-            "如果没有连续证据，不输出 mental_state",
+            "mental_state 输出当前的精神/认知状态（如 focused / fatigued / energized / overwhelmed / content），是精神能量和认知负荷的描述",
+            "与 current_mood 的边界：mental_state 是'脑子在什么状态'（专注/疲惫/充沛），mood 是'心情怎么样'（开心/焦虑）",
+            "不要输出社交行为描述（socially_active 不是 mental_state——那属于 social_energy）",
+            "如果没有连续证据，输出 null",
         ],
     },
     "short_term_expression.stress_signal": {
@@ -229,6 +266,14 @@ FIELD_COT_OVERRIDES: Dict[str, Dict[str, List[str]]] = {
             "先看近期社交频率、活动规模和互动强度是否出现一致变化",
             "再排除单周高频聚会或单次社交低谷造成的偏差",
             "只有近期社交能量模式稳定时才输出 social_energy",
+        ],
+    },
+    "long_term_facts.identity.age_range": {
+        "cot_steps": [
+            "age_range 只输出年龄范围（如 18-22 / 25-30 / early_twenties / late_thirties），绝对不输出身份标签（student / worker 等——那些属于 role 字段）",
+            "优先使用硬证据：身份证出生年份、证件年龄、OCR 中的年份信息",
+            "硬证据缺失时，可从 education（大学→18-24）、career 经验年限、外观线索等间接推断年龄范围",
+            "只输出年龄数字范围或年龄段描述，不输出身份类别",
         ],
     },
     "long_term_facts.identity.role": {
@@ -259,6 +304,37 @@ FIELD_COT_OVERRIDES: Dict[str, Dict[str, List[str]]] = {
             "只有稳定 top 活动成立时才输出",
         ],
     },
+    "long_term_facts.time.event_cycles": {
+        "cot_steps": [
+            "event_cycles 输出周期性重复事件的具体模式和频率（如 biweekly_social_outings / monthly_travel / weekly_gym），不输出泛化活动类别（social_activities——那属于 interests/frequent_activities）",
+            "必须体现周期性：多久一次、什么活动、是否稳定重复",
+            "如果没有发现明确的周期性模式，输出 null 而非泛化活动标签",
+        ],
+    },
+    "long_term_facts.time.sleep_pattern": {
+        "cot_steps": [
+            "sleep_pattern 输出具体的睡眠时间规律（如 late_sleeper_past_midnight / early_riser / irregular_between_11pm_2am），不输出单个词 irregular——这没有信息量",
+            "从深夜/清晨活动时间戳推断入睡和起床时间范围",
+            "与 life_rhythm 的边界：sleep_pattern 只关注睡眠相关时间点，不描述整体生活节奏",
+            "证据不足时输出 null，不要猜",
+        ],
+    },
+    "long_term_facts.social_identity.career_phase": {
+        "cot_steps": [
+            "career_phase 输出职业/学业的发展阶段（如 undergraduate / postgraduate / entry_level / mid_career / senior / retired），不输出身份类别（student/employee——那属于 role）",
+            "对学生：区分 undergraduate / postgraduate / phd_candidate",
+            "对职场人：区分 intern / entry_level / mid_career / senior / management",
+            "如果无法判断具体阶段，输出 null",
+        ],
+    },
+    "long_term_facts.social_identity.professional_dedication": {
+        "cot_steps": [
+            "professional_dedication 输出主角在主业上的投入模式和专注方向，不输出身份类别（student/employee——那属于 role）",
+            "示例格式：full_time_focused / part_time_with_side_projects / academic_with_social_balance / career_driven",
+            "从活动时间分配、工作/学习场景频率、副业/兼职线索中推断",
+            "如果只能确定身份但无法判断投入模式，输出 null 而非重复 role 的值",
+        ],
+    },
     "long_term_facts.material.asset_level": {
         "cot_steps": [
             "先看跨事件的消费场景、品牌层次和生活条件证据",
@@ -275,10 +351,10 @@ FIELD_COT_OVERRIDES: Dict[str, Dict[str, List[str]]] = {
     },
     "long_term_facts.time.life_rhythm": {
         "cot_steps": [
-            "先看事件时间戳分布，识别是否有稳定的活动时间模式",
-            "关注工作日 vs 周末、日间 vs 夜间的活动分布差异",
-            "只有时间模式在多个事件中稳定重复时才输出具体节奏标签",
-            "单日数据不能推断长期作息模式",
+            "life_rhythm 输出整体生活节奏模式（如 nine_to_five / night_owl_social / weekend_active_weekday_quiet / flexible_schedule），不输出单个词 irregular——这没有信息量",
+            "从工作日 vs 周末、日间 vs 夜间的活动分布差异中提取具体模式",
+            "与 sleep_pattern 的边界：life_rhythm 描述整体活动节奏，sleep_pattern 只描述睡眠时间规律",
+            "只有时间模式在多个事件中稳定重复时才输出",
         ],
     },
 }
@@ -340,6 +416,7 @@ FIELD_SPECS: Dict[str, FieldSpec] = {
     "long_term_facts.social_identity.career_phase": _spec("long_term_facts.social_identity.career_phase", "P1", ["event", "feature"], ["稳定身份主线 + 最近变化"]),
     "long_term_facts.social_identity.professional_dedication": _spec("long_term_facts.social_identity.professional_dedication", "P1", ["event", "feature"], ["连续工作/学习事件"]),
     "long_term_facts.social_identity.language_culture": _spec("long_term_facts.social_identity.language_culture", "P1", ["vlm", "event", "feature"], ["稳定文本/语言环境"]),
+    "long_term_facts.social_identity.political_preference": _spec("long_term_facts.social_identity.political_preference", "P0", ["event", "vlm", "feature"], ["明确政治符号/标语/活动参与"], hard_blocks=["从国籍或文化推断政治立场"]),
     "long_term_facts.material.asset_level": _spec("long_term_facts.material.asset_level", "P0", ["event", "vlm", "feature"], ["多条社经证据 + 明确归属"], hard_blocks=["一次性体验"]),
     "long_term_facts.material.spending_style": _spec("long_term_facts.material.spending_style", "P0", ["event", "vlm", "feature"], ["跨事件重复消费模式"], hard_blocks=["礼物/借用物"]),
     "long_term_facts.material.brand_preference": _spec("long_term_facts.material.brand_preference", "P0", ["event", "vlm", "feature"], ["同一品牌跨事件重复出现"], hard_blocks=["广告/商品截图"]),
@@ -362,12 +439,14 @@ FIELD_SPECS: Dict[str, FieldSpec] = {
     "long_term_facts.hobbies.solo_vs_social": _spec("long_term_facts.hobbies.solo_vs_social", "P1", ["event", "relationship", "feature"], ["事件规模 + 关系结果"], requires_protagonist_face=True),
     "long_term_facts.physiology.fitness_level": _spec("long_term_facts.physiology.fitness_level", "P1", ["event", "vlm", "feature"], ["持续运动事件"]),
     "long_term_facts.physiology.diet_mode": _spec("long_term_facts.physiology.diet_mode", "P1", ["event", "vlm", "feature"], ["稳定饮食模式"]),
+    "long_term_facts.physiology.health_conditions": _spec("long_term_facts.physiology.health_conditions", "P1", ["event", "vlm", "feature"], ["跨事件健康相关线索"], hard_blocks=["从单次就医或单张药品推断长期健康状况"]),
     "short_term_facts.life_events": _spec("short_term_facts.life_events", "P1", ["event", "relationship", "feature"], ["近期窗口重大事件"]),
     "short_term_facts.phase_change": _spec("short_term_facts.phase_change", "P1", ["event", "relationship", "feature"], ["近期与长期基线系统偏移"]),
     "short_term_facts.spending_shift": _spec("short_term_facts.spending_shift", "P1", ["event", "vlm", "feature"], ["近期消费模式持续偏移"]),
     "short_term_facts.current_displacement": _spec("short_term_facts.current_displacement", "P0", ["event", "feature"], ["近期连续临时位移状态"], hard_blocks=["家校通勤"]),
     "short_term_facts.recent_habits": _spec("short_term_facts.recent_habits", "P1", ["event", "feature"], ["近期连续重复行为"]),
     "short_term_facts.recent_interests": _spec("short_term_facts.recent_interests", "P1", ["event", "vlm", "feature"], ["近期主题多次重复"]),
+    "short_term_facts.physiological_state": _spec("short_term_facts.physiological_state", "P1", ["event", "vlm", "feature"], ["近期持续生理状态变化"], hard_blocks=["单次疲劳或单次运动后状态"]),
     "long_term_expression.personality_mbti": _spec("long_term_expression.personality_mbti", "P0", ["event", "relationship", "feature"], ["跨事件行为模式 + 至少3条行为证据"], hard_blocks=["单次情绪", "单次活动"], requires_social_media=True),
     "long_term_expression.morality": _spec("long_term_expression.morality", "P1", ["event", "relationship", "feature"], ["稳定价值取向二阶特征"], hard_blocks=["从单个场景外推道德"], requires_social_media=True),
     "long_term_expression.philosophy": _spec("long_term_expression.philosophy", "P1", ["event", "relationship", "feature"], ["稳定生活取向二阶特征"], hard_blocks=["从单个活动外推生活哲学"], requires_social_media=True),
@@ -539,6 +618,7 @@ def generate_structured_profile(
     state: MemoryState,
     llm_processor: Any | None = None,
     rule_overlay: Dict[str, Any] | None = None,
+    target_field_keys: set | None = None,
 ) -> Dict[str, Any]:
     context = state.profile_context or build_profile_context(state)
     structured = build_empty_structured_profile()
@@ -546,7 +626,7 @@ def generate_structured_profile(
     effective_field_specs = get_active_field_specs(rule_overlay=rule_overlay)
     profile_agent = ProfileAgent(effective_field_specs)
     with temporary_rule_overlay(rule_overlay):
-        profile_result = profile_agent.run(context, structured, llm_processor=effective_llm_processor)
+        profile_result = profile_agent.run(context, structured, llm_processor=effective_llm_processor, target_field_keys=target_field_keys)
     structured = profile_result["structured"]
     consistency = build_consistency_report(state.events or [], state.relationships or [], structured)
     return {

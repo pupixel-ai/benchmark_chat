@@ -194,6 +194,7 @@ class ProfileAgent:
         context: Dict[str, Any],
         structured_profile: Dict[str, Any],
         llm_processor: Any | None = None,
+        target_field_keys: set | None = None,
     ) -> Dict[str, Any]:
         profile_state = ProfileState(structured_profile=deepcopy(structured_profile))
         metadata_bundle = extract_metadata_evidence(context)
@@ -201,7 +202,7 @@ class ProfileAgent:
         profile_state.resolved_facts_summary = get_resolved_facts(profile_state.__dict__)["resolved_facts_summary"]
 
         for domain_spec in DOMAIN_SPECS:
-            self._run_domain(domain_spec, context, profile_state, llm_processor=llm_processor)
+            self._run_domain(domain_spec, context, profile_state, llm_processor=llm_processor, target_field_keys=target_field_keys)
 
         return {
             "structured": self._build_traceable_structured_profile(profile_state.structured_profile),
@@ -216,9 +217,12 @@ class ProfileAgent:
         context: Dict[str, Any],
         profile_state: ProfileState,
         llm_processor: Any | None = None,
+        target_field_keys: set | None = None,
     ) -> None:
         prompt_units: List[Dict[str, Any]] = []
         for field_key in domain_spec["fields"]:
+            if target_field_keys and field_key not in target_field_keys:
+                continue
             spec = self.field_specs.get(field_key)
             if spec is None:
                 continue

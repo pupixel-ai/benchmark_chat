@@ -16,6 +16,8 @@ from config import (
     FEISHU_APP_ID,
     FEISHU_APP_SECRET,
     FEISHU_CALLBACK_VERIFICATION_TOKEN,
+    FEISHU_DEFAULT_RECEIVE_ID,
+    FEISHU_DEFAULT_RECEIVE_ID_TYPE,
     PROJECT_ROOT,
     REVIEW_BASE_URL,
 )
@@ -699,6 +701,274 @@ def mark_difficult_case_feishu_sent(*, project_root: str, user_name: str, case_i
         raise KeyError(case_id)
     _write_jsonl_records(paths.difficult_cases_path, difficult_cases)
     return updated_case
+
+
+def _translate_values_for_card(values: List[str]) -> Dict[str, str]:
+    """批量翻译英文值为中文，用于飞书卡片展示。Google Translate 免费，带缓存。"""
+    import re as _re
+    result: Dict[str, str] = {}
+    to_translate: List[str] = []
+    for v in values:
+        if not v or v == "—" or v == "None":
+            result[v] = v
+        elif len(_re.findall(r"[\u4e00-\u9fff]", v)) > len(v) * 0.3:
+            result[v] = v  # 已是中文
+        elif not _re.search(r"[a-zA-Z_]", v):
+            result[v] = v  # 非英文
+        else:
+            to_translate.append(v)
+    if to_translate:
+        try:
+            from deep_translator import GoogleTranslator
+            translator = GoogleTranslator(source="en", target="zh-CN")
+            for v in to_translate:
+                try:
+                    translated = translator.translate(v.replace("_", " ").strip())
+                    result[v] = translated or v
+                except Exception:
+                    result[v] = v
+        except ImportError:
+            for v in to_translate:
+                result[v] = v
+    return result
+
+
+def send_evolution_round_card(
+    *,
+    user_name: str,
+    date_str: str,
+    result: Dict[str, Any],
+    field_cycles: List[Dict[str, Any]] | None = None,
+    proposals: List[Dict[str, Any]] | None = None,
+    gt_comparisons: Dict[str, Dict[str, Any]] | None = None,
+    vlm_summaries: Dict[str, str] | None = None,
+    event_summaries: Dict[str, str] | None = None,
+    receive_id: str = "",
+    receive_id_type: str = "",
+    review_base_url: str = REVIEW_BASE_URL,
+    app_id: str = FEISHU_APP_ID,
+    app_secret: str = FEISHU_APP_SECRET,
+    api_base_url: str = FEISHU_API_BASE_URL,
+) -> Dict[str, Any]:
+    """发送 evolution 单轮汇报卡片到飞书个人。
+
+    gt_comparisons: {field_key: {output_value, gt_value, grade, score}} 用于展示对比详情。
+    vlm_summaries: {photo_id: summary} 用于展示照片证据描述。
+    event_summaries: {event_id: summary} 用于展示事件证据描述。
+    """
+    if not receive_id:
+        receive_id = str(FEISHU_DEFAULT_RECEIVE_ID or "").strip()
+    if not receive_id_type:
+        receive_id_type = str(FEISHU_DEFAULT_RECEIVE_ID_TYPE or "open_id").strip()
+    if not app_id or not app_secret or not receive_id:
+        raise RuntimeError("feishu_credentials_or_receive_id_missing")
+
+    gt_map = gt_comparisons or {}
+    total_focus = result.get("total_focus_fields", 0)
+    total_insights = result.get("total_insights", 0)
+    total_proposals = result.get("total_proposals", 0)
+
+    # 字段名中文映射
+    label_map: Dict[str, str] = {}
+    try:
+        for row in load_bilingual_label_rows():
+            if row.get("key") and row.get("zh_label"):
+                label_map[row["key"]] = row["zh_label"]
+    except Exception:
+        pass
+
+    def zh_field(fk: str) -> str:
+        return label_map.get(fk, fk.rsplit(".", 1)[-1])
+
+    GRADE_ZH = {
+        "mismatch": "不匹配", "missing_prediction": "缺失", "partial_match": "部分匹配",
+        "close_match": "接近匹配", "exact_match": "完全匹配", "improved": "优化",
+    }
+    FAILURE_ZH = {
+        "missing_signal": "信号缺失", "wrong_value": "值错误", "overclaim": "过度推断",
+        "partial_coverage": "覆盖不全", "null_value": "空值", "unknown": "未分类",
+    }
+    STATUS_ZH = {
+        "new_rule_candidate": "💡 可提规则", "throttle_armed": "⏸️ 即将暂停",
+        "throttled": "⏹️ 已暂停", "needs_next_cycle": "🔄 需下轮",
+        "initial_snapshot": "📸 初始快照",
+    }
+
+    # 确定最大轮次号
+    max_cycle = max((fc.get("cycle_index", 1) for fc in (field_cycles or [{}])), default=1)
+
+    # --- 批量翻译 GT 值和输出值 ---
+    values_to_translate: List[str] = []
+    for fk in [fc.get("field_key", "") for fc in (field_cycles or [])]:
+        gi = gt_map.get(fk, {})
+        for v in [str(gi.get("output_value", "")), str(gi.get("gt_value", ""))]:
+            if v and v not in values_to_translate:
+                values_to_translate.append(v[:80])
+    _val_zh = _translate_values_for_card(values_to_translate)
+
+    def zh_val(v: str) -> str:
+        return _val_zh.get(v, v)
+
+    # --- 构建卡片 elements ---
+    elements: List[Dict[str, Any]] = [
+        {"tag": "markdown", "content": (
+            f"**用户**: {user_name}　|　**日期**: {date_str}　|　**第 {max_cycle} 轮**\n"
+            f"**关注字段**: {total_focus}　|　**洞察**: {total_insights}　|　**提案**: {total_proposals}"
+        )},
+    ]
+
+    # 每个字段的详细迭代卡片
+    for fc in (field_cycles or [])[:10]:
+        fk = fc.get("field_key", "")
+        cycle_idx = fc.get("cycle_index", 1)
+        status = fc.get("cycle_status", "")
+        grade = fc.get("grade", "")
+        fm = fc.get("failure_mode", "")
+        score = fc.get("issue_score", 0)
+        prev_score = fc.get("prev_issue_score", 0)
+
+        status_text = STATUS_ZH.get(status, f"▪️ {status}")
+        grade_text = GRADE_ZH.get(grade, grade)
+        fm_text = FAILURE_ZH.get(fm, fm)
+
+        # 分数变化
+        score_text = f"分数: {score:.1f}"
+        if prev_score and prev_score != score:
+            delta = score - prev_score
+            arrow = "↓" if delta < 0 else "↑"
+            score_text += f" ({arrow}{abs(delta):.1f})"
+
+        # GT 对比
+        gt_info = gt_map.get(fk, {})
+        output_val = zh_val(str(gt_info.get("output_value", "—"))[:80])
+        gt_val = zh_val(str(gt_info.get("gt_value", "—"))[:80])
+
+        # reflect 结论
+        judgment = fc.get("judgment_summary_zh", "")
+        original_reasoning = fc.get("original_reasoning", "")
+        proposed_direction = fc.get("proposed_reasoning_direction", "")
+        key_evidence = fc.get("key_evidence_zh") or []
+
+        lines = (
+            f"{status_text}　**{zh_field(fk)}**　第 {cycle_idx} 轮　{grade_text} / {fm_text}\n"
+            f"📊 {score_text}　|　系统: `{output_val}`　→　GT: `{gt_val}`"
+        )
+        if judgment:
+            lines += f"\n{judgment}"
+        else:
+            lines += "\n*本轮未生成反思结论*"
+
+        elements.append({"tag": "markdown", "content": lines})
+
+    # 提案详情（reflect 驱动，展示 reasoning 对比）
+    ROOT_CAUSE_ZH_MAP = {
+        "field_reasoning": "COT 推理", "evidence_packaging": "证据组装",
+        "tool_retrieval": "工具检索", "tool_selection_policy": "工具选择策略",
+        "coverage_gap_source": "来源缺口", "coverage_gap_tool": "工具缺口",
+        "engineering_issue": "工程问题", "watch_only": "持续观察",
+    }
+    if proposals:
+        elements.append({"tag": "markdown", "content": "---\n**修改提案（待审批）**"})
+        for p in (proposals or [])[:5]:
+            fk = p.get("field_key", "")
+            gt_info = gt_map.get(fk, {})
+            rc = p.get("root_cause_family", "")
+            conf = p.get("confidence", 0)
+            orig = p.get("original_reasoning", "")
+            proposed = p.get("proposed_reasoning_direction", "")
+            why = p.get("why_this_surface_zh", "")
+            key_ev = p.get("key_evidence_zh") or []
+
+            content = f"📋 **{zh_field(fk)}**\n"
+            content += f"当前输出: `{zh_val(str(gt_info.get('output_value', '—'))[:60])}`\n"
+            content += f"GT 标准: `{zh_val(str(gt_info.get('gt_value', '—'))[:60])}`\n"
+            content += f"**根因**: {ROOT_CAUSE_ZH_MAP.get(rc, rc)}（置信度 {conf:.0%}）\n"
+            if orig:
+                content += f"\n**之前的判断逻辑**:\n{orig[:200]}\n"
+            if proposed:
+                content += f"\n**应改为**:\n{proposed[:200]}\n"
+            if why:
+                content += f"\n**为什么**: {why[:150]}"
+            if key_ev:
+                content += "\n\n**关键证据**:\n" + "\n".join(f"- {e[:100]}" for e in key_ev[:3])
+
+            # 展示具体的规则修改
+            patch = p.get("patch_preview") or {}
+            rule_lines: List[str] = []
+            fso = patch.get("field_spec_overrides") or {}
+            for field, spec in fso.items():
+                if isinstance(spec, dict) and spec.get("null_preferred_when"):
+                    conditions = spec["null_preferred_when"]
+                    if isinstance(conditions, list):
+                        rule_lines.append(f"**判断口径修改** ({zh_field(field)}):")
+                        for c in conditions[:3]:
+                            rule_lines.append(f"  · {c}")
+            tr = patch.get("tool_rules") or {}
+            for field, rule in tr.items():
+                if isinstance(rule, dict):
+                    parts = []
+                    for k, v in rule.items():
+                        parts.append(f"{k}: {v}")
+                    if parts:
+                        rule_lines.append(f"**证据规则修改** ({zh_field(field)}): {', '.join(parts)}")
+            cp = patch.get("call_policies") or {}
+            for field, policy in cp.items():
+                if isinstance(policy, dict) and policy.get("append_allowed_sources"):
+                    sources = policy["append_allowed_sources"]
+                    rule_lines.append(f"**数据来源修改** ({zh_field(field)}): 新增 {', '.join(sources)}")
+
+            if rule_lines:
+                content += "\n\n**具体规则变更**:\n" + "\n".join(rule_lines)
+
+            elements.append({"tag": "markdown", "content": content})
+    else:
+        elements.append({"tag": "markdown", "content": "*本轮未发现可提交的修改提案*"})
+
+    # 链接
+    links: List[str] = []
+    if total_proposals > 0:
+        links.append(f"[👉 去审批提案]({review_base_url}/proposals?user_name={user_name})")
+    links.append(f"[📊 查看详情]({review_base_url}/user/{user_name})")
+    elements.append({"tag": "markdown", "content": "　".join(links)})
+
+    # 颜色：有提案用蓝色，全部收敛用绿色
+    template = "green" if all(
+        fc.get("cycle_status") in ("throttled", "throttle_armed") for fc in (field_cycles or [])
+    ) else "blue"
+
+    card = {
+        "schema": "2.0",
+        "config": {"enable_forward": True, "width_mode": "fill"},
+        "header": {
+            "title": {"tag": "plain_text", "content": f"Evolution 第 {max_cycle} 轮 — {user_name}"},
+            "template": template,
+            "subtitle": {"tag": "plain_text", "content": f"{date_str} | {total_focus} 字段 | {total_proposals} 提案"},
+        },
+        "body": {"elements": elements},
+    }
+
+    tenant_access_token = _get_tenant_access_token(
+        app_id=app_id, app_secret=app_secret, api_base_url=api_base_url,
+    )
+    response = requests.post(
+        f"{api_base_url.rstrip('/')}/open-apis/im/v1/messages?receive_id_type={receive_id_type}",
+        json={
+            "receive_id": receive_id,
+            "msg_type": "interactive",
+            "content": json.dumps(card, ensure_ascii=False),
+        },
+        headers={
+            "Authorization": f"Bearer {tenant_access_token}",
+            "Content-Type": "application/json; charset=utf-8",
+        },
+        timeout=15,
+    )
+    response.raise_for_status()
+    payload = response.json()
+    return {
+        "message_id": str((payload.get("data") or {}).get("message_id") or ""),
+        "raw_response": payload,
+    }
 
 
 def _get_tenant_access_token(*, app_id: str, app_secret: str, api_base_url: str) -> str:

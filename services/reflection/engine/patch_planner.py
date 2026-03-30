@@ -118,15 +118,17 @@ def plan_patch(
             if proposal_type == "field_cycle_patch":
                 proposal_type = "tool_rule_patch"
 
-    # 3. field_spec patch: add null_preferred_when hints from signals
-    if signals.signals and failure_mode in {"wrong_value", "missing_signal", "partial_coverage"}:
+    # 3. field_spec patch: add null_preferred_when hints from REAL evidence signals only.
+    #    gt_token signals are convergence markers, not actionable evidence — skip them.
+    real_signals = [s for s in signals.signals if not s.startswith("gt_token:")]
+    if real_signals and failure_mode in {"wrong_value", "missing_signal", "partial_coverage"}:
         existing_field_override = dict(field_overrides.get(field_key) or {})
         current_null_pref = [
             str(item)
             for item in list(existing_field_override.get("null_preferred_when") or [])
             if str(item)
         ]
-        clue_hint = f"字段循环线索：{signals.signals[0]}"
+        clue_hint = f"字段循环线索：{real_signals[0]}"
         next_null_pref = _dedupe_non_empty(current_null_pref + [clue_hint])
         if next_null_pref != current_null_pref:
             patch_preview.setdefault("field_spec_overrides", {})[field_key] = {

@@ -180,7 +180,20 @@ def _pattern_key(case: Dict[str, Any]) -> str:
     else:
         failure_mode = "unknown"
 
-    root_cause = str(case.get("root_cause_family") or "unknown").strip()
+    root_cause = str(case.get("root_cause_family") or "").strip()
+    if not root_cause or root_cause == "unknown":
+        # Auto-derive from failure_mode + tool_usage_summary
+        tool_summary = case.get("tool_usage_summary") or {}
+        tool_called = bool(tool_summary.get("tool_called"))
+        evidence_count = int(tool_summary.get("retrieval_hit_count") or 0)
+        if failure_mode in ("wrong_value", "partial_coverage"):
+            root_cause = "field_reasoning" if tool_called and evidence_count >= 2 else "tool_retrieval"
+        elif failure_mode == "missing_signal":
+            root_cause = "field_reasoning" if tool_called and evidence_count >= 1 else "tool_selection_policy"
+        elif failure_mode == "overclaim":
+            root_cause = "field_reasoning"
+        else:
+            root_cause = "watch_only"
     return f"{dimension}|{failure_mode}|{root_cause}"
 
 
@@ -198,10 +211,10 @@ def build_cross_user_patterns(
         if not dimension:
             continue
         lane = _classify_lane(case)
-        if not lane:
+        if not lane or lane != "profile":
             continue
         key = f"{lane}|" + _pattern_key(case)
-        if "|ok|" in key:
+        if "|ok|" in key or "|unknown|" in key:
             continue
         groups[key].append(case)
 
@@ -241,6 +254,8 @@ def build_cross_user_patterns(
 
         pattern_id = hashlib.sha256(key.encode()).hexdigest()[:12]
 
+        lane_quality = _aggregate_lane_quality(cases, lane)
+
         patterns.append(CrossUserPattern(
             pattern_id=f"xup_{pattern_id}",
             lane=lane,
@@ -255,6 +270,7 @@ def build_cross_user_patterns(
             root_cause_candidates=all_rcs,
             fix_surface_candidates=all_fix_surfaces,
             avg_confidence=round(sum(confidences) / len(confidences), 3) if confidences else 0.0,
+            avg_lane_quality=lane_quality,
             summary=f"{dimension} 在 {len(users_in_pattern)}/{total_users} 个用户中出现 {failure_mode}，主要根因 {root_cause}",
         ))
 
@@ -457,3 +473,128 @@ def _build_summary(
             for p in patterns[:10]
         ],
     }
+
+
+# ────────────────────────────────────────────────────────────────────
+# P4: 关系层 / 主角层结构化质量评分
+# ────────────────────────────────────────────────────────────────────
+
+
+def score_protagonist_quality(case: Dict[str, Any]) -> Dict[str, float]:
+    """主角质量评分：evidence_sufficiency + mode_evidence_consistency。"""
+    upstream = case.get("upstream_output") or {}
+    decision_trace = case.get("decision_trace") or {}
+    selfie_count = int(upstream.get("selfie_count") or decision_trace.get("selfie_count") or 0)
+    anchor_count = int(upstream.get("identity_anchor_count") or decision_trace.get("identity_anchor_count") or 0)
+    mode = str(upstream.get("mode") or decision_trace.get("mode") or "").strip()
+    evidence_refs = case.get("evidence_refs") or []
+    photo_refs = sum(1 for r in evidence_refs if str(r.get("source_type", "")).startswith("photo"))
+    event_refs = sum(1 for r in evidence_refs if str(r.get("source_type", "")).startswith("event"))
+
+    # evidence_sufficiency: 按证据强度分级
+    if selfie_count > 0 or anchor_count > 0:
+        sufficiency = 0.8 + min(0.2, (selfie_count + anchor_count) * 0.05)
+    elif photo_refs > 0:
+        sufficiency = min(0.6, photo_refs * 0.2)
+    elif event_refs > 0:
+        sufficiency = min(0.3, event_refs * 0.1)
+    else:
+        sufficiency = 0.0
+
+    # mode_evidence_consistency
+    if mode == "selfie" and selfie_count > 0:
+        consistency = 1.0
+    elif mode == "selfie" and selfie_count == 0:
+        consistency = 0.2
+    elif mode == "photographer_mode" and selfie_count == 0:
+        consistency = 0.9
+    elif mode == "photographer_mode" and selfie_count > 3:
+        consistency = 0.2
+    else:
+        consistency = 0.5
+
+    return {
+        "evidence_sufficiency": round(min(1.0, sufficiency), 3),
+        "mode_evidence_consistency": round(consistency, 3),
+    }
+
+
+def score_relationship_quality(case: Dict[str, Any]) -> Dict[str, float]:
+    """关系质量评分：evidence_diversity + retention_justification + type_confidence_alignment。"""
+    decision_trace = case.get("decision_trace") or {}
+    upstream = case.get("upstream_output") or {}
+
+    retention = str(decision_trace.get("retention_decision") or "").strip()
+    if retention != "keep":
+        return {}  # 只评 keep 的关系
+
+    person_kind = str(decision_trace.get("person_kind") or "uncertain")
+    rel_type = str(decision_trace.get("relationship_type") or upstream.get("relationship_type") or "")
+    time_span = int(decision_trace.get("time_span_days") or 0)
+    photo_count = int(decision_trace.get("photo_count") or 0)
+    interaction_signals = list(decision_trace.get("interaction_signals") or [])
+    scene_profile = decision_trace.get("scene_profile") or {}
+    scenes = list(scene_profile.get("scenes") or [])
+
+    strong_signals = {"kiss", "hug", "holding_hands", "selfie_together"}
+    has_strong = bool(set(interaction_signals) & strong_signals)
+    shared_events = list(upstream.get("shared_events") or decision_trace.get("shared_events") or [])
+
+    # evidence_diversity: temporal_span_score + scene_diversity_score 取平均
+    temporal_score = min(1.0, time_span / 180.0)  # 半年为满分
+    scene_score = min(1.0, len(set(scenes)) / 4.0)  # 4 种场景为满分
+    evidence_diversity = round((temporal_score + scene_score) / 2.0, 3)
+
+    # retention_justification
+    if person_kind not in ("real_person", "primary_contact", "secondary_contact", ""):
+        justification = 0.2
+    elif not interaction_signals and not shared_events:
+        justification = 0.3
+    elif len(set(scenes)) >= 2 and has_strong:
+        justification = 1.0
+    elif len(set(scenes)) >= 2 or has_strong:
+        justification = 0.7
+    else:
+        justification = 0.5
+
+    # type_confidence_alignment
+    if rel_type in ("romantic", "family") and has_strong:
+        alignment = 1.0
+    elif rel_type in ("romantic", "family") and not has_strong and photo_count < 5:
+        alignment = 0.3
+    elif rel_type in ("acquaintance", "activity_buddy") and photo_count <= 3:
+        alignment = 0.9
+    elif rel_type in ("acquaintance", "activity_buddy") and has_strong:
+        alignment = 0.3
+    else:
+        alignment = 0.6
+
+    return {
+        "evidence_diversity": evidence_diversity,
+        "retention_justification": round(justification, 3),
+        "type_confidence_alignment": round(alignment, 3),
+    }
+
+
+def _aggregate_lane_quality(cases: List[Dict[str, Any]], lane: str) -> Dict[str, float]:
+    """聚合一组 cases 的平均 lane 质量分。"""
+    if lane == "protagonist":
+        scores = [score_protagonist_quality(c) for c in cases]
+    elif lane == "relationship":
+        scores = [score_relationship_quality(c) for c in cases]
+        scores = [s for s in scores if s]  # 过滤掉非 keep 的空字典
+    else:
+        return {}
+
+    if not scores:
+        return {}
+
+    all_keys = set()
+    for s in scores:
+        all_keys.update(s.keys())
+
+    avg: Dict[str, float] = {}
+    for key in all_keys:
+        vals = [s[key] for s in scores if key in s]
+        avg[key] = round(sum(vals) / len(vals), 3) if vals else 0.0
+    return avg
