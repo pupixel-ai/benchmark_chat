@@ -16,6 +16,80 @@ from .profile_tools import (
 )
 from .types import FieldSpec, ProfileState
 
+EVENT_EVIDENCE_KEYS = ("event_id", "date", "title", "location", "description", "narrative_synthesis", "tags", "photo_count")
+
+_VLM_COMMON_KEYS = ("photo_id", "signal")
+
+_VLM_FIELD_KEYS: Dict[str, Tuple[str, ...]] = {
+    # identity
+    "long_term_facts.identity.name": ("details", "ocr_hits"),
+    "long_term_facts.identity.gender": ("people", "subject_role"),
+    "long_term_facts.identity.age_range": ("activity", "details", "ocr_hits"),
+    "long_term_facts.identity.role": ("activity", "work_signals", "details", "ocr_hits"),
+    "long_term_facts.identity.race": ("people", "subject_role"),
+    "long_term_facts.identity.nationality": ("location", "details", "ocr_hits", "normalized_places"),
+    # social_identity
+    "long_term_facts.social_identity.education": ("activity", "location", "details", "ocr_hits", "work_signals"),
+    "long_term_facts.social_identity.career": ("activity", "work_signals", "details", "location"),
+    "long_term_facts.social_identity.career_phase": ("activity", "work_signals", "details", "location"),
+    "long_term_facts.social_identity.professional_dedication": ("activity", "work_signals", "details", "location"),
+    "long_term_facts.social_identity.language_culture": ("details", "ocr_hits", "location"),
+    "long_term_facts.social_identity.political_preference": ("details", "ocr_hits"),
+    # material
+    "long_term_facts.material.asset_level": ("brands", "details", "location"),
+    "long_term_facts.material.spending_style": ("brands", "details", "ocr_hits"),
+    "long_term_facts.material.brand_preference": ("brands", "details", "ocr_hits"),
+    "long_term_facts.material.income_model": ("work_signals", "details", "activity"),
+    "long_term_facts.material.signature_items": ("brands", "details"),
+    # geography
+    "long_term_facts.geography.location_anchors": ("location", "normalized_places", "place_candidates"),
+    "long_term_facts.geography.mobility_pattern": ("location", "normalized_places", "timestamp"),
+    "long_term_facts.geography.cross_border": ("location", "normalized_places"),
+    # time
+    "long_term_facts.time.life_rhythm": ("timestamp", "activity", "time_keys"),
+    "long_term_facts.time.event_cycles": ("timestamp", "activity", "time_keys"),
+    "long_term_facts.time.sleep_pattern": ("timestamp", "time_keys"),
+    # relationships
+    "long_term_facts.relationships.intimate_partner": ("people", "activity", "subject_role"),
+    "long_term_facts.relationships.close_circle_size": ("people",),
+    "long_term_facts.relationships.social_groups": ("people", "activity"),
+    "long_term_facts.relationships.pets": ("activity", "details"),
+    "long_term_facts.relationships.parenting": ("activity", "details", "people"),
+    "long_term_facts.relationships.living_situation": ("location", "activity", "details"),
+    # hobbies
+    "long_term_facts.hobbies.interests": ("activity", "activity_tags", "details", "location"),
+    "long_term_facts.hobbies.frequent_activities": ("activity", "activity_tags", "location"),
+    "long_term_facts.hobbies.solo_vs_social": ("people", "activity", "subject_role"),
+    # physiology
+    "long_term_facts.physiology.fitness_level": ("activity", "details"),
+    "long_term_facts.physiology.diet_mode": ("activity", "details", "location"),
+    "long_term_facts.physiology.health_conditions": ("activity", "details"),
+    # expression
+    "long_term_expression.personality_mbti": ("activity", "details"),
+    "long_term_expression.morality": ("activity", "details"),
+    "long_term_expression.philosophy": ("activity", "details"),
+    "long_term_expression.attitude_style": ("activity", "details"),
+    "long_term_expression.aesthetic_tendency": ("activity", "details", "location"),
+    "long_term_expression.visual_creation_style": ("activity", "details"),
+    # short_term
+    "short_term_facts.life_events": ("activity", "details", "timestamp"),
+    "short_term_facts.phase_change": ("activity", "details", "timestamp"),
+    "short_term_facts.spending_shift": ("brands", "details", "ocr_hits"),
+    "short_term_facts.current_displacement": ("location", "normalized_places", "timestamp"),
+    "short_term_facts.recent_habits": ("activity", "details", "timestamp"),
+    "short_term_facts.recent_interests": ("activity", "activity_tags", "details"),
+    "short_term_facts.physiological_state": ("activity", "details"),
+    # short_term_expression
+    "short_term_expression.current_mood": ("activity", "details", "people"),
+    "short_term_expression.mental_state": ("activity", "details", "people"),
+    "short_term_expression.motivation_shift": ("activity", "details", "people"),
+    "short_term_expression.stress_signal": ("activity", "details", "people"),
+    "short_term_expression.social_energy": ("activity", "details", "people"),
+}
+
+_VLM_DEFAULT_EXTRA_KEYS = ("activity", "details", "activity_tags", "location")
+
+
 DOMAIN_SPECS: List[Dict[str, Any]] = [
     {
         "domain_key": "foundation_social_identity",
@@ -706,7 +780,7 @@ Counter Evidence Checks:
 {_format_list_for_prompt(spec.counter_evidence_checks)}
 Requires Social Media: {spec.requires_social_media}
 Evidence Summary:
-{self._summarize_evidence(tool_trace['evidence_bundle'])}
+{self._summarize_evidence(tool_trace['evidence_bundle'], field_key=unit['field_key'])}
 Stats Summary:
 {self._summarize_stats_bundle(tool_trace['stats_bundle'])}
 Ownership Summary:
@@ -1010,16 +1084,39 @@ Step 5: 只有在完全没有相关证据时，或者全部证据都只能指向
             "summary": str(evidence.get("summary", "") or ""),
         }
 
-    def _summarize_evidence(self, evidence_bundle: Dict[str, Any]) -> Dict[str, Any]:
+    def _summarize_evidence(self, evidence_bundle: Dict[str, Any], field_key: str = "") -> Dict[str, Any]:
         compact = evidence_bundle.get("compact") or {}
-        return {
+        supporting = evidence_bundle.get("supporting_refs") or {}
+
+        # Event: 给完整描述字段
+        events = [
+            {k: ref.get(k) for k in EVENT_EVIDENCE_KEYS if ref.get(k) is not None}
+            for ref in (supporting.get("events") or [])
+        ]
+
+        # VLM: 公共字段 + 字段专属子字段
+        extra_keys = _VLM_FIELD_KEYS.get(field_key, _VLM_DEFAULT_EXTRA_KEYS)
+        vlm_keys = _VLM_COMMON_KEYS + extra_keys
+        vlm = [
+            {k: ref.get(k) for k in vlm_keys if ref.get(k) is not None}
+            for ref in (supporting.get("vlm_observations") or [])
+        ]
+
+        result: Dict[str, Any] = {
             "summary": compact.get("summary", ""),
             "source_coverage": compact.get("source_coverage", {}),
-            "top_candidates": list(compact.get("top_candidates", []) or []),
+            "top_candidates": list(compact.get("top_candidates") or []),
             "evidence_ids": compact.get("evidence_ids", {}),
-            "representative_events": list(compact.get("representative_events", []) or []),
-            "representative_photos": list(compact.get("representative_photos", []) or []),
         }
+        if events:
+            result["events"] = events
+        if vlm:
+            result["vlm"] = vlm
+        for source in ("relationships", "group_artifacts", "feature_refs"):
+            refs = supporting.get(source)
+            if refs:
+                result[source] = refs
+        return result
 
     def _summarize_stats_bundle(self, stats_bundle: Dict[str, Any]) -> Dict[str, Any]:
         summary = {
