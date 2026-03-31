@@ -272,6 +272,7 @@ def run_memory_nightly_evaluation(
     user_name: str,
     date_str: str,
     top_k_fields: int = FOCUS_FIELD_COUNT_DEFAULT,
+    priority_fields: List[str] | None = None,
 ) -> Dict[str, Any]:
     traces = load_memory_run_traces(project_root=project_root, user_name=user_name, date_str=date_str)
 
@@ -308,6 +309,7 @@ def run_memory_nightly_evaluation(
         user_name=user_name,
         date_str=date_str,
         top_k_fields=top_k_fields,
+        priority_fields=priority_fields,
     )
     insights = _merge_nightly_insights(
         field_insights=list(field_loop_payload.get("insights") or []),
@@ -354,16 +356,32 @@ def run_memory_nightly_evaluation(
     )
     # 写 latest 版本（前端 API 读取用）— 直接覆盖，反映当前轮次的最新状态
     latest_report_path.write_text(json.dumps(report_payload, ensure_ascii=False, indent=2), encoding="utf-8")
-    # latest proposals 只保留仍在 active 状态的字段提案，避免已收敛字段的提案残留在待审批列表
-    _persisted_state = json.loads(
-        (Path(project_root) / EVOLUTION_RELATIVE_DIR / "field_loop_state" / f"{user_name}.json").read_text(encoding="utf-8")
-    ) if (Path(project_root) / EVOLUTION_RELATIVE_DIR / "field_loop_state" / f"{user_name}.json").exists() else {}
+    # latest proposals: 收集所有 active 字段的最新提案（本轮 + 历史版本中不在本轮焦点的）
+    _state_path = Path(project_root) / EVOLUTION_RELATIVE_DIR / "field_loop_state" / f"{user_name}.json"
+    _persisted_state = json.loads(_state_path.read_text(encoding="utf-8")) if _state_path.exists() else {}
     _active_statuses = {"needs_next_cycle", "new_rule_candidate", "new_insight_found", "initial_snapshot"}
     _field_states = _persisted_state.get("fields") or {}
-    latest_proposals = [
-        p for p in proposals
-        if _field_states.get(p.get("field_key", ""), {}).get("last_status") in _active_statuses
-    ]
+    # 本轮提案按 field_key 索引
+    current_by_field: Dict[str, Dict[str, Any]] = {}
+    for p in proposals:
+        fk = p.get("field_key", "")
+        if fk and _field_states.get(fk, {}).get("last_status") in _active_statuses:
+            current_by_field[fk] = p
+    # 从历史版本中补充本轮不在焦点的 active 字段的最新提案
+    _proposals_dir = Path(project_root) / EVOLUTION_RELATIVE_DIR / "proposals" / user_name
+    if _proposals_dir.exists():
+        for vf in sorted(_proposals_dir.glob(f"{date_str}_c*.json"), reverse=True):
+            try:
+                hist = json.loads(vf.read_text(encoding="utf-8"))
+            except (json.JSONDecodeError, OSError):
+                continue
+            if not isinstance(hist, list):
+                continue
+            for hp in hist:
+                fk = hp.get("field_key", "")
+                if fk and fk not in current_by_field and _field_states.get(fk, {}).get("last_status") in _active_statuses:
+                    current_by_field[fk] = hp
+    latest_proposals = list(current_by_field.values())
     if latest_proposals:
         latest_proposals_path.write_text(json.dumps(latest_proposals, ensure_ascii=False, indent=2), encoding="utf-8")
     elif latest_proposals_path.exists():
@@ -1062,6 +1080,7 @@ def _run_gt_field_loop(
     user_name: str,
     date_str: str,
     top_k_fields: int,
+    priority_fields: List[str] | None = None,
 ) -> Dict[str, Any]:
     reflection_dir = Path(project_root) / REFLECTION_RELATIVE_DIR
     comparisons_path = reflection_dir / f"gt_comparisons_{user_name}.jsonl"
@@ -1077,6 +1096,7 @@ def _run_gt_field_loop(
         gt_records=gt_records,
         top_k_fields=top_k_fields,
         field_state=field_state,
+        priority_fields=priority_fields,
     )
     assets = _load_repo_rule_assets_safe(project_root=project_root)
 
@@ -1229,6 +1249,7 @@ def _select_focus_fields_by_gt(
     gt_records: List[Dict[str, Any]],
     top_k_fields: int,
     field_state: Dict[str, Any],
+    priority_fields: List[str] | None = None,
 ) -> Tuple[List[Dict[str, Any]], Dict[str, Dict[str, Any]]]:
     latest_by_field: Dict[str, Dict[str, Any]] = {}
     scored_by_field: Dict[str, Dict[str, Any]] = {}
@@ -1373,6 +1394,20 @@ def _select_focus_fields_by_gt(
             selected.append(candidate)
 
     trimmed = selected[:limit]
+
+    # priority_fields: rerun 后的字段必须进入焦点（在 top_k 之外额外加入）
+    if priority_fields:
+        selected_keys = {item["field_key"] for item in trimmed}
+        all_candidates_by_key = {item["field_key"]: item for item in focus_candidates}
+        for pf in priority_fields:
+            if pf in selected_keys:
+                continue
+            if pf in all_candidates_by_key:
+                trimmed.append(all_candidates_by_key[pf])
+            elif pf in scored_by_field:
+                # 即使被 _SKIP_GRADES 过滤掉了，rerun 后也要进来看新结果
+                trimmed.append(scored_by_field[pf])
+
     for rank, item in enumerate(trimmed, start=1):
         item["priority_rank"] = rank
     return trimmed, latest_by_field
@@ -1644,6 +1679,9 @@ def _build_gt_field_cycles(
             # reflect 原始信号（用于疑难杂症耗尽判定）
             "reflect_status": (reflect_result or {}).get("status", ""),
             "reflect_confidence": _safe_float((reflect_result or {}).get("confidence"), default=0.0),
+            # 实际输出值与 GT（供热力图展示）
+            "output_value": output_value,
+            "gt_value": gt_value,
         }
         cycles.append(cycle_entry)
         insights.append(

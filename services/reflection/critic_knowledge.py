@@ -156,7 +156,7 @@ def update_field_index(
     field_data = all_data.setdefault(field_key, {"entries": [], "aggregate": {}})
     entries = field_data.get("entries", [])
 
-    # Match by proposal_id first, then pattern_id
+    # Match by proposal_id first, then pattern_id, then diagnosis similarity
     existing = None
     for e in entries:
         if proposal_id and e.get("proposal_id") == proposal_id:
@@ -165,6 +165,17 @@ def update_field_index(
         if pattern_id and e.get("pattern_id") == pattern_id and e.get("user_name") == user_name:
             existing = e
             break
+    # Dedup: same user + similar diagnosis → update instead of append
+    if existing is None and diagnosis and user_name:
+        for e in entries:
+            if e.get("user_name") != user_name:
+                continue
+            old_diag = e.get("diagnosis", "")
+            if _diagnosis_similar(old_diag, diagnosis):
+                existing = e
+                existing["diagnosis"] = diagnosis  # use newer wording
+                existing["proposal_id"] = proposal_id  # update reference
+                break
 
     if existing:
         if human_verdict:
@@ -230,6 +241,27 @@ def update_field_index(
         "human_verdict": human_verdict,
         "timestamp": datetime.now().isoformat(),
     })
+
+
+def _diagnosis_similar(a: str, b: str, threshold: float = 0.5) -> bool:
+    """Check if two diagnosis texts are similar enough to be considered duplicates.
+
+    Uses character-level overlap ratio. Threshold 0.6 catches paraphrases
+    of the same diagnosis while allowing genuinely different ones through.
+    """
+    if not a or not b:
+        return False
+    a, b = a.strip(), b.strip()
+    if a == b:
+        return True
+    # Character bigram overlap (language-agnostic, works for Chinese)
+    def bigrams(s: str) -> set:
+        return {s[i:i+2] for i in range(len(s) - 1)} if len(s) >= 2 else {s}
+    ba, bb = bigrams(a), bigrams(b)
+    if not ba or not bb:
+        return False
+    overlap = len(ba & bb)
+    return overlap / min(len(ba), len(bb)) >= threshold
 
 
 def _decay_weights(field_data: Dict) -> None:

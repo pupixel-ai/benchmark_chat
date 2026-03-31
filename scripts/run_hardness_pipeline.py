@@ -904,16 +904,14 @@ def cmd_rerun_fields(args) -> int:
             r = json.loads(line)
             fk = r.get("field_key", "")
             if fk in new_by_key:
-                # 人工校准过的字段不覆盖——人工评注是唯一基线
-                cr = r.get("comparison_result", {})
-                if cr.get("human_override"):
-                    updated_lines.append(json.dumps(r, ensure_ascii=False))
-                    print(f"  跳过人工校准字段: {fk} (grade={cr.get('grade')})")
-                    continue
                 new_val = new_by_key[fk].get("final", {}).get("value")
                 gt_rec = gt_by_field.get(fk, {})
                 gt_val = gt_rec.get("gt_value")
                 new_comp = compare_profile_field_values(field_key=fk, predicted_value=new_val, gt_value=gt_val)
+                # 人工校准字段：保留 human_override 标记，但仍更新 output_value 和重算 grade
+                cr = r.get("comparison_result", {})
+                if cr.get("human_override"):
+                    new_comp["human_override"] = True
                 r["comparison_result"] = new_comp
                 r["comparison_result"]["output_value"] = new_val
                 r["comparison_result"]["gt_value"] = gt_val
@@ -1051,6 +1049,7 @@ def cmd_rerun_fields(args) -> int:
             user_name=user_name,
             date_str=date_str_now,
             top_k_fields=3,
+            priority_fields=list(field_keys),
         )
         total_proposals = evolve_result.get("total_proposals", 0)
         converged = evolve_result.get("converged", False)
