@@ -995,7 +995,7 @@ def cmd_rerun_fields(args) -> int:
             a_grade = GRADE_ZH.get(after_grades.get(fk, ""), after_grades.get(fk, "—"))
             b_score = before_scores.get(fk, 0)
             a_score = after_scores.get(fk, 0)
-            improved = a_score < b_score
+            improved = a_score > b_score
 
             rerun_lines.append(
                 f"**{zh_name}**\n"
@@ -1006,7 +1006,7 @@ def cmd_rerun_fields(args) -> int:
 
         if rerun_lines and FEISHU_APP_ID and FEISHU_APP_SECRET and FEISHU_DEFAULT_RECEIVE_ID:
             # 计算改善/持平/恶化数
-            improved_count = sum(1 for fk in field_keys if after_scores.get(fk, 0) < before_scores.get(fk, 0))
+            improved_count = sum(1 for fk in field_keys if after_scores.get(fk, 0) > before_scores.get(fk, 0))
             same_count = sum(1 for fk in field_keys if after_scores.get(fk, 0) == before_scores.get(fk, 0))
             worse_count = len(field_keys) - improved_count - same_count
 
