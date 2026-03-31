@@ -54,6 +54,29 @@
 }
 ```
 
+### 2.4 与六个检索接口的关系
+
+`v0327-db-query` 当前对下游暴露两类能力：
+
+1. Query API  
+   `POST /api/tasks/{task_id}/memory/query`
+
+2. 六个 task-scoped 检索接口  
+   `GET /api/tasks/{task_id}/memory/faces|events|vlm|profiles|relationships|bundle`
+
+注意：
+
+- 这两类接口都已经部署在同一套生产服务上
+- 六个检索接口现在也已经切到“数据库表优先”读取
+- Query API 会先把任务物化到 canonical query store，再做 route / retrieve / answer
+- 六个检索接口读取的也是同一套 canonical tables
+- `faces` 接口对应的人脸数据来自 face 阶段原始快照 `face_recognition`，但线上 serving 时已经先物化进 `memory_persons / memory_faces / memory_photos` 再返回
+
+这意味着：
+
+- 如果某个 `v0327-db-query` 任务历史上根本没跑出 VLM / LP1 / LP2 / LP3 数据，那么六个检索接口会返回空数组
+- Query API 不会瞎答；在证据不足时会返回 `insufficient_evidence` 风格的回答
+
 ## 3. 当前生产环境
 
 | 项目 | 当前值 |
@@ -62,6 +85,13 @@
 | Backend Base URL | `http://10.60.1.243:8000` |
 | Frontend | `http://10.60.1.243:3000` |
 | 推荐版本 | `v0327-db-query` |
+
+### 3.2 当前生产验证状态（2026-03-30）
+
+| 任务版本 | task_id | Query API | 六个检索接口 |
+| --- | --- | --- | --- |
+| `v0327-db` | `5570845cce1a47819227b3d89fcec9cb` | 已验证 | 6/6 全通，返回完整数据 |
+| `v0327-db-query` | `e79a9632744a4a7f801bacae7fddf012` | `200`，当前问题返回 `insufficient_evidence` | 6/6 全通，其中 `events / vlm / profiles / relationships` 为 0 条、`bundle` 返回空后段数据 |
 
 ### 3.1 推荐联调账号
 
@@ -104,6 +134,19 @@
 
 `GET /api/auth/me`
 
+### 4.3 联调自检
+
+在开始联调 Query API 前，建议先做两步自检：
+
+1. `GET /api/auth/me`
+2. `GET /api/tasks`
+
+目的：
+
+- 确认当前 cookie 实际绑定的是预期账号
+- 确认任务列表接口已经返回该账号名下任务
+- 避免“登录成功但实际拿的是旧 session / 其他账号”的误判
+
 ## 5. 推荐调用流程
 
 ### 5.1 创建任务
@@ -138,6 +181,14 @@
 调用：
 
 - `POST /api/tasks/{task_id}/memory/query`
+
+推荐顺序：
+
+1. `POST /api/auth/login`
+2. `GET /api/auth/me`
+3. `GET /api/tasks`
+4. 选择目标 `task_id`
+5. `POST /api/tasks/{task_id}/memory/query`
 
 ## 6. Query API
 
