@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Sequence
 
+from config import FRONTEND_ORIGIN
 from services.v0325.profile_compaction import compact_lp3_profile
 from services.v0321_3.retrieval_shadow import build_profile_truth_v1
 
@@ -21,6 +22,30 @@ def _unique(values: Iterable[Any]) -> List[Any]:
         seen.add(normalized)
         result.append(value)
     return result
+
+
+def _public_asset_url(value: Any) -> str | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    lowered = text.lower()
+    if lowered.startswith(("http://", "https://", "data:", "blob:", "//")):
+        return text
+    if text.startswith("/"):
+        origin = FRONTEND_ORIGIN.rstrip("/")
+        return f"{origin}{text}" if origin else text
+    return text
+
+
+def _best_display_photo_url(photo: dict | None) -> str | None:
+    if not isinstance(photo, dict):
+        return None
+    return _public_asset_url(
+        photo.get("boxed_image_url")
+        or photo.get("display_image_url")
+        or photo.get("original_image_url")
+        or photo.get("asset_url")
+    )
 
 
 def _coalesce_photo_ids(event: dict) -> List[Any]:
@@ -107,9 +132,9 @@ def _build_photo_catalog(task: dict) -> tuple[Dict[str, dict], List[dict]]:
             "timestamp": upload.get("timestamp"),
             "location": upload.get("location"),
             "path": upload_path or None,
-            "asset_url": upload.get("url") or manifest_item.get("asset_url"),
-            "original_image_url": upload.get("url") or manifest_item.get("asset_url"),
-            "display_image_url": upload.get("preview_url") or upload.get("url") or manifest_item.get("asset_url"),
+            "asset_url": _public_asset_url(upload.get("url") or manifest_item.get("asset_url")),
+            "original_image_url": _public_asset_url(upload.get("url") or manifest_item.get("asset_url")),
+            "display_image_url": _public_asset_url(upload.get("preview_url") or upload.get("url") or manifest_item.get("asset_url")),
             "boxed_image_url": None,
             "compressed_image_url": None,
             "content_type": upload.get("content_type"),
@@ -137,18 +162,25 @@ def _build_photo_catalog(task: dict) -> tuple[Dict[str, dict], List[dict]]:
             "timestamp": image.get("timestamp") or upload.get("timestamp"),
             "location": image.get("location") or upload.get("location"),
             "path": upload_path or None,
-            "asset_url": upload.get("url") or manifest_item.get("asset_url") or image.get("original_image_url"),
-            "original_image_url": image.get("original_image_url") or upload.get("url") or manifest_item.get("asset_url"),
-            "display_image_url": image.get("display_image_url") or upload.get("preview_url") or upload.get("url") or manifest_item.get("asset_url"),
-            "boxed_image_url": image.get("boxed_image_url"),
-            "compressed_image_url": image.get("compressed_image_url"),
+            "asset_url": _public_asset_url(upload.get("url") or manifest_item.get("asset_url") or image.get("original_image_url")),
+            "original_image_url": _public_asset_url(image.get("original_image_url") or upload.get("url") or manifest_item.get("asset_url")),
+            "display_image_url": _public_asset_url(image.get("display_image_url") or upload.get("preview_url") or upload.get("url") or manifest_item.get("asset_url")),
+            "boxed_image_url": _public_asset_url(image.get("boxed_image_url")),
+            "compressed_image_url": _public_asset_url(image.get("compressed_image_url")),
             "content_type": upload.get("content_type"),
             "width": image.get("width") or upload.get("width"),
             "height": image.get("height") or upload.get("height"),
         }
-        _register(photo["original_photo_id"], photo, append=photo["original_photo_id"] not in by_key)
-        if photo.get("image_id"):
+        canonical = by_key.get(photo["original_photo_id"])
+        if canonical is not None:
+            for field_name, field_value in photo.items():
+                if field_value in (None, ""):
+                    continue
+                canonical[field_name] = field_value
+        else:
+            _register(photo["original_photo_id"], photo, append=True)
             canonical = by_key.get(photo["original_photo_id"]) or photo
+        if photo.get("image_id"):
             _register(str(photo["image_id"]), canonical, append=False)
 
     return by_key, ordered
@@ -306,6 +338,155 @@ def _build_profile(memory_payload: dict, photo_catalog: Dict[str, dict], *, user
     return {
         "report_markdown": profile_markdown,
     }
+
+
+def _build_survey_events(memory_payload: dict, photo_catalog: Dict[str, dict]) -> List[dict]:
+    events: List[dict] = []
+    if memory_payload.get("pipeline_family") == "v0323" or memory_payload.get("lp1_events"):
+        event_source = list(memory_payload.get("lp1_events", []) or [])
+        is_lp_snapshot = True
+    else:
+        event_source = list(memory_payload.get("delta_event_revisions", []) or [])
+        if not event_source:
+            event_source = list(memory_payload.get("event_revisions", []) or [])
+        is_lp_snapshot = False
+
+    for event in event_source:
+        if not isinstance(event, dict):
+            continue
+        original_photo_ids = (
+            _coalesce_photo_ids(event)
+            if is_lp_snapshot
+            else list(event.get("original_photo_ids", []) or []) or _coalesce_photo_ids(event)
+        )
+        resolved_photos = _resolve_original_photos(original_photo_ids, photo_catalog)
+        photo_ids = _resolve_task_photo_ids(original_photo_ids, photo_catalog)
+        person_ids = (
+            _unique(_coalesce_person_ids(event))
+            if is_lp_snapshot
+            else _unique(
+                list(event.get("participant_person_ids", []) or [])
+                + list(event.get("depicted_person_ids", []) or [])
+            )
+        )
+        place_refs = _unique(list(event.get("place_refs", []) or []))
+        summary = str(
+            event.get("event_summary")
+            or event.get("narrative_synthesis")
+            or event.get("narrative")
+            or event.get("title")
+            or ""
+        ).strip()
+        scene = str(event.get("title") or (place_refs[0] if place_refs else "") or "相关事件").strip()
+        activity = str(
+            event.get("coarse_event_type")
+            or event.get("event_type")
+            or event.get("activity")
+            or event.get("title")
+            or summary
+            or "相关活动"
+        ).strip()
+        if place_refs:
+            social_context = f"地点：{', '.join(str(item) for item in place_refs[:2])}"
+        elif person_ids:
+            social_context = f"涉及 {', '.join(str(item) for item in person_ids[:3])}"
+        else:
+            social_context = ""
+        events.append(
+            {
+                "timestamp": str(event.get("started_at") or event.get("timestamp") or event.get("date") or "").strip(),
+                "scene": scene,
+                "summary": summary,
+                "activity": activity,
+                "social_context": social_context,
+                "person_ids": person_ids,
+                "photo_ids": photo_ids,
+                "photo_boxed_urls": _unique(
+                    _best_display_photo_url(photo)
+                    for photo in resolved_photos
+                    if _best_display_photo_url(photo)
+                ),
+            }
+        )
+    return events
+
+
+def _build_survey_relationships(
+    memory_payload: dict,
+    survey_events: Sequence[dict],
+    photo_catalog: Dict[str, dict],
+) -> List[dict]:
+    if memory_payload.get("pipeline_family") == "v0323" or memory_payload.get("lp2_relationships"):
+        relationship_source = list(memory_payload.get("lp2_relationships", []) or [])
+    else:
+        relationship_source = list(memory_payload.get("delta_relationship_revisions", []) or [])
+        if not relationship_source:
+            relationship_source = list(memory_payload.get("relationship_revisions", []) or [])
+
+    relationships: List[dict] = []
+    for relationship in relationship_source:
+        if not isinstance(relationship, dict):
+            continue
+        person_id = str(relationship.get("person_id") or relationship.get("target_person_id") or "").strip()
+        if not person_id:
+            continue
+        evidence = relationship.get("evidence") if isinstance(relationship.get("evidence"), dict) else {}
+        original_photo_ids = list(relationship.get("supporting_photo_ids", []) or [])
+        if not original_photo_ids and evidence:
+            original_photo_ids = list(evidence.get("photo_ids", []) or [])
+        resolved_supporting_photos = _resolve_original_photos(original_photo_ids, photo_catalog)
+        supporting_photo_ids = _resolve_task_photo_ids(original_photo_ids, photo_catalog)
+        related_events = [
+            item
+            for item in survey_events
+            if person_id in list(item.get("person_ids", []) or [])
+            or bool(set(supporting_photo_ids) & set(item.get("photo_ids", []) or []))
+        ]
+        if not supporting_photo_ids:
+            supporting_photo_ids = _unique(
+                photo_id
+                for item in related_events
+                for photo_id in list(item.get("photo_ids", []) or [])
+            )
+
+        boxed_image_url = next(
+            (
+                str(_best_display_photo_url(photo) or "").strip()
+                for photo in resolved_supporting_photos
+                if str(_best_display_photo_url(photo) or "").strip()
+            ),
+            "",
+        )
+        if not boxed_image_url:
+            boxed_image_url = next(
+                (
+                    str(url or "").strip()
+                    for item in related_events
+                    for url in list(item.get("photo_boxed_urls", []) or [])
+                    if str(url or "").strip()
+                ),
+                "",
+            )
+
+        relationships.append(
+            {
+                "person_id": person_id,
+                "photo_count": len(supporting_photo_ids),
+                "photo_ids_sample": supporting_photo_ids[:5],
+                "boxed_image_url": boxed_image_url or None,
+                "sample_scenes": [
+                    {
+                        "timestamp": str(item.get("timestamp") or ""),
+                        "scene": str(item.get("scene") or ""),
+                        "summary": str(item.get("summary") or ""),
+                        "activity": str(item.get("activity") or ""),
+                        "social_context": str(item.get("social_context") or ""),
+                    }
+                    for item in related_events[:5]
+                ],
+            }
+        )
+    return relationships
 
 
 def _build_task_vlm(task: dict, photo_catalog: Dict[str, dict]) -> List[dict]:
@@ -478,4 +659,25 @@ def build_task_memory_core_payload(task: dict) -> dict:
         "events": events,
         "relationships": relationships,
         "profile": profile,
+    }
+
+
+def build_task_survey_import_payload(task: dict) -> dict:
+    result = task.get("result") or {}
+    memory_payload = result.get("memory")
+    if not isinstance(memory_payload, dict):
+        raise KeyError("当前任务没有 memory 输出")
+
+    photo_catalog, _ = _build_photo_catalog(task)
+    user_id = str(task.get("user_id") or "")
+    pipeline_family = str(memory_payload.get("pipeline_family") or "")
+    profile = _build_profile(memory_payload, photo_catalog, user_id=user_id, pipeline_family=pipeline_family)
+    survey_events = _build_survey_events(memory_payload, photo_catalog)
+    relationships = _build_survey_relationships(memory_payload, survey_events, photo_catalog)
+    return {
+        "profile": {
+            "report_markdown": str(profile.get("report_markdown") or ""),
+            "structured_profile": copy.deepcopy(profile.get("structured") or {}),
+        },
+        "relationships": relationships,
     }

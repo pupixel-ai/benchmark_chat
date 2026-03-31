@@ -37,6 +37,7 @@ from backend.models import TaskRecord
 from backend.progress_utils import append_terminal_error, append_terminal_info, merge_stage_progress
 from backend.query_v1 import QueryEngineV1
 from backend.task_download_bundle import build_task_analysis_bundle, describe_task_downloads
+from backend.task_survey_import_events import build_survey_import_event_payload
 from backend.task_terminal_events import build_fallback_terminal_event_payload, build_terminal_event_payload
 from backend.task_store import TaskStore, normalize_task_options
 from backend.upload_utils import (
@@ -66,6 +67,7 @@ from config import (
     MAX_UPLOAD_PHOTOS,
     MEMORY_QUERY_V1_ENABLED,
     MEMORY_QUERY_V1_SHADOW_COMPARE,
+    KAFKA_SURVEY_IMPORT_TOPIC,
     TASK_VERSION_V0325,
     TASK_VERSION_V0327_DB,
     TASK_VERSION_V0327_DB_QUERY,
@@ -258,19 +260,30 @@ def _merge_task_snapshot(task: dict, **updates) -> dict:
     return snapshot
 
 
-def _build_terminal_outbox_event(task: dict) -> Optional[dict]:
+def _build_outbox_events(task: dict) -> list[dict]:
     if not task_store.outbox_store.enabled:
-        return None
+        return []
     hydrated = _hydrate_task_payloads(copy.deepcopy(task))
+    events: list[dict] = []
     try:
-        return build_terminal_event_payload(
+        terminal_event = build_terminal_event_payload(
             hydrated,
             face_review_store=face_review_store,
             asset_url_builder=lambda resolved_task_id, relative_path: asset_store.asset_url(resolved_task_id, relative_path),
         )
     except Exception as exc:
         logger.exception("Failed to build full terminal event payload for task_id=%s", task.get("task_id"))
-        return build_fallback_terminal_event_payload(hydrated, reason=str(exc))
+        terminal_event = build_fallback_terminal_event_payload(hydrated, reason=str(exc))
+    events.append({"event": terminal_event, "topic": None})
+
+    try:
+        survey_event = build_survey_import_event_payload(hydrated)
+    except Exception:
+        logger.exception("Failed to build survey import event payload for task_id=%s", task.get("task_id"))
+        survey_event = None
+    if survey_event is not None:
+        events.append({"event": survey_event, "topic": KAFKA_SURVEY_IMPORT_TOPIC})
+    return events
 
 
 def _finalize_task_terminal_state(
@@ -310,12 +323,12 @@ def _finalize_task_terminal_state(
         version=version,
         options=options,
     )
-    outbox_event = _build_terminal_outbox_event(snapshot)
+    outbox_events = _build_outbox_events(snapshot)
     finalize_kwargs = {
         "status": status,
         "stage": stage,
         "progress": progress,
-        "outbox_event": outbox_event,
+        "outbox_events": outbox_events,
     }
     if result is not _UNSET:
         finalize_kwargs["result"] = result

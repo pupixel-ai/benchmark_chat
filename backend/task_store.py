@@ -268,7 +268,7 @@ class TaskStore:
         last_worker_sync_at: Any = _UNSET,
         version: Any = _UNSET,
         options: Any = _UNSET,
-        outbox_event: dict | None = None,
+        outbox_events: list[dict] | None = None,
     ) -> Dict:
         with SessionLocal() as session:
             record = session.get(TaskRecord, task_id)
@@ -296,12 +296,18 @@ class TaskStore:
                 record.options = normalize_task_options(options if isinstance(options, dict) else None)
             record.updated_at = datetime.now()
 
-            if outbox_event is not None:
+            for outbox_event in list(outbox_events or []):
+                if not isinstance(outbox_event, dict):
+                    continue
+                event_payload = outbox_event.get("event")
+                if not isinstance(event_payload, dict):
+                    continue
                 self.outbox_store.enqueue_terminal_event(
                     session,
                     task_id=task_id,
-                    event_type=str(outbox_event.get("event_type") or ""),
-                    payload_json=outbox_event,
+                    event_type=str(event_payload.get("event_type") or ""),
+                    payload_json=event_payload,
+                    topic=outbox_event.get("topic"),
                 )
 
             session.add(record)

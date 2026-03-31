@@ -141,6 +141,10 @@ KAFKA_TERMINAL_TOPIC = (
     os.getenv("KAFKA_TERMINAL_TOPIC", "memory.task.terminal.v1").strip()
     or "memory.task.terminal.v1"
 )
+KAFKA_SURVEY_IMPORT_TOPIC = (
+    os.getenv("KAFKA_SURVEY_IMPORT_TOPIC", "memory.task.survey-import.v1").strip()
+    or "memory.task.survey-import.v1"
+)
 KAFKA_CLIENT_ID = (
     os.getenv("KAFKA_CLIENT_ID", "memory-engineering-terminal-publisher").strip()
     or "memory-engineering-terminal-publisher"
