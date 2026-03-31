@@ -686,10 +686,11 @@ def _is_user_converged(user_name: str) -> bool:
     fields = state.get("fields") or {}
     if not fields:
         return False
-    _ACTIVE_STATUSES = {"needs_next_cycle", "new_rule_candidate", "new_insight_found", "initial_snapshot"}
+    # throttle_armed / throttled 仍在循环中（暂停不等于结束）
+    _NOT_CONVERGED = {"needs_next_cycle", "new_rule_candidate", "new_insight_found", "initial_snapshot", "throttle_armed", "throttled"}
     for field_state in fields.values():
         status = str(field_state.get("last_status") or "").strip()
-        if status in _ACTIVE_STATUSES:
+        if status in _NOT_CONVERGED:
             return False
     return True
 
@@ -920,14 +921,46 @@ def cmd_rerun_fields(args) -> int:
         gt_comps_path.write_text("\n".join(updated_lines) + "\n", encoding="utf-8")
         print(f"  GT 对比已更新: {len(new_by_key)} 个字段")
 
-    # 6. 输出分数变化
+    # 6. 读取重跑后的新分数和 grade（用于对比）
+    after_scores: Dict[str, float] = {}
+    after_grades: Dict[str, str] = {}
+    before_grades: Dict[str, str] = {}
+    if gt_comps_path.exists():
+        for line in gt_comps_path.read_text().splitlines():
+            if not line.strip():
+                continue
+            r = json.loads(line)
+            fk = r.get("field_key", "")
+            if fk in field_keys:
+                cr = r.get("comparison_result", {})
+                after_scores[fk] = float(cr.get("score", 0))
+                after_grades[fk] = cr.get("grade", "?")
+
+    # before_grades 从 snapshot 读取
+    if gt_snapshots_dir.exists():
+        snaps = sorted(gt_snapshots_dir.glob("*.jsonl"), reverse=True)
+        if snaps:
+            for line in snaps[0].read_text().splitlines():
+                if not line.strip():
+                    continue
+                r = json.loads(line)
+                fk = r.get("field_key", "")
+                if fk in field_keys:
+                    before_grades[fk] = (r.get("comparison_result") or {}).get("grade", "?")
+
+    GRADE_ZH = {"exact_match": "完全匹配", "close_match": "接近匹配", "partial_match": "部分匹配",
+                "mismatch": "不匹配", "missing_prediction": "未召回", "improved": "已优化", "missing_gt": "GT缺失"}
+
     for fk in field_keys:
         if fk in new_by_key:
             new_val = new_by_key[fk].get("final", {}).get("value", "?")
-            gt_rec = gt_by_field.get(fk, {})
-            gt_val = gt_rec.get("gt_value", "?")
-            before = before_scores.get(fk, 0)
-            print(f"  {fk}: 新输出={new_val} | GT={gt_val} | 旧分数={before:.2f}")
+            gt_val = gt_by_field.get(fk, {}).get("gt_value", "?")
+            b_score = before_scores.get(fk, 0)
+            a_score = after_scores.get(fk, 0)
+            b_grade = before_grades.get(fk, "?")
+            a_grade = after_grades.get(fk, "?")
+            delta = "+" if a_score > b_score else "-" if a_score < b_score else "="
+            print(f"  {fk}: {b_grade}→{a_grade} | score {b_score:.1f}→{a_score:.1f} ({delta})")
 
     # 7. 先发改进结果飞书通知
     try:
@@ -952,29 +985,39 @@ def cmd_rerun_fields(args) -> int:
             gt_rec = gt_by_field.get(fk, {})
             gt_val_str = str(gt_rec.get("gt_value", "—"))[:60]
             zh_name = label_map.get(fk, fk.rsplit(".", 1)[-1])
-            before = before_scores.get(fk, 0)
 
             # 翻译值
             val_zh = _translate_values_for_card([new_val, gt_val_str])
             new_val_zh = val_zh.get(new_val, new_val)
             gt_val_zh = val_zh.get(gt_val_str, gt_val_str)
 
-            changed = "🔄 有变化" if new_val != str(before_scores.get(fk + "_old_val", "")) else "➡️ 未变"
+            b_grade = GRADE_ZH.get(before_grades.get(fk, ""), before_grades.get(fk, "—"))
+            a_grade = GRADE_ZH.get(after_grades.get(fk, ""), after_grades.get(fk, "—"))
+            b_score = before_scores.get(fk, 0)
+            a_score = after_scores.get(fk, 0)
+            improved = a_score < b_score
+
             rerun_lines.append(
                 f"**{zh_name}**\n"
-                f"修改前: `{new_val_zh}`\n"
-                f"GT: `{gt_val_zh}`"
+                f"重跑后: `{new_val_zh}`\n"
+                f"GT: `{gt_val_zh}`\n"
+                f"评分: {b_grade} ({b_score:.0f}) → {a_grade} ({a_score:.0f}) {'✅' if improved else '➡️' if a_score == b_score else '⚠️'}"
             )
 
         if rerun_lines and FEISHU_APP_ID and FEISHU_APP_SECRET and FEISHU_DEFAULT_RECEIVE_ID:
+            # 计算改善/持平/恶化数
+            improved_count = sum(1 for fk in field_keys if after_scores.get(fk, 0) < before_scores.get(fk, 0))
+            same_count = sum(1 for fk in field_keys if after_scores.get(fk, 0) == before_scores.get(fk, 0))
+            worse_count = len(field_keys) - improved_count - same_count
+
             token = _get_tenant_access_token(app_id=FEISHU_APP_ID, app_secret=FEISHU_APP_SECRET, api_base_url=FEISHU_API_BASE_URL)
             card = {
                 "schema": "2.0",
                 "config": {"enable_forward": True, "width_mode": "fill"},
                 "header": {
                     "title": {"tag": "plain_text", "content": f"规则重跑结果 — {user_name}"},
-                    "template": "wathet",
-                    "subtitle": {"tag": "plain_text", "content": f"{len(field_keys)} 个字段已用新规则重跑"},
+                    "template": "green" if improved_count > 0 and worse_count == 0 else "wathet",
+                    "subtitle": {"tag": "plain_text", "content": f"{len(field_keys)} 个字段 | ✅{improved_count} 改善 ➡️{same_count} 持平 ⚠️{worse_count} 恶化"},
                 },
                 "body": {"elements": [{"tag": "markdown", "content": "\n\n".join(rerun_lines)}]},
             }

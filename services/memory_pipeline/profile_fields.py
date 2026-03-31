@@ -378,6 +378,8 @@ def _spec(
     reflection_rounds: int = 1,
     requires_social_media: bool = False,
     requires_protagonist_face: bool = False,
+    field_boundary: str = "",
+    cross_field_caution: str = "",
 ) -> FieldSpec:
     overrides = FIELD_COT_OVERRIDES.get(field_key, {})
     resolved_owner_checks = owner_checks or []
@@ -401,6 +403,8 @@ def _spec(
         reflection_rounds=reflection_rounds,
         requires_social_media=requires_social_media,
         requires_protagonist_face=requires_protagonist_face,
+        field_boundary=field_boundary,
+        cross_field_caution=cross_field_caution,
     )
 
 

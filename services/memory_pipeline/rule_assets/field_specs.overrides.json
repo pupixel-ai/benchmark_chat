@@ -13,9 +13,9 @@
   },
   "short_term_facts.recent_interests": {
     "weak_evidence_caution": [
-      "当兴趣证据仅来自单次活动且无其他佐证时"
+      "当仅有单次活动记录且缺乏其他佐证时"
     ],
-    "cot_hint": "近期兴趣应体现持续或重复的行为模式，单次活动需结合其他证据判断是否为长期兴趣。特别注意：同一天内的多种不同活动通常不能直接视为兴趣。"
+    "cot_hint": "判断近期兴趣时应关注：1)行为是否在多个独立时间点重复出现 2)是否有主动投入的持续性表现 3)避免将单次体验活动直接归纳为兴趣"
   },
   "long_term_facts.geography.location_anchors": {
     "weak_evidence_caution": [

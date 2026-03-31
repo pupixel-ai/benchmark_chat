@@ -76,14 +76,45 @@ Pipeline 中有 4 个 LLM 角色，各司其职，详见 `.knowledge/roles/`：
 - **多锚点证据**: 下游 `profile_agent` 的 `Evidence` 已扩展支持 `event_id / photo_id / person_id / feature_names`，主工程 evidence 要尽量保留这些 refs
 - **下游审计产物**: 下游裁判结果会先按原生 `Judge -> merged_outputs` 逻辑写入下游 `profiles.json`，并同步生成 `downstream_audit_report`；当前主角 `nullify/downgrade` 会回退成 `photographer_mode`，直接清空正式 `relationships / relationship_dossiers / groups`，再重跑 `LP3 -> downstream audit`；关系 `nullify/downgrade` 会先改正式 `Relationship[]` 再重跑 `groups -> LP3 -> downstream audit`，最后才把已映射的 profile facts 字段安全回流到 `structured_profile`，并同步更新 `profile_fact_decisions.final`，保留 `final_before_backflow + backflow`
 
-**跨用户分析（Harness Engineering）**
-- 完整文档见 `/Users/vigar07/Desktop/me_reflection/AGENTS.md`
-- 入口: `scripts/run_hardness_pipeline.py harness`
+**自回归循环（Evolution Loop）**
+- 入口: `scripts/run_hardness_pipeline.py evolve --user {name}` 或前端审批触发
+- 完整链路:
+  1. `cmd_run` → pipeline + GT 对比 → 初始化 field_loop_state
+  2. 人工校准 GT（错题集页面 → 保存 → 点"开始自回归循环"）
+  3. `cmd_evolve` → 选 top_k 焦点字段 → reflect agent 反思 → 生成提案 → 飞书通知
+  4. 人工审批（网页 or 飞书）:
+     - **批准** → apply rule_patch → rerun-fields(单字段重跑 LP3) → auto-evolve(下一轮)
+     - **拒绝/修订** → reset field state → evolve(换方向，reflect 看到 reviewer_note)
+     - **已修正** → 标记 monitoring + human_resolved，停止该字段循环
+  5. 收敛 → 生成复盘报告
+- 并发保护: 文件锁 `_evolve_lock_{user}.lock` + 队列 `_rerun_queue_{user}.txt`，同一用户同一时间只有一个 rerun+evolve 在跑
+- 停止条件（三选一）:
+  - 所有字段收敛（monitoring/exhausted/human_resolved，throttle 不算收敛）
+  - 单日版本上限（10 轮）→ 强制复盘
+  - autoloop max_rounds → 强制复盘
+- 上下文注入（每次 reflect 调用，单次注入不持久化）:
+  - `evolution_context`: 上轮 grade/score/patch_effect/last_proposed_direction（cycle > 1 时）
+  - `human_reviewer_note`: 审批备注（用完即弃）
+  - `history_feedback`: 同字段历史人工反馈
+- 规则约束: reflect agent 只能输出 cot_hint（已移除 weak_evidence_caution 选项）
+- album_id 对齐: sync_gt_to_reflection 自动从最新 run_meta.json 读取
+
+**跨用户分析（Harness Engineering）+ 通用规则提炼**
+- 入口: `scripts/run_hardness_pipeline.py harness` 或前端"运行跨用户分析"按钮
 - Agent 架构: GT Matcher → UpstreamTriageScorer → BadcasePacketAssembler → UpstreamReflectionAgent → ProposalBuilder → EngineeringCritic → extract_difficult_cases
 - 核心原则: 人工覆写优先、用户数据隔离、GT 对比为主数据源、字段标签映射唯一来自 `docs/reflection_field_bilingual_table.csv`
+- 通用规则提炼（三层综合，跨用户分析后自动触发）:
+  1. **bad case 聚类**: 从 harness_engineering_report 读跨 2+ 用户的 cross_user_patterns
+  2. **知识库经验整合**: 对每个 pattern 字段查 critic_field_index.json，收集有效/无效方向
+  3. **综合提炼**: pattern + 知识库双重满足 → 生成通用规则提案（只用 cot_hint）
+- 通用规则审批（双入口）:
+  - 网页: Harness 知识库 Tab 审批区
+  - 飞书: 卡片带批准/拒绝按钮，点击跳转网页自动执行
+  - approve → 写 field_specs.overrides.json(全局生效) + critic_policy.md(政策积累)
+  - reject → 降 weight，不写规则
+- 数据存储: `memory/evolution/general_proposals.json`（通用提案）、`memory/reflection/critic_field_index.json`（知识库）、`memory/reflection/critic_policy.md`（政策层）
 
 **疑难杂症沉淀**
-- 完整策略见 `/Users/vigar07/Desktop/me_reflection/AGENTS.md` 的「疑难杂症接入策略」章节
 - 来源 A（跨用户）: EngineeringCritic 判定需要 new_tool/architecture_change → `summary.difficult_cases`
 - 来源 B（单用户）: Reflect Agent 多轮信号累积（watch_only/needs_review/低 confidence）→ `exhausted_fields/{user}.json`
 - 关键原则: LLM 信号驱动而非硬编码规则、门槛严格、分类信息来自 LLM 诊断

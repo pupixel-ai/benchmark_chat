@@ -777,6 +777,8 @@ High Weight Signals:
 COT Steps:
 {_format_list_for_prompt(spec.cot_steps)}
 {f"Important Hint: {spec.cot_hint}" if spec.cot_hint else ""}
+{f"Field Boundary: {spec.field_boundary}" if spec.field_boundary else ""}
+{f"Cross-Field Caution: {spec.cross_field_caution}" if spec.cross_field_caution else ""}
 Owner Resolution:
 {_format_list_for_prompt(spec.owner_resolution_steps)}
 Time Reasoning:

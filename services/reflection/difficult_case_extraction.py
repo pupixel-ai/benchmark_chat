@@ -92,7 +92,18 @@ def _classify_difficulty(
     """Classify the difficulty type based on Critic signals.
 
     Returns None if the pattern is not a difficult case.
+    LLM 调用失败（confidence=0 + 空 recommendations + diagnosis 含 error）的直接跳过。
     """
+    # 过滤 LLM 调用失败的无效结果
+    is_llm_failure = (
+        report.confidence == 0.0
+        and not blocked_recs
+        and ("失败" in report.system_diagnosis or "error" in report.system_diagnosis.lower()
+             or "400" in report.system_diagnosis or "500" in report.system_diagnosis)
+    )
+    if is_llm_failure:
+        return None
+
     has_arch_change = any(
         str(r.get("type") or "") == "architecture_change" for r in blocked_recs
     )
@@ -104,7 +115,7 @@ def _classify_difficulty(
         return "needs_architecture_change"
     if has_new_tool:
         return "needs_new_tool"
-    if report.confidence < 0.4:
+    if 0 < report.confidence < 0.4:
         return "critic_uncertain"
 
     return None

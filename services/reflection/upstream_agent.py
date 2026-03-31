@@ -450,11 +450,12 @@ class UpstreamReflectionAgent:
 你只负责：
 - 基于 badcase 进行精准的上游定位、反思
 - 为人工审批提供清晰、精炼、可判断的结论
+- 产出可直接应用的 rule_patch 配置（JSON 配置，非 Python 代码）
 - 必要时请求 tool 来补充定位信息
 
 你不负责：
-- 直接写代码
-- 直接批准改码
+- 直接修改 Python 代码
+- 直接批准代码变更
 - 总结底层调试日志
 
 你要理解的当前工程链路：
@@ -469,75 +470,31 @@ class UpstreamReflectionAgent:
 
 核心原则（必须遵守）：
 - 严禁通过 GT 答案直接限制或指导输出方向。GT 只用于发现问题，不用于推导答案。
-- 你必须假设自己不知道 GT 的具体值，思考"如果没有 GT，系统应该从哪些证据中发现正确的规律"。
+- 你必须假设自己不知道 GT 的具体值。你只知道 grade（偏差类型）和 severity（严重程度）。思考"如果没有 GT，系统应该从哪些证据中发现正确的规律"。
 - 你的提案必须是通用规则改进，不能针对让系统输出某个特定值。
 - 如果系统输出和 GT 都是对的（比如都是 null），不要强行提修改建议。
 - 如果 grade 是 missing_gt（GT 没有标注值但系统有输出），这是召回场景。此时你应该评估"系统输出的值是否有证据支撑且合理"。如果合理，就建议保留当前输出，提案方向是"确认系统发现的新信号有价值"。只有系统输出明显不合理时才建议修改。
-- 不要倾向于让系统输出空值来回避问题。weak_evidence_caution 是"以下场景证据较弱需要谨慎判断"的提示，不是"遇到就输出空值"的开关。大多数情况下你应该用 cot_hint 或 tool_rules 来改进推理质量，而不是添加谨慎条件。
+- 不要倾向于让系统输出空值来回避问题。应该用 cot_hint 或 tool_rules 来改进推理质量。
 - 反思时优先发散思考：先思考"证据里还有没有被系统忽略的线索"，再思考"推理逻辑是否合理"，最后才考虑"是否需要收敛条件"。
 - 提案的 rule_patch 应该帮助系统找到更多证据或改进推理方式，而不是通过收紧 null 条件来回避错误。
 
-你要优先回答的问题：
-1. 系统的推理链路（COT）哪里走偏了？是证据不够，还是证据够了但归纳逻辑有问题？
-2. 如果不看 GT 答案，仅从现有证据出发，系统应该能发现什么它错过了的线索？
-3. 下一步最合理的改面是什么？
-4. 为什么是这个改面，而不是另外两个常见改面？
-5. 你的结论是否已经足够稳定，如果不稳定就进入 difficult_case / 人工判断
+你的定位决策树（按顺序快速判断，不需要逐步展开每一步）：
+1. grade 是 exact_match/close_match → 不需要修改，直接输出 status=ok
+2. causality_route 是 downstream_caused/exacerbated → difficult_case，不推上游改面
+3. 看 final/draft/null_reason：一开始就空？有值但跑偏？被下游改坏？→ 定位问题阶段
+4. 看 tool_trace 的 evidence_bundle：关键证据是否被取到？是否被正确呈现？→ 区分取证问题 vs 归纳问题
+5. 看 reasoning + field_spec：归纳逻辑是否合理？→ 定位具体根因
 
-你定位 badcase 时，必须按这个顺序思考：
-第一步：先看问题是什么
-- 关注 comparison_result 里的 output_value、grade、score（GT 具体值已遮蔽，你只知道偏差程度）
-- grade 告诉你偏差类型：mismatch=完全不对，partial_match=只覆盖一部分，missing_prediction=系统没输出但应该有值
-- 你的任务是分析系统的推理链路哪里走偏了，而不是猜测 GT 答案然后倒推规则
-- 注意：如果 grade 是 exact_match 或 close_match，不需要提修改建议
+如果你在第 3-4 步无法判断，请求 trace_diagnose tool。如果需要知道历史修复记录，请求 history_recall。最多 2 个 tool。
 
-第二步：先排除“不是上游”的情况
-- 如果 causality_route 是 downstream_caused 或 downstream_exacerbated，说明更像下游裁决把结果改坏了
-- 这类 case 不要推进上游策略改面，应该更偏 difficult_case / audit_disagreement
+你的核心任务：找到系统忽略了什么线索。case card 里的证据可能包含系统没注意到的关键信息，把它指出来。
 
-第三步：看字段最终结果是怎么产生的
-- 先看 profile_field_trace_payload 里的：
-  - final_before_backflow
-  - final
-  - null_reason
-  - draft
-- 用它判断：
-  - 是一开始就空
-  - 还是有值但语义跑偏
-  - 还是被下游回流改坏
-
-第四步：看取证是否充分
-- 再看 profile_field_trace_payload 里的 tool_trace
-- 重点关注：
-  - evidence_bundle
-  - ownership_bundle
-  - counter_bundle
-- 不要关注 retrieval_hit_count 这种数字本身，重点看“有没有关键证据被取到”“有没有明显反证”“证据是不是属于主语本人”
-
-第五步：看 LLM 在字段归纳时怎么想的
-- 最后看：
-  - field_spec_snapshot
-  - profile_llm_batch_debug
-  - final / draft 里的 reasoning
-- 你要判断：
-  - 是不是证据已经够了，但字段 COT 把语义归纳错了
-  - 还是 prompt / field spec 本身对这个字段的边界定义就有问题
-- 关键：你要思考的是"如果没有 GT 答案，系统基于现有证据和规则，应该怎么改才能自己发现正确的方向"。不要反推"因为 GT 是 X，所以规则应该往 X 方向改"。
-
-你判断根因时，使用这些标准：
-- field_reasoning：关键证据已经在，tool 也不是明显没调，但最终字段值语义归纳错了、过度发挥了、或和 GT 的标签口径不一致
-- evidence_packaging：证据有，但整理给字段判断的方式有问题，例如关键线索被淹没、摘要角度不对、支持/反证没有被正确组织
-- tool_retrieval：应该能取到关键证据，但实际没取到，或者取到的证据明显不对
-- tool_selection_policy：这个字段本来就应该调 tool，但没调；或者根本不该靠直觉输出
-- engineering_issue：运行错误、解析失败、artifact 损坏、上下游状态不一致
-- watch_only：当前证据不够稳定，或者难以排除多个根因，不能贸然推动改面
-
-你判断改面时，使用这些标准：
-- field_cot：适用于“证据在，但字段理解/归纳错了”
-- tool_rule：适用于“该拿到的关键证据没有被正确召回/过滤/组织”
-- call_policy：适用于“这个字段本该调用 tool，却没有在正确时机调用”
-- engineering_issue：适用于明显工程故障
-- watch_only：适用于当前不该直接推进策略改动
+问题分类（root_cause_family，5 种，每种对应明确的修复手段）：
+- field_reasoning：LLM 看到了关键证据，但归纳逻辑/理解口径有问题 → 修复：cot_hint 引导推理
+- evidence_packaging：关键证据在系统中存在但被埋没，LLM 没看到应该看到的线索 → 修复：调整证据过滤排序（tool_rules），或用 cot_hint 告诉 LLM 主动关注被忽略的证据类型
+- tool_retrieval：关键证据不在系统中，取证/召回本身失败，或该调的数据源没配置 → 修复：tool_rules 或 call_policies
+- engineering_issue：运行错误、解析失败、上下游状态不一致 → 标记给工程
+- watch_only：证据不够稳定或多根因难排除，暂不推动改面
 
 什么时候用 tool：
 - 如果你无法区分“没取到证据”还是“取到了证据但归纳错了”，请求 trace_diagnose
@@ -587,23 +544,36 @@ class UpstreamReflectionAgent:
       }},
       “field_spec_overrides”: {{
         “字段key”: {{
-          “cot_hint”: “对该字段的判断提示，帮助 LLM 更准确地归纳”,
-          “weak_evidence_caution”: [“以下情况证据较弱需要谨慎判断，不是要求输出空值”]
+          “cot_hint”: “归纳引导”,
+          “field_boundary”: “字段边界定义”,
+          “cross_field_caution”: “跨字段隔离提示”
         }}
       }}
     }}
   }}
 }}
 
-rule_patch 要求（按优先级排序，优先用前面的手段）：
-1. **tool_rules**（最优先）: 改进证据召回 — 让系统找到更多/更准确的证据
-   - max_refs_per_source: 增大证据数量（如从 10 改到 20）
-   - required_evidence_types: 要求必须包含哪些类型的证据
-2. **call_policies**: 改进数据来源 — 让系统从更多渠道获取证据
-   - append_allowed_sources: 新增数据来源（event、vlm_observations、relationship）
-3. **field_spec_overrides**（最后手段）: 改进判断口径
-   - cot_hint: 给 LLM 的判断提示（优先用这个，帮助 LLM 理解字段的正确含义）
-   - weak_evidence_caution: 标注”证据较弱需要谨慎判断”的场景，不是要求输出空值
+rule_patch 槽位说明：
+
+field_spec_overrides 内可用的字段：
+
+增量槽位（优先使用，不影响默认行为）：
+1. cot_hint (str)：归纳引导——帮助 LLM 理解字段含义、区分容易混淆的概念
+2. field_boundary (str)：字段边界——“本字段是 X 而非 Y，和 Z 字段的区别是...”
+3. cross_field_caution (str)：跨字段隔离——“不要从 A 字段的结论推导本字段的值”
+
+替换槽位（仅当默认步骤本身有问题时使用，必须产出完整内容）：
+4. cot_steps (List[str])：替换该字段的完整推理步骤
+   注意：这会覆盖默认的 3-4 条推理步骤，你必须产出完整的步骤列表（不是补丁），考虑该字段已知的所有 case 场景，保留默认步骤中仍然有效的部分
+5. strong_evidence (List[str])：替换高权重信号列表
+6. owner_resolution_steps (List[str])：替换归属校验步骤
+7. time_reasoning_steps (List[str])：替换时间维度判断步骤
+8. counter_evidence_checks (List[str])：替换反证检查项
+
+谨慎使用（容易导致系统偏向输出 null）：
+9. weak_evidence_caution (List[str])：弱证据条件——触发时系统倾向输出 null，尽量少用
+
+tool_rules 和 call_policies 在证据确实缺失时使用（格式见上方 JSON）
 - 具体的条件描述用自然语言中文写，不要写代码
 
 输出要求：
@@ -613,7 +583,7 @@ rule_patch 要求（按优先级排序，优先用前面的手段）：
 - 不要输出 retrieval_hit_count、comparison_score、comparison_method、stats_bundle_keys 之类的低价值调试信息
 - 不要把日志当结论复述
 - 重点写：
-  - GT 要什么
+  - GT 偏差方向（grade 和 severity 告诉你的）
   - 当前输出成了什么
   - 关键线索是什么
   - 为什么判断是这一层问题
@@ -623,10 +593,11 @@ rule_patch 要求（按优先级排序，优先用前面的手段）：
 严格禁止：
 - 禁止根据单个用户或单个字段的特殊情况做硬编码优化
 - 规则修改必须是通用的，适用于所有用户
-- 不要在 weak_evidence_caution 里写具体的人名、地名、品牌名
-- 不要在 rule_patch 里引用具体的 photo_id、EVT_id、Person_id
+- 不要在 rule_patch 里引用具体的 photo_id、EVT_id、Person_id、人名、地名、品牌名
 
 {"如果 case card 中包含 human_reviewer_note，这是上一轮审批者的修订意见，你必须认真考虑这个反馈，在本轮反思中回应它。但不要把它当作固定规则，只作为本轮的参考方向。" if packet.get("human_reviewer_note") else ""}
+
+{"如果 case card 中包含 evolution_context，说明这个字段已经在之前的轮次中被反思过。" + chr(10) + "evolution_context 包含：cycle_index（当前第几轮）、previous_grade（上轮评分）、score_trend（分数趋势）、patch_effect（上次规则修改后的效果）、last_proposed_direction（上次提出的改进方向）。" + chr(10) + "你应该：" + chr(10) + "1) 如果 patch_effect 显示 degraded（恶化），必须换一个不同的改进方向，不要重复上次的建议" + chr(10) + "2) 如果 patch_effect 显示 improved 但还未达标，在上次方向的基础上深化" + chr(10) + "3) 如果 score_trend 是 stable 且 no_new_signal_streak > 2，考虑 watch_only" + chr(10) + "4) 不要重复提出和 last_proposed_direction 完全相同的建议，除非你有新的证据" if packet.get("evolution_context") else ""}
 
 这是当前 case card：
 {json.dumps(compact_packet, ensure_ascii=False)}"""
@@ -658,7 +629,7 @@ rule_patch 要求（按优先级排序，优先用前面的手段）：
   }}
 }}
 
-rule_patch 优先用 tool_rules（改证据召回）和 call_policies（改数据来源），最后才考虑 field_spec_overrides。weak_evidence_caution 是"谨慎判断"提示，不是"输出空值"的开关。禁止根据单个用户/字段做硬编码优化。
+rule_patch 优先用增量槽位（cot_hint / field_boundary / cross_field_caution），默认步骤有问题时才用替换槽位（cot_steps 等，必须产出完整内容），证据缺失时用 tool_rules / call_policies。禁止根据单个用户/字段做硬编码优化。
 
 仍然要求：
 - 所有解释性文字必须是简体中文
@@ -1318,14 +1289,18 @@ class MutationExecutor:
 
 def _build_overlay_bundle(*, fix_surface: str, field_key: str, patch_intent: Dict[str, Any]) -> Dict[str, Any]:
     if fix_surface == "field_cot":
+        # 优先使用 agent 输出的 field_spec_overrides（可能包含任意槽位）
+        agent_overrides = dict(patch_intent.get("field_spec_overrides") or {})
+        if not agent_overrides:
+            # 兼容旧格式：agent 直接输出 cot_steps 等顶层字段
+            from services.memory_pipeline.types import FieldSpec
+            allowed = set(FieldSpec.__dataclass_fields__.keys())
+            agent_overrides = {field_key: {
+                k: v for k, v in patch_intent.items()
+                if k in allowed and v and k not in ("field_key", "fix_surface", "change_summary_zh")
+            }}
         return {
-            "field_spec_overrides": dict(patch_intent.get("field_spec_overrides") or {
-                field_key: {
-                    "cot_steps": list(patch_intent.get("cot_steps") or []),
-                    "weak_evidence_caution": list(patch_intent.get("weak_evidence_caution") or []),
-                    "counter_evidence_checks": list(patch_intent.get("counter_evidence_checks") or []),
-                }
-            }),
+            "field_spec_overrides": agent_overrides,
             "tool_rules": {},
             "call_policies": {},
         }
@@ -1484,6 +1459,8 @@ def _build_compact_prompt_packet(packet: Dict[str, Any]) -> Dict[str, Any]:
         },
         # 人工审批备注（临时注入，本轮用完即弃）
         **({"human_reviewer_note": packet["human_reviewer_note"]} if packet.get("human_reviewer_note") else {}),
+        # 自循环上下文（上一轮结果、趋势、改进效果）
+        **({"evolution_context": dict(packet["evolution_context"])} if packet.get("evolution_context") else {}),
     }
 
 
@@ -1648,6 +1625,15 @@ def _normalize_patch_intent(payload: Any, *, default: Dict[str, Any], field_key:
             legacy_summary = str(normalized.get("summary") or "").strip()
             if legacy_summary:
                 normalized["change_summary_zh"] = legacy_summary
+        # 清理 weak_evidence_caution — 不再作为输出选项
+        rule_patch = normalized.get("rule_patch")
+        if isinstance(rule_patch, dict):
+            fso = rule_patch.get("field_spec_overrides")
+            if isinstance(fso, dict):
+                for _fk, spec in fso.items():
+                    if isinstance(spec, dict):
+                        spec.pop("weak_evidence_caution", None)
+                        spec.pop("null_preferred_when", None)
         return normalized
     if isinstance(payload, str):
         text = payload.strip()

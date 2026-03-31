@@ -14,8 +14,6 @@ ALLOWED_ROOT_CAUSE_FAMILIES = (
     "field_reasoning",
     "evidence_packaging",
     "tool_retrieval",
-    "tool_selection_policy",
-    "orchestration_guardrail",
     "engineering_issue",
     "watch_only",
     "coverage_gap_source",
@@ -219,7 +217,7 @@ def _heuristic_score(case_fact: CaseFact, features: Dict[str, Any]) -> Dict[str,
         if tool_called and retrieval_hit_count == 0:
             return _score_payload("tool_retrieval", 0.84)
         if not tool_called:
-            return _score_payload("tool_selection_policy", 0.85)
+            return _score_payload("tool_retrieval", 0.85)
         return _score_payload("evidence_packaging", 0.78)
 
     if case_fact.badcase_source == "empty_output_candidate":
@@ -228,7 +226,7 @@ def _heuristic_score(case_fact: CaseFact, features: Dict[str, Any]) -> Dict[str,
         if tool_called and retrieval_hit_count == 0:
             return _score_payload("tool_retrieval", 0.86)
         if not tool_called:
-            return _score_payload("tool_selection_policy", 0.88)
+            return _score_payload("tool_retrieval", 0.88)
 
     if history_recurrence >= 2 and evidence_count >= 2:
         return _score_payload("evidence_packaging", 0.76)
@@ -267,7 +265,6 @@ def resolve_accuracy_gap_route(case_fact: CaseFact) -> str:
         "field_reasoning",
         "evidence_packaging",
         "tool_retrieval",
-        "tool_selection_policy",
     } and float(case_fact.fix_surface_confidence or 0.0) >= 0.75:
         return "strategy_fix"
     return "difficult_case"

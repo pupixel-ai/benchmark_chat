@@ -392,12 +392,20 @@ def _check_and_generate_recap(
     state_payload: Dict[str, Any],
     field_cycles_all: List[Dict[str, Any]],
 ) -> bool:
-    """检测用户是否收敛，如果收敛则生成复盘报告。"""
+    """检测用户是否收敛，如果收敛则生成复盘报告。
+
+    收敛条件：没有任何字段还在"活跃探索"或"临时降频"中。
+    throttle_armed / throttled 视为仍在循环中（暂停但会回来），不算收敛。
+    """
     fields = state_payload.get("fields") or {}
-    _ACTIVE = {"needs_next_cycle", "new_rule_candidate", "new_insight_found", "initial_snapshot"}
+    # 活跃 = 正在探索的 + 临时降频的（throttle 是暂停不是结束）
+    _NOT_CONVERGED = {
+        "needs_next_cycle", "new_rule_candidate", "new_insight_found",
+        "initial_snapshot", "throttle_armed", "throttled",
+    }
     active_fields = [
         fk for fk, fs in fields.items()
-        if fs.get("last_status") in _ACTIVE and fs.get("cycle_count", 0) > 0
+        if fs.get("last_status") in _NOT_CONVERGED and fs.get("cycle_count", 0) > 0
     ]
     if active_fields:
         return False
@@ -909,6 +917,7 @@ def _try_reflect_field(
     case_facts_by_field: Dict[str, Dict[str, Any]],
     project_root: str,
     reviewer_note: str = "",
+    evolution_context: Dict[str, Any] | None = None,
 ) -> Dict[str, Any] | None:
     """Attempt LLM reflection on a field. Returns reflect result or None on failure."""
     cf = case_facts_by_field.get(field_key)
@@ -924,6 +933,9 @@ def _try_reflect_field(
         # 临时注入审批备注（用完即弃，不写入任何持久化文件）
         if reviewer_note:
             packet["human_reviewer_note"] = reviewer_note
+        # 注入自循环上下文（上一轮结果、趋势、改进效果）
+        if evolution_context:
+            packet["evolution_context"] = evolution_context
         result = agent.reflect(packet)
         if result.get("status") == "failed":
             return None
@@ -1125,6 +1137,13 @@ def _run_gt_field_loop(
 
     _persist_field_loop_state(path=state_path, state_payload=next_state)
 
+    # 统计全局状态（不只是本轮 focus，包括所有字段）
+    all_fields = next_state.get("fields") or {}
+    global_throttled = sum(1 for fs in all_fields.values() if fs.get("last_status") in ("throttled", "throttle_armed"))
+    global_active = sum(1 for fs in all_fields.values() if fs.get("last_status") in ("needs_next_cycle", "new_rule_candidate", "new_insight_found"))
+    global_terminal = sum(1 for fs in all_fields.values() if fs.get("last_status") in ("monitoring", "not_focused") or fs.get("exhausted") or fs.get("human_resolved"))
+    all_throttled_no_active = global_active == 0 and global_throttled > 0
+
     summary = {
         "total_focus_fields": len(focus_fields),
         "new_signal_count": sum(1 for item in field_cycles if item.get("new_signal_found")),
@@ -1133,6 +1152,10 @@ def _run_gt_field_loop(
         "active_focus_fields_count": sum(1 for item in field_cycles if item.get("cycle_status") != "throttled"),
         "no_signal_streak_threshold": int(policy["no_signal_streak_threshold"]),
         "throttle_cooldown_rounds": int(policy["throttle_cooldown_rounds"]),
+        "global_active": global_active,
+        "global_throttled": global_throttled,
+        "global_terminal": global_terminal,
+        "all_throttled_no_active": all_throttled_no_active,
     }
     return {
         "focus_fields": focus_fields,
@@ -1328,7 +1351,9 @@ def _select_focus_fields_by_gt(
         if len(selected) >= limit:
             break
         selected.append(candidate)
-    if len(selected) < limit:
+    # throttled 字段不占名额 — 它们在 _build_gt_field_cycles 里会 skip reflect，
+    # 浪费 top_k 名额。只有在完全没有 active 候选时才补入（防止空转）。
+    if not selected:
         for candidate in throttled_candidates:
             if len(selected) >= limit:
                 break
@@ -1481,11 +1506,35 @@ def _build_gt_field_cycles(
 
         no_new_signal_streak = 0 if new_signal_found else previous_streak + 1
 
+        # ── 计算上轮 patch 效果（提前算，传给 reflect agent）──
+        pre_reflect_patch_effect = None
+        _prev_patch_grade = previous_state.get("last_patch_grade")
+        _prev_patch_score = previous_state.get("last_patch_score")
+        if _prev_patch_grade and grade:
+            pre_reflect_patch_effect = compute_patch_effect(
+                before_grade=_prev_patch_grade,
+                before_score=float(_prev_patch_score or 0.0),
+                after_grade=grade,
+                after_score=float(comparison_result.get("score") or 0.0),
+            )
+
+        # ── 构建自循环上下文 ──
+        evolution_context = {
+            "cycle_index": cycle_index,
+            "previous_grade": str(previous_state.get("last_grade") or ""),
+            "previous_score": float(previous_state.get("last_issue_score") or 0.0),
+            "score_trend": str(previous_state.get("score_trend") or ""),
+            "no_new_signal_streak": int(previous_state.get("no_new_signal_streak") or 0),
+            "patch_effect": pre_reflect_patch_effect,
+            "last_proposed_direction": str(previous_state.get("last_proposed_direction") or ""),
+        }
+
         # ── LLM 反思（唯一的提案来源）──
         field_reviewer_note = (reviewer_notes or {}).get(field_key, "")
         reflect_result = _try_reflect_field(
             field_key, case_facts_by_field or {}, project_root,
             reviewer_note=field_reviewer_note,
+            evolution_context=evolution_context if cycle_index > 1 else None,
         )
         cf = (case_facts_by_field or {}).get(field_key, {})
         original_reasoning = str((cf.get("decision_trace") or {}).get("reasoning") or "")
@@ -1623,18 +1672,9 @@ def _build_gt_field_cycles(
                 }
             )
 
-        # P3: 补丁效果自动验证
-        patch_effect = None
-        last_patch_grade = previous_state.get("last_patch_grade")
-        last_patch_score = previous_state.get("last_patch_score")
-        if last_patch_grade and grade:
-            patch_effect = compute_patch_effect(
-                before_grade=last_patch_grade,
-                before_score=float(last_patch_score or 0.0),
-                after_grade=grade,
-                after_score=float(comparison_result.get("score") or 0.0),
-            )
-            cycle_entry["patch_effect"] = patch_effect
+        # P3: 补丁效果自动验证（复用前面已算的 pre_reflect_patch_effect）
+        if pre_reflect_patch_effect:
+            cycle_entry["patch_effect"] = pre_reflect_patch_effect
 
         # P3: 记录补丁基线（当生成了 patch_preview 时）
         new_patch_grade = previous_state.get("last_patch_grade")
@@ -1658,6 +1698,7 @@ def _build_gt_field_cycles(
             "last_patch_grade": new_patch_grade,
             "last_patch_score": new_patch_score,
             "reflect_fail_streak": reflect_fail_streak,
+            "last_proposed_direction": (reflect_result or {}).get("patch_intent", {}).get("change_summary_zh", ""),
             "last_updated": datetime.now().isoformat(),
         }
 

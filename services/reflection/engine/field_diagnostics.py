@@ -18,8 +18,6 @@ ALLOWED_ROOT_CAUSE_FAMILIES = (
     "field_reasoning",
     "evidence_packaging",
     "tool_retrieval",
-    "tool_selection_policy",
-    "orchestration_guardrail",
     "engineering_issue",
     "watch_only",
     "coverage_gap_source",
@@ -214,7 +212,7 @@ def _heuristic_root_cause(
         if tool_called and retrieval_hit_count == 0:
             return "tool_retrieval", 0.84
         if not tool_called:
-            return "tool_selection_policy", 0.85
+            return "tool_retrieval", 0.85
         return "evidence_packaging", 0.78
 
     if failure_mode == "missing_signal":
@@ -223,7 +221,7 @@ def _heuristic_root_cause(
         if tool_called and retrieval_hit_count == 0:
             return "tool_retrieval", 0.86
         if not tool_called:
-            return "tool_selection_policy", 0.88
+            return "tool_retrieval", 0.88
         return "evidence_packaging", 0.76
 
     if failure_mode == "overclaim":

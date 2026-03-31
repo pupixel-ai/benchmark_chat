@@ -123,6 +123,8 @@ class FieldSpec:
     requires_social_media: bool = False
     requires_protagonist_face: bool = False
     cot_hint: str = ""
+    field_boundary: str = ""
+    cross_field_caution: str = ""
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)

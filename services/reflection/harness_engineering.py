@@ -214,7 +214,7 @@ def _pattern_key(case: Dict[str, Any]) -> str:
         if failure_mode in ("wrong_value", "partial_coverage"):
             root_cause = "field_reasoning" if tool_called and evidence_count >= 2 else "tool_retrieval"
         elif failure_mode == "missing_signal":
-            root_cause = "field_reasoning" if tool_called and evidence_count >= 1 else "tool_selection_policy"
+            root_cause = "field_reasoning" if tool_called and evidence_count >= 1 else "tool_retrieval"
         elif failure_mode == "overclaim":
             root_cause = "field_reasoning"
         else:
