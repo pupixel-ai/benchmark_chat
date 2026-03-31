@@ -8,7 +8,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from sqlalchemy import delete, desc, or_, select
+from sqlalchemy import and_, delete, desc, or_, select
 from sqlalchemy.orm import load_only
 
 from backend.db import Base, SessionLocal, engine, ensure_schema
@@ -29,28 +29,40 @@ def normalize_task_options(options: dict | None) -> dict:
     expected_upload_count = payload.get("expected_upload_count")
     requested_max_photos = payload.get("requested_max_photos")
     creation_source = str(payload.get("creation_source") or "manual").strip().lower()
-    if creation_source not in {"manual", "api"}:
+    if creation_source not in {"manual", "api", "directory"}:
         creation_source = "manual"
+    survey_username = str(payload.get("survey_username") or "").strip() or None
+    subject_user_id = str(payload.get("subject_user_id") or "").strip() or None
+    operator_user_id = str(payload.get("operator_user_id") or "").strip() or None
     normalized_requested_max_photos = (
         int(requested_max_photos) if isinstance(requested_max_photos, (int, float)) else None
     )
     normalized_expected_upload_count = (
         int(expected_upload_count) if isinstance(expected_upload_count, (int, float)) else None
     )
-    if normalized_expected_upload_count is None and creation_source == "manual":
+    auto_start_sources = {"manual", "directory"}
+    if normalized_expected_upload_count is None and creation_source in auto_start_sources:
         normalized_expected_upload_count = normalized_requested_max_photos
     auto_start_present = "auto_start_on_upload_complete" in payload
     if auto_start_present:
         auto_start_on_upload_complete = bool(payload.get("auto_start_on_upload_complete"))
     else:
-        auto_start_on_upload_complete = bool(creation_source == "manual" and normalized_expected_upload_count is not None)
-    return {
+        auto_start_on_upload_complete = bool(
+            creation_source in auto_start_sources and normalized_expected_upload_count is not None
+        )
+    normalized = {
         "normalize_live_photos": bool(payload.get("normalize_live_photos", DEFAULT_NORMALIZE_LIVE_PHOTOS)),
         "creation_source": creation_source,
         "expected_upload_count": normalized_expected_upload_count,
         "requested_max_photos": normalized_requested_max_photos,
         "auto_start_on_upload_complete": auto_start_on_upload_complete,
+        "survey_username": survey_username,
     }
+    if subject_user_id:
+        normalized["subject_user_id"] = subject_user_id
+    if operator_user_id:
+        normalized["operator_user_id"] = operator_user_id
+    return normalized
 
 
 class TaskStore:
@@ -71,6 +83,7 @@ class TaskStore:
         task_id: str,
         upload_count: int,
         user_id: str,
+        operator_user_id: str | None,
         version: str,
         options: dict | None = None,
         provision_local_dir: bool = True,
@@ -85,6 +98,7 @@ class TaskStore:
         record = TaskRecord(
             task_id=task_id,
             user_id=user_id,
+            operator_user_id=operator_user_id,
             version=version,
             status=status,
             stage=stage,
@@ -116,11 +130,38 @@ class TaskStore:
         return self._serialize(record)
 
     def get_task(self, task_id: str, user_id: str) -> Optional[Dict]:
+        return self.get_task_for_operator(task_id, operator_user_id=user_id)
+
+    def get_task_for_operator(self, task_id: str, operator_user_id: str) -> Optional[Dict]:
+        normalized_operator_user_id = str(operator_user_id or "").strip()
+        if not normalized_operator_user_id:
+            return None
         with SessionLocal() as session:
             record = session.execute(
                 select(TaskRecord).where(
                     TaskRecord.task_id == task_id,
-                    TaskRecord.user_id == user_id,
+                    or_(
+                        TaskRecord.operator_user_id == normalized_operator_user_id,
+                        and_(
+                            TaskRecord.operator_user_id.is_(None),
+                            TaskRecord.user_id == normalized_operator_user_id,
+                        ),
+                    ),
+                )
+            ).scalar_one_or_none()
+            if record is None:
+                return None
+            return self._serialize(record)
+
+    def get_task_for_subject(self, task_id: str, subject_user_id: str) -> Optional[Dict]:
+        normalized_subject_user_id = str(subject_user_id or "").strip()
+        if not normalized_subject_user_id:
+            return None
+        with SessionLocal() as session:
+            record = session.execute(
+                select(TaskRecord).where(
+                    TaskRecord.task_id == task_id,
+                    TaskRecord.user_id == normalized_subject_user_id,
                 )
             ).scalar_one_or_none()
             if record is None:
@@ -128,10 +169,24 @@ class TaskStore:
             return self._serialize(record)
 
     def list_tasks(self, user_id: str, limit: int = 20) -> List[Dict]:
+        return self.list_tasks_for_operator(operator_user_id=user_id, limit=limit)
+
+    def list_tasks_for_operator(self, operator_user_id: str, limit: int = 20) -> List[Dict]:
+        normalized_operator_user_id = str(operator_user_id or "").strip()
+        if not normalized_operator_user_id:
+            return []
         with SessionLocal() as session:
             id_stmt = (
                 select(TaskRecord.task_id)
-                .where(TaskRecord.user_id == user_id)
+                .where(
+                    or_(
+                        TaskRecord.operator_user_id == normalized_operator_user_id,
+                        and_(
+                            TaskRecord.operator_user_id.is_(None),
+                            TaskRecord.user_id == normalized_operator_user_id,
+                        ),
+                    )
+                )
                 .order_by(desc(TaskRecord.created_at))
                 .limit(limit)
             )
@@ -145,6 +200,57 @@ class TaskStore:
                     load_only(
                         TaskRecord.task_id,
                         TaskRecord.user_id,
+                        TaskRecord.operator_user_id,
+                        TaskRecord.version,
+                        TaskRecord.status,
+                        TaskRecord.stage,
+                        TaskRecord.upload_count,
+                        TaskRecord.task_dir,
+                        TaskRecord.options,
+                        TaskRecord.result_summary,
+                        TaskRecord.asset_manifest,
+                        TaskRecord.error,
+                        TaskRecord.worker_instance_id,
+                        TaskRecord.worker_private_ip,
+                        TaskRecord.worker_status,
+                        TaskRecord.delete_state,
+                        TaskRecord.created_at,
+                        TaskRecord.updated_at,
+                        TaskRecord.expires_at,
+                        TaskRecord.deleted_at,
+                        TaskRecord.last_worker_sync_at,
+                    )
+                )
+                .where(TaskRecord.task_id.in_(task_ids))
+            )
+            records = session.execute(stmt).scalars().all()
+            by_id = {
+                record.task_id: self._serialize(record, include_details=False)
+                for record in records
+            }
+            return [by_id[task_id] for task_id in task_ids if task_id in by_id]
+
+    def list_tasks_for_subject(self, subject_user_id: str, limit: int = 20) -> List[Dict]:
+        normalized_subject_user_id = str(subject_user_id or "").strip()
+        if not normalized_subject_user_id:
+            return []
+        with SessionLocal() as session:
+            id_stmt = (
+                select(TaskRecord.task_id)
+                .where(TaskRecord.user_id == normalized_subject_user_id)
+                .order_by(desc(TaskRecord.created_at))
+                .limit(limit)
+            )
+            task_ids = session.execute(id_stmt).scalars().all()
+            if not task_ids:
+                return []
+            stmt = (
+                select(TaskRecord)
+                .options(
+                    load_only(
+                        TaskRecord.task_id,
+                        TaskRecord.user_id,
+                        TaskRecord.operator_user_id,
                         TaskRecord.version,
                         TaskRecord.status,
                         TaskRecord.stage,
@@ -210,11 +316,20 @@ class TaskStore:
             return self._serialize(record)
 
     def delete_task(self, task_id: str, user_id: str) -> bool:
+        normalized_operator_user_id = str(user_id or "").strip()
+        if not normalized_operator_user_id:
+            return False
         with SessionLocal() as session:
             result = session.execute(
                 delete(TaskRecord).where(
                     TaskRecord.task_id == task_id,
-                    TaskRecord.user_id == user_id,
+                    or_(
+                        TaskRecord.operator_user_id == normalized_operator_user_id,
+                        and_(
+                            TaskRecord.operator_user_id.is_(None),
+                            TaskRecord.user_id == normalized_operator_user_id,
+                        ),
+                    ),
                 )
             )
             session.commit()
@@ -397,6 +512,7 @@ class TaskStore:
         return {
             "task_id": record.task_id,
             "user_id": record.user_id,
+            "operator_user_id": record.operator_user_id,
             "version": record.version or DEFAULT_TASK_VERSION,
             "status": record.status,
             "stage": record.stage,

@@ -20,7 +20,14 @@ from backend.app import _run_pipeline_task, _task_upload_lock, app, task_store
 from backend.db import SessionLocal
 from backend.task_event_outbox import build_terminal_dedupe_key
 from backend.task_store import normalize_task_options
-from config import APP_VERSION, AVAILABLE_TASK_VERSIONS, DEFAULT_NORMALIZE_LIVE_PHOTOS, DEFAULT_TASK_VERSION
+from config import (
+    APP_VERSION,
+    AVAILABLE_TASK_VERSIONS,
+    DEFAULT_NORMALIZE_LIVE_PHOTOS,
+    DEFAULT_TASK_VERSION,
+    KAFKA_SURVEY_IMPORT_TOPIC,
+    KAFKA_TERMINAL_TOPIC,
+)
 from backend.models import (
     ArtifactRecord,
     FaceRecognitionImagePolicyRecord,
@@ -28,6 +35,7 @@ from backend.models import (
     SessionRecord,
     TaskEventOutboxRecord,
     TaskRecord,
+    SubjectUserRecord,
     UserRecord,
 )
 
@@ -63,7 +71,9 @@ class TaskApiTests(unittest.TestCase):
             if self.task_ids:
                 session.execute(delete(TaskEventOutboxRecord).where(TaskEventOutboxRecord.task_id.in_(self.task_ids)))
             session.execute(delete(SessionRecord).where(SessionRecord.user_id == self.user_id))
+            session.execute(delete(TaskRecord).where(TaskRecord.operator_user_id == self.user_id))
             session.execute(delete(TaskRecord).where(TaskRecord.user_id == self.user_id))
+            session.execute(delete(SubjectUserRecord))
             session.execute(delete(UserRecord).where(UserRecord.user_id == self.user_id))
             session.commit()
 
@@ -127,6 +137,8 @@ class TaskApiTests(unittest.TestCase):
                 "expected_upload_count": None,
                 "requested_max_photos": None,
                 "auto_start_on_upload_complete": False,
+                "survey_username": self.username,
+                "subject_user_id": self.user_id,
             },
         )
 
@@ -183,6 +195,8 @@ class TaskApiTests(unittest.TestCase):
                 "expected_upload_count": 2,
                 "requested_max_photos": 2,
                 "auto_start_on_upload_complete": False,
+                "survey_username": self.username,
+                "subject_user_id": self.user_id,
             },
         )
 
@@ -220,6 +234,51 @@ class TaskApiTests(unittest.TestCase):
         self.assertEqual(invalid_response.status_code, 400)
         self.assertIn("不支持的任务版本", invalid_response.json()["detail"])
 
+    def test_create_task_defaults_v0327_db_query_subject_to_current_user(self) -> None:
+        create_response = self.client.post("/api/tasks", json={"version": "v0327-db-query"})
+        self.assertEqual(create_response.status_code, 200)
+        payload = create_response.json()
+        self.task_ids.append(payload["task_id"])
+        self.assertEqual(payload["user_id"], self.user_id)
+        self.assertIsNone(payload["operator_user_id"])
+        self.assertEqual(payload["options"]["survey_username"], self.username)
+        self.assertEqual(payload["options"]["subject_user_id"], self.user_id)
+
+        task = task_store.get_task(payload["task_id"], user_id=self.user_id)
+        self.assertIsNotNone(task)
+        assert task is not None
+        self.assertEqual(task["user_id"], self.user_id)
+        self.assertIsNone(task["operator_user_id"])
+        self.assertEqual(task["options"]["survey_username"], self.username)
+
+    def test_create_task_maps_v0327_db_query_to_subject_user_and_operator(self) -> None:
+        create_response = self.client.post(
+            "/api/tasks",
+            json={
+                "version": "v0327-db-query",
+                "creation_source": "directory",
+                "survey_username": "alice",
+                "expected_upload_count": 3,
+                "requested_max_photos": 3,
+            },
+        )
+        self.assertEqual(create_response.status_code, 200)
+        payload = create_response.json()
+        self.task_ids.append(payload["task_id"])
+        self.assertEqual(payload["options"]["creation_source"], "directory")
+        self.assertEqual(payload["options"]["survey_username"], "alice")
+        self.assertNotEqual(payload["user_id"], self.user_id)
+        self.assertEqual(payload["operator_user_id"], self.user_id)
+
+        task = task_store.get_task(payload["task_id"], user_id=self.user_id)
+        self.assertIsNotNone(task)
+        assert task is not None
+        self.assertEqual(task["user_id"], payload["user_id"])
+        self.assertEqual(task["operator_user_id"], self.user_id)
+        self.assertEqual(task["options"]["survey_username"], "alice")
+        self.assertEqual(task["options"]["subject_user_id"], payload["user_id"])
+        self.assertEqual(task["options"]["creation_source"], "directory")
+
     def test_manual_task_options_fall_back_to_requested_max_photos_for_auto_start(self) -> None:
         options = normalize_task_options(
             {
@@ -231,6 +290,51 @@ class TaskApiTests(unittest.TestCase):
         self.assertEqual(options["expected_upload_count"], 769)
         self.assertEqual(options["requested_max_photos"], 769)
         self.assertTrue(options["auto_start_on_upload_complete"])
+
+    def test_subject_scoped_task_listing_uses_photo_owner_user_id(self) -> None:
+        create_response = self.client.post(
+            "/api/tasks",
+            json={
+                "version": "v0327-db-query",
+                "creation_source": "directory",
+                "survey_username": "alice",
+            },
+        )
+        self.assertEqual(create_response.status_code, 200)
+        payload = create_response.json()
+        self.task_ids.append(payload["task_id"])
+
+        response = self.client.get(f"/api/users/{payload['user_id']}/tasks")
+        self.assertEqual(response.status_code, 200)
+        task_ids = [item["task_id"] for item in response.json()["tasks"]]
+        self.assertIn(payload["task_id"], task_ids)
+
+    def test_create_task_accepts_explicit_subject_user_id_for_admin_upload(self) -> None:
+        subject_user_id = "subject_jennie_demo"
+        create_response = self.client.post(
+            "/api/tasks",
+            json={
+                "version": "v0327-db-query",
+                "user_id": subject_user_id,
+                "creation_source": "admin_console",
+            },
+        )
+        self.assertEqual(create_response.status_code, 200)
+        payload = create_response.json()
+        self.task_ids.append(payload["task_id"])
+        self.assertEqual(payload["user_id"], subject_user_id)
+        self.assertEqual(payload["operator_user_id"], self.user_id)
+
+        task = task_store.get_task(payload["task_id"], user_id=self.user_id)
+        self.assertIsNotNone(task)
+        assert task is not None
+        self.assertEqual(task["user_id"], subject_user_id)
+        self.assertEqual(task["operator_user_id"], self.user_id)
+
+        response = self.client.get(f"/api/users/{subject_user_id}/tasks")
+        self.assertEqual(response.status_code, 200)
+        task_ids = [item["task_id"] for item in response.json()["tasks"]]
+        self.assertIn(payload["task_id"], task_ids)
 
     def test_upload_batches_accepts_livp_container(self) -> None:
         create_response = self.client.post("/api/tasks")
@@ -310,6 +414,8 @@ class TaskApiTests(unittest.TestCase):
                 "expected_upload_count": 2,
                 "requested_max_photos": 2,
                 "auto_start_on_upload_complete": True,
+                "survey_username": self.username,
+                "subject_user_id": self.user_id,
             },
         )
 
@@ -633,7 +739,10 @@ class TaskApiTests(unittest.TestCase):
         self.assertEqual(payload["steps"]["lp3"]["failures"][0]["field_key"], "long_term_facts.identity.role")
 
     def test_memory_steps_endpoint_accepts_v0327_db_query_tasks(self) -> None:
-        create_response = self.client.post("/api/tasks", json={"version": "v0327-db-query"})
+        create_response = self.client.post(
+            "/api/tasks",
+            json={"version": "v0327-db-query", "creation_source": "directory", "survey_username": "alice"},
+        )
         self.assertEqual(create_response.status_code, 200)
         task_id = create_response.json()["task_id"]
         self.task_ids.append(task_id)
@@ -668,7 +777,10 @@ class TaskApiTests(unittest.TestCase):
 
     def test_local_pipeline_terminal_finalize_enqueues_outbox_for_v0327_db_query(self) -> None:
         task_store.outbox_store.enabled = True
-        create_response = self.client.post("/api/tasks", json={"version": "v0327-db-query"})
+        create_response = self.client.post(
+            "/api/tasks",
+            json={"version": "v0327-db-query", "creation_source": "directory", "survey_username": "alice"},
+        )
         self.assertEqual(create_response.status_code, 200)
         task_id = create_response.json()["task_id"]
         self.task_ids.append(task_id)
@@ -733,7 +845,10 @@ class TaskApiTests(unittest.TestCase):
 
     def test_internal_worker_terminal_callback_is_idempotent_for_v0327_db_query(self) -> None:
         task_store.outbox_store.enabled = True
-        create_response = self.client.post("/api/tasks", json={"version": "v0327-db-query"})
+        create_response = self.client.post(
+            "/api/tasks",
+            json={"version": "v0327-db-query", "creation_source": "directory", "survey_username": "alice"},
+        )
         self.assertEqual(create_response.status_code, 200)
         task_id = create_response.json()["task_id"]
         self.task_ids.append(task_id)
@@ -766,6 +881,136 @@ class TaskApiTests(unittest.TestCase):
                 select(TaskEventOutboxRecord).where(TaskEventOutboxRecord.task_id == task_id)
             ).scalars().all()
         self.assertEqual(len(rows), 1)
+
+    def test_upload_batches_preserve_survey_username_for_directory_tasks(self) -> None:
+        create_response = self.client.post(
+            "/api/tasks",
+            json={
+                "version": "v0327-db-query",
+                "creation_source": "directory",
+                "survey_username": "alice",
+                "expected_upload_count": 2,
+                "requested_max_photos": 2,
+            },
+        )
+        self.assertEqual(create_response.status_code, 200)
+        task_id = create_response.json()["task_id"]
+        self.task_ids.append(task_id)
+
+        batch_response = self.client.post(
+            f"/api/tasks/{task_id}/upload-batches",
+            data={
+                "creation_source": "directory",
+                "survey_username": "alice",
+                "expected_upload_count": "2",
+                "requested_max_photos": "2",
+                "auto_start_on_upload_complete": "false",
+            },
+            files=[
+                ("files", ("one.png", self._image_bytes("red"), "image/png")),
+            ],
+        )
+        self.assertEqual(batch_response.status_code, 200)
+
+        task = task_store.get_task(task_id, user_id=self.user_id)
+        self.assertIsNotNone(task)
+        assert task is not None
+        self.assertEqual(task["options"]["creation_source"], "directory")
+        self.assertEqual(task["options"]["survey_username"], "alice")
+
+    def test_internal_worker_terminal_callback_enqueues_full_and_survey_events_for_v0327_db_query(self) -> None:
+        task_store.outbox_store.enabled = True
+        create_response = self.client.post(
+            "/api/tasks",
+            json={
+                "version": "v0327-db-query",
+                "creation_source": "directory",
+                "survey_username": "alice",
+            },
+        )
+        self.assertEqual(create_response.status_code, 200)
+        task_id = create_response.json()["task_id"]
+        self.task_ids.append(task_id)
+
+        task_store.append_uploads(
+            task_id,
+            [
+                {
+                    "image_id": "photo_001",
+                    "filename": "sample.png",
+                    "stored_filename": "001_sample.png",
+                    "path": "uploads/001_sample.png",
+                    "url": "/assets/uploads/001_sample.png",
+                    "preview_url": None,
+                    "content_type": "image/png",
+                    "width": 100,
+                    "height": 100,
+                    "source_hash": "hash-001",
+                    "timestamp": "2026-03-20T20:00:00",
+                }
+            ],
+            status="draft",
+            stage="draft",
+        )
+
+        result = self._synthetic_revision_first_result(task_id)
+        result["face_recognition"]["images"][0]["boxed_image_url"] = "https://cdn.example.com/photo_001_boxed.webp"
+        result["memory"]["delta_relationship_revisions"][0]["supporting_photo_ids"] = ["hash-001"]
+        result["memory"]["relationship_revisions"][0]["supporting_photo_ids"] = ["hash-001"]
+        result["memory"]["lp3_profile"] = {
+            "report_markdown": "# Profile\n\nConcert-heavy social life.",
+            "structured": {
+                "long_term_facts": {
+                    "identity": {
+                        "name": {
+                            "value": "Alice",
+                            "confidence": 0.91,
+                        }
+                    }
+                }
+            },
+        }
+
+        payload = {
+            "status": "completed",
+            "stage": "completed",
+            "result": result,
+            "result_summary": {"primary_person_id": "Person_001"},
+            "asset_manifest": {"artifact_count": 0, "files": [], "named_urls": {}},
+            "version": "v0327-db-query",
+            "options": {
+                "creation_source": "directory",
+                "survey_username": "alice",
+                "normalize_live_photos": True,
+            },
+        }
+
+        with patch("backend.app.WORKER_SHARED_TOKEN", "worker-secret"):
+            response = self.client.post(
+                f"/internal/tasks/{task_id}/terminal-update",
+                json=payload,
+                headers={"Authorization": "Bearer worker-secret"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        with SessionLocal() as session:
+            rows = session.execute(
+                select(TaskEventOutboxRecord).where(TaskEventOutboxRecord.task_id == task_id)
+            ).scalars().all()
+
+        self.assertEqual(len(rows), 2)
+        rows_by_type = {row.event_type: row for row in rows}
+        self.assertEqual(rows_by_type["task.completed"].topic, KAFKA_TERMINAL_TOPIC)
+        self.assertEqual(rows_by_type["survey.import.ready"].topic, KAFKA_SURVEY_IMPORT_TOPIC)
+        self.assertEqual(rows_by_type["survey.import.ready"].payload_json["username"], "alice")
+        self.assertEqual(
+            rows_by_type["survey.import.ready"].payload_json["payload"]["profile"]["structured_profile"]["long_term_facts"]["identity"]["name"]["value"],
+            "Alice",
+        )
+        self.assertEqual(
+            rows_by_type["survey.import.ready"].payload_json["payload"]["relationships"][0]["boxed_image_url"],
+            "https://cdn.example.com/photo_001_boxed.webp",
+        )
 
     def test_completed_v0323_task_exposes_analysis_bundle_download(self) -> None:
         create_response = self.client.post("/api/tasks", json={"version": "v0323"})
@@ -1369,6 +1614,10 @@ class TaskApiTests(unittest.TestCase):
             "warnings": [],
             "facts": [],
             "memory": {
+                "vp1_observations": [],
+                "lp1_events": [],
+                "lp2_relationships": [],
+                "lp3_profile": {},
                 "envelope": {"scope": {"user_id": self.user_id}},
                 "storage": {
                     "neo4j": {

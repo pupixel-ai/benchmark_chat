@@ -4,6 +4,7 @@ SQLAlchemy database setup.
 from __future__ import annotations
 
 from sqlalchemy import create_engine, inspect, text
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 from config import DATABASE_URL, SQL_ECHO, DEFAULT_TASK_VERSION
@@ -31,13 +32,35 @@ def ensure_schema() -> None:
     def add_task_column(name: str, ddl: str) -> None:
         if name in task_columns:
             return
-        with engine.begin() as connection:
-            connection.execute(text(f"ALTER TABLE tasks ADD COLUMN {name} {ddl}"))
+        try:
+            with engine.begin() as connection:
+                connection.execute(text(f"ALTER TABLE tasks ADD COLUMN {name} {ddl}"))
+        except OperationalError as exc:
+            if "duplicate column name" not in str(exc).lower():
+                raise
         task_columns.add(name)
 
     nullable_suffix = "" if DATABASE_URL.startswith("sqlite") else " NULL"
 
+    if not DATABASE_URL.startswith("sqlite"):
+        with engine.begin() as connection:
+            foreign_keys = connection.execute(
+                text(
+                    """
+                    SELECT CONSTRAINT_NAME
+                    FROM information_schema.KEY_COLUMN_USAGE
+                    WHERE TABLE_SCHEMA = DATABASE()
+                      AND TABLE_NAME = 'tasks'
+                      AND COLUMN_NAME = 'user_id'
+                      AND REFERENCED_TABLE_NAME = 'users'
+                    """
+                )
+            ).scalars().all()
+            for constraint_name in foreign_keys:
+                connection.execute(text(f"ALTER TABLE tasks DROP FOREIGN KEY `{constraint_name}`"))
+
     add_task_column("user_id", f"VARCHAR(64){nullable_suffix}")
+    add_task_column("operator_user_id", f"VARCHAR(64){nullable_suffix}")
     add_task_column("version", f"VARCHAR(16){nullable_suffix}")
     add_task_column("options", f"JSON{nullable_suffix}")
     add_task_column("result_summary", f"JSON{nullable_suffix}")
@@ -61,8 +84,12 @@ def ensure_schema() -> None:
         def add_artifact_column(name: str, ddl: str) -> None:
             if name in artifact_columns:
                 return
-            with engine.begin() as connection:
-                connection.execute(text(f"ALTER TABLE artifacts ADD COLUMN {name} {ddl}"))
+            try:
+                with engine.begin() as connection:
+                    connection.execute(text(f"ALTER TABLE artifacts ADD COLUMN {name} {ddl}"))
+            except OperationalError as exc:
+                if "duplicate column name" not in str(exc).lower():
+                    raise
             artifact_columns.add(name)
 
         add_artifact_column("stage", f"VARCHAR(64){nullable_suffix}")

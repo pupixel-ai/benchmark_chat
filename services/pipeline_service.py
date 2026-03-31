@@ -105,7 +105,9 @@ class MemoryPipelineService:
                 _TaskAssetStore = TaskAssetStore
             asset_store = _TaskAssetStore()
         self.asset_store = asset_store
-        self.user_id = user_id
+        resolved_task_options = dict(task_options or {})
+        self.user_id = user_id or str(resolved_task_options.get("subject_user_id") or "").strip() or None
+        self.operator_user_id = str(resolved_task_options.get("operator_user_id") or "").strip() or None
         if face_review_store is None:
             from backend.face_review_store import FaceReviewStore
 
@@ -113,7 +115,9 @@ class MemoryPipelineService:
         self.face_review_store = face_review_store
         self.task_version = task_version
         self.task_options = {
-            "normalize_live_photos": bool((task_options or {}).get("normalize_live_photos", DEFAULT_NORMALIZE_LIVE_PHOTOS)),
+            "normalize_live_photos": bool(resolved_task_options.get("normalize_live_photos", DEFAULT_NORMALIZE_LIVE_PHOTOS)),
+            "subject_user_id": self.user_id,
+            "operator_user_id": self.operator_user_id or None,
         }
 
         self.upload_dir = self.task_dir / "uploads"

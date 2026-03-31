@@ -17,6 +17,7 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import BackgroundTasks, Cookie, Depends, FastAPI, File, Form, Header, HTTPException, Response, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
@@ -36,7 +37,17 @@ from backend.memory_step_retrieval import build_task_memory_steps_payload
 from backend.models import TaskRecord
 from backend.progress_utils import append_terminal_error, append_terminal_info, merge_stage_progress
 from backend.query_v1 import QueryEngineV1
+from backend.subject_users import ensure_subject_user, get_subject_user, resolve_subject_identity
+from backend.task_completion import ensure_completion_outputs
 from backend.task_download_bundle import build_task_analysis_bundle, describe_task_downloads
+from backend.task_memory_views import (
+    build_task_memory_bundle_response,
+    build_task_memory_events_response,
+    build_task_memory_faces_response,
+    build_task_memory_profiles_response,
+    build_task_memory_relationships_response,
+    build_task_memory_vlm_response,
+)
 from backend.task_survey_import_events import build_survey_import_event_payload
 from backend.task_terminal_events import build_fallback_terminal_event_payload, build_terminal_event_payload
 from backend.task_store import TaskStore, normalize_task_options
@@ -103,6 +114,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 Path(TASKS_DIR).mkdir(parents=True, exist_ok=True)
 
@@ -119,12 +131,14 @@ class TaskStartPayload(BaseModel):
 
 
 class TaskCreatePayload(BaseModel):
+    user_id: Optional[str] = None
     version: Optional[str] = None
     normalize_live_photos: bool = DEFAULT_NORMALIZE_LIVE_PHOTOS
     creation_source: Optional[str] = None
     expected_upload_count: Optional[int] = None
     requested_max_photos: Optional[int] = None
     auto_start_on_upload_complete: Optional[bool] = None
+    survey_username: Optional[str] = None
 
 
 class FaceReviewPayload(BaseModel):
@@ -260,6 +274,37 @@ def _merge_task_snapshot(task: dict, **updates) -> dict:
     return snapshot
 
 
+def _normalize_survey_username(value: str | None) -> str | None:
+    username = str(value or "").strip()
+    if not username:
+        return None
+    if "/" in username or "\\" in username:
+        raise HTTPException(status_code=400, detail="survey_username 不能包含路径分隔符")
+    return username
+
+
+def _resolve_subject_ref(
+    current_user: dict,
+    *,
+    subject_user_id: str | None = None,
+    survey_username: str | None = None,
+) -> dict:
+    normalized_subject_user_id = str(subject_user_id or "").strip()
+    if normalized_subject_user_id:
+        subject = get_subject_user(normalized_subject_user_id)
+        if subject is None:
+            subject = ensure_subject_user(normalized_subject_user_id)
+        return {
+            "user_id": normalized_subject_user_id,
+            "operator_user_id": None if normalized_subject_user_id == current_user["user_id"] else current_user["user_id"],
+            "subject_username": subject.get("username"),
+            "subject_source": subject.get("source"),
+        }
+    return resolve_subject_identity(
+        operator_user_id=current_user["user_id"],
+        operator_username=current_user.get("username"),
+        subject_username=survey_username,
+    )
 def _build_outbox_events(task: dict) -> list[dict]:
     if not task_store.outbox_store.enabled:
         return []
@@ -304,7 +349,7 @@ def _finalize_task_terminal_state(
     version: Any = _UNSET,
     options: Any = _UNSET,
 ) -> dict:
-    stored_task = task_store.get_task(task_id, user_id=user_id) if user_id else _get_task_by_id(task_id)
+    stored_task = _get_task_by_id(task_id)
     if stored_task is None:
         raise KeyError(f"任务不存在: {task_id}")
 
@@ -743,6 +788,7 @@ def _run_pipeline_task(
             use_cache=use_cache,
             progress_callback=progress_callback,
         )
+        ensure_completion_outputs(task_version, result)
         manifest = build_task_asset_manifest(task_id, task_dir, asset_store)
         _finalize_task_terminal_state(
             task_id,
@@ -796,21 +842,34 @@ def _resolve_task_version_and_options(
 
 
 def _create_task_record(
-    user_id: str,
+    current_user: dict,
     version: str | None,
     normalize_live_photos: bool,
     *,
     creation_source: str,
+    subject_user_id: str | None = None,
     expected_upload_count: int | None = None,
     requested_max_photos: int | None = None,
     auto_start_on_upload_complete: bool | None = None,
+    survey_username: str | None = None,
 ) -> dict:
     task_version, task_options = _resolve_task_version_and_options(version, normalize_live_photos)
+    subject_ref = _resolve_subject_ref(
+        current_user,
+        subject_user_id=subject_user_id,
+        survey_username=_normalize_survey_username(survey_username),
+    )
+    normalized_survey_username = _normalize_survey_username(subject_ref.get("subject_username"))
+    if task_version == TASK_VERSION_V0327_DB_QUERY and not normalized_survey_username:
+        raise HTTPException(status_code=400, detail="v0327-db-query 任务必须提供 user_id 或 survey_username")
     option_payload = {
         "normalize_live_photos": bool(task_options.get("normalize_live_photos", normalize_live_photos)),
         "creation_source": creation_source,
         "expected_upload_count": expected_upload_count,
         "requested_max_photos": requested_max_photos,
+        "survey_username": normalized_survey_username,
+        "subject_user_id": str(subject_ref.get("user_id") or ""),
+        "operator_user_id": str(subject_ref.get("operator_user_id") or "").strip() or None,
     }
     if auto_start_on_upload_complete is not None:
         option_payload["auto_start_on_upload_complete"] = auto_start_on_upload_complete
@@ -819,7 +878,8 @@ def _create_task_record(
     task_store.create_task(
         task_id,
         upload_count=0,
-        user_id=user_id,
+        user_id=str(subject_ref.get("user_id") or ""),
+        operator_user_id=str(subject_ref.get("operator_user_id") or "").strip() or None,
         version=task_version,
         options=task_options,
         status="draft",
@@ -827,6 +887,8 @@ def _create_task_record(
     )
     return {
         "task_id": task_id,
+        "user_id": str(subject_ref.get("user_id") or ""),
+        "operator_user_id": str(subject_ref.get("operator_user_id") or "").strip() or None,
         "version": task_version,
         "options": task_options,
         "status": "draft",
@@ -856,6 +918,7 @@ def _merge_upload_task_options(
     expected_upload_count: int | None = None,
     requested_max_photos: int | None = None,
     auto_start_on_upload_complete: bool | None = None,
+    survey_username: str | None = None,
 ) -> dict:
     merged = dict(current_options or {})
     if creation_source:
@@ -864,13 +927,16 @@ def _merge_upload_task_options(
         merged["expected_upload_count"] = expected_upload_count
     if requested_max_photos is not None:
         merged["requested_max_photos"] = requested_max_photos
+    normalized_survey_username = _normalize_survey_username(survey_username)
+    if normalized_survey_username is not None:
+        merged["survey_username"] = normalized_survey_username
 
     effective_creation_source = str(merged.get("creation_source") or "manual").strip().lower()
     effective_expected_upload_count = merged.get("expected_upload_count")
     if auto_start_on_upload_complete is not None:
         merged["auto_start_on_upload_complete"] = auto_start_on_upload_complete
     elif (
-        effective_creation_source == "manual"
+        effective_creation_source in {"manual", "directory"}
         and effective_expected_upload_count is not None
         and not bool(merged.get("auto_start_on_upload_complete"))
     ):
@@ -926,14 +992,14 @@ def _maybe_auto_start_after_upload(
 
 def _start_task_impl(
     task_id: str,
-    user_id: str,
+    operator_user_id: str,
     *,
     max_photos: Optional[int],
     use_cache: bool,
     normalize_live_photos: bool,
     background_tasks: BackgroundTasks,
 ) -> dict:
-    task = task_store.get_task(task_id, user_id=user_id)
+    task = task_store.get_task(task_id, user_id=operator_user_id)
     if not task:
         raise HTTPException(status_code=404, detail="任务不存在")
     if task["status"] in {"queued", "running", "completed"}:
@@ -959,7 +1025,7 @@ def _start_task_impl(
     if _remote_worker_mode_enabled():
         launched_worker = None
         try:
-            active_entries, skipped_uploads = _remote_upload_entries(task, user_id)
+            active_entries, skipped_uploads = _remote_upload_entries(task, operator_user_id)
             if not active_entries:
                 raise HTTPException(status_code=400, detail="当前任务没有可处理的图片，可能都已被标记为 abandon")
 
@@ -1035,7 +1101,7 @@ def _start_task_impl(
     background_tasks.add_task(
         _run_pipeline_task,
         task_id,
-        user_id,
+        str(task.get("user_id") or "").strip() or operator_user_id,
         effective_max_photos,
         use_cache,
         task_version,
@@ -1177,13 +1243,15 @@ def create_task(
 ):
     _apply_no_store_headers(response)
     task_payload = _create_task_record(
-        current_user["user_id"],
+        current_user,
         payload.version if payload else None,
         payload.normalize_live_photos if payload else DEFAULT_NORMALIZE_LIVE_PHOTOS,
         creation_source=(payload.creation_source if payload and payload.creation_source else "manual"),
+        subject_user_id=payload.user_id if payload else None,
         expected_upload_count=payload.expected_upload_count if payload else None,
         requested_max_photos=payload.requested_max_photos if payload else None,
         auto_start_on_upload_complete=payload.auto_start_on_upload_complete if payload else None,
+        survey_username=payload.survey_username if payload else None,
     )
     return task_payload
 
@@ -1193,10 +1261,12 @@ async def ingest_photo_collection(
     response: Response,
     background_tasks: BackgroundTasks,
     files: List[UploadFile] = File(...),
+    user_id: Optional[str] = Form(default=None),
     version: Optional[str] = Form(default=None),
     max_photos: Optional[int] = Form(default=None),
     use_cache: bool = Form(default=False),
     normalize_live_photos: bool = Form(default=DEFAULT_NORMALIZE_LIVE_PHOTOS),
+    survey_username: Optional[str] = Form(default=None),
     current_user: dict = Depends(get_current_user),
 ):
     _apply_no_store_headers(response)
@@ -1208,13 +1278,15 @@ async def ingest_photo_collection(
         raise HTTPException(status_code=400, detail=f"max_photos 必须在 1 到 {MAX_UPLOAD_PHOTOS} 之间")
 
     task_payload = _create_task_record(
-        current_user["user_id"],
+        current_user,
         version,
         normalize_live_photos,
         creation_source="api",
+        subject_user_id=user_id,
         expected_upload_count=len(files),
         requested_max_photos=max_photos,
         auto_start_on_upload_complete=False,
+        survey_username=survey_username,
     )
     task_id = task_payload["task_id"]
     task_dir = task_store.task_dir(task_id)
@@ -1264,6 +1336,7 @@ async def upload_task_batch(
     requested_max_photos: Optional[int] = Form(default=None),
     creation_source: Optional[str] = Form(default=None),
     auto_start_on_upload_complete: Optional[bool] = Form(default=None),
+    survey_username: Optional[str] = Form(default=None),
     current_user: dict = Depends(get_current_user),
 ):
     _apply_no_store_headers(response)
@@ -1286,6 +1359,7 @@ async def upload_task_batch(
                 expected_upload_count=expected_upload_count,
                 requested_max_photos=requested_max_photos,
                 auto_start_on_upload_complete=auto_start_on_upload_complete,
+                survey_username=survey_username,
             )
             if merged_options != normalize_task_options(task.get("options")):
                 task = task_store.update_task(task_id, options=merged_options)
@@ -1397,6 +1471,7 @@ def query_task_memory(
     if not task:
         raise HTTPException(status_code=404, detail="任务不存在")
     hydrated = _hydrate_task(task, current_user["user_id"])
+    subject_user_id = str(hydrated.get("user_id") or "").strip() or current_user["user_id"]
     memory_payload = (hydrated.get("result") or {}).get("memory")
     if MEMORY_QUERY_V1_ENABLED and str(hydrated.get("version") or "").strip() in {
         TASK_VERSION_V0325,
@@ -1409,7 +1484,7 @@ def query_task_memory(
             answer = engine.answer_task(
                 hydrated,
                 payload.question,
-                user_id=current_user["user_id"],
+                user_id=subject_user_id,
                 context_hints=payload.context_hints or {},
                 time_hint=payload.time_hint,
                 answer_shape_hint=payload.answer_shape_hint,
@@ -1422,7 +1497,7 @@ def query_task_memory(
                     legacy = MemoryQueryService().answer(
                         memory_payload,
                         payload.question,
-                        user_id=current_user["user_id"],
+                        user_id=subject_user_id,
                         context_hints=payload.context_hints or {},
                         time_hint=payload.time_hint,
                         answer_shape_hint=payload.answer_shape_hint,
@@ -1442,11 +1517,333 @@ def query_task_memory(
     return MemoryQueryService().answer(
         memory_payload,
         payload.question,
-        user_id=current_user["user_id"],
+        user_id=subject_user_id,
         context_hints=payload.context_hints or {},
         time_hint=payload.time_hint,
         answer_shape_hint=payload.answer_shape_hint,
     )
+
+
+def _get_hydrated_task_or_404(task_id: str, current_user: dict) -> dict:
+    task = task_store.get_task(task_id, user_id=current_user["user_id"])
+    if not task:
+        raise HTTPException(status_code=404, detail="任务不存在")
+    return _hydrate_task(task, current_user["user_id"])
+
+
+def _get_hydrated_subject_task_or_404(subject_user_id: str, task_id: str, current_user: dict) -> dict:
+    task = task_store.get_task_for_subject(task_id, subject_user_id=subject_user_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="任务不存在")
+    return _hydrate_task_payloads(_sync_task_from_worker(task, current_user["user_id"]))
+
+
+@app.get("/api/users/{user_id}/tasks")
+def list_subject_tasks(
+    user_id: str,
+    response: Response,
+    limit: int = 20,
+    current_user: dict = Depends(get_current_user),
+):
+    _apply_no_store_headers(response)
+    del current_user
+    safe_limit = max(1, min(limit, 100))
+    return {
+        "user_id": user_id,
+        "tasks": task_store.list_tasks_for_subject(subject_user_id=user_id, limit=safe_limit),
+    }
+
+
+@app.get("/api/users/{user_id}/tasks/{task_id}")
+def get_subject_task(
+    user_id: str,
+    task_id: str,
+    response: Response,
+    current_user: dict = Depends(get_current_user),
+):
+    _apply_no_store_headers(response)
+    task = task_store.get_task_for_subject(task_id, subject_user_id=user_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="任务不存在")
+    return _sanitize_task_for_client(_hydrate_task_payloads(_sync_task_from_worker(task, current_user["user_id"])))
+
+
+@app.post("/api/users/{user_id}/tasks/{task_id}/memory/query")
+def query_subject_task_memory(
+    user_id: str,
+    task_id: str,
+    payload: MemoryQueryPayload,
+    response: Response,
+    current_user: dict = Depends(get_current_user),
+):
+    _apply_no_store_headers(response)
+    task = _get_hydrated_subject_task_or_404(user_id, task_id, current_user)
+    subject_user_id = str(task.get("user_id") or "").strip() or user_id
+    memory_payload = (task.get("result") or {}).get("memory")
+    if MEMORY_QUERY_V1_ENABLED and str(task.get("version") or "").strip() in {
+        TASK_VERSION_V0325,
+        TASK_VERSION_V0327_EXP,
+        TASK_VERSION_V0327_DB,
+        TASK_VERSION_V0327_DB_QUERY,
+    }:
+        engine = QueryEngineV1()
+        answer = engine.answer_task(
+            task,
+            payload.question,
+            user_id=subject_user_id,
+            context_hints=payload.context_hints or {},
+            time_hint=payload.time_hint,
+            answer_shape_hint=payload.answer_shape_hint,
+        )
+        return answer
+    if not isinstance(memory_payload, dict):
+        raise HTTPException(status_code=404, detail="当前任务没有 memory 输出")
+    return MemoryQueryService().answer(
+        memory_payload,
+        payload.question,
+        user_id=subject_user_id,
+        context_hints=payload.context_hints or {},
+        time_hint=payload.time_hint,
+        answer_shape_hint=payload.answer_shape_hint,
+    )
+
+
+@app.get("/api/users/{user_id}/tasks/{task_id}/memory/faces")
+def get_subject_memory_faces(
+    user_id: str,
+    task_id: str,
+    response: Response,
+    include_artifacts: bool = False,
+    current_user: dict = Depends(get_current_user),
+):
+    _apply_no_store_headers(response)
+    task = _get_hydrated_subject_task_or_404(user_id, task_id, current_user)
+    return build_task_memory_faces_response(task, include_artifacts=include_artifacts)
+
+
+@app.get("/api/users/{user_id}/tasks/{task_id}/memory/events")
+def get_subject_memory_events(
+    user_id: str,
+    task_id: str,
+    response: Response,
+    include_raw: bool = False,
+    include_artifacts: bool = False,
+    include_traces: bool = False,
+    current_user: dict = Depends(get_current_user),
+):
+    _apply_no_store_headers(response)
+    task = _get_hydrated_subject_task_or_404(user_id, task_id, current_user)
+    return build_task_memory_events_response(
+        task,
+        include_raw=include_raw,
+        include_artifacts=include_artifacts,
+        include_traces=include_traces,
+    )
+
+
+@app.get("/api/users/{user_id}/tasks/{task_id}/memory/vlm")
+def get_subject_memory_vlm(
+    user_id: str,
+    task_id: str,
+    response: Response,
+    include_raw: bool = False,
+    include_artifacts: bool = False,
+    include_traces: bool = False,
+    current_user: dict = Depends(get_current_user),
+):
+    _apply_no_store_headers(response)
+    task = _get_hydrated_subject_task_or_404(user_id, task_id, current_user)
+    return build_task_memory_vlm_response(
+        task,
+        include_raw=include_raw,
+        include_artifacts=include_artifacts,
+        include_traces=include_traces,
+    )
+
+
+@app.get("/api/users/{user_id}/tasks/{task_id}/memory/profiles")
+def get_subject_memory_profiles(
+    user_id: str,
+    task_id: str,
+    response: Response,
+    include_raw: bool = False,
+    include_artifacts: bool = False,
+    include_traces: bool = False,
+    current_user: dict = Depends(get_current_user),
+):
+    _apply_no_store_headers(response)
+    task = _get_hydrated_subject_task_or_404(user_id, task_id, current_user)
+    return build_task_memory_profiles_response(
+        task,
+        include_raw=include_raw,
+        include_artifacts=include_artifacts,
+        include_traces=include_traces,
+    )
+
+
+@app.get("/api/users/{user_id}/tasks/{task_id}/memory/relationships")
+def get_subject_memory_relationships(
+    user_id: str,
+    task_id: str,
+    response: Response,
+    include_raw: bool = False,
+    include_artifacts: bool = False,
+    include_traces: bool = False,
+    current_user: dict = Depends(get_current_user),
+):
+    _apply_no_store_headers(response)
+    task = _get_hydrated_subject_task_or_404(user_id, task_id, current_user)
+    return build_task_memory_relationships_response(
+        task,
+        include_raw=include_raw,
+        include_artifacts=include_artifacts,
+        include_traces=include_traces,
+    )
+
+
+@app.get("/api/users/{user_id}/tasks/{task_id}/memory/bundle")
+def get_subject_memory_bundle(
+    user_id: str,
+    task_id: str,
+    response: Response,
+    include_raw: bool = False,
+    include_artifacts: bool = False,
+    include_traces: bool = False,
+    current_user: dict = Depends(get_current_user),
+):
+    _apply_no_store_headers(response)
+    task = _get_hydrated_subject_task_or_404(user_id, task_id, current_user)
+    return build_task_memory_bundle_response(
+        task,
+        include_raw=include_raw,
+        include_artifacts=include_artifacts,
+        include_traces=include_traces,
+    )
+
+
+@app.get("/api/tasks/{task_id}/memory/faces")
+def get_task_memory_faces(
+    task_id: str,
+    response: Response,
+    include_artifacts: bool = False,
+    current_user: dict = Depends(get_current_user),
+):
+    _apply_no_store_headers(response)
+    task = _get_hydrated_task_or_404(task_id, current_user)
+    try:
+        return build_task_memory_faces_response(task, include_artifacts=include_artifacts)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.get("/api/tasks/{task_id}/memory/events")
+def get_task_memory_events(
+    task_id: str,
+    response: Response,
+    include_raw: bool = False,
+    include_artifacts: bool = False,
+    include_traces: bool = False,
+    current_user: dict = Depends(get_current_user),
+):
+    _apply_no_store_headers(response)
+    task = _get_hydrated_task_or_404(task_id, current_user)
+    try:
+        return build_task_memory_events_response(
+            task,
+            include_raw=include_raw,
+            include_artifacts=include_artifacts,
+            include_traces=include_traces,
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.get("/api/tasks/{task_id}/memory/vlm")
+def get_task_memory_vlm(
+    task_id: str,
+    response: Response,
+    include_raw: bool = False,
+    include_artifacts: bool = False,
+    include_traces: bool = False,
+    current_user: dict = Depends(get_current_user),
+):
+    _apply_no_store_headers(response)
+    task = _get_hydrated_task_or_404(task_id, current_user)
+    try:
+        return build_task_memory_vlm_response(
+            task,
+            include_raw=include_raw,
+            include_artifacts=include_artifacts,
+            include_traces=include_traces,
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.get("/api/tasks/{task_id}/memory/profiles")
+def get_task_memory_profiles(
+    task_id: str,
+    response: Response,
+    include_raw: bool = False,
+    include_artifacts: bool = False,
+    include_traces: bool = False,
+    current_user: dict = Depends(get_current_user),
+):
+    _apply_no_store_headers(response)
+    task = _get_hydrated_task_or_404(task_id, current_user)
+    try:
+        return build_task_memory_profiles_response(
+            task,
+            include_raw=include_raw,
+            include_artifacts=include_artifacts,
+            include_traces=include_traces,
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.get("/api/tasks/{task_id}/memory/relationships")
+def get_task_memory_relationships(
+    task_id: str,
+    response: Response,
+    include_raw: bool = False,
+    include_artifacts: bool = False,
+    include_traces: bool = False,
+    current_user: dict = Depends(get_current_user),
+):
+    _apply_no_store_headers(response)
+    task = _get_hydrated_task_or_404(task_id, current_user)
+    try:
+        return build_task_memory_relationships_response(
+            task,
+            include_raw=include_raw,
+            include_artifacts=include_artifacts,
+            include_traces=include_traces,
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.get("/api/tasks/{task_id}/memory/bundle")
+def get_task_memory_bundle(
+    task_id: str,
+    response: Response,
+    include_raw: bool = False,
+    include_artifacts: bool = False,
+    include_traces: bool = False,
+    current_user: dict = Depends(get_current_user),
+):
+    _apply_no_store_headers(response)
+    task = _get_hydrated_task_or_404(task_id, current_user)
+    try:
+        return build_task_memory_bundle_response(
+            task,
+            include_raw=include_raw,
+            include_artifacts=include_artifacts,
+            include_traces=include_traces,
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @app.get("/api/tasks/{task_id}/memory/core")

@@ -105,23 +105,21 @@ class ArtifactCatalogStore:
         return self.list_task_artifacts(task_id, user_id)
 
     def list_task_artifacts(self, task_id: str, user_id: str) -> List[dict]:
+        del user_id
         with SessionLocal() as session:
             records = session.execute(
                 select(ArtifactRecord)
-                .where(
-                    ArtifactRecord.task_id == task_id,
-                    ArtifactRecord.user_id == user_id,
-                )
+                .where(ArtifactRecord.task_id == task_id)
                 .order_by(ArtifactRecord.relative_path.asc())
             ).scalars().all()
             return [self._serialize(record) for record in records]
 
     def get_task_artifact(self, task_id: str, user_id: str, relative_path: str) -> Optional[dict]:
+        del user_id
         with SessionLocal() as session:
             record = session.execute(
                 select(ArtifactRecord).where(
                     ArtifactRecord.task_id == task_id,
-                    ArtifactRecord.user_id == user_id,
                     ArtifactRecord.relative_path == relative_path,
                 )
             ).scalar_one_or_none()

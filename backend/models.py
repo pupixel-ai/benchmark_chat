@@ -21,6 +21,17 @@ class UserRecord(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
 
 
+class SubjectUserRecord(Base):
+    __tablename__ = "subject_users"
+
+    user_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    username: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
+    display_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    linked_auth_user_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+
+
 class SessionRecord(Base):
     __tablename__ = "sessions"
 
@@ -35,7 +46,8 @@ class TaskRecord(Base):
     __tablename__ = "tasks"
 
     task_id: Mapped[str] = mapped_column(String(64), primary_key=True)
-    user_id: Mapped[str | None] = mapped_column(ForeignKey("users.user_id"), nullable=True, index=True)
+    user_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    operator_user_id: Mapped[str | None] = mapped_column(ForeignKey("users.user_id"), nullable=True, index=True)
     version: Mapped[str | None] = mapped_column(String(16), nullable=True, index=True)
     status: Mapped[str] = mapped_column(String(32), nullable=False)
     stage: Mapped[str] = mapped_column(String(64), nullable=False)
