@@ -354,7 +354,20 @@ def run_memory_nightly_evaluation(
     )
     # 写 latest 版本（前端 API 读取用）— 直接覆盖，反映当前轮次的最新状态
     latest_report_path.write_text(json.dumps(report_payload, ensure_ascii=False, indent=2), encoding="utf-8")
-    latest_proposals_path.write_text(json.dumps(proposals, ensure_ascii=False, indent=2), encoding="utf-8")
+    # latest proposals 只保留仍在 active 状态的字段提案，避免已收敛字段的提案残留在待审批列表
+    _persisted_state = json.loads(
+        (Path(project_root) / EVOLUTION_RELATIVE_DIR / "field_loop_state" / f"{user_name}.json").read_text(encoding="utf-8")
+    ) if (Path(project_root) / EVOLUTION_RELATIVE_DIR / "field_loop_state" / f"{user_name}.json").exists() else {}
+    _active_statuses = {"needs_next_cycle", "new_rule_candidate", "new_insight_found", "initial_snapshot"}
+    _field_states = _persisted_state.get("fields") or {}
+    latest_proposals = [
+        p for p in proposals
+        if _field_states.get(p.get("field_key", ""), {}).get("last_status") in _active_statuses
+    ]
+    if latest_proposals:
+        latest_proposals_path.write_text(json.dumps(latest_proposals, ensure_ascii=False, indent=2), encoding="utf-8")
+    elif latest_proposals_path.exists():
+        latest_proposals_path.unlink()
     latest_field_cycles_path.write_text(
         json.dumps(field_loop_payload.get("field_cycles", []), ensure_ascii=False, indent=2), encoding="utf-8",
     )
