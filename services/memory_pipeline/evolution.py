@@ -1554,6 +1554,20 @@ def _build_gt_field_cycles(
 
         no_new_signal_streak = 0 if new_signal_found else previous_streak + 1
 
+        # ── 构建新线索摘要（仅当本轮发现新信号时）──
+        overlooked_evidence_digest: list[dict[str, str]] = []
+        if new_signal_found and overlooked_signals:
+            for sig in overlooked_signals[:3]:
+                if sig.startswith("evidence_ref:"):
+                    ref_id = sig[len("evidence_ref:"):]
+                    summary = ""
+                    if ref_id.startswith("photo_"):
+                        summary = (vlm_summaries or {}).get(ref_id, "")
+                    elif ref_id.startswith("EVT_"):
+                        summary = (event_summaries or {}).get(ref_id, "")
+                    if summary:
+                        overlooked_evidence_digest.append({"ref": ref_id, "summary": summary[:120]})
+
         # ── 计算上轮 patch 效果（提前算，传给 reflect agent）──
         pre_reflect_patch_effect = None
         _prev_patch_grade = previous_state.get("last_patch_grade")
@@ -1575,6 +1589,7 @@ def _build_gt_field_cycles(
             "no_new_signal_streak": int(previous_state.get("no_new_signal_streak") or 0),
             "patch_effect": pre_reflect_patch_effect,
             "last_proposed_direction": str(previous_state.get("last_proposed_direction") or ""),
+            **({"overlooked_evidence": overlooked_evidence_digest} if overlooked_evidence_digest else {}),
         }
 
         # ── LLM 反思（唯一的提案来源）──
@@ -1582,7 +1597,7 @@ def _build_gt_field_cycles(
         reflect_result = _try_reflect_field(
             field_key, case_facts_by_field or {}, project_root,
             reviewer_note=field_reviewer_note,
-            evolution_context=evolution_context if cycle_index > 1 else None,
+            evolution_context=evolution_context if (cycle_index > 1 or overlooked_evidence_digest) else None,
         )
         cf = (case_facts_by_field or {}).get(field_key, {})
         original_reasoning = str((cf.get("decision_trace") or {}).get("reasoning") or "")

@@ -307,7 +307,37 @@ def _is_hierarchy_neighbor(predicted_token: str, gt_token: str, hierarchy: Dict[
     return hierarchy.get(predicted_token) == gt_token or hierarchy.get(gt_token) == predicted_token
 
 
+def _flatten_complex_value(value: Any) -> Any:
+    """将复杂结构（dict/嵌套对象）展平为可比较的字符串或列表。"""
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    if isinstance(value, dict):
+        # 尝试提取有意义的文本：遍历所有值，收集字符串和列表
+        texts: list[str] = []
+        for v in value.values():
+            flat = _flatten_complex_value(v)
+            if isinstance(flat, str) and flat:
+                texts.append(flat)
+            elif isinstance(flat, list):
+                for item in flat:
+                    if isinstance(item, str) and item:
+                        texts.append(item)
+        return texts if texts else str(value)
+    if isinstance(value, list):
+        result: list[str] = []
+        for item in value:
+            flat = _flatten_complex_value(item)
+            if isinstance(flat, str) and flat:
+                result.append(flat)
+            elif isinstance(flat, list):
+                result.extend(flat)
+        return result
+    return str(value)
+
+
 def _normalize_scalar(value: Any) -> str:
+    if isinstance(value, dict):
+        value = _flatten_complex_value(value)
     if isinstance(value, list):
         normalized = _normalize_multi_value(value)
         return normalized[0] if len(normalized) == 1 else ""
@@ -318,6 +348,8 @@ def _normalize_scalar(value: Any) -> str:
 
 
 def _normalize_multi_value(value: Any) -> List[str]:
+    if isinstance(value, dict):
+        value = _flatten_complex_value(value)
     if isinstance(value, list):
         parts = value
     elif isinstance(value, str):

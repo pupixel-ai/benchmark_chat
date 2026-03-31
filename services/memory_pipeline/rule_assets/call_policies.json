@@ -6,7 +6,9 @@
   },
   "long_term_facts.material.brand_preference": {
     "append_allowed_sources": [
-      "event"
+      "event",
+      "vlm_observations",
+      "relationship"
     ]
   }
 }

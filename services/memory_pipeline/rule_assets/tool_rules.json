@@ -1,9 +1,25 @@
 {
   "long_term_facts.material.brand_preference": {
-    "max_refs_per_source": 20
+    "max_refs_per_source": 5,
+    "required_evidence_types": [
+      "luxury_brand",
+      "daily_brand"
+    ],
+    "evidence_sorting_rules": {
+      "brand_elements": {
+        "priority": "high",
+        "description": "优先收集包含品牌元素的证据，包括但不限于服装、饰品、家居用品等。"
+      }
+    },
+    "balance_check": true
   },
   "short_term_facts.recent_interests": {
-    "max_refs_per_source": 20
+    "max_refs_per_source": 20,
+    "required_evidence_types": [
+      "event",
+      "vlm_observations"
+    ],
+    "evidence_priority_rules": "不再要求多个独立事件证据"
   },
   "long_term_facts.geography.location_anchors": {
     "max_refs_per_source": 20
@@ -11,10 +27,16 @@
   "short_term_facts.current_displacement": {
     "max_refs_per_source": 10,
     "required_evidence_types": [
-      "weather_location",
-      "landmark_photo"
+      "event",
+      "vlm_observations",
+      "location_summary"
     ],
-    "min_cross_location_refs": 2
+    "min_cross_location_refs": 2,
+    "location_signal_types": [
+      "weather_app",
+      "social_media_geo",
+      "transportation_records"
+    ]
   },
   "long_term_facts.geography.mobility_pattern": {
     "max_refs_per_source": 5,
@@ -41,7 +63,17 @@
     ],
     "evidence_filters": {
       "time_range": "last_6_months",
-      "activity_diversity_threshold": 3
+      "activity_diversity_threshold": 3,
+      "event": {
+        "keywords": [
+          "反思",
+          "成长",
+          "变化",
+          "阶段",
+          "转型"
+        ],
+        "time_window": "6 months"
+      }
     },
     "evidence_sort_priority": [
       "activity_pattern_change",
@@ -52,15 +84,25 @@
   "long_term_expression.aesthetic_tendency": {
     "max_refs_per_source": 5,
     "required_evidence_types": [
-      "event",
-      "photo",
-      "vlm_observations"
+      "event_content",
+      "environment_context"
     ],
     "evidence_sort_priority": [
       "visual_art",
       "fashion_style",
       "decoration_style"
-    ]
+    ],
+    "content_priority_rules": {
+      "art_exhibition": [
+        "art_style",
+        "color_palette",
+        "composition"
+      ],
+      "clothing": [
+        "design_style",
+        "color_scheme"
+      ]
+    }
   },
   "long_term_expression.attitude_style": {
     "required_evidence_types": [
@@ -86,5 +128,41 @@
       "daily_activity"
     ],
     "evidence_priority": "直接体能活动证据优先于日常活动证据"
+  },
+  "long_term_facts.relationships.social_groups": {
+    "max_refs_per_source": 30,
+    "required_evidence_types": [
+      "event",
+      "vlm_observations",
+      "relationship"
+    ],
+    "evidence_priority": [
+      "group_activity",
+      "collective_events",
+      "social_interactions"
+    ],
+    "evidence_weight": {
+      "social_activity": 1.5,
+      "group_photo": 1.5
+    }
+  },
+  "long_term_facts.relationships.pets": {
+    "required_evidence_types": [
+      "pet_supplies",
+      "veterinary_records"
+    ],
+    "excluded_evidence_types": [
+      "casual_interaction"
+    ],
+    "min_recurrence_count": 3,
+    "strong_evidence": [
+      "重复出现的同一只动物",
+      "宠物用品购买记录",
+      "家庭固定宠物设施"
+    ],
+    "weak_evidence_caution": [
+      "单次互动",
+      "网络宠物视频"
+    ]
   }
 }

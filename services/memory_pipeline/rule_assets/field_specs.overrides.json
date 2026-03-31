@@ -1,53 +1,20 @@
 {
-  "long_term_facts.social_identity.education": {
-    "weak_evidence_caution": [
-      "证据仅来自单事件窗口时输出 null",
-      "主体归属不清时输出 null"
-    ]
-  },
   "long_term_facts.material.brand_preference": {
     "weak_evidence_caution": [
       "品牌线索仅出现在单次曝光时输出 null",
       "品牌线索集中在 venue context 时输出 null"
     ],
-    "cot_hint": "品牌偏好应基于多次、跨场景的品牌使用行为，而非单次使用。需要确认品牌使用是否频繁、跨场景且有明确的偏好表现（如主动参与品牌活动、多次选择同一品牌）。",
-    "field_boundary": "本字段关注用户长期、稳定的品牌选择偏好，而非偶然或单次的使用行为。",
+    "cot_hint": "品牌偏好应同时考量高端消费和日常消费场景，注意区分偶然性消费和稳定性偏好",
+    "field_boundary": "本字段反映长期稳定的品牌选择倾向，需满足：1)跨场景出现 2)有消费行为证据 3)无明显矛盾消费",
     "cross_field_caution": "不要从单次品牌使用行为直接推导长期偏好，需结合使用频率和场景多样性。"
   },
   "short_term_facts.recent_interests": {
     "weak_evidence_caution": [
       "当只有单次活动证据时"
     ],
-    "cot_hint": "近期兴趣应指用户在一段时间内多次表现出的持续兴趣，而非单次活动。需要观察是否有重复出现的证据，如多次参与同类活动、主动收集相关物品等。"
-  },
-  "long_term_facts.geography.location_anchors": {
-    "weak_evidence_caution": [
-      "地点缺乏地理标识特征",
-      "地点仅为普通室内场景"
-    ]
-  },
-  "long_term_facts.relationships.parenting": {
-    "weak_evidence_caution": [
-      "仅存在宠物养育证据",
-      "未发现与人类儿童互动的直接证据"
-    ]
-  },
-  "short_term_facts.current_displacement": {
-    "weak_evidence_caution": [
-      "无任何地理位置变化证据",
-      "所有活动均在同一建筑物内"
-    ]
-  },
-  "short_term_expression.motivation_shift": {
-    "weak_evidence_caution": [
-      "仅存在普通社交活动而无明确关系投入证据"
-    ]
-  },
-  "long_term_expression.philosophy": {
-    "weak_evidence_caution": [
-      "仅存在社交频率证据但缺乏个人独处行为或价值观表达",
-      "所有证据都集中在短期社交互动场景"
-    ]
+    "cot_hint": "判断兴趣时需要考虑物品出现的频率、使用场景和主动表达程度，不能仅凭物品存在就推断兴趣。",
+    "field_boundary": "本字段应反映用户主动表现出的兴趣倾向，而非偶然出现的物品。",
+    "cross_field_caution": "不要从物品存在直接推导兴趣，需要考虑使用场景和频率。"
   },
   "short_term_expression.current_mood": {
     "weak_evidence_caution": [
@@ -67,13 +34,9 @@
       "仅凭艺术活动或产品偏好无法确定态度风格",
       "证据仅显示审美偏好而非行为态度"
     ],
-    "cot_hint": "态度风格应综合长期行为模式判断，艺术活动仅反映审美偏好而非态度特征。需区分'参与艺术活动'和'日常态度风格'的差异。"
-  },
-  "long_term_expression.morality": {
-    "weak_evidence_caution": [
-      "仅存在社交活动频率证据",
-      "缺乏利他/诚信/公平等道德相关行为证据"
-    ]
+    "cot_hint": "态度风格应反映长期稳定的价值取向而非临时消费行为。艺术展览参观等单次活动需结合其他日常证据综合判断，避免将消费品品牌直接等同于个人风格。",
+    "field_boundary": "本字段描述主体对外表现出的稳定态度倾向，与审美偏好、消费习惯等短期行为有区别。",
+    "cross_field_caution": "不要从long_term_expression.aesthetic_tendency字段直接推导本字段值"
   },
   "long_term_facts.physiology.fitness_level": {
     "weak_evidence_caution": [
@@ -87,29 +50,8 @@
       "所有行为均为单次发生且无规律性"
     ]
   },
-  "short_term_facts.spending_shift": {
-    "cot_hint": "判断短期消费变化时，需要明确对比近期和之前的消费行为证据。如果没有足够的时间跨度对比证据，应该说明‘基于有限证据推测’而非直接断言变化趋势。",
-    "weak_evidence_caution": [
-      "缺乏消费金额或频率的对比数据"
-    ]
-  },
-  "long_term_facts.material.asset_level": {
-    "cot_hint": "资产水平应基于直接经济证据（如房产、收入证明等），消费品牌/芝麻分等间接证据需谨慎使用。Hello Kitty等IP周边属于个人偏好，不能单独作为资产判断依据。"
-  },
-  "long_term_facts.material.spending_style": {
-    "cot_hint": "消费风格的判断应基于明确的消费行为和偏好证据，避免从单一物品推断整体风格。只有当多个独立证据一致指向某种消费风格时，才进行归纳。"
-  },
-  "long_term_facts.material.income_model": {
-    "cot_hint": "学生身份和经济来源是两个独立维度。当发现兼职证据时，应单独标记为'part_time_income'而非与学生身份合并。"
-  },
   "long_term_facts.social_identity.professional_dedication": {
     "cot_hint": "该字段特指职业场景的专业投入程度，学生学业活动应归类为'academic_focus'；只有当出现实习、兼职等职业行为时才能判断为职业投入"
-  },
-  "long_term_facts.time.sleep_pattern": {
-    "cot_hint": "仅当存在直接反映作息时间的照片（如深夜活动记录、闹钟设置）、聊天记录提及具体作息时间、或连续时间戳显示固定模式时，才判断睡眠模式。购物、社交软件使用等间接行为不能作为判断依据。"
-  },
-  "long_term_facts.identity.age_range": {
-    "cot_hint": "当判断年龄范围时，需明确区分直接证据（如身份证、出生日期）和间接推论（如学生身份）。对于学生身份推论，应注明这是典型范围而非确定值。"
   },
   "long_term_facts.geography.mobility_pattern": {
     "cot_hint": "该字段应反映长期稳定的移动特征，短期旅行活动不应作为主要判断依据。需结合主要活动地点出现频率和持续时间综合判断。",
@@ -129,8 +71,32 @@
     "cot_hint": "当评估语言文化时，应优先考察直接的语言使用证据（如文字内容、交流语言），其次考虑传统文化符号的深度使用。短暂出现的文化符号可能不足以证明深层的文化认同。"
   },
   "long_term_facts.hobbies.frequent_activities": {
-    "cot_hint": "兴趣爱好活动应指个人自愿进行的休闲娱乐活动，不包括学业或工作相关的强制性活动。",
-    "field_boundary": "本字段记录的是个人长期稳定的兴趣爱好活动，不包括学业、工作或其他强制性活动。",
+    "cot_hint": "'频繁活动'需要观察到至少3次类似活动，且时间跨度超过1个月。单次活动应归类为'偶发兴趣'而非'频繁活动'。",
+    "field_boundary": "本字段记录的是长期、重复出现的活动模式，而非单次或偶发的兴趣爱好。",
     "cross_field_caution": "不要将学业活动或其他强制性活动与本字段混淆。"
+  },
+  "short_term_facts.life_events": {
+    "field_boundary": "本字段记录近期发生的独立生活事件类型，而非事件组合。每个候选事件类型应有明确的时间/场景证据支持。",
+    "cot_hint": "当识别到多个独立生活事件时，应分别记录为独立事件而非复合事件。数字生活活动和宠物互动属于不同维度的生活事件，除非有明确证据显示它们在同一场景下发生。"
+  },
+  "long_term_facts.time.life_rhythm": {
+    "cot_hint": "生活节奏应关注是否有固定作息模式，而非单纯的活动时间多样性。多样化但有计划的活动（如定期运动、旅行）不应被视为不规律。真正的不规律需要证据显示睡眠/工作时间混乱、活动完全无计划等。",
+    "field_boundary": "本字段反映长期作息稳定性，与短期活动多样性是不同维度"
+  },
+  "long_term_facts.relationships.pets": {
+    "cot_hint": "注意区分临时接触的动物与长期饲养的宠物，需要看到同一只动物在不同时间/场景重复出现，或明确的饲养用品（如猫砂盆、专属食盆）"
+  },
+  "long_term_facts.identity.age_range": {
+    "cot_hint": "年龄范围应基于生理特征和生活阶段证据，而非具体身份标识。学生身份可以作为参考，但需要结合其他年龄相关证据。",
+    "field_boundary": "本字段表示大致的年龄范围（如青少年、青年、中年等），而非具体的身份或职业。"
+  },
+  "long_term_expression.philosophy": {
+    "cot_hint": "本字段应反映用户长期坚持的人生价值观或生活原则，不能仅通过社交频率判断。需要寻找：1) 用户主动表达的人生信条 2) 长期稳定的行为模式 3) 重大人生选择依据",
+    "field_boundary": "区别于短期行为特征（如社交频率），需体现跨越不同人生阶段的稳定性",
+    "cross_field_caution": "不要将short_term_expression.mental_state或relationship.social_activity的结论直接迁移到本字段"
+  },
+  "long_term_expression.visual_creation_style": {
+    "cot_hint": "本字段特指有意识的视觉创作手法（如系列化主题/特殊后期处理），需区分日常记录性拍摄。单张特殊构图不足以形成长期风格。",
+    "field_boundary": "区别于'attitude_style'等主观倾向字段，本字段需客观评估是否存在3次以上连贯的视觉创作手法"
   }
 }

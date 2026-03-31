@@ -600,6 +600,8 @@ tool_rules 和 call_policies 在证据确实缺失时使用（格式见上方 JS
 
 {"如果 case card 中包含 evolution_context，说明这个字段已经在之前的轮次中被反思过。" + chr(10) + "evolution_context 包含：cycle_index（当前第几轮）、previous_grade（上轮评分）、score_trend（分数趋势）、patch_effect（上次规则修改后的效果）、last_proposed_direction（上次提出的改进方向）。" + chr(10) + "你应该：" + chr(10) + "1) 如果 patch_effect 显示 degraded（恶化），必须换一个不同的改进方向，不要重复上次的建议" + chr(10) + "2) 如果 patch_effect 显示 improved 但还未达标，在上次方向的基础上深化" + chr(10) + "3) 如果 score_trend 是 stable 且 no_new_signal_streak > 2，考虑 watch_only" + chr(10) + "4) 不要重复提出和 last_proposed_direction 完全相同的建议，除非你有新的证据" if packet.get("evolution_context") else ""}
 
+{"如果 evolution_context 中包含 overlooked_evidence，这些是本轮发现的新线索——系统输出中未使用但可能与该字段相关的证据。" + chr(10) + "每条包含 ref（证据 ID）和 summary（内容摘要）。" + chr(10) + "你应该：" + chr(10) + "1) 先判断这些新线索是否真正指向当前字段要识别的内容——如果与该字段无关，忽略即可" + chr(10) + "2) 如果确实是关键线索，分析为什么这个证据没被系统找到或没被正确归纳：" + chr(10) + "   - 如果是证据没被检索到 → 根因倾向 evidence_packaging 或 tool_retrieval，优先改 tool_rules" + chr(10) + "   - 如果证据已在系统中但推理时未注意到 → 根因倾向 field_reasoning，优先改 cot_hint" + chr(10) + "3) 在 judgment_summary_zh 中简要说明这些新线索与你的结论的关系" if (packet.get("evolution_context") or {}).get("overlooked_evidence") else ""}
+
 这是当前 case card：
 {json.dumps(compact_packet, ensure_ascii=False)}"""
 
