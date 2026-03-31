@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>v0327-db-query API Swagger</title>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css"
+    />
+    <style>
+      :root {
+        color-scheme: light;
+        --page-bg: #f4f1ea;
+        --card-bg: #fffdf9;
+        --text-main: #1f2328;
+        --text-muted: #5f6b7a;
+        --accent: #8a5637;
+        --border: #dfd4c4;
+      }
+
+      body {
+        margin: 0;
+        background: linear-gradient(180deg, #efe8dd 0%, var(--page-bg) 100%);
+        color: var(--text-main);
+        font-family: "SF Pro Display", "Helvetica Neue", Helvetica, Arial, sans-serif;
+      }
+
+      .shell {
+        max-width: 1280px;
+        margin: 0 auto;
+        padding: 24px 20px 48px;
+      }
+
+      .hero {
+        background: var(--card-bg);
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        padding: 24px 28px;
+        box-shadow: 0 10px 28px rgba(77, 53, 32, 0.08);
+        margin-bottom: 20px;
+      }
+
+      .hero h1 {
+        margin: 0 0 10px;
+        font-size: 30px;
+        line-height: 1.15;
+      }
+
+      .hero p {
+        margin: 0;
+        color: var(--text-muted);
+        line-height: 1.6;
+      }
+
+      .hero strong {
+        color: var(--accent);
+      }
+
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 14px;
+      }
+
+      .meta span {
+        display: inline-flex;
+        align-items: center;
+        padding: 8px 12px;
+        border-radius: 999px;
+        background: #f7f0e6;
+        color: #6f452b;
+        font-size: 13px;
+        font-weight: 600;
+      }
+
+      .swagger-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        box-shadow: 0 10px 28px rgba(77, 53, 32, 0.08);
+        overflow: hidden;
+      }
+
+      #swagger-ui {
+        padding-bottom: 24px;
+      }
+
+      .swagger-ui .topbar {
+        display: none;
+      }
+
+      .swagger-ui .information-container {
+        padding-top: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero">
+        <h1>v0327-db-query API Swagger</h1>
+        <p>
+          这份页面对应当前对下游开放的 <strong>v0327-db-query</strong> 接口快照。
+          接口语义以 <strong>subject user_id</strong> 为主键；
+          <code>operator_user_id</code> 只是后台代操作元信息，不是主路由键。
+        </p>
+        <div class="meta">
+          <span>默认版本: v0327-db-query</span>
+          <span>主键语义: subject user_id</span>
+          <span>重点接口: users/{user_id}/tasks/*/memory/*</span>
+        </div>
+      </section>
+
+      <section class="swagger-card">
+        <div id="swagger-ui"></div>
+      </section>
+    </main>
+
+    <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+    <script>
+      window.addEventListener("load", function () {
+        window.ui = SwaggerUIBundle({
+          url: "./openapi-v0327-db-query.json",
+          dom_id: "#swagger-ui",
+          deepLinking: true,
+          persistAuthorization: true,
+          displayRequestDuration: true,
+          docExpansion: "list",
+          defaultModelsExpandDepth: 1,
+          defaultModelExpandDepth: 2,
+          tryItOutEnabled: true,
+        });
+      });
+    </script>
+  </body>
+</html>
