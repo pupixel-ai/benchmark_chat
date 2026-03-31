@@ -1,0 +1,14 @@
+{
+  "user_name": "zhangchengyang",
+  "source_dir_prefix": "07_zhangchengyang",
+  "imported_at": "2026-03-28T04:50:40.051162",
+  "source_origin": "/Users/vigar07/Desktop/data/output_user_v1",
+  "has_vlm": true,
+  "has_gt": true,
+  "source_files": {
+    "face": "07_zhangchengyang_face_recognition_output.json",
+    "vlm": "07_zhangchengyang_vlm_cache.json",
+    "events": "07_zhangchengyang_events.json",
+    "gt": "07_zhangchengyang_gt.jsonl"
+  }
+}

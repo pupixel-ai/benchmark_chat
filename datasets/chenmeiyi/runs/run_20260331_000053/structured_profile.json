@@ -1,0 +1,1426 @@
+{
+  "long_term_facts": {
+    "identity": {
+      "name": {
+        "value": "陈美伊",
+        "confidence": 0.9,
+        "evidence": {
+          "photo_ids": [
+            "photo_067"
+          ],
+          "event_ids": [],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 1,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.identity.name"
+        },
+        "reasoning": "在 photo_067 中，纸质《军事理论末考论文》上明确标注了姓名陈美伊、学号12518110和建筑艺术系，这些信息直接绑定主角本人，且无其他冲突证据。 关键证据: photo_067。"
+      },
+      "gender": {
+        "value": "female",
+        "confidence": 0.85,
+        "evidence": {
+          "photo_ids": [
+            "photo_037"
+          ],
+          "event_ids": [],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 1,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.identity.gender"
+        },
+        "reasoning": "在 photo_037 中，主角展示了精心制作的尖头铆钉风格美甲，这种美甲款式通常与女性相关，且无其他冲突证据。 关键证据: photo_037。"
+      },
+      "age_range": {
+        "value": "18-24",
+        "confidence": 0.8,
+        "evidence": {
+          "photo_ids": [
+            "photo_067"
+          ],
+          "event_ids": [
+            "EVT_012"
+          ],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 2,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.identity.age_range"
+        },
+        "reasoning": "在 photo_067 中，主角正在进行大学期末论文撰写，结合学年2025-2026第一学期，推断主角年龄在大学典型年龄段18-24岁之间。 关键证据: EVT_012、photo_067。"
+      },
+      "role": {
+        "value": "student",
+        "confidence": 0.9,
+        "evidence": {
+          "photo_ids": [
+            "photo_067"
+          ],
+          "event_ids": [
+            "EVT_012"
+          ],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 2,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.identity.role"
+        },
+        "reasoning": "在 photo_067 和 EVT_012 中，主角陈美伊的建筑艺术系学生身份通过期末论文撰写活动得到明确体现，学号12518110和课程信息构成稳定证据链 关键证据: EVT_012、photo_067。"
+      },
+      "race": {
+        "value": null,
+        "confidence": 0.0,
+        "evidence": {
+          "photo_ids": [
+            "photo_067"
+          ],
+          "event_ids": [
+            "EVT_012"
+          ],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 2,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [
+            "no_racial_identity_evidence"
+          ],
+          "summary": "profile_agent:long_term_facts.identity.race"
+        },
+        "reasoning": "long_term_facts.identity.race 在审查 EVT_012、photo_067 后，当前证据仍不足以形成可审计结论，因此输出 null。"
+      },
+      "nationality": {
+        "value": "Chinese",
+        "confidence": 0.85,
+        "evidence": {
+          "photo_ids": [
+            "photo_067"
+          ],
+          "event_ids": [
+            "EVT_031"
+          ],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 2,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.identity.nationality"
+        },
+        "reasoning": "在 photo_067 中，主角陈美伊的军事理论论文题目为'简述中国近代国防历史'，结合建筑艺术系学生身份及学号12518110，推断为中国国籍。此外，EVT_031中展示的天坛祈年殿照片和传统手工艺活动也支持中国文化背景。关键证据: photo_067、EVT_031。 关键证据: EVT_031、photo_067。"
+      }
+    },
+    "social_identity": {
+      "education": {
+        "value": "建筑艺术系本科在读",
+        "confidence": 0.9,
+        "evidence": {
+          "photo_ids": [
+            "photo_067"
+          ],
+          "event_ids": [
+            "EVT_012"
+          ],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 2,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.social_identity.education"
+        },
+        "reasoning": "在 photo_067 和 EVT_012 中，明确显示主角陈美伊为建筑艺术系学生，学号12518110，正在进行2025-2026第一学期的军事理论课程期末考试论文撰写。关键证据: photo_067、EVT_012。 关键证据: EVT_012、photo_067。"
+      },
+      "career": {
+        "value": "design",
+        "confidence": 0.8,
+        "evidence": {
+          "photo_ids": [],
+          "event_ids": [
+            "EVT_033",
+            "EVT_036"
+          ],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 2,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.social_identity.career"
+        },
+        "reasoning": "从EVT_033和EVT_036中可以看出主角参与了传统手工艺创作和时尚穿搭活动，结合建筑艺术系学生的背景，推断其职业方向为设计领域。关键证据: EVT_033、EVT_036。 关键证据: EVT_033、EVT_036。"
+      },
+      "career_phase": {
+        "value": "undergraduate",
+        "confidence": 0.9,
+        "evidence": {
+          "photo_ids": [],
+          "event_ids": [
+            "EVT_012"
+          ],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 1,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.social_identity.career_phase"
+        },
+        "reasoning": "主角陈美伊的建筑艺术系学生身份通过EVT_012中的期末论文撰写活动得到明确体现，学号12518110和课程信息构成稳定证据链，推断为本科在读阶段。关键证据: EVT_012。 关键证据: EVT_012。"
+      },
+      "professional_dedication": {
+        "value": "academic_with_social_balance",
+        "confidence": 0.85,
+        "evidence": {
+          "photo_ids": [],
+          "event_ids": [
+            "EVT_012",
+            "EVT_033",
+            "EVT_036"
+          ],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 3,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.social_identity.professional_dedication"
+        },
+        "reasoning": "在EVT_012中，主角陈美伊正在大学教室或学习场所进行期末论文撰写，表明她有较高的学术投入。同时，在EVT_033和EVT_036中，她参与了包括传统手工艺创作、职业探索与时尚穿搭等活动，显示出她在学术之外也有丰富的社会和文化活动。综合上述证据，推断陈美伊的专业投入模式为‘学术与社会平衡’。关键证据包括EVT_012、EVT_033和EVT_036。 关键证据: EVT_012、EVT_033。"
+      },
+      "language_culture": {
+        "value": "Chinese_simplified",
+        "confidence": 0.9,
+        "evidence": {
+          "photo_ids": [
+            "photo_117"
+          ],
+          "event_ids": [
+            "EVT_031",
+            "EVT_033"
+          ],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 3,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.social_identity.language_culture"
+        },
+        "reasoning": "在EVT_031和EVT_033中，可以看到主角陈美伊多次出现在具有中国传统文化元素的环境中，如天坛祈年殿、木质织布机等。此外，photo_117中的织布机图纸上有简体中文关于纺织工艺的说明排版，进一步支持了主角的中文语言和文化背景。综合上述证据，推断陈美伊的语言文化背景为‘简体中文’。关键证据包括EVT_031、EVT_033、photo_117。 关键证据: EVT_031、EVT_033、photo_117。"
+      },
+      "political_preference": {
+        "value": null,
+        "confidence": 0.0,
+        "evidence": {
+          "photo_ids": [],
+          "event_ids": [],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 0,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": ""
+        },
+        "reasoning": ""
+      }
+    },
+    "material": {
+      "asset_level": {
+        "value": "middle_class",
+        "confidence": 0.85,
+        "evidence": {
+          "photo_ids": [
+            "photo_035"
+          ],
+          "event_ids": [
+            "EVT_031",
+            "EVT_009"
+          ],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 3,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.material.asset_level"
+        },
+        "reasoning": "从EVT_031中可以看到主角使用支付宝芝麻分638分，美团外卖订单地址为中山首府，结合EVT_009中的Hello Kitty粉色格纹桌布和photo_035中疑似Chrom Hearts品牌银饰标识，推断主角的资产水平为中产阶级。关键证据: EVT_031、EVT_009、photo_035。 关键证据: EVT_031、EVT_009、photo_035。"
+      },
+      "spending_style": {
+        "value": "trendy_with_personalized_taste",
+        "confidence": 0.8,
+        "evidence": {
+          "photo_ids": [
+            "photo_075",
+            "photo_126",
+            "photo_118"
+          ],
+          "event_ids": [],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 3,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.material.spending_style"
+        },
+        "reasoning": "从photo_075中的Hello Kitty贴纸装饰香烟和photo_126中的EXO应援棒展示可以看出主角的消费风格偏向潮流且有个人化品味。此外，photo_118中的织锦抽绳香囊也体现了对独特设计的偏好。关键证据: photo_075、photo_126、photo_118。 关键证据: photo_075、photo_126。"
+      },
+      "brand_preference": {
+        "value": [
+          "Hello Kitty"
+        ],
+        "confidence": 0.85,
+        "evidence": {
+          "photo_ids": [
+            "photo_075",
+            "photo_035"
+          ],
+          "event_ids": [
+            "EVT_009"
+          ],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 3,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.material.brand_preference"
+        },
+        "reasoning": "在EVT_009和photo_075中，Hello Kitty品牌元素多次出现在主角的个人物品中（粉色格纹桌布、香烟贴纸），且无其他冲突证据。此外，photo_035中疑似Chrom Hearts品牌银饰标识也支持主角对潮流品牌的偏好。 关键证据: EVT_009、photo_075、photo_035。"
+      },
+      "income_model": {
+        "value": "student_income",
+        "confidence": 0.8,
+        "evidence": {
+          "photo_ids": [],
+          "event_ids": [
+            "EVT_012",
+            "EVT_036",
+            "EVT_033"
+          ],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 3,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.material.income_model"
+        },
+        "reasoning": "EVT_012明确显示主角陈美伊为建筑艺术系本科在读学生（学号12518110），EVT_036中与'时间的日记本'讨论试岗的微信聊天记录表明可能存在兼职收入。结合EVT_033中传统手工艺创作活动，推断收入模式主要为学生收入。 关键证据: EVT_012、EVT_036。"
+      },
+      "signature_items": {
+        "value": [
+          "Hello Kitty",
+          "Chrom Hearts",
+          "EXO"
+        ],
+        "confidence": 0.85,
+        "evidence": {
+          "photo_ids": [
+            "photo_075",
+            "photo_035",
+            "photo_126"
+          ],
+          "event_ids": [],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 3,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.material.signature_items"
+        },
+        "reasoning": "在 photo_075 中主角使用Hello Kitty贴纸装饰香烟，photo_035中佩戴疑似Chrom Hearts品牌银饰，photo_126中展示EXO应援棒，这些物品多次出现在不同场景中且明确绑定主角本人。关键证据: photo_075、photo_035、photo_126。 关键证据: photo_075、photo_035。"
+      }
+    },
+    "geography": {
+      "location_anchors": {
+        "value": [
+          "住宅卧室",
+          "私人卧室"
+        ],
+        "confidence": 0.8,
+        "evidence": {
+          "photo_ids": [
+            "photo_077",
+            "photo_140",
+            "photo_024",
+            "photo_033"
+          ],
+          "event_ids": [
+            "EVT_042"
+          ],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 5,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.geography.location_anchors"
+        },
+        "reasoning": "在EVT_042和photo_077、photo_140中，主角多次出现在住宅卧室环境中，photo_024和photo_033中也有私人卧室的活动记录。这些地点在多个事件中重复出现，构成主角的生活主线。 关键证据: EVT_042、photo_077、photo_140。"
+      },
+      "mobility_pattern": {
+        "value": "homebody_with_occasional_outings",
+        "confidence": 0.7,
+        "evidence": {
+          "photo_ids": [],
+          "event_ids": [
+            "EVT_031",
+            "EVT_042"
+          ],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 2,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.geography.mobility_pattern"
+        },
+        "reasoning": "EVT_031中主角出现在北京天坛公园，但大部分活动集中在住宅卧室和私人卧室（EVT_042、photo_077等），显示以居家为主偶尔外出的模式。 关键证据: EVT_031、EVT_042。"
+      },
+      "cross_border": {
+        "value": "domestic_only",
+        "confidence": 0.85,
+        "evidence": {
+          "photo_ids": [],
+          "event_ids": [
+            "EVT_031",
+            "EVT_035",
+            "EVT_040",
+            "EVT_042"
+          ],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 4,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.geography.cross_border"
+        },
+        "reasoning": "证据显示主角活动集中在国内地点如北京天坛公园（EVT_031）、中山首府社区（EVT_035）和私人住宅卧室（EVT_040/EVT_042），未发现跨境活动证据。 关键证据: EVT_031、EVT_035。"
+      }
+    },
+    "time": {
+      "life_rhythm": {
+        "value": "flexible_schedule",
+        "confidence": 0.7,
+        "evidence": {
+          "photo_ids": [],
+          "event_ids": [
+            "EVT_031",
+            "EVT_032",
+            "EVT_035"
+          ],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 3,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.time.life_rhythm"
+        },
+        "reasoning": "基于EVT_031的文化活动、EVT_032的社交生活和EVT_035的居家日常等多场景活动，显示主角时间安排具有灵活性，但缺乏明确规律性证据。 关键证据: EVT_031、EVT_032。"
+      },
+      "event_cycles": {
+        "value": null,
+        "confidence": 0.0,
+        "evidence": {
+          "photo_ids": [],
+          "event_ids": [
+            "EVT_031",
+            "EVT_032",
+            "EVT_035",
+            "EVT_038",
+            "EVT_018"
+          ],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [
+            "event_count"
+          ],
+          "supporting_ref_count": 6,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [
+            "lack_of_recurring_patterns"
+          ],
+          "summary": "profile_agent:long_term_facts.time.event_cycles"
+        },
+        "reasoning": "long_term_facts.time.event_cycles 在审查 EVT_031、EVT_032、event_count 后，当前证据仍不足以形成可审计结论，因此输出 null。"
+      },
+      "sleep_pattern": {
+        "value": "irregular",
+        "confidence": 0.55,
+        "evidence": {
+          "photo_ids": [],
+          "event_ids": [
+            "EVT_031",
+            "EVT_032",
+            "EVT_035",
+            "EVT_038",
+            "EVT_018"
+          ],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [
+            "event_count"
+          ],
+          "supporting_ref_count": 6,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.time.sleep_pattern"
+        },
+        "reasoning": "long_term_facts.time.sleep_pattern 主要依据 EVT_031、EVT_032、event_count 得到当前结论，且没有发现足以推翻该字段的反证。"
+      }
+    },
+    "relationships": {
+      "intimate_partner": {
+        "value": null,
+        "confidence": 0.0,
+        "evidence": {
+          "photo_ids": [],
+          "event_ids": [],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [
+            "event_count"
+          ],
+          "supporting_ref_count": 1,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.relationships.intimate_partner"
+        },
+        "reasoning": "long_term_facts.relationships.intimate_partner 在审查 event_count 后，当前证据仍不足以形成可审计结论，因此输出 null。"
+      },
+      "close_circle_size": {
+        "value": 0,
+        "confidence": 0.82,
+        "evidence": {
+          "photo_ids": [
+            "photo_044",
+            "photo_043",
+            "photo_089",
+            "photo_031",
+            "photo_034",
+            "photo_007",
+            "photo_005",
+            "photo_115",
+            "photo_090",
+            "photo_116",
+            "photo_109",
+            "photo_113",
+            "photo_111",
+            "photo_123",
+            "photo_130",
+            "photo_131",
+            "photo_132",
+            "photo_133"
+          ],
+          "event_ids": [
+            "EVT_001",
+            "EVT_040",
+            "EVT_031",
+            "EVT_032",
+            "EVT_038",
+            "EVT_019",
+            "EVT_020",
+            "EVT_023",
+            "EVT_036",
+            "EVT_007"
+          ],
+          "person_ids": [
+            "Person_001"
+          ],
+          "group_ids": [],
+          "feature_names": [
+            "photo_count",
+            "monthly_frequency",
+            "relationship_type:friend",
+            "event_count"
+          ],
+          "supporting_ref_count": 2,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.relationships.close_circle_size"
+        },
+        "reasoning": "long_term_facts.relationships.close_circle_size 主要依据 EVT_001、EVT_040、photo_044、photo_043、Person_001、photo_count、monthly_frequency 得到当前结论，且没有发现足以推翻该字段的反证。"
+      },
+      "social_groups": {
+        "value": null,
+        "confidence": 0.0,
+        "evidence": {
+          "photo_ids": [],
+          "event_ids": [],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 0,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.relationships.social_groups"
+        },
+        "reasoning": "long_term_facts.relationships.social_groups 在审查 当前证据池 后，当前证据仍不足以形成可审计结论，因此输出 null。"
+      },
+      "pets": {
+        "value": [
+          "cat"
+        ],
+        "confidence": 0.85,
+        "evidence": {
+          "photo_ids": [
+            "photo_021",
+            "photo_077",
+            "photo_140"
+          ],
+          "event_ids": [
+            "EVT_018",
+            "EVT_030"
+          ],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 5,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.relationships.pets"
+        },
+        "reasoning": "在EVT_018和EVT_030中，主角多次出现在与宠物互动的场景中，包括黑毛长毛猫和橘色长毛猫。photo_021中展示了猫咪安抚喷雾，photo_077和photo_140中展示了主角与金渐层长毛猫和橘色长毛猫的互动，这些证据表明主角长期养猫。 关键证据: EVT_018、EVT_030、photo_021、photo_077。"
+      },
+      "parenting": {
+        "value": null,
+        "confidence": 0.0,
+        "evidence": {
+          "photo_ids": [
+            "photo_044",
+            "photo_043",
+            "photo_089",
+            "photo_031",
+            "photo_034",
+            "photo_007",
+            "photo_005",
+            "photo_115",
+            "photo_090",
+            "photo_116",
+            "photo_109",
+            "photo_113",
+            "photo_111",
+            "photo_123",
+            "photo_130",
+            "photo_131",
+            "photo_132",
+            "photo_133",
+            "photo_021",
+            "photo_084",
+            "photo_077",
+            "photo_140"
+          ],
+          "event_ids": [
+            "EVT_030",
+            "EVT_035",
+            "EVT_018",
+            "EVT_001",
+            "EVT_040",
+            "EVT_031",
+            "EVT_032",
+            "EVT_038",
+            "EVT_019",
+            "EVT_020",
+            "EVT_023",
+            "EVT_036",
+            "EVT_007"
+          ],
+          "person_ids": [
+            "Person_001"
+          ],
+          "group_ids": [],
+          "feature_names": [
+            "photo_count",
+            "monthly_frequency",
+            "relationship_type:friend"
+          ],
+          "supporting_ref_count": 8,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [
+            "lack_of_evidence"
+          ],
+          "summary": "profile_agent:long_term_facts.relationships.parenting"
+        },
+        "reasoning": "long_term_facts.relationships.parenting 在审查 EVT_030、EVT_035、photo_044、photo_043、Person_001、photo_count、monthly_frequency 后，当前证据仍不足以形成可审计结论，因此输出 null。"
+      },
+      "living_situation": {
+        "value": null,
+        "confidence": 0.0,
+        "evidence": {
+          "photo_ids": [
+            "photo_044",
+            "photo_043",
+            "photo_089",
+            "photo_031",
+            "photo_034",
+            "photo_007",
+            "photo_005",
+            "photo_115",
+            "photo_090",
+            "photo_116",
+            "photo_109",
+            "photo_113",
+            "photo_111",
+            "photo_123",
+            "photo_130",
+            "photo_131",
+            "photo_132",
+            "photo_133"
+          ],
+          "event_ids": [
+            "EVT_030",
+            "EVT_035",
+            "EVT_018",
+            "EVT_001",
+            "EVT_040",
+            "EVT_031",
+            "EVT_032",
+            "EVT_038",
+            "EVT_019",
+            "EVT_020",
+            "EVT_023",
+            "EVT_036",
+            "EVT_007"
+          ],
+          "person_ids": [
+            "Person_001"
+          ],
+          "group_ids": [],
+          "feature_names": [
+            "photo_count",
+            "monthly_frequency",
+            "relationship_type:friend"
+          ],
+          "supporting_ref_count": 4,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.relationships.living_situation"
+        },
+        "reasoning": "long_term_facts.relationships.living_situation 在审查 EVT_030、EVT_035、photo_044、photo_043、Person_001、photo_count、monthly_frequency 后，当前证据仍不足以形成可审计结论，因此输出 null。"
+      }
+    },
+    "hobbies": {
+      "interests": {
+        "value": [
+          "traditional_handicrafts",
+          "digital_gaming",
+          "fashion"
+        ],
+        "confidence": 0.85,
+        "evidence": {
+          "photo_ids": [
+            "photo_132",
+            "photo_020"
+          ],
+          "event_ids": [
+            "EVT_037",
+            "EVT_007",
+            "EVT_031"
+          ],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 5,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.hobbies.interests"
+        },
+        "reasoning": "EVT_037中展示的中式传统刺绣屏风和EVT_007中的手工艺术创作表明对传统手工艺的兴趣；EVT_031中的和平精英游戏和photo_132中的游戏截图显示数字游戏爱好；EVT_037中的时尚穿搭和photo_020中的定制手机壳体现时尚兴趣。 关键证据: EVT_037、EVT_007、photo_132、photo_020。"
+      },
+      "frequent_activities": {
+        "value": [
+          "handicraft_creation",
+          "gaming"
+        ],
+        "confidence": 0.8,
+        "evidence": {
+          "photo_ids": [],
+          "event_ids": [
+            "EVT_007",
+            "EVT_037",
+            "EVT_031"
+          ],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 3,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.hobbies.frequent_activities"
+        },
+        "reasoning": "EVT_007和EVT_037中多次出现手工艺创作活动，EVT_031中和平精英游戏活动频繁，构成稳定的高频活动模式。 关键证据: EVT_007、EVT_037。"
+      },
+      "solo_vs_social": {
+        "value": "mixed",
+        "confidence": 0.75,
+        "evidence": {
+          "photo_ids": [
+            "photo_044",
+            "photo_043",
+            "photo_089",
+            "photo_031",
+            "photo_034",
+            "photo_007",
+            "photo_005",
+            "photo_115",
+            "photo_090",
+            "photo_116",
+            "photo_109",
+            "photo_113",
+            "photo_111",
+            "photo_123",
+            "photo_130",
+            "photo_131",
+            "photo_132",
+            "photo_133"
+          ],
+          "event_ids": [
+            "EVT_001",
+            "EVT_040",
+            "EVT_031",
+            "EVT_032",
+            "EVT_038",
+            "EVT_019",
+            "EVT_020",
+            "EVT_023",
+            "EVT_036",
+            "EVT_007"
+          ],
+          "person_ids": [
+            "Person_001"
+          ],
+          "group_ids": [],
+          "feature_names": [
+            "photo_count",
+            "monthly_frequency",
+            "relationship_type:friend"
+          ],
+          "supporting_ref_count": 1,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.hobbies.solo_vs_social"
+        },
+        "reasoning": "Person_001作为稳定社交关系存在（月均5.6次互动），但同时EVT_007等事件显示独立手工艺活动，呈现混合模式。 关键证据: EVT_001、EVT_040、photo_044、photo_043、Person_001、photo_count、monthly_frequency。"
+      }
+    },
+    "physiology": {
+      "fitness_level": {
+        "value": "moderate",
+        "confidence": 0.7,
+        "evidence": {
+          "photo_ids": [
+            "photo_071"
+          ],
+          "event_ids": [
+            "EVT_003"
+          ],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 2,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.physiology.fitness_level"
+        },
+        "reasoning": "EVT_003和photo_071等餐饮事件显示常规饮食模式，无高强度运动证据，但也没有久坐不动的负面表现。 关键证据: EVT_003、photo_071。"
+      },
+      "health_conditions": {
+        "value": null,
+        "confidence": 0.0,
+        "evidence": {
+          "photo_ids": [],
+          "event_ids": [],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 0,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": ""
+        },
+        "reasoning": ""
+      },
+      "diet_mode": {
+        "value": "regular_with_occasional_treats",
+        "confidence": 0.8,
+        "evidence": {
+          "photo_ids": [
+            "photo_004"
+          ],
+          "event_ids": [
+            "EVT_003"
+          ],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 2,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.physiology.diet_mode"
+        },
+        "reasoning": "EVT_003中的健康餐和photo_004中的蛋糕显示主体保持常规饮食但偶尔享受甜点的模式。 关键证据: EVT_003、photo_004。"
+      }
+    }
+  },
+  "short_term_facts": {
+    "life_events": {
+      "value": "digital_life_and_pet_interaction",
+      "confidence": 0.85,
+      "evidence": {
+        "photo_ids": [
+          "photo_044",
+          "photo_043",
+          "photo_089",
+          "photo_031",
+          "photo_034",
+          "photo_007",
+          "photo_005",
+          "photo_115",
+          "photo_090",
+          "photo_116",
+          "photo_109",
+          "photo_113",
+          "photo_111",
+          "photo_123",
+          "photo_130",
+          "photo_131",
+          "photo_132",
+          "photo_133"
+        ],
+        "event_ids": [
+          "EVT_001",
+          "EVT_040",
+          "EVT_031",
+          "EVT_032",
+          "EVT_038",
+          "EVT_019",
+          "EVT_020",
+          "EVT_023",
+          "EVT_036",
+          "EVT_007",
+          "EVT_035",
+          "EVT_018"
+        ],
+        "person_ids": [
+          "Person_001"
+        ],
+        "group_ids": [],
+        "feature_names": [
+          "photo_count",
+          "monthly_frequency",
+          "relationship_type:friend"
+        ],
+        "supporting_ref_count": 3,
+        "contradicting_ref_count": 0,
+        "constraint_notes": [],
+        "summary": "profile_agent:short_term_facts.life_events"
+      },
+      "reasoning": "EVT_031显示主角近期频繁参与数字生活活动（支付宝芝麻分集分、和平精英游戏），EVT_035中豆包AI对话和抖音宠物视频观看显示数字生活深度参与，同时EVT_018和EVT_042中与橘猫和黑毛长毛猫的互动构成近期稳定的宠物互动模式。关键证据: EVT_031、EVT_035、EVT_018。 关键证据: EVT_001、EVT_040、photo_044、photo_043、Person_001、photo_count、monthly_frequency。"
+    },
+    "phase_change": {
+      "value": null,
+      "confidence": 0.0,
+      "evidence": {
+        "photo_ids": [],
+        "event_ids": [
+          "EVT_031",
+          "EVT_032",
+          "EVT_035",
+          "EVT_038",
+          "EVT_018"
+        ],
+        "person_ids": [],
+        "group_ids": [],
+        "feature_names": [
+          "event_count"
+        ],
+        "supporting_ref_count": 6,
+        "contradicting_ref_count": 0,
+        "constraint_notes": [
+          "no_significant_change_detected"
+        ],
+        "summary": "profile_agent:short_term_facts.phase_change"
+      },
+      "reasoning": "short_term_facts.phase_change 在审查 EVT_031、EVT_032、event_count 后，当前证据仍不足以形成可审计结论，因此输出 null。"
+    },
+    "spending_shift": {
+      "value": "increased_spending_on_idol_merchandise",
+      "confidence": 0.75,
+      "evidence": {
+        "photo_ids": [
+          "photo_126"
+        ],
+        "event_ids": [
+          "EVT_031"
+        ],
+        "person_ids": [],
+        "group_ids": [],
+        "feature_names": [],
+        "supporting_ref_count": 2,
+        "contradicting_ref_count": 0,
+        "constraint_notes": [],
+        "summary": "profile_agent:short_term_facts.spending_shift"
+      },
+      "reasoning": "EVT_031中支付宝芝麻分638分和美团外卖订单显示消费能力，photo_126中近期新增EXO应援棒收藏，但缺乏长期对比数据。关键证据: EVT_031、photo_126。 关键证据: EVT_031、photo_126。"
+    },
+    "current_displacement": {
+      "value": null,
+      "confidence": 0.0,
+      "evidence": {
+        "photo_ids": [],
+        "event_ids": [
+          "EVT_031",
+          "EVT_035",
+          "EVT_040",
+          "EVT_042"
+        ],
+        "person_ids": [],
+        "group_ids": [],
+        "feature_names": [],
+        "supporting_ref_count": 4,
+        "contradicting_ref_count": 0,
+        "constraint_notes": [
+          "No evidence of leaving the usual residence"
+        ],
+        "summary": "profile_agent:short_term_facts.current_displacement"
+      },
+      "reasoning": "short_term_facts.current_displacement 在审查 EVT_031、EVT_035 后，当前证据仍不足以形成可审计结论，因此输出 null。"
+    },
+    "recent_habits": {
+      "value": "digital_life_and_pet_interaction",
+      "confidence": 0.8,
+      "evidence": {
+        "photo_ids": [],
+        "event_ids": [
+          "EVT_031",
+          "EVT_035",
+          "EVT_018",
+          "EVT_042"
+        ],
+        "person_ids": [],
+        "group_ids": [],
+        "feature_names": [],
+        "supporting_ref_count": 4,
+        "contradicting_ref_count": 0,
+        "constraint_notes": [],
+        "summary": "profile_agent:short_term_facts.recent_habits"
+      },
+      "reasoning": "近期主角表现出对数字生活的强烈依赖，如EVT_031中的支付宝芝麻分集分活动和和平精英游戏，以及EVT_035中的豆包AI对话和抖音App使用。同时，EVT_018和EVT_042显示主角与宠物（如橘猫和黑毛长毛猫）的频繁互动。这些行为在近期事件中反复出现，构成明确的行为模式。 关键证据: EVT_031、EVT_035。"
+    },
+    "recent_interests": {
+      "value": [
+        "hello_kitty",
+        "soothing_for_cats"
+      ],
+      "confidence": 0.8,
+      "evidence": {
+        "photo_ids": [],
+        "event_ids": [
+          "EVT_038",
+          "EVT_032",
+          "EVT_030"
+        ],
+        "person_ids": [],
+        "group_ids": [],
+        "feature_names": [],
+        "supporting_ref_count": 3,
+        "contradicting_ref_count": 0,
+        "constraint_notes": [],
+        "summary": "profile_agent:short_term_facts.recent_interests"
+      },
+      "reasoning": "EVT_038中Hello Kitty数字插画和手持Kitty挂件自拍，EVT_032中微信头像戴Hello Kitty发箍，显示近期对Hello Kitty主题的持续关注；EVT_030中'SOOTHING FOR CATS SPRAY'猫咪安抚喷雾表明对宠物护理用品的兴趣。关键证据: EVT_038、EVT_032、EVT_030。 关键证据: EVT_038、EVT_032。"
+    },
+    "physiological_state": {
+      "value": null,
+      "confidence": 0.0,
+      "evidence": {
+        "photo_ids": [],
+        "event_ids": [],
+        "person_ids": [],
+        "group_ids": [],
+        "feature_names": [],
+        "supporting_ref_count": 0,
+        "contradicting_ref_count": 0,
+        "constraint_notes": [],
+        "summary": ""
+      },
+      "reasoning": ""
+    }
+  },
+  "long_term_expression": {
+    "personality_mbti": {
+      "value": null,
+      "confidence": 0.0,
+      "evidence": {
+        "photo_ids": [
+          "photo_044",
+          "photo_043",
+          "photo_089",
+          "photo_031",
+          "photo_034",
+          "photo_007",
+          "photo_005",
+          "photo_115",
+          "photo_090",
+          "photo_116",
+          "photo_109",
+          "photo_113",
+          "photo_111",
+          "photo_123",
+          "photo_130",
+          "photo_131",
+          "photo_132",
+          "photo_133"
+        ],
+        "event_ids": [
+          "EVT_001",
+          "EVT_040",
+          "EVT_031",
+          "EVT_032",
+          "EVT_038",
+          "EVT_019",
+          "EVT_020",
+          "EVT_023",
+          "EVT_036",
+          "EVT_007"
+        ],
+        "person_ids": [
+          "Person_001"
+        ],
+        "group_ids": [],
+        "feature_names": [
+          "photo_count",
+          "monthly_frequency",
+          "relationship_type:friend"
+        ],
+        "supporting_ref_count": 1,
+        "contradicting_ref_count": 0,
+        "constraint_notes": [
+          "证据不足"
+        ],
+        "summary": "profile_agent:long_term_expression.personality_mbti"
+      },
+      "reasoning": "long_term_expression.personality_mbti 在审查 EVT_001、EVT_040、photo_044、photo_043、Person_001、photo_count、monthly_frequency 后，当前证据仍不足以形成可审计结论，因此输出 null。"
+    },
+    "morality": {
+      "value": "social_harmony",
+      "confidence": 0.7,
+      "evidence": {
+        "photo_ids": [
+          "photo_044",
+          "photo_043",
+          "photo_089",
+          "photo_031",
+          "photo_034",
+          "photo_007",
+          "photo_005",
+          "photo_115",
+          "photo_090",
+          "photo_116",
+          "photo_109",
+          "photo_113",
+          "photo_111",
+          "photo_123",
+          "photo_130",
+          "photo_131",
+          "photo_132",
+          "photo_133"
+        ],
+        "event_ids": [
+          "EVT_001",
+          "EVT_040",
+          "EVT_031",
+          "EVT_032",
+          "EVT_038",
+          "EVT_019",
+          "EVT_020",
+          "EVT_023",
+          "EVT_036",
+          "EVT_007"
+        ],
+        "person_ids": [
+          "Person_001"
+        ],
+        "group_ids": [],
+        "feature_names": [
+          "photo_count",
+          "monthly_frequency",
+          "relationship_type:friend"
+        ],
+        "supporting_ref_count": 1,
+        "contradicting_ref_count": 0,
+        "constraint_notes": [],
+        "summary": "profile_agent:long_term_expression.morality"
+      },
+      "reasoning": "从EVT_001、EVT_040等事件中可以看出主角频繁参与社交活动，与Person_001保持稳定的朋友关系（月均5.6次互动），表现出对社交和谐的重视。 关键证据: EVT_001、EVT_040、photo_044、photo_043、Person_001、photo_count、monthly_frequency。"
+    },
+    "philosophy": {
+      "value": "balanced_lifestyle",
+      "confidence": 0.85,
+      "evidence": {
+        "photo_ids": [
+          "photo_044",
+          "photo_043",
+          "photo_089",
+          "photo_031",
+          "photo_034",
+          "photo_007",
+          "photo_005",
+          "photo_115",
+          "photo_090",
+          "photo_116",
+          "photo_109",
+          "photo_113",
+          "photo_111",
+          "photo_123",
+          "photo_130",
+          "photo_131",
+          "photo_132",
+          "photo_133"
+        ],
+        "event_ids": [
+          "EVT_001",
+          "EVT_040",
+          "EVT_031",
+          "EVT_032",
+          "EVT_038",
+          "EVT_019",
+          "EVT_020",
+          "EVT_023",
+          "EVT_036",
+          "EVT_007"
+        ],
+        "person_ids": [
+          "Person_001"
+        ],
+        "group_ids": [],
+        "feature_names": [
+          "photo_count",
+          "monthly_frequency",
+          "relationship_type:friend"
+        ],
+        "supporting_ref_count": 1,
+        "contradicting_ref_count": 0,
+        "constraint_notes": [],
+        "summary": "profile_agent:long_term_expression.philosophy"
+      },
+      "reasoning": "EVT_031中显示主角同时参与传统文化活动（天坛祈年殿）和数字生活（和平精英游戏），EVT_001和EVT_040显示稳定的社交关系（与Person_001月均5.6次互动），表明长期平衡的生活方式。 关键证据: EVT_001、EVT_040、photo_044、photo_043、Person_001、photo_count、monthly_frequency。"
+    },
+    "attitude_style": {
+      "value": "fashion_forward_with_cute_elements",
+      "confidence": 0.85,
+      "evidence": {
+        "photo_ids": [],
+        "event_ids": [
+          "EVT_036",
+          "EVT_038",
+          "EVT_032"
+        ],
+        "person_ids": [],
+        "group_ids": [],
+        "feature_names": [],
+        "supporting_ref_count": 3,
+        "contradicting_ref_count": 0,
+        "constraint_notes": [],
+        "summary": "profile_agent:long_term_expression.attitude_style"
+      },
+      "reasoning": "EVT_036中主角穿着黑色长袖连衣裙搭配珍珠细腰带和白色毛绒护腿套，EVT_038中手持黑色Kitty挂件自拍，EVT_032中戴Hello Kitty发箍，显示时尚前卫与可爱元素的稳定结合 关键证据: EVT_036、EVT_038。"
+    },
+    "aesthetic_tendency": {
+      "value": "modern_traditional_fusion",
+      "confidence": 0.8,
+      "evidence": {
+        "photo_ids": [
+          "photo_119"
+        ],
+        "event_ids": [
+          "EVT_036",
+          "EVT_032"
+        ],
+        "person_ids": [],
+        "group_ids": [],
+        "feature_names": [],
+        "supporting_ref_count": 3,
+        "contradicting_ref_count": 0,
+        "constraint_notes": [],
+        "summary": "profile_agent:long_term_expression.aesthetic_tendency"
+      },
+      "reasoning": "photo_119中拍摄中式传统刺绣屏风与现代空间结合，EVT_036中珍珠腰带与针织裙的混搭，EVT_032中条纹高领衫与超短裙的搭配，体现现代与传统元素的融合审美 关键证据: EVT_036、EVT_032、photo_119。"
+    },
+    "visual_creation_style": {
+      "value": "styled_selfie_with_ar_elements",
+      "confidence": 0.9,
+      "evidence": {
+        "photo_ids": [
+          "photo_001"
+        ],
+        "event_ids": [
+          "EVT_022",
+          "EVT_032"
+        ],
+        "person_ids": [],
+        "group_ids": [],
+        "feature_names": [],
+        "supporting_ref_count": 3,
+        "contradicting_ref_count": 0,
+        "constraint_notes": [],
+        "summary": "profile_agent:long_term_expression.visual_creation_style"
+      },
+      "reasoning": "photo_001和EVT_022中频繁使用AR滤镜自拍（粉色蝴蝶结/猫耳胡须），EVT_032中全身镜自拍搭配精心布置的背景，形成稳定的风格化自拍模式 关键证据: EVT_022、EVT_032、photo_001。"
+    }
+  },
+  "short_term_expression": {
+    "current_mood": {
+      "value": "relaxed_with_occasional_anxiety",
+      "confidence": 0.75,
+      "evidence": {
+        "photo_ids": [
+          "photo_035",
+          "photo_050"
+        ],
+        "event_ids": [
+          "EVT_035",
+          "EVT_022"
+        ],
+        "person_ids": [],
+        "group_ids": [],
+        "feature_names": [],
+        "supporting_ref_count": 4,
+        "contradicting_ref_count": 0,
+        "constraint_notes": [],
+        "summary": "profile_agent:short_term_expression.current_mood"
+      },
+      "reasoning": "EVT_035中豆包AI咨询网络暴力对策显示焦虑，但photo_035和photo_050中放松自拍状态，EVT_022中俏皮表情与音乐播放形成情绪波动证据 关键证据: EVT_035、EVT_022、photo_035、photo_050。"
+    },
+    "mental_state": {
+      "value": "anxious_with_relief_outlets",
+      "confidence": 0.8,
+      "evidence": {
+        "photo_ids": [
+          "photo_035"
+        ],
+        "event_ids": [
+          "EVT_035",
+          "EVT_004",
+          "EVT_022"
+        ],
+        "person_ids": [],
+        "group_ids": [],
+        "feature_names": [],
+        "supporting_ref_count": 4,
+        "contradicting_ref_count": 0,
+        "constraint_notes": [],
+        "summary": "profile_agent:short_term_expression.mental_state"
+      },
+      "reasoning": "EVT_035显示主角咨询网络暴力对策（豆包AI对话），EVT_004中有'焦虑'、'失眠多梦'等心理自述关键词，但EVT_022和photo_035中同时存在放松自拍行为，显示焦虑与缓解并存的状态。 关键证据: EVT_035、EVT_004、photo_035。"
+    },
+    "motivation_shift": {
+      "value": "from_self_focus_to_pet_care",
+      "confidence": 0.75,
+      "evidence": {
+        "photo_ids": [],
+        "event_ids": [
+          "EVT_035",
+          "EVT_004"
+        ],
+        "person_ids": [],
+        "group_ids": [],
+        "feature_names": [],
+        "supporting_ref_count": 2,
+        "contradicting_ref_count": 0,
+        "constraint_notes": [],
+        "summary": "profile_agent:short_term_expression.motivation_shift"
+      },
+      "reasoning": "EVT_035中主角在微信群询问'谁家有小猫送我'（宠物领养意愿），与EVT_004的自我心理关注形成对比，显示近期向宠物关怀的动机转变。 关键证据: EVT_035、EVT_004。"
+    },
+    "stress_signal": {
+      "value": "digital_stress",
+      "confidence": 0.8,
+      "evidence": {
+        "photo_ids": [],
+        "event_ids": [
+          "EVT_035"
+        ],
+        "person_ids": [],
+        "group_ids": [],
+        "feature_names": [],
+        "supporting_ref_count": 1,
+        "contradicting_ref_count": 0,
+        "constraint_notes": [],
+        "summary": "profile_agent:short_term_expression.stress_signal"
+      },
+      "reasoning": "EVT_035中连续出现网络暴力咨询（豆包AI）、微信技术问题搜索等数字压力信号，photo_046文档中明确标注'焦虑'与'失眠多梦'症状。 关键证据: EVT_035。"
+    },
+    "social_energy": {
+      "value": "selective_socializing",
+      "confidence": 0.7,
+      "evidence": {
+        "photo_ids": [
+          "photo_044",
+          "photo_043",
+          "photo_089",
+          "photo_031",
+          "photo_034",
+          "photo_007",
+          "photo_005",
+          "photo_115",
+          "photo_090",
+          "photo_116",
+          "photo_109",
+          "photo_113",
+          "photo_111",
+          "photo_123",
+          "photo_130",
+          "photo_131",
+          "photo_132",
+          "photo_133"
+        ],
+        "event_ids": [
+          "EVT_035",
+          "EVT_001",
+          "EVT_040",
+          "EVT_031",
+          "EVT_032",
+          "EVT_038",
+          "EVT_019",
+          "EVT_020",
+          "EVT_023",
+          "EVT_036",
+          "EVT_007",
+          "EVT_004"
+        ],
+        "person_ids": [
+          "Person_001"
+        ],
+        "group_ids": [],
+        "feature_names": [
+          "photo_count",
+          "monthly_frequency",
+          "relationship_type:friend"
+        ],
+        "supporting_ref_count": 3,
+        "contradicting_ref_count": 0,
+        "constraint_notes": [],
+        "summary": "profile_agent:short_term_expression.social_energy"
+      },
+      "reasoning": "EVT_035中微信群聊'中山首府社区居民3群'互动与Person_001稳定社交关系（月均5.6次），但EVT_004中'不想与人沟通'文档显示选择性社交模式 关键证据: EVT_035、EVT_001、photo_044、photo_043、Person_001、photo_count、monthly_frequency。"
+    }
+  }
+}

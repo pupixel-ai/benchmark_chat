@@ -1,0 +1,1687 @@
+{
+  "metadata": {
+    "generated_at": "2026-03-20T18:04:47.587615",
+    "version": "2.0",
+    "total_events": 42,
+    "total_relationships": 0,
+    "models": {
+      "vlm": "google/gemini-3.1-flash-lite-preview",
+      "llm": "google/gemini-2.5-flash",
+      "face": "InsightFace/buffalo_l"
+    }
+  },
+  "events": [
+    {
+      "event_id": "EVT_001",
+      "date": "2025-12-12",
+      "time_range": "20:15 - 20:15",
+      "duration": "",
+      "title": "深夜玩雪合伴",
+      "type": "其他",
+      "participants": [
+        "Person_001",
+        "主角"
+      ],
+      "location": "户外公共空间或公园",
+      "description": "暗夜雪地场景，地面有融化积雪，背景有金属护栏。Person_001手持心形黄色雪球夹，【主角】手持星形粉色雪球夹，两人都在制作雪球。画面为自拍视角，近距离持物对等状态。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "享受生活情趣",
+          "童心未泯",
+          "户外活动偏好"
+        ],
+        "aesthetic": [
+          "对可爱、情趣物品的偏好"
+        ],
+        "socioeconomic": [
+          "有闲暇时间进行休闲娱乐"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_002",
+      "date": "2025-12-26",
+      "time_range": "08:10 - 08:36",
+      "duration": "",
+      "title": "冬日晨间自拍记录",
+      "type": "其他",
+      "participants": [
+        "Person_002"
+      ],
+      "location": "户外开放空间/室内环境",
+      "description": "Person_002（【主角】）在室外和室内多个场景（模糊户外背景、浅棕/米色墙面）进行自拍。穿着黑色连帽冲锋衣、黄色内搭，戴有二次元动漫人物头像口罩。表情从专注到略带惊讶，嘴唇微张或微闭，眼神平视镜头。部分照片显示其略显疲惫，有黑眼圈。",
+      "photo_count": 5,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "注重自我形象",
+          "有自拍和记录日常的习惯",
+          "关注二次元文化",
+          "早起通勤/活动"
+        ],
+        "aesthetic": [
+          "偏好动漫/二次元图案",
+          "实用保暖的穿衣风格"
+        ],
+        "socioeconomic": [
+          "日常通勤者",
+          "拥有个人电子设备"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_003",
+      "date": "2025-12-03",
+      "time_range": "20:29 - 20:29",
+      "duration": "",
+      "title": "大众化餐厅用餐",
+      "type": "其他",
+      "participants": [
+        "主角"
+      ],
+      "location": "大众化餐饮店/食堂",
+      "description": "浅色木纹贴皮桌面，餐桌上摆放透明塑料碗，其中包含火龙果、香蕉、酸奶、坚果碎和西瓜块。旁边有一盘疑似番茄炒蛋的热菜，以及一把一次性黑色塑料叉。画面为俯拍视角。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "注重饮食搭配",
+          "快节奏生活",
+          "外卖/快餐消费习惯"
+        ],
+        "aesthetic": [],
+        "socioeconomic": [
+          "中等消费水平",
+          "城市生活方式"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_004",
+      "date": "2025-12-12",
+      "time_range": "22:05 - 22:05",
+      "duration": "",
+      "title": "深度心理自剖",
+      "type": "其他",
+      "participants": [
+        "主角"
+      ],
+      "location": "私人居住空间",
+      "description": "室内环境下，一张写满文字的白色A4纸张平铺在织物表面，背景有织物纹理，室内人工照明。文档内容包含'当前压力源'、'过去压力源'、'性格特征'、'焦虑'、'失眠多梦'等关键词，并有肯定句式自我暗示。画面为俯拍视角。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "内省",
+          "自我觉察能力强",
+          "倾向于通过书写进行情绪管理",
+          "可能存在心理压力或焦虑"
+        ],
+        "aesthetic": [
+          "喜欢私密、安静的环境"
+        ],
+        "socioeconomic": []
+      }
+    },
+    {
+      "event_id": "EVT_005",
+      "date": "2025-12-13",
+      "time_range": "14:09 - 14:09",
+      "duration": "",
+      "title": "便利店招聘信息记录",
+      "type": "其他",
+      "participants": [
+        "主角"
+      ],
+      "location": "好便宜便利店 (户外)",
+      "description": "一家橘红色主题的“好便宜”便利店门面，玻璃门上贴有招聘海报，地面有黄色提示牌。门口停放着带有挡风被的电动车。海报内容显示招聘店员，工资3000-4500元，时薪10元/小时。画面为客观记录视角。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "关注生活成本",
+          "有求职或兼职需求"
+        ],
+        "aesthetic": [],
+        "socioeconomic": [
+          "务实",
+          "中低收入预期"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_006",
+      "date": "2025-12-12",
+      "time_range": "21:45 - 23:35",
+      "duration": "",
+      "title": "居家深夜宠物陪伴",
+      "type": "其他",
+      "participants": [
+        "主角",
+        "猫"
+      ],
+      "location": "家庭卧室/高层住宅室内",
+      "description": "卧室场景，一只幼年虎斑猫卧睡在格纹床单上，猫爪上扬。高层住宅室内，一只金色长毛金吉拉猫坐于餐椅上，背景是城市夜景灯火。另一张照片中，同一只金吉拉呈“母鸡蹲”姿态在椅子上。光线昏暗或室内人工照明。画面为近摄或平视视角。",
+      "photo_count": 3,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "喜爱宠物",
+          "享受居家生活",
+          "细致入微的观察力"
+        ],
+        "aesthetic": [
+          "喜欢温馨、宁静的环境"
+        ],
+        "socioeconomic": [
+          "可能有一定的经济能力居住高层住宅"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_007",
+      "date": "2025-12-05",
+      "time_range": "11:25 - 11:25",
+      "duration": "",
+      "title": "手工艺术创作体验",
+      "type": "其他",
+      "participants": [
+        "Person_001",
+        "主角"
+      ],
+      "location": "手工艺术工作室或DIY手工吧",
+      "description": "手作工坊室内，桌上摆有调色盘。Person_001坐在桌子右侧进行手工制作，手肘撑在木桌上。图片显示【主角】右手托举着一份蓝色系纸艺花束，花束包装精美，标签写有'Happy every day - Best wishes for you!'。画面为记录成果的近摄视角。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "爱好手工艺术",
+          "专注力强",
+          "有创造力",
+          "注重仪式感与礼品呈现"
+        ],
+        "aesthetic": [
+          "对精致手工艺品的偏好",
+          "品味中上"
+        ],
+        "socioeconomic": [
+          "有能力参与艺术体验课程"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_008",
+      "date": "2025-12-23",
+      "time_range": "12:08 - 20:05",
+      "duration": "",
+      "title": "宠物猫咪喂养与生活日常",
+      "type": "其他",
+      "participants": [
+        "主角",
+        "猫"
+      ],
+      "location": "家庭住宅内/室内宠物角/住所内部/阳台",
+      "description": "室内场景，一包“零食猫”鸡肉口味猫咪零食条放在粉白色花纹布料上。随后，一只长毛橘猫正在粉色宠物食盆进食，旁边有白色毛绒玩偶和蓝色储物金属盒。背景有瓷砖地面、Hello Kitty主题地垫、猫砂盆边缘、阳台窗框和城市夜景。画面为近摄或俯拍视角。",
+      "photo_count": 4,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "爱护宠物",
+          "饲养管理细致",
+          "对宠物用品有审美投入",
+          "有规律的生活习惯"
+        ],
+        "aesthetic": [
+          "对可爱风格物品（Hello Kitty）有偏好",
+          "注重居家环境的整洁和装饰"
+        ],
+        "socioeconomic": [
+          "中等消费能力，愿意为宠物消费"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_009",
+      "date": "2026-01-03",
+      "time_range": "16:51 - 16:51",
+      "duration": "",
+      "title": "外卖收货与日常消费",
+      "type": "其他",
+      "participants": [
+        "主角"
+      ],
+      "location": "住宅或办公室室内（基于外卖地址为个人收货）",
+      "description": "室内桌面，铺有Hello Kitty粉色格纹桌布，外卖餐袋放置其上，餐袋外侧贴有外卖小票。小票显示下单时间15:15，备注“宝宝天天开心”，配送耗时约1.5小时。画面为俯拍视角。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "外卖消费习惯",
+          "注重生活细节",
+          "效率导向下的妥协"
+        ],
+        "aesthetic": [
+          "偏好可爱卡通图案（Hello Kitty）"
+        ],
+        "socioeconomic": [
+          "有消费能力",
+          "城市白领/居家生活"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_010",
+      "date": "2026-01-03",
+      "time_range": "19:03 - 19:04",
+      "duration": "",
+      "title": "夜间美甲自拍展示",
+      "type": "其他",
+      "participants": [
+        "主角"
+      ],
+      "location": "户外公共区域/移动中的交通工具内部",
+      "description": "模糊的夜间户外背景，有道路标线或光影拖尾，穿着黑色束口外套。【主角】左手和右手展示着长尖形法式美甲，配色深红色与银色闪粉，无名指有水钻装饰。画面为自拍视角。",
+      "photo_count": 3,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "追求时尚",
+          "自我展示欲强",
+          "注重个人形象",
+          "有外出社交活动"
+        ],
+        "aesthetic": [
+          "偏好大胆、华丽的美甲风格",
+          "喜欢金属感与水钻装饰",
+          "穿衣风格偏功能性与时尚结合"
+        ],
+        "socioeconomic": [
+          "有能力进行高消费美容项目"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_011",
+      "date": "2026-01-05",
+      "time_range": "00:50 - 00:50",
+      "duration": "",
+      "title": "深夜居家宠猫休憩",
+      "type": "其他",
+      "participants": [
+        "主角",
+        "猫"
+      ],
+      "location": "私人卧室/居家休息空间",
+      "description": "光线昏暗的卧室，一张粉色笑脸印花床单上，一只长毛橘猫处于睡眠状态。另一张照片中，橘猫背部趴在灰色长绒织物上。画面为极近距离俯拍视角。",
+      "photo_count": 2,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "爱护宠物",
+          "享受居家宁静",
+          "生活节奏偏晚"
+        ],
+        "aesthetic": [
+          "喜欢温馨、可爱的家居装饰（笑脸床单）"
+        ],
+        "socioeconomic": []
+      }
+    },
+    {
+      "event_id": "EVT_012",
+      "date": "2026-01-05",
+      "time_range": "09:00 - 09:00",
+      "duration": "",
+      "title": "期末论文撰写",
+      "type": "其他",
+      "participants": [
+        "主角"
+      ],
+      "location": "大学教室或学习场所",
+      "description": "一张白色A4纸，标题为《军事理论末考论文》，手写字迹清晰，可见学生信息（陈美伊，建筑艺术系，学号12518110）。考题为“简述中国近代国防历史，谈谈你对‘落后就要挨打’的认识”。画面为俯拍视角。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "学术严谨",
+          "学生身份",
+          "专注学习"
+        ],
+        "aesthetic": [],
+        "socioeconomic": [
+          "接受高等教育"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_013",
+      "date": "2026-01-11",
+      "time_range": "17:57 - 17:57",
+      "duration": "",
+      "title": "电玩中心抓娃娃",
+      "type": "其他",
+      "participants": [
+        "主角"
+      ],
+      "location": "商场电玩中心/抓娃娃机区",
+      "description": "黄色金属购物篮，内有足球和独角兽/兔耳玩偶，以及约15枚金属游戏币。背景是CATCHING DUCK品牌的抓娃娃机，有霓虹灯带照明，白色大理石地面。画面为俯拍视角。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "爱好娱乐",
+          "喜欢休闲游戏",
+          "有耐心和毅力"
+        ],
+        "aesthetic": [
+          "对毛绒玩偶有偏好"
+        ],
+        "socioeconomic": [
+          "有闲暇时间和娱乐消费能力"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_014",
+      "date": "2026-01-12",
+      "time_range": "10:14 - 11:46",
+      "duration": "",
+      "title": "居家琐事与自我内省",
+      "type": "其他",
+      "participants": [
+        "主角"
+      ],
+      "location": "家庭室内宠物饲养区/室内私密空间/室内用餐区",
+      "description": "照片一：金属猫砂铲清理猫砂，混合彩色除臭颗粒。照片二：蓝白格纹织物上平铺三张金边韦特塔罗牌（宝剑骑士、宝剑八、宝剑九）。照片三：木纹桌面上一碗乌冬面快餐，配豆皮、黑木耳等。画面多为俯拍或特写。",
+      "photo_count": 3,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "细致的居家生活照料",
+          "对神秘学和内在探索感兴趣",
+          "依赖外卖快餐",
+          "可能处于高压或焦虑状态"
+        ],
+        "aesthetic": [
+          "喜欢秩序感",
+          "对色彩和图案有一定选择（猫砂）"
+        ],
+        "socioeconomic": [
+          "城市生活习惯",
+          "中等消费水平"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_015",
+      "date": "2026-01-12",
+      "time_range": "12:11 - 13:08",
+      "duration": "",
+      "title": "文化探访与艺术创作日常",
+      "type": "其他",
+      "participants": [
+        "主角"
+      ],
+      "location": "北京天坛公园皇穹宇/个人工作室或书房桌面/室内工位或居家就餐区",
+      "description": "照片一：天坛皇穹宇侧后方建筑细节，蓝瓦圆顶，青砖围墙，前景有侧柏枝叶。照片二：浅色木纹桌面上，一张纸绘有十六种不同构图的水纹图案，右下角有手写签名。照片三：白色圆形外卖餐盒，内含土豆泥球、煎鸡胸肉片和蔬菜。画面多为俯拍或记录视角。",
+      "photo_count": 3,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "对传统文化感兴趣",
+          "爱好绘画创作",
+          "务实",
+          "生活节奏快"
+        ],
+        "aesthetic": [
+          "对建筑美学和传统纹样有鉴赏力"
+        ],
+        "socioeconomic": [
+          "学生或职场新人",
+          "中等消费水平"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_016",
+      "date": "2026-01-13",
+      "time_range": "18:45 - 12:21",
+      "duration": "",
+      "title": "亚文化个性的日常表达",
+      "type": "其他",
+      "participants": [
+        "主角"
+      ],
+      "location": "私人室内空间/办公区或快餐店",
+      "description": "照片一：粉色棉布背景上，一包贴有Hello Kitty贴纸的“黄金叶”香烟盒。照片二：木纹桌面上，一个铝箔餐盒内装有多样预制肉食（香肠、土豆饼、西兰花等）。画面为近摄或俯拍。",
+      "photo_count": 2,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "个性化表达",
+          "对亚文化有偏好",
+          "注重生活细节的趣味性",
+          "务实消费"
+        ],
+        "aesthetic": [
+          "喜欢卡通元素（Hello Kitty）",
+          "对物品进行二次创作和个性化装饰"
+        ],
+        "socioeconomic": [
+          "中等消费能力",
+          "对烟草有消费，显示可能存在吸烟习惯"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_017",
+      "date": "2026-01-16",
+      "time_range": "18:05 - 17:55",
+      "duration": "",
+      "title": "居家宠物互动与个人生活",
+      "type": "其他",
+      "participants": [
+        "主角",
+        "猫"
+      ],
+      "location": "住宅卧室/客厅或室内走廊底层/室内居家空间",
+      "description": "照片一：卧室床上，一只金渐层长毛猫在格纹床垫上靠近镜头。照片二：客厅瓷砖地面上，一只长毛黑猫静止。照片三：【主角】坐姿，穿着黑色亮片竖条纹长裤，脚穿运动鞋，旁边有浅蓝色垃圾桶。画面有俯拍、平拍和第一人称视角。",
+      "photo_count": 3,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "爱护宠物",
+          "享受居家生活",
+          "注重个人形象和穿着",
+          "有外出社交的可能性"
+        ],
+        "aesthetic": [
+          "喜欢带有装饰感的服饰",
+          "对家居环境有一定要求"
+        ],
+        "socioeconomic": [
+          "中等消费能力"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_018",
+      "date": "2026-01-18",
+      "time_range": "15:45 - 15:46",
+      "duration": "",
+      "title": "居家宠物互动与个人习惯",
+      "type": "其他",
+      "participants": [
+        "主角",
+        "猫"
+      ],
+      "location": "住宅内部/室内",
+      "description": "照片一：粉色绒毯上，一只黑毛长毛猫，背景有书籍（《信息技术基础》）和烟盒（黄鹤楼、南京）。照片二：浅米色瓷砖地面，一只黑色长毛猫动态特写。照片三：黑色长毛猫面部特写，琥珀色眼睛。照片四：长毛黑猫靠近镜头。照片五：黑白长毛猫看着镜头，背景有雏菊和黄叶图案织物。画面多为近摄或俯拍。",
+      "photo_count": 5,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "爱护宠物",
+          "观察力强",
+          "有阅读习惯",
+          "有吸烟习惯",
+          "享受居家宁静与随意"
+        ],
+        "aesthetic": [
+          "喜欢舒适的家居环境",
+          "对宠物有细腻的审美"
+        ],
+        "socioeconomic": [
+          "中等消费水平"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_019",
+      "date": "2026-01-19",
+      "time_range": "12:28 - 12:11",
+      "duration": "",
+      "title": "忙碌生活中的精致与科技",
+      "type": "其他",
+      "participants": [
+        "主角",
+        "Person_001"
+      ],
+      "location": "办公区域或居家环境中的餐桌/室内居住空间或工作室/美甲店或生活空间室内/室内办公或书桌区域",
+      "description": "照片一：木纹桌面，一个圆形铝箔餐盒内有烤肠、煎藕饼、鱼丸、西兰花等。照片二：Person_001手部特写，向上伸展，展示长尖锥形美甲，配色红与银。照片三：Person_001美甲特写，背景小红书水印。照片四：木纹桌面上，一个微型热敏打印纸卷。画面均为俯拍或特写。",
+      "photo_count": 4,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "快节奏生活",
+          "依赖外卖",
+          "注重个人形象和精致感",
+          "有制作或使用小科技产品的需求",
+          "活跃于社交媒体"
+        ],
+        "aesthetic": [
+          "偏好华丽、个性的美甲风格",
+          "追求时尚"
+        ],
+        "socioeconomic": [
+          "中高消费能力（美甲）",
+          "职场人士/学生"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_020",
+      "date": "2026-02-27",
+      "time_range": "12:19 - 20:32",
+      "duration": "",
+      "title": "居家休闲与生活琐事",
+      "type": "其他",
+      "participants": [
+        "主角",
+        "猫",
+        "Person_001"
+      ],
+      "location": "卧室或居家休息区域/室内家居空间",
+      "description": "照片一：卧室格纹床单上，一只金渐层长毛猫卧睡。照片二：【主角】双脚穿着Hello Kitty浅蓝色凉拖和黑色亮片阔腿裤。照片三：Person_001（【主角】）右手按压白色“万利达”电热水壶开关，水壶放在浅色瓷砖地面上，无名指戴有银色戒指。画面包含近摄和俯拍。",
+      "photo_count": 3,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "爱护宠物",
+          "享受居家休闲",
+          "生活随性",
+          "可能有已婚或伴侣关系"
+        ],
+        "aesthetic": [
+          "偏好卡通可爱元素（Hello Kitty）",
+          "喜欢居家舒适穿搭"
+        ],
+        "socioeconomic": [
+          "可能居住在空间不大的住所"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_021",
+      "date": "2026-03-11",
+      "time_range": "12:10 - 12:10",
+      "duration": "",
+      "title": "台球娱乐与社交媒体反击",
+      "type": "其他",
+      "participants": [
+        "主角",
+        "Person_001",
+        "Person_002"
+      ],
+      "location": "台球俱乐部/室内台球室",
+      "description": "台球厅室内，绿色台球桌，【主角】（Person_001）右手持台球杆，食指与中指支撑，美甲为尖头长甲，酒红色与裸色跳色，有钻饰。背景Person_002在击球。画面叠加了社交媒体评论截图，内容涉及对美甲、家务、传统性别观念的指责，如“不做饭做家务”、“败家”等。画面为自拍视角。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "爱好台球",
+          "敢于自我表达与反击",
+          "不惧社会舆论",
+          "独立自主"
+        ],
+        "aesthetic": [
+          "偏好个性化、华丽的美甲风格",
+          "注重衣着（深蓝色卫衣）"
+        ],
+        "socioeconomic": [
+          "有娱乐消费能力",
+          "可能面临公众审视"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_022",
+      "date": "2026-03-11",
+      "time_range": "12:10 - 12:10",
+      "duration": "",
+      "title": "娱乐自拍与深夜独处",
+      "type": "其他",
+      "participants": [
+        "Person_002",
+        "主角"
+      ],
+      "location": "室内环境/私人卧室或暗室/室内私密空间",
+      "description": "照片一：Person_002（【主角】）单手托腮自拍，表情俏皮，有猫耳胡须AR滤镜和圆点遮罩。身穿深红色高领针织衫和米白色夹克，右手食指中指有红色长美甲。照片二：全暗室内，【主角】手部影子投射在笔记本电脑屏幕上，屏幕显示歌曲《如果幸福》歌词。照片三：【主角】（Person_002）使用手机自拍，有粉色蝴蝶结和珍珠耳饰AR滤镜，栗色中长发，深紫色针织上衣，有尖形美甲。画面均为自拍或第一人称视角。",
+      "photo_count": 3,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "追求潮流",
+          "活跃于社交媒体",
+          "注重个人形象",
+          "有深夜独处和音乐疗愈的习惯",
+          "可能存在忧郁情绪"
+        ],
+        "aesthetic": [
+          "偏好可爱、梦幻的AR滤镜",
+          "喜欢红色、尖锐的美甲",
+          "对穿搭有自我风格（克罗心风）",
+          "对音乐有品味"
+        ],
+        "socioeconomic": [
+          "拥有智能手机和电脑",
+          "消费观念偏向潮流时尚"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_023",
+      "date": "2026-03-11",
+      "time_range": "12:10 - 12:10",
+      "duration": "",
+      "title": "仪式感生活与居家自娱",
+      "type": "其他",
+      "participants": [
+        "主角",
+        "Person_001"
+      ],
+      "location": "小型餐饮店或甜点店/室内礼品收纳区或桌面/个人卧室",
+      "description": "照片一：原木色餐桌上，一束精美装饰花束，带“Happy every day”标签与LED灯串。照片二：透明塑料袋内有深色物品和粉色干花束，角落露出卡通熊卡片。照片三：【主角】（Person_001）戴米菲兔眼罩、圣诞帽和口罩，穿着卡通印花睡衣，面部被虚化元素遮挡，躺在床上。画面为近摄或俯拍。",
+      "photo_count": 3,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "注重生活仪式感",
+          "享受居家生活",
+          "有自娱自乐的精神",
+          "可能在休息或病中"
+        ],
+        "aesthetic": [
+          "偏好精致的礼品包装",
+          "喜欢卡通形象（米菲兔、圣诞老人、卡通熊）"
+        ],
+        "socioeconomic": [
+          "有能力消费精美礼品"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_024",
+      "date": "2026-03-11",
+      "time_range": "12:11 - 12:11",
+      "duration": "",
+      "title": "个人护理用品管理",
+      "type": "其他",
+      "participants": [
+        "主角"
+      ],
+      "location": "家庭卫浴/洗漱区/卫浴/浴室",
+      "description": "照片一：白色塑料多层置物架，摆放紫色洗发水瓶和粉色乳液瓶（印有“佰草集”或类似字样），置物架角有“FASHION”贴纸。照片二：黑色金属置物架上，一个“KANS韩束”焕白紧致身体精华液瓶，旁边有粉色长条塑料刷具。画面为低视角近摄。",
+      "photo_count": 2,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "注重个人护理",
+          "有整理收纳习惯"
+        ],
+        "aesthetic": [
+          "对实用性与装饰性兼具的物品有偏好",
+          "关注护肤效果"
+        ],
+        "socioeconomic": [
+          "中等消费水平",
+          "偏好平价国产护肤品牌"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_025",
+      "date": "2026-03-11",
+      "time_range": "12:11 - 12:11",
+      "duration": "",
+      "title": "搞怪黑白自拍",
+      "type": "其他",
+      "participants": [
+        "主角",
+        "Person_004"
+      ],
+      "location": "室内某处白墙前",
+      "description": "黑白滤镜处理，纯白色背景墙。Person_004戴红色毛绒圣诞帽，穿黑色T恤，颈部有纹身，表情搞怪，双唇轻抿。画面为近景特写。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "活泼开朗",
+          "幽默感",
+          "追求个性化表达",
+          "有社交分享意图"
+        ],
+        "aesthetic": [
+          "喜欢搞怪、有趣的影像风格",
+          "对纹身等个性化元素有接受度"
+        ],
+        "socioeconomic": []
+      }
+    },
+    {
+      "event_id": "EVT_026",
+      "date": "2026-03-11",
+      "time_range": "12:11 - 12:11",
+      "duration": "",
+      "title": "古风影像艺术创作",
+      "type": "其他",
+      "participants": [
+        "主角",
+        "Person_006",
+        "Person_005"
+      ],
+      "location": "疑似横店影视城或宫廷式古建筑室内/北京故宫博物院",
+      "description": "照片一：朱红色圆形立柱背景，Person_006和Person_005身着深红色宫廷礼服，佩戴凤冠头饰，表情庄重。照片二：故宫回廊，金黄色夕阳余晖下，Person_006身着清代风格红色礼服，佩戴点翠金饰发冠，表情凝重。画面为近景特写或中景。",
+      "photo_count": 2,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "对传统文化有热情",
+          "爱好摄影",
+          "可能参与古风相关工作或艺术创作"
+        ],
+        "aesthetic": [
+          "欣赏古典美学",
+          "对服饰细节有敏锐度"
+        ],
+        "socioeconomic": [
+          "有能力参与专业的摄影活动或文化项目"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_027",
+      "date": "2026-03-11",
+      "time_range": "12:11 - 12:11",
+      "duration": "",
+      "title": "居家手工与个人护理",
+      "type": "其他",
+      "participants": [
+        "主角"
+      ],
+      "location": "卧室/私人卧室/居住空间/洗漱间或卧室区域",
+      "description": "照片一：蓝白格纹床单上放着黑色缎面丝带。照片二：粉白条纹织物上叠放着米白色蕾丝针织衫和黑色外套。照片三：白色织物上放着一支Opal澳宝一分钟焗油（225ml）。画面均为俯拍或近摄。",
+      "photo_count": 3,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "注重生活细节",
+          "爱好手作",
+          "有个人护理习惯"
+        ],
+        "aesthetic": [
+          "喜欢简约与功能性兼具的物品"
+        ],
+        "socioeconomic": [
+          "中等消费水平"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_028",
+      "date": "2026-03-11",
+      "time_range": "12:11 - 12:11",
+      "duration": "",
+      "title": "海边旅拍与亲密伴侣",
+      "type": "其他",
+      "participants": [
+        "Person_007",
+        "Person_008",
+        "Person_009",
+        "Person_010",
+        "主角"
+      ],
+      "location": "海边沙滩/某处海滨海滩",
+      "description": "照片一：海边夕阳，Person_007穿米白色连衣裙和遮阳帽，Person_008（戴眼镜）手持单反相机，两人互动。照片二：海滩夕阳下，Person_010弯腰捡贝壳，Person_009坐礁石望海。画面为中远景。",
+      "photo_count": 2,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "爱好旅行",
+          "享受自然风光",
+          "有摄影兴趣",
+          "与伴侣或朋友关系亲密"
+        ],
+        "aesthetic": [
+          "欣赏自然美景",
+          "对光影运用有意识"
+        ],
+        "socioeconomic": [
+          "有旅行消费能力"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_029",
+      "date": "2026-03-11",
+      "time_range": "12:11 - 12:11",
+      "duration": "",
+      "title": "草原骑马体验",
+      "type": "其他",
+      "participants": [
+        "Person_011",
+        "Person_012",
+        "主角"
+      ],
+      "location": "草原牧场景区 (室外)",
+      "description": "草原景区，Person_011和Person_012骑着棕色马匹并排前行，都穿着专业骑马靴，表情轻松愉悦。背景是浅绿色草甸和湛蓝天空。画面为侧拍视角。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "爱好户外运动",
+          "追求高品质休闲生活",
+          "乐于与朋友分享体验"
+        ],
+        "aesthetic": [
+          "对专业的运动装备有所投入"
+        ],
+        "socioeconomic": [
+          "有能力消费高端休闲活动"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_030",
+      "date": "2026-03-11",
+      "time_range": "12:11 - 12:11",
+      "duration": "",
+      "title": "个性物品与生活管理",
+      "type": "其他",
+      "participants": [
+        "主角"
+      ],
+      "location": "产品展示背景/私人卧室梳妆台区域/家庭书房或客厅/室内近窗区域",
+      "description": "照片一：纯白背景，定制黑色手机壳，印有白色石狮子图案和“Shellbridge & 石狮子”字样。照片二：【主角】手持透明隐形眼镜伴侣盒，背景是樱花卡通贴纸的抽屉柜。照片三：木质桌面放着紫色“SOOTHING FOR CATS SPRAY”猫咪安抚喷雾。照片四：【主角】手持Pinko黑色斜挎包，上面挂有粉色毛绒怪兽挂件（Labubu），背景模糊的夜间街景。画面均为特写或近摄。",
+      "photo_count": 4,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "追求个性化",
+          "购物有明确偏好",
+          "注重个人卫生与护理",
+          "关心宠物健康"
+        ],
+        "aesthetic": [
+          "偏好文创产品和潮流品牌",
+          "喜欢混搭风格（Pinko与潮玩）",
+          "对宠物用品有审美要求"
+        ],
+        "socioeconomic": [
+          "有能力消费潮流品牌和特色文创产品"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_031",
+      "date": "2026-03-11",
+      "time_range": "12:11 - 12:13",
+      "duration": "",
+      "title": "文化熏陶与数字生活挑战",
+      "type": "其他",
+      "participants": [
+        "主角",
+        "Person_015",
+        "Person_017",
+        "Person_019",
+        "Person_020",
+        "Person_001",
+        "Person_002",
+        "Person_003"
+      ],
+      "location": "北京天坛公园/虚拟数字空间/手机终端/数字化社交媒体终端/室内场所/移动设备屏幕内",
+      "description": "照片一：天坛祈年殿局部，前景有柏树枝叶。照片二：支付宝芝麻分集分活动页面，目标2026分，【主角】638分。照片三：抖音App界面，显示@糕冷猪佩琪的短视频。照片四：手机屏幕，豆包AI聊天界面，讨论网暴、信息泄露。照片五：豆包AI搜索微信自动退出问题。照片六：手机屏幕，美团外卖订单，收货人陈美伊，地址中山首府。照片七：手机屏幕，网易云音乐“2025年度音乐四格”，用户_小陈。照片八：和平精英游戏结算界面，小天使仙蒂qe夺冠。照片九：和平精英游戏虚拟场景，小天使仙蒂qe与摩天轮城堡。照片十：和平精英游戏颁奖仪式。画面为仰视、截屏、俯拍等多种视角。",
+      "photo_count": 10,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "热爱传统文化",
+          "高度数字化生活",
+          "积极参与社交裂变活动",
+          "热爱游戏",
+          "可能面临网络纠纷或困扰",
+          "关注个人隐私和信息安全"
+        ],
+        "aesthetic": [
+          "对中国古典建筑有审美",
+          "对游戏角色定制有偏好"
+        ],
+        "socioeconomic": [
+          "城市居民",
+          "有智能手机和移动支付习惯",
+          "中等消费水平"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_032",
+      "date": "2026-03-11",
+      "time_range": "12:11 - 12:13",
+      "duration": "",
+      "title": "时尚穿搭与社交生活",
+      "type": "其他",
+      "participants": [
+        "主角",
+        "Person_016",
+        "Person_001",
+        "Person_017"
+      ],
+      "location": "室内试衣间或卧室/移动设备屏幕内部/室内场所/私人卧室/移动设备屏幕内部",
+      "description": "照片一：Person_016（【主角】）在全身镜前自拍，穿黑白条纹高领针织衫、超短裙、黑长袜，手机屏幕有淘宝商品信息浮窗。照片二：微信聊天界面，Person_001头像戴Hello Kitty发箍，讨论隐私泄露问题。照片三：【主角】（Person_001）穿浅蓝色礼服裙和白色长手套，手持手机操作微信，背景砖石墙。照片四：手机屏幕，民宿预订App，小喜宅88民宿，显示陈美伊入住信息。照片五：手机屏幕，美团外卖订单，收货人陈美伊，地址中山首府。照片六：手机屏幕显示《甄嬛传》片段，有粉色蝴蝶结虚拟贴纸，状态栏显示BOSS直聘等App图标。画面多为自拍、截屏。",
+      "photo_count": 6,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "注重时尚穿搭",
+          "活跃于社交媒体分享",
+          "关注个人隐私",
+          "有旅行/外出计划",
+          "依赖外卖",
+          "爱好观影"
+        ],
+        "aesthetic": [
+          "偏好时尚品牌（CCHUN）、可爱卡通（Hello Kitty），日系甜美风格"
+        ],
+        "socioeconomic": [
+          "中高消费能力",
+          "城市居民，有出行和外卖需求",
+          "可能从事与时尚相关职业或为网红/博主"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_033",
+      "date": "2026-03-11",
+      "time_range": "12:12 - 12:12",
+      "duration": "",
+      "title": "传统手工艺创作与品鉴",
+      "type": "其他",
+      "participants": [
+        "主角"
+      ],
+      "location": "织造工作室或手工艺体验馆/室内工作室或工艺品制作区/室内环境",
+      "description": "照片一：木质织布机，白色经线，四枚木梭，彩色丝线球，图纸。照片二：木质桌面，平铺13个手绘蓝色图案的白色纸盘。照片三：礼盒内一件织锦抽绳香囊，拼色图案（灰藕色、勃艮第红、藏青色、奶白色），有流苏。画面均为俯拍。",
+      "photo_count": 3,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "对传统手工艺有浓厚兴趣",
+          "有艺术创作能力",
+          "专注细节",
+          "有耐心"
+        ],
+        "aesthetic": [
+          "欣赏传统纹样与图案",
+          "对色彩敏感",
+          "对精致手工艺品有偏好"
+        ],
+        "socioeconomic": [
+          "可能从事艺术相关行业或为爱好者"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_034",
+      "date": "2026-03-11",
+      "time_range": "12:12 - 12:12",
+      "duration": "",
+      "title": "古典文学阅读与精致细节",
+      "type": "其他",
+      "participants": [
+        "主角",
+        "Person_001"
+      ],
+      "location": "室内阅读空间",
+      "description": "木质桌面，【主角】（Person_001）手持查尔斯·狄更斯的《双城记》，中指佩戴一枚镶有乳白色椭圆形宝石的镂空雕花金属戒指，手部有极长长锥形美甲，配色红与透明裸色，饰有细钻。页面显示章节“The Footsteps of Fate”。画面为近摄。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "热爱阅读",
+          "对古典文学有兴趣",
+          "注重个人形象和细节",
+          "生活有仪式感"
+        ],
+        "aesthetic": [
+          "偏好华丽、戏剧性的美甲风格",
+          "欣赏宝石和金属饰品",
+          "对古典书籍装帧有审美"
+        ],
+        "socioeconomic": [
+          "有能力消费高品质书籍和美容服务"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_035",
+      "date": "2026-03-11",
+      "time_range": "12:12 - 12:13",
+      "duration": "",
+      "title": "网络焦虑与居家日常",
+      "type": "其他",
+      "participants": [
+        "主角"
+      ],
+      "location": "移动设备数字空间/室内/室内居所/移动设备屏幕内部",
+      "description": "照片一：手机屏幕，豆包AI对话，咨询网暴、信息泄露及警方问询对策。照片二：手机屏幕，豆包AI搜索微信退出技术解析。照片三：手机屏幕，抖音App，播放宠物猫视频，ID定州英姐。照片四：手机屏幕，天气App，显示定州大雾，-5℃。照片五：手机屏幕，微信群聊“中山首府社区居民3群”，【主角】输入“谁家有小猫送我”，键盘皮肤是粉色星球卡通主题。画面均为手机截屏。",
+      "photo_count": 5,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "关注网络安全",
+          "可能面临网络暴力或纠纷",
+          "爱宠物，有领养意愿",
+          "注重生活实用信息",
+          "活跃于社交媒体和社群"
+        ],
+        "aesthetic": [
+          "偏好卡通可爱风格的手机界面主题（粉色星球键盘）"
+        ],
+        "socioeconomic": [
+          "城市居民",
+          "有智能手机使用习惯"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_036",
+      "date": "2026-03-11",
+      "time_range": "12:13 - 12:13",
+      "duration": "",
+      "title": "职业探索与时尚穿搭",
+      "type": "其他",
+      "participants": [
+        "主角",
+        "Person_021",
+        "Person_001"
+      ],
+      "location": "服装加工车间/私人卧室/疑似摄影棚或特定风格主题馆",
+      "description": "照片一：服装加工车间，Person_021身穿同款米色和黑色针织长裙，并排展示。照片二：【主角】（Person_001）在卧室镜前自拍，穿黑色长袖连衣裙、珍珠细腰带、白色毛绒护腿套，旁边有行李箱。照片三：手机微信聊天界面，与“时间的日记本”讨论试岗，背景是Person_001（穿蓝色礼服裙）的背影。画面包含中景和自拍。",
+      "photo_count": 3,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "积极求职/兼职",
+          "注重职业形象",
+          "对时尚穿搭有心得",
+          "可能从事与服装或时尚相关的行业"
+        ],
+        "aesthetic": [
+          "偏好日系甜美或复古通勤风格",
+          "对Cosplay有兴趣",
+          "对服装细节有要求"
+        ],
+        "socioeconomic": [
+          "青年学生或初入职场人士",
+          "有较强的向上流动意愿"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_037",
+      "date": "2026-03-11",
+      "time_range": "12:13 - 12:13",
+      "duration": "",
+      "title": "时尚与传统艺术品鉴",
+      "type": "其他",
+      "participants": [
+        "主角",
+        "Person_022"
+      ],
+      "location": "室内拍摄空间/室内书房或展示空间/具有中式审美风格的室内空间",
+      "description": "照片一：Person_022身穿黑色蕾丝拼接裙，双手向两侧舒展，背景是极简主义墙面。照片二：红木桌面上平铺着蓝色丝绸织锦，图案有仙鹤、牡丹。照片三：案桌上摆放中式传统刺绣屏风，主题是青绿山水，背景有竹叶。画面包含中景和俯拍。",
+      "photo_count": 3,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "对时尚与艺术有广泛兴趣",
+          "有审美鉴赏力",
+          "注重细节和表现力"
+        ],
+        "aesthetic": [
+          "偏好轻熟优雅的穿搭风格",
+          "欣赏中式传统艺术的精致与文化内涵"
+        ],
+        "socioeconomic": [
+          "有能力消费艺术品或从事艺术相关工作"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_038",
+      "date": "2026-03-11",
+      "time_range": "12:13 - 12:13",
+      "duration": "",
+      "title": "可爱表达与健康实况",
+      "type": "其他",
+      "participants": [
+        "主角",
+        "Person_023",
+        "Person_001"
+      ],
+      "location": "虚拟数字空间/插画场景/室内拍摄空间/居家或摄影棚/室内近景自拍区/数字屏幕/社交媒体界面/家庭住所或室内医疗护理区",
+      "description": "照片一：数字插画，卡通熊手持心形卡片，配爱意符号。照片二：Person_023穿萝莉风格服装，戴眼镜，手捧黑色卡通猫咪挂饰。照片三：【主角】（Person_001）戴眼镜，穿波点吊带，手持黑色Kitty挂件遮挡口鼻自拍。照片四：数字插画，Hello Kitty拿着披萨，水印“今天披萨了吗”。照片五：连花清瘟胶囊药盒特写。画面包含数字内容、近摄和自拍。",
+      "photo_count": 5,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "情感表达欲强",
+          "利用数字内容互动",
+          "对可爱元素有强烈偏好",
+          "在健康问题面前务实"
+        ],
+        "aesthetic": [
+          "偏好日系萝莉/软妹风格",
+          "喜欢卡通形象（Hello Kitty、卡通猫咪）"
+        ],
+        "socioeconomic": [
+          "中等消费水平",
+          "关注个人健康"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_039",
+      "date": "2026-03-11",
+      "time_range": "12:13 - 12:13",
+      "duration": "",
+      "title": "偶像周边收藏展示",
+      "type": "其他",
+      "participants": [
+        "主角"
+      ],
+      "location": "私人室内空间",
+      "description": "浅粉色心形图案背景布上，左侧亮紫色灯光的EXO应援棒在包装盒内，右侧白色应援棒在灰色硬壳收纳包中。画面为俯拍。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "追星",
+          "对偶像周边有收藏习惯",
+          "有热情和投入"
+        ],
+        "aesthetic": [
+          "偏好偶像周边设计"
+        ],
+        "socioeconomic": [
+          "有娱乐消费能力"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_040",
+      "date": "2026-03-11",
+      "time_range": "12:13 - 12:13",
+      "duration": "",
+      "title": "音乐回顾与居家伴侣",
+      "type": "其他",
+      "participants": [
+        "主角",
+        "Person_001"
+      ],
+      "location": "数字化社交媒体界面/私人住宅卧室/室内（桌面空间）",
+      "description": "照片一：手机屏幕，网易云音乐“2025年度音乐四格”报告，用户‘_小陈’，年度歌曲汪苏泷《跳楼机》，听歌9759分钟，显示使用8年。照片二：卧室双人床，Person_001（男性）侧卧休息，背对镜头，穿黑色运动卫衣。照片三：灰色磨砂桌面，摆放Dole果汁软糖（草莓/蓝莓味，含益生菌、叶黄素酯）和小橘干。画面包含截屏和俯拍。",
+      "photo_count": 3,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "听歌习惯稳定且持久",
+          "享受居家二人世界",
+          "注重健康饮食"
+        ],
+        "aesthetic": [
+          "对音乐有特定品味",
+          "家居生活温馨"
+        ],
+        "socioeconomic": [
+          "长期使用数字音乐服务",
+          "有稳定的关系和生活"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_041",
+      "date": "2026-03-11",
+      "time_range": "12:13 - 12:13",
+      "duration": "",
+      "title": "专业工作与数字工具管理",
+      "type": "其他",
+      "participants": [
+        "主角"
+      ],
+      "location": "室内办公空间或个人学习区/室内（桌面空间）",
+      "description": "照片一：笔记本电脑屏幕显示会议软件界面，有“成员(7)”，【主角】手指指向“zty”头像。照片二：笔记本电脑屏幕显示360安全卫士进行系统体检，桌面有AutoCAD 2021、Adobe Premiere、Adobe Photoshop等软件图标。画面均为近摄。",
+      "photo_count": 2,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "工作/学习认真",
+          "注重数字工具维护",
+          "有团队协作习惯"
+        ],
+        "aesthetic": [
+          "桌面整理有序"
+        ],
+        "socioeconomic": [
+          "专业人士或学生",
+          "可能从事工程、设计等行业"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_042",
+      "date": "2026-03-11",
+      "time_range": "12:13 - 12:13",
+      "duration": "",
+      "title": "动物情缘与精致生活",
+      "type": "其他",
+      "participants": [
+        "主角",
+        "猫"
+      ],
+      "location": "户外公共空间/或路边台阶/户外公共空间/住宅卧室/私人住宅卧室",
+      "description": "照片一：户外台阶上，一只橘猫慵懒晒太阳。照片二：【主角】左手特写，展示长尖形美甲，琥珀红透色与裸色拼接，中指有大颗粒花型水钻。背景模糊户外城市质感。照片三：卧室床上，橘色长毛猫依偎在【主角】腿部。照片四：卧室床上，长毛橘猫紧贴【主角】身体休息。画面包含近摄、特写和俯拍。",
+      "photo_count": 4,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "爱护动物",
+          "观察力强",
+          "注重个人形象和精致感",
+          "享受居家慵懒与宠物伴侣关系"
+        ],
+        "aesthetic": [
+          "偏好华丽、个性化的美甲风格",
+          "喜欢温馨舒适的家居环境"
+        ],
+        "socioeconomic": [
+          "有能力进行高消费美容项目",
+          "生活惬意，有闲暇时间"
+        ]
+      }
+    }
+  ],
+  "relationships": [],
+  "face_db": {
+    "Person_001": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2025-12-26T08:10:29",
+      "last_seen": "2025-12-26T08:10:29",
+      "avg_confidence": 0.7050547003746033
+    },
+    "Person_002": {
+      "name": "Primary",
+      "photo_count": 8,
+      "first_seen": "2025-12-26T08:36:02",
+      "last_seen": "2026-03-11T12:10:58",
+      "avg_confidence": 0.8103235438466072
+    },
+    "Person_003": {
+      "name": "Person",
+      "photo_count": 3,
+      "first_seen": "2026-03-11T12:10:56",
+      "last_seen": "2026-03-11T12:10:58",
+      "avg_confidence": 0.7878875732421875
+    },
+    "Person_004": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T12:10:59",
+      "last_seen": "2026-03-11T12:10:59",
+      "avg_confidence": 0.8120403289794922
+    },
+    "Person_005": {
+      "name": "Person",
+      "photo_count": 2,
+      "first_seen": "2026-03-11T12:11:00",
+      "last_seen": "2026-03-11T12:13:03",
+      "avg_confidence": 0.8396888077259064
+    },
+    "Person_006": {
+      "name": "Person",
+      "photo_count": 3,
+      "first_seen": "2026-03-11T12:11:00",
+      "last_seen": "2026-03-11T12:13:03",
+      "avg_confidence": 0.8207793533802032
+    },
+    "Person_007": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T12:11:02",
+      "last_seen": "2026-03-11T12:11:02",
+      "avg_confidence": 0.8531777858734131
+    },
+    "Person_008": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T12:11:02",
+      "last_seen": "2026-03-11T12:11:02",
+      "avg_confidence": 0.6364201903343201
+    },
+    "Person_009": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T12:11:02",
+      "last_seen": "2026-03-11T12:11:02",
+      "avg_confidence": 0.7877751588821411
+    },
+    "Person_010": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T12:11:02",
+      "last_seen": "2026-03-11T12:11:02",
+      "avg_confidence": 0.7399280071258545
+    },
+    "Person_011": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T12:11:02",
+      "last_seen": "2026-03-11T12:11:02",
+      "avg_confidence": 0.883608341217041
+    },
+    "Person_012": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T12:11:02",
+      "last_seen": "2026-03-11T12:11:02",
+      "avg_confidence": 0.8776499629020691
+    },
+    "Person_013": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T12:11:04",
+      "last_seen": "2026-03-11T12:11:04",
+      "avg_confidence": 0.8875581622123718
+    },
+    "Person_014": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T12:11:04",
+      "last_seen": "2026-03-11T12:11:04",
+      "avg_confidence": 0.8541127443313599
+    },
+    "Person_015": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T12:11:04",
+      "last_seen": "2026-03-11T12:11:04",
+      "avg_confidence": 0.8854517936706543
+    },
+    "Person_016": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T12:11:05",
+      "last_seen": "2026-03-11T12:11:05",
+      "avg_confidence": 0.8531839582655165
+    },
+    "Person_017": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T12:13:02",
+      "last_seen": "2026-03-11T12:13:02",
+      "avg_confidence": 0.9024906754493713
+    },
+    "Person_018": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T12:13:04",
+      "last_seen": "2026-03-11T12:13:04",
+      "avg_confidence": 0.7666666507720947
+    },
+    "Person_019": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T12:13:04",
+      "last_seen": "2026-03-11T12:13:04",
+      "avg_confidence": 0.7765054702758789
+    },
+    "Person_020": {
+      "name": "Person",
+      "photo_count": 2,
+      "first_seen": "2026-03-11T12:13:13",
+      "last_seen": "2026-03-11T12:13:36",
+      "avg_confidence": 0.8668642044067383
+    },
+    "Person_021": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T12:13:14",
+      "last_seen": "2026-03-11T12:13:14",
+      "avg_confidence": 0.8210461437702179
+    },
+    "Person_022": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T12:13:16",
+      "last_seen": "2026-03-11T12:13:16",
+      "avg_confidence": 0.6587949991226196
+    },
+    "Person_023": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T12:13:22",
+      "last_seen": "2026-03-11T12:13:22",
+      "avg_confidence": 0.7682294249534607
+    },
+    "Person_024": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T12:13:36",
+      "last_seen": "2026-03-11T12:13:36",
+      "avg_confidence": 0.8170385360717773
+    }
+  }
+}

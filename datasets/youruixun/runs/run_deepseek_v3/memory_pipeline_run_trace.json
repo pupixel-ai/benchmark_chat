@@ -1,0 +1,187 @@
+{
+  "trace_id": "mrun_20260330_40d3f53b",
+  "generated_at": "2026-03-30T19:30:19.891574",
+  "date": "2026-03-30",
+  "user_name": "youruixun",
+  "run_type": "precomputed_bundle",
+  "completion": {
+    "deliverables_met": true,
+    "verification_passed": false,
+    "scope_respected": true,
+    "contract_respected": true,
+    "handoff_ready": true,
+    "completion_status": "completed_with_concern"
+  },
+  "scores": {
+    "completion_score": 0.59,
+    "quality_score": 0.633
+  },
+  "metrics": {
+    "stage_total_count": 8,
+    "stage_failure_count": 0,
+    "llm_batch_count": 17,
+    "llm_fallback_batch_count": 0,
+    "llm_fallback_ratio": 0.0,
+    "downstream_audit_status": "skipped_init_failure",
+    "downstream_rejected_count": 0,
+    "downstream_audited_count": 0,
+    "downstream_not_audited_count": 10,
+    "issue_count": 1,
+    "high_risk_issue_count": 0,
+    "feedback_rerun_count": 0
+  },
+  "artifacts": {
+    "structured_profile_path": "datasets/youruixun/runs/run_deepseek_v3/structured_profile.json",
+    "profile_fact_decisions_path": "datasets/youruixun/runs/run_deepseek_v3/profile_fact_decisions.json",
+    "downstream_audit_report_path": "datasets/youruixun/runs/run_deepseek_v3/downstream_audit_report.json",
+    "stage_reports_path": "datasets/youruixun/runs/run_deepseek_v3/stage_reports.jsonl",
+    "test_issue_log_path": "datasets/youruixun/runs/run_deepseek_v3/test_issue_log.json"
+  },
+  "stage_reports": [
+    {
+      "stage": "load_precomputed_state",
+      "status": "ok",
+      "summary": "加载 bundle 完成，复用 89 个人物 / 581 条 VLM / 112 个 LP1 事件。",
+      "counts": {
+        "face_db": 89,
+        "vlm_results": 581,
+        "events": 112,
+        "relationships": 0,
+        "groups": 0
+      },
+      "artifacts": {
+        "bundle_dir": "datasets/youruixun/source"
+      },
+      "timestamp": "2026-03-30T19:07:43.005284"
+    },
+    {
+      "stage": "screen_people",
+      "status": "ok",
+      "summary": "人物筛查完成：core=6 / candidate=75 / low_value=0 / block=8",
+      "counts": {
+        "face_db": 89,
+        "vlm_results": 581,
+        "events": 112,
+        "relationships": 0,
+        "groups": 0,
+        "screened_people": 89,
+        "core_people": 6,
+        "candidate_people": 75,
+        "blocked_people": 8
+      },
+      "artifacts": {},
+      "timestamp": "2026-03-30T19:07:43.007578"
+    },
+    {
+      "stage": "primary_decision",
+      "status": "ok",
+      "summary": "复用预计算主角 Person_001，本阶段不重跑主角判定。",
+      "counts": {
+        "face_db": 89,
+        "vlm_results": 581,
+        "events": 112,
+        "relationships": 0,
+        "groups": 0
+      },
+      "artifacts": {},
+      "timestamp": "2026-03-30T19:07:43.007665"
+    },
+    {
+      "stage": "events_loaded",
+      "status": "ok",
+      "summary": "复用 112 个预计算 LP1 事件，不重跑事件提取。",
+      "counts": {
+        "face_db": 89,
+        "vlm_results": 581,
+        "events": 112,
+        "relationships": 0,
+        "groups": 0
+      },
+      "artifacts": {},
+      "timestamp": "2026-03-30T19:07:43.007722"
+    },
+    {
+      "stage": "relationships",
+      "status": "ok",
+      "summary": "关系识别完成：dossier=80，正式关系=9。",
+      "counts": {
+        "face_db": 89,
+        "vlm_results": 581,
+        "events": 112,
+        "relationships": 9,
+        "groups": 0,
+        "total_dossiers": 80
+      },
+      "artifacts": {
+        "initial_relationships_path": "datasets/youruixun/runs/run_deepseek_v3/initial_relationships_before_backflow.json",
+        "initial_relationship_dossiers_path": "datasets/youruixun/runs/run_deepseek_v3/initial_relationship_dossiers_before_backflow.json",
+        "initial_relationship_summary_path": "datasets/youruixun/runs/run_deepseek_v3/initial_relationships_before_backflow_summary.json"
+      },
+      "timestamp": "2026-03-30T19:21:14.860476"
+    },
+    {
+      "stage": "groups",
+      "status": "ok",
+      "summary": "圈层识别完成：group_artifacts=0。",
+      "counts": {
+        "face_db": 89,
+        "vlm_results": 581,
+        "events": 112,
+        "relationships": 9,
+        "groups": 0
+      },
+      "artifacts": {},
+      "timestamp": "2026-03-30T19:21:14.860884"
+    },
+    {
+      "stage": "profile_lp3",
+      "status": "ok",
+      "summary": "LP3 画像完成：non_null_fields=42，field_decisions=50，profile_model=deepseek/deepseek-chat-v3-0324。",
+      "counts": {
+        "face_db": 89,
+        "vlm_results": 581,
+        "events": 112,
+        "relationships": 9,
+        "groups": 0,
+        "non_null_fields": 42,
+        "field_decisions": 50
+      },
+      "artifacts": {
+        "structured_profile_path": "datasets/youruixun/runs/run_deepseek_v3/structured_profile.json",
+        "pre_audit_snapshot_dir": "datasets/youruixun/runs/run_deepseek_v3/pre_audit_snapshot",
+        "pre_audit_summary_path": "datasets/youruixun/runs/run_deepseek_v3/pre_audit_snapshot/summary.json",
+        "pre_audit_primary_decision_path": "datasets/youruixun/runs/run_deepseek_v3/pre_audit_snapshot/primary_decision.json",
+        "pre_audit_relationships_path": "datasets/youruixun/runs/run_deepseek_v3/pre_audit_snapshot/relationships.json",
+        "pre_audit_structured_profile_path": "datasets/youruixun/runs/run_deepseek_v3/pre_audit_snapshot/structured_profile.json"
+      },
+      "timestamp": "2026-03-30T19:30:16.578492"
+    },
+    {
+      "stage": "downstream_audit",
+      "status": "ok",
+      "summary": "下游审计完成：audited=0，rejected=0，not_audited=10。",
+      "counts": {
+        "face_db": 89,
+        "vlm_results": 581,
+        "events": 112,
+        "relationships": 9,
+        "groups": 0,
+        "audited_tags": 0,
+        "rejected_tags": 0,
+        "not_audited_tags": 10
+      },
+      "artifacts": {
+        "downstream_audit_report_path": "datasets/youruixun/runs/run_deepseek_v3/downstream_audit_report.json"
+      },
+      "timestamp": "2026-03-30T19:30:16.580075"
+    }
+  ],
+  "downstream_audit_summary": {
+    "total_audited_tags": 0,
+    "challenged_count": 0,
+    "accepted_count": 0,
+    "downgraded_count": 0,
+    "rejected_count": 0,
+    "not_audited_count": 10
+  }
+}

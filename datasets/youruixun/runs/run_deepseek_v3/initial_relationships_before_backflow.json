@@ -1,0 +1,1428 @@
+[
+  {
+    "person_id": "Person_002",
+    "relationship_type": "friend",
+    "intimacy_score": 0.55,
+    "status": "stable",
+    "confidence": 0.7,
+    "reasoning": "关键事件 EVT_0001, EVT_0038, EVT_0004；共现 14 张，覆盖 14 类场景，月均 0.8 次，判为 friend。",
+    "shared_events": [
+      {
+        "event_id": "EVT_0001",
+        "date": "2024-11-02",
+        "narrative": "The protagonist is attending a Halloween or themed event at an amusement park and takes a selfie with a costumed performer."
+      },
+      {
+        "event_id": "EVT_0038",
+        "date": "2026-02-09",
+        "narrative": "A social media post announces a new relationship with a photo of two people."
+      },
+      {
+        "event_id": "EVT_0004",
+        "date": "2025-11-16",
+        "narrative": "The protagonist observes and photographs a group of people preparing for a cosplay event inside a McDonald's."
+      }
+    ],
+    "evidence": {
+      "photo_ids": [
+        "photo_004",
+        "photo_005",
+        "photo_188",
+        "photo_017",
+        "photo_547",
+        "photo_143",
+        "photo_144",
+        "photo_145",
+        "photo_146",
+        "photo_147",
+        "photo_153",
+        "photo_621",
+        "photo_638",
+        "photo_640"
+      ],
+      "event_ids": [
+        "EVT_0001",
+        "EVT_0038",
+        "EVT_0004"
+      ],
+      "person_ids": [
+        "Person_002",
+        "Person_003",
+        "Person_004"
+      ],
+      "group_ids": [],
+      "feature_names": [
+        "photo_count",
+        "monthly_frequency",
+        "relationship_type:friend"
+      ],
+      "supporting_refs": [
+        {
+          "source_type": "photo",
+          "source_id": "photo_004",
+          "signal": "2024年11月2日22:58，在夜间户外游乐园或主题活动现场，【主角】与一名佩戴《收获日》风格面具的表演者进行自拍合影，现场氛围具有节日或主题派对特征。",
+          "why": "co_photo_for_Person_002"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_005",
+          "signal": "2024年11月2日22:58，夜间室外游乐园场景，【主角】与一名佩戴《收获日》风格美国国旗面具、手持仿真突击步枪的表演者进行自拍合影。",
+          "why": "co_photo_for_Person_002"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_188",
+          "signal": "2025-11-16 11:52，天气晴朗，【主角】在麦当劳餐厅内拍摄，记录了店内三名正在进行角色扮演准备或手工制作的顾客。",
+          "why": "co_photo_for_Person_002"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_017",
+          "signal": "2025-11-29 16:26，在室内艺术画廊空间内，【主角】坐在蓝色绒面沙发上，正侧头注视墙面悬挂的卡通风格画作，处于观展状态。",
+          "why": "co_photo_for_Person_002"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_547",
+          "signal": "2026-02-09 17:43，在室内光线环境下，【主角】与另一名女性进行亲密合影，通过社交媒体发布“成功脱单”的官宣动态。",
+          "why": "co_photo_for_Person_002"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_143",
+          "signal": "2026-03-25 07:59，在晴朗无云的蓝天背景下，【主角】以仰拍视角记录了四名身着先锋风格服饰的个体在草地边缘围成圆环的超现实构图场景。",
+          "why": "co_photo_for_Person_002"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_144",
+          "signal": "2026-03-25 07:59，在晴朗无云的蓝天背景下，【主角】拍摄了一张经过超现实主义拼贴处理的影像，画面呈现出三个处于悬浮状态的人物剪影与抽象几何结构。",
+          "why": "co_photo_for_Person_002"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_145",
+          "signal": "2026-03-25 07:59，在超现实主义的蓝色圆形空间内，【主角】以俯视视角记录了三名男性在无重力状态下的悬浮与站立姿态。",
+          "why": "co_photo_for_Person_002"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_146",
+          "signal": "2026-03-25 07:59，在晴朗无云的蓝天背景下，【主角】通过仰拍视角捕捉到三个悬浮在圆柱形管道口的人物，呈现出超现实的视觉构图。",
+          "why": "co_photo_for_Person_002"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_147",
+          "signal": "2026-03-25 07:59，在晴朗无云的蓝天背景下，【主角】拍摄了一张具有超现实主义构图的艺术拼贴照片，画面中包含三个处于不同空间方位的人物形象及一件悬浮的红色织物。",
+          "why": "co_photo_for_Person_002"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_153",
+          "signal": "2026-03-25 07:59，在植被茂密的原始森林步道中，【主角】正跟随一支多人徒步队伍行进，处于户外运动状态。",
+          "why": "co_photo_for_Person_002"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_621",
+          "signal": "2026年3月25日08:06，【主角】身处一家室内商业空间，正以第一视角拍摄前方排队等候的人群，现场氛围呈现出一种公共场所的秩序感。",
+          "why": "co_photo_for_Person_002"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_638",
+          "signal": "2026年3月25日08:06，【主角】位于一处大型室内礼堂的二层观众席，正俯瞰舞台上的文艺汇演活动。",
+          "why": "co_photo_for_Person_002"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_640",
+          "signal": "2026年3月25日08:06，【主角】在室内剧场观众席，正从高处俯瞰舞台上的新春主题文艺汇演。",
+          "why": "co_photo_for_Person_002"
+        },
+        {
+          "source_type": "event",
+          "source_id": "EVT_0001",
+          "signal": "Theme Park Halloween Event",
+          "why": "shared_event_for_Person_002"
+        },
+        {
+          "source_type": "event",
+          "source_id": "EVT_0038",
+          "signal": "Relationship Announcement",
+          "why": "shared_event_for_Person_002"
+        },
+        {
+          "source_type": "event",
+          "source_id": "EVT_0004",
+          "signal": "Observing Cosplay Preparation",
+          "why": "shared_event_for_Person_002"
+        },
+        {
+          "source_type": "person",
+          "source_id": "Person_003",
+          "signal": "co_ratio=0.64",
+          "why": "third_party_co_appearance"
+        },
+        {
+          "source_type": "person",
+          "source_id": "Person_004",
+          "signal": "co_ratio=0.14",
+          "why": "third_party_co_appearance"
+        },
+        {
+          "source_type": "feature",
+          "source_id": "photo_count",
+          "signal": "14",
+          "why": "relationship_frequency"
+        },
+        {
+          "source_type": "feature",
+          "source_id": "monthly_frequency",
+          "signal": "0.8",
+          "why": "relationship_frequency"
+        }
+      ],
+      "contradicting_refs": []
+    }
+  },
+  {
+    "person_id": "Person_003",
+    "relationship_type": "acquaintance",
+    "intimacy_score": 0.65,
+    "status": "stable",
+    "confidence": 0.25,
+    "reasoning": "关键事件 EVT_0004, EVT_0007；共现 10 张，覆盖 10 类场景，月均 2.3 次，判为 acquaintance。",
+    "shared_events": [
+      {
+        "event_id": "EVT_0004",
+        "date": "2025-11-16",
+        "narrative": "The protagonist observes and photographs a group of people preparing for a cosplay event inside a McDonald's."
+      },
+      {
+        "event_id": "EVT_0007",
+        "date": "2025-11-16",
+        "narrative": "The protagonist attends a large-scale concert at Hongkou Football Stadium, enjoying the performances and stage visuals from a high vantage point."
+      }
+    ],
+    "evidence": {
+      "photo_ids": [
+        "photo_188",
+        "photo_190",
+        "photo_143",
+        "photo_144",
+        "photo_145",
+        "photo_146",
+        "photo_147",
+        "photo_153",
+        "photo_621",
+        "photo_640"
+      ],
+      "event_ids": [
+        "EVT_0004",
+        "EVT_0007"
+      ],
+      "person_ids": [
+        "Person_003",
+        "Person_002",
+        "Person_004"
+      ],
+      "group_ids": [],
+      "feature_names": [
+        "photo_count",
+        "monthly_frequency",
+        "relationship_type:acquaintance"
+      ],
+      "supporting_refs": [
+        {
+          "source_type": "photo",
+          "source_id": "photo_188",
+          "signal": "2025-11-16 11:52，天气晴朗，【主角】在麦当劳餐厅内拍摄，记录了店内三名正在进行角色扮演准备或手工制作的顾客。",
+          "why": "co_photo_for_Person_003"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_190",
+          "signal": "2025年11月16日19:25，【主角】在上海虹口区某大型室内体育馆内，从高处观众席视角拍摄舞台演出，现场正进行大型演唱会，屏幕显示歌手演唱画面。",
+          "why": "co_photo_for_Person_003"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_143",
+          "signal": "2026-03-25 07:59，在晴朗无云的蓝天背景下，【主角】以仰拍视角记录了四名身着先锋风格服饰的个体在草地边缘围成圆环的超现实构图场景。",
+          "why": "co_photo_for_Person_003"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_144",
+          "signal": "2026-03-25 07:59，在晴朗无云的蓝天背景下，【主角】拍摄了一张经过超现实主义拼贴处理的影像，画面呈现出三个处于悬浮状态的人物剪影与抽象几何结构。",
+          "why": "co_photo_for_Person_003"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_145",
+          "signal": "2026-03-25 07:59，在超现实主义的蓝色圆形空间内，【主角】以俯视视角记录了三名男性在无重力状态下的悬浮与站立姿态。",
+          "why": "co_photo_for_Person_003"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_146",
+          "signal": "2026-03-25 07:59，在晴朗无云的蓝天背景下，【主角】通过仰拍视角捕捉到三个悬浮在圆柱形管道口的人物，呈现出超现实的视觉构图。",
+          "why": "co_photo_for_Person_003"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_147",
+          "signal": "2026-03-25 07:59，在晴朗无云的蓝天背景下，【主角】拍摄了一张具有超现实主义构图的艺术拼贴照片，画面中包含三个处于不同空间方位的人物形象及一件悬浮的红色织物。",
+          "why": "co_photo_for_Person_003"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_153",
+          "signal": "2026-03-25 07:59，在植被茂密的原始森林步道中，【主角】正跟随一支多人徒步队伍行进，处于户外运动状态。",
+          "why": "co_photo_for_Person_003"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_621",
+          "signal": "2026年3月25日08:06，【主角】身处一家室内商业空间，正以第一视角拍摄前方排队等候的人群，现场氛围呈现出一种公共场所的秩序感。",
+          "why": "co_photo_for_Person_003"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_640",
+          "signal": "2026年3月25日08:06，【主角】在室内剧场观众席，正从高处俯瞰舞台上的新春主题文艺汇演。",
+          "why": "co_photo_for_Person_003"
+        },
+        {
+          "source_type": "event",
+          "source_id": "EVT_0004",
+          "signal": "Observing Cosplay Preparation",
+          "why": "shared_event_for_Person_003"
+        },
+        {
+          "source_type": "event",
+          "source_id": "EVT_0007",
+          "signal": "Attending Large-Scale Concert",
+          "why": "shared_event_for_Person_003"
+        },
+        {
+          "source_type": "person",
+          "source_id": "Person_002",
+          "signal": "co_ratio=0.9",
+          "why": "third_party_co_appearance"
+        },
+        {
+          "source_type": "person",
+          "source_id": "Person_004",
+          "signal": "co_ratio=0.2",
+          "why": "third_party_co_appearance"
+        },
+        {
+          "source_type": "feature",
+          "source_id": "photo_count",
+          "signal": "10",
+          "why": "relationship_frequency"
+        },
+        {
+          "source_type": "feature",
+          "source_id": "monthly_frequency",
+          "signal": "2.3",
+          "why": "relationship_frequency"
+        }
+      ],
+      "contradicting_refs": []
+    }
+  },
+  {
+    "person_id": "Person_004",
+    "relationship_type": "acquaintance",
+    "intimacy_score": 0.625,
+    "status": "stable",
+    "confidence": 0.25,
+    "reasoning": "关键事件 EVT_0008, EVT_0012；共现 7 张，覆盖 6 类场景，月均 1.8 次，判为 acquaintance。",
+    "shared_events": [
+      {
+        "event_id": "EVT_0008",
+        "date": "2025-11-29",
+        "narrative": "The protagonist visits the 'Smile Park' art exhibition with a companion, taking photos of the artworks, their tickets, a themed plush toy, and their friend enjoying the gallery."
+      },
+      {
+        "event_id": "EVT_0012",
+        "date": "2025-11-29",
+        "narrative": "The protagonist and their companions take a break and continue viewing art in a gallery."
+      }
+    ],
+    "evidence": {
+      "photo_ids": [
+        "photo_011",
+        "photo_014",
+        "photo_022",
+        "photo_023",
+        "photo_063",
+        "photo_143",
+        "photo_153"
+      ],
+      "event_ids": [
+        "EVT_0008",
+        "EVT_0012"
+      ],
+      "person_ids": [
+        "Person_004",
+        "Person_002",
+        "Person_003"
+      ],
+      "group_ids": [],
+      "feature_names": [
+        "photo_count",
+        "monthly_frequency",
+        "relationship_type:acquaintance"
+      ],
+      "supporting_refs": [
+        {
+          "source_type": "photo",
+          "source_id": "photo_011",
+          "signal": "2025年11月29日16:24，在室内艺术画廊空间，【主角】拍摄了Person_004驻足观赏当代艺术画作的侧影，记录其参观展览的瞬间。",
+          "why": "co_photo_for_Person_004"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_014",
+          "signal": "2025年11月29日16:24，在室内艺术展厅内，【主角】正在拍摄Person_004驻足观赏一幅卡通风格骑士主题油画的场景。",
+          "why": "co_photo_for_Person_004"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_022",
+          "signal": "2025年11月29日16:29，在室内艺术画廊空间内，【主角】正从侧后方视角拍摄Person_004驻足观赏艺术作品的过程。",
+          "why": "co_photo_for_Person_004"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_023",
+          "signal": "2025年11月29日16:29，在室内艺术画廊空间，【主角】正从侧后方视角拍摄Person_004驻足观赏艺术作品的过程。",
+          "why": "co_photo_for_Person_004"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_063",
+          "signal": "2025年11月29日21:33，【主角】在室内艺术展厅拍摄，记录下Person_004正驻足凝视一幅以超现实大眼为主题的黄色背景油画。",
+          "why": "co_photo_for_Person_004"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_143",
+          "signal": "2026-03-25 07:59，在晴朗无云的蓝天背景下，【主角】以仰拍视角记录了四名身着先锋风格服饰的个体在草地边缘围成圆环的超现实构图场景。",
+          "why": "co_photo_for_Person_004"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_153",
+          "signal": "2026-03-25 07:59，在植被茂密的原始森林步道中，【主角】正跟随一支多人徒步队伍行进，处于户外运动状态。",
+          "why": "co_photo_for_Person_004"
+        },
+        {
+          "source_type": "event",
+          "source_id": "EVT_0008",
+          "signal": "Visiting Art Exhibition",
+          "why": "shared_event_for_Person_004"
+        },
+        {
+          "source_type": "event",
+          "source_id": "EVT_0012",
+          "signal": "Resting in Art Gallery",
+          "why": "shared_event_for_Person_004"
+        },
+        {
+          "source_type": "person",
+          "source_id": "Person_002",
+          "signal": "co_ratio=0.29",
+          "why": "third_party_co_appearance"
+        },
+        {
+          "source_type": "person",
+          "source_id": "Person_003",
+          "signal": "co_ratio=0.29",
+          "why": "third_party_co_appearance"
+        },
+        {
+          "source_type": "feature",
+          "source_id": "photo_count",
+          "signal": "7",
+          "why": "relationship_frequency"
+        },
+        {
+          "source_type": "feature",
+          "source_id": "monthly_frequency",
+          "signal": "1.8",
+          "why": "relationship_frequency"
+        }
+      ],
+      "contradicting_refs": []
+    }
+  },
+  {
+    "person_id": "Person_005",
+    "relationship_type": "acquaintance",
+    "intimacy_score": 0.375,
+    "status": "new",
+    "confidence": 0.25,
+    "reasoning": "关键事件 EVT_0009；共现 1 张，覆盖 1 类场景，月均 1.0 次，判为 acquaintance。",
+    "shared_events": [
+      {
+        "event_id": "EVT_0009",
+        "date": "2025-11-29",
+        "narrative": "The protagonist takes a mirror selfie while shopping for clothes."
+      }
+    ],
+    "evidence": {
+      "photo_ids": [
+        "photo_024"
+      ],
+      "event_ids": [
+        "EVT_0009"
+      ],
+      "person_ids": [
+        "Person_005"
+      ],
+      "group_ids": [],
+      "feature_names": [
+        "photo_count",
+        "monthly_frequency",
+        "relationship_type:acquaintance"
+      ],
+      "supporting_refs": [
+        {
+          "source_type": "photo",
+          "source_id": "photo_024",
+          "signal": "2025-11-29 16:50，在一家服装陈列室内，【主角】正通过落地镜进行自拍，记录下其在服装选购过程中的穿搭状态。",
+          "why": "co_photo_for_Person_005"
+        },
+        {
+          "source_type": "event",
+          "source_id": "EVT_0009",
+          "signal": "Shopping for Clothes",
+          "why": "shared_event_for_Person_005"
+        },
+        {
+          "source_type": "feature",
+          "source_id": "photo_count",
+          "signal": "1",
+          "why": "relationship_frequency"
+        },
+        {
+          "source_type": "feature",
+          "source_id": "monthly_frequency",
+          "signal": "1.0",
+          "why": "relationship_frequency"
+        }
+      ],
+      "contradicting_refs": []
+    }
+  },
+  {
+    "person_id": "Person_006",
+    "relationship_type": "acquaintance",
+    "intimacy_score": 0.65,
+    "status": "stable",
+    "confidence": 0.25,
+    "reasoning": "关键事件 EVT_0012, EVT_0021；共现 8 张，覆盖 8 类场景，月均 2.1 次，判为 acquaintance。",
+    "shared_events": [
+      {
+        "event_id": "EVT_0012",
+        "date": "2025-11-29",
+        "narrative": "The protagonist and their companions take a break and continue viewing art in a gallery."
+      },
+      {
+        "event_id": "EVT_0021",
+        "date": "2026-01-18",
+        "narrative": "The protagonist and a companion enjoy the outdoor scenery by the lake."
+      }
+    ],
+    "evidence": {
+      "photo_ids": [
+        "photo_062",
+        "photo_064",
+        "photo_242",
+        "photo_519",
+        "photo_026",
+        "photo_079",
+        "photo_175",
+        "photo_620"
+      ],
+      "event_ids": [
+        "EVT_0012",
+        "EVT_0021"
+      ],
+      "person_ids": [
+        "Person_006"
+      ],
+      "group_ids": [],
+      "feature_names": [
+        "photo_count",
+        "monthly_frequency",
+        "relationship_type:acquaintance"
+      ],
+      "supporting_refs": [
+        {
+          "source_type": "photo",
+          "source_id": "photo_062",
+          "signal": "2025年11月29日21:31，【主角】在一家艺术画廊内，拍摄了正在蓝色艺术沙发上低头看手机的Person_006。",
+          "why": "co_photo_for_Person_006"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_064",
+          "signal": "2025年11月29日21:39，【主角】在一家当代艺术画廊内，拍摄了正在休息区查看手机的Person_006。",
+          "why": "co_photo_for_Person_006"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_242",
+          "signal": "2026年1月18日13:52，浙江淳安县千岛湖畔，天气晴朗，光线充足。拍摄者【主角】正从侧后方视角记录Person_006伫立在石砌护栏边眺望湖景的瞬间。",
+          "why": "co_photo_for_Person_006"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_519",
+          "signal": "2026-02-04 11:40，【主角】正在浏览一份名为【上海】线下二次元游戏体验测试的数字文档或网页，屏幕正展示多款二次元风格的游戏角色立绘。",
+          "why": "co_photo_for_Person_006"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_026",
+          "signal": "2026-03-25 07:56，【主角】正在查看《金铲铲之战》游戏内的历史战绩页面，屏幕显示了近期多场标准排位赛的对局结果与阵容详情。",
+          "why": "co_photo_for_Person_006"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_079",
+          "signal": "2026年3月25日07:58，【主角】在一家艺术画廊内拍摄，画面中Person_006正坐在带有卡通涂鸦的蓝色软垫椅上低头查看手机，背景墙上悬挂着多幅色彩鲜艳的卡通风格画作。",
+          "why": "co_photo_for_Person_006"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_175",
+          "signal": "2026-03-25 07:59，在一家名为BOOM PUB的工业风酒吧内，【主角】正坐在餐桌前拍摄，此时店内正在通过大屏幕直播足球赛事，【主角】与同伴正在享用晚餐。",
+          "why": "co_photo_for_Person_006"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_620",
+          "signal": "2026年3月25日08:06，【主角】在某大型商业综合体内部，正从楼梯高处俯拍下方中庭及商铺，画面中Person_006正背对【主角】坐在台阶上使用手机。",
+          "why": "co_photo_for_Person_006"
+        },
+        {
+          "source_type": "event",
+          "source_id": "EVT_0012",
+          "signal": "Resting in Art Gallery",
+          "why": "shared_event_for_Person_006"
+        },
+        {
+          "source_type": "event",
+          "source_id": "EVT_0021",
+          "signal": "Enjoying Lake Scenery",
+          "why": "shared_event_for_Person_006"
+        },
+        {
+          "source_type": "feature",
+          "source_id": "photo_count",
+          "signal": "8",
+          "why": "relationship_frequency"
+        },
+        {
+          "source_type": "feature",
+          "source_id": "monthly_frequency",
+          "signal": "2.1",
+          "why": "relationship_frequency"
+        }
+      ],
+      "contradicting_refs": []
+    }
+  },
+  {
+    "person_id": "Person_007",
+    "relationship_type": "friend",
+    "intimacy_score": 0.7,
+    "status": "growing",
+    "confidence": 0.7,
+    "reasoning": "关键事件 EVT_0014；共现 8 张，覆盖 7 类场景，月均 8.0 次，判为 friend。",
+    "shared_events": [
+      {
+        "event_id": "EVT_0014",
+        "date": "2025-12-03",
+        "narrative": "The protagonist takes multiple selfies during his morning commute, bundled up against the cold in a TNF jacket."
+      }
+    ],
+    "evidence": {
+      "photo_ids": [
+        "photo_042",
+        "photo_043",
+        "photo_044",
+        "photo_045",
+        "photo_046",
+        "photo_047",
+        "photo_048",
+        "photo_050"
+      ],
+      "event_ids": [
+        "EVT_0014"
+      ],
+      "person_ids": [
+        "Person_007"
+      ],
+      "group_ids": [],
+      "feature_names": [
+        "photo_count",
+        "monthly_frequency",
+        "relationship_type:friend"
+      ],
+      "supporting_refs": [
+        {
+          "source_type": "photo",
+          "source_id": "photo_042",
+          "signal": "2025年12月3日08:28，上海宝山区某室内空间，【主角】正在进行近距离自拍，通过调整冲锋衣领口遮挡面部下半部分，呈现出一种防御性或防寒的姿态。",
+          "why": "co_photo_for_Person_007"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_043",
+          "signal": "2025年12月3日08:28，上海宝山区某室内环境，【主角】正在进行自拍记录，画面中呈现Person_007的近景特写。",
+          "why": "co_photo_for_Person_007"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_044",
+          "signal": "2025-12-03 08:28，上海宝山区某室内公共空间，【主角】正在进行自拍记录，画面中呈现Person_007的近景特写。",
+          "why": "co_photo_for_Person_007"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_045",
+          "signal": "2025年12月3日08:29，上海宝山区某室内公共空间，【主角】以第一人称视角拍摄了Person_007的近景特写，记录其在早晨通勤或出行途中的状态。",
+          "why": "co_photo_for_Person_007"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_046",
+          "signal": "2025-12-03 08:29，上海宝山区某室内商业空间，【主角】以第一人称视角拍摄了一张自拍，画面主体为Person_007，【主角】正处于移动或准备外出的状态。",
+          "why": "co_photo_for_Person_007"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_047",
+          "signal": "2025年12月3日08:29，上海宝山区某室内空间，【主角】正在进行自拍记录，画面呈现出一种防风机能风的穿搭状态。",
+          "why": "co_photo_for_Person_007"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_048",
+          "signal": "2025年12月3日08:29，上海宝山区，【主角】在电梯内进行自拍，拍摄对象为Person_007。",
+          "why": "co_photo_for_Person_007"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_050",
+          "signal": "2025年12月3日08:29，上海宝山区某室内空间，【主角】正以第一人称视角拍摄Person_007的近景特写，记录其在早晨出行前的状态。",
+          "why": "co_photo_for_Person_007"
+        },
+        {
+          "source_type": "event",
+          "source_id": "EVT_0014",
+          "signal": "Morning Commute Selfies",
+          "why": "shared_event_for_Person_007"
+        },
+        {
+          "source_type": "feature",
+          "source_id": "photo_count",
+          "signal": "8",
+          "why": "relationship_frequency"
+        },
+        {
+          "source_type": "feature",
+          "source_id": "monthly_frequency",
+          "signal": "8.0",
+          "why": "relationship_frequency"
+        }
+      ],
+      "contradicting_refs": []
+    }
+  },
+  {
+    "person_id": "Person_012",
+    "relationship_type": "romantic",
+    "intimacy_score": 0.75,
+    "status": "growing",
+    "confidence": 0.85,
+    "reasoning": "关键事件 EVT_0022, EVT_0069, EVT_0043；共现 40 张，覆盖 27 类场景，月均 18.2 次，判为 romantic。",
+    "shared_events": [
+      {
+        "event_id": "EVT_0022",
+        "date": "2026-01-18",
+        "narrative": "The protagonist explores Yanzhou Ancient City with a female companion, taking scenic shots and portraits together."
+      },
+      {
+        "event_id": "EVT_0069",
+        "date": "2026-02-14",
+        "narrative": "The protagonist and a companion take mirror selfies with a bouquet of roses and a handwritten card to celebrate Valentine's Day."
+      },
+      {
+        "event_id": "EVT_0043",
+        "date": "2026-02-10",
+        "narrative": "The protagonist and a female companion take numerous close-up selfies during a dinner date at a stylish restaurant."
+      },
+      {
+        "event_id": "EVT_0034",
+        "date": "2026-01-24",
+        "narrative": "The protagonist and a companion complete a tufting DIY project and take photos with their finished Winnie the Pooh rug."
+      },
+      {
+        "event_id": "EVT_0054",
+        "date": "2026-02-11",
+        "narrative": "The protagonist and a companion take several selfies together while at a cafe or restaurant."
+      },
+      {
+        "event_id": "EVT_0051",
+        "date": "2026-02-11",
+        "narrative": "The protagonist and a companion take a selfie together in a warmly lit indoor space."
+      },
+      {
+        "event_id": "EVT_0065",
+        "date": "2026-02-14",
+        "narrative": "The protagonist prepares a social media post with photos from a Valentine's Day dinner."
+      }
+    ],
+    "evidence": {
+      "photo_ids": [
+        "photo_256",
+        "photo_257",
+        "photo_258",
+        "photo_259",
+        "photo_260",
+        "photo_261",
+        "photo_270",
+        "photo_271",
+        "photo_272",
+        "photo_273",
+        "photo_282",
+        "photo_283",
+        "photo_284",
+        "photo_285",
+        "photo_288",
+        "photo_289",
+        "photo_290",
+        "photo_292",
+        "photo_294",
+        "photo_304",
+        "photo_305",
+        "photo_306",
+        "photo_307",
+        "photo_308",
+        "photo_309",
+        "photo_310",
+        "photo_311",
+        "photo_312",
+        "photo_313",
+        "photo_164",
+        "photo_066",
+        "photo_067",
+        "photo_167",
+        "photo_572",
+        "photo_328",
+        "photo_329",
+        "photo_330",
+        "photo_331",
+        "photo_333",
+        "photo_176"
+      ],
+      "event_ids": [
+        "EVT_0022",
+        "EVT_0069",
+        "EVT_0043",
+        "EVT_0034",
+        "EVT_0054",
+        "EVT_0051",
+        "EVT_0065"
+      ],
+      "person_ids": [
+        "Person_012"
+      ],
+      "group_ids": [],
+      "feature_names": [
+        "photo_count",
+        "monthly_frequency",
+        "relationship_type:romantic"
+      ],
+      "supporting_refs": [
+        {
+          "source_type": "photo",
+          "source_id": "photo_256",
+          "signal": "2026年1月18日16:45，在浙江建德某古建筑室内，【主角】与Person_012进行自拍合影，背景可见中式红灯笼与徽派建筑群落，两人处于亲密社交距离。",
+          "why": "co_photo_for_Person_012"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_257",
+          "signal": "2026年1月18日16:45，浙江建德某古建筑二层露台，【主角】与Person_012在自然光下进行自拍，背景可见春节装饰红灯笼及下方古镇街道。",
+          "why": "co_photo_for_Person_012"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_258",
+          "signal": "2026年1月18日16:46，在浙江建德某古建筑长廊内，【主角】正在为Person_012拍摄特写照片，记录其在古镇游览的瞬间。",
+          "why": "co_photo_for_Person_012"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_259",
+          "signal": "2026年1月18日16:46，浙江建德某古建筑长廊，【主角】正在为Person_012拍摄特写，现场光线为午后柔和侧光。",
+          "why": "co_photo_for_Person_012"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_260",
+          "signal": "2026年1月18日16:46，浙江建德某古建筑长廊，【主角】正在拍摄Person_012的特写，背景中可见另一名游客正在拍摄风景。",
+          "why": "co_photo_for_Person_012"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_261",
+          "signal": "2026年1月18日16:46，在浙江建德某古建筑或仿古建筑室内，【主角】与Person_012进行近距离自拍，光线呈现明显的午后斜射暖调，两人处于社交互动状态。",
+          "why": "co_photo_for_Person_012"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_270",
+          "signal": "2026年1月24日20:59，上海徐汇区某室内手工DIY工作室，【主角】与Person_012并肩合影，两人正参与簇绒（Tufting）手工制作活动。",
+          "why": "co_photo_for_Person_012"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_271",
+          "signal": "2026年1月24日20:59，上海徐汇区某室内手工工作室，【主角】与Person_012并肩合影，两人正处于手工制作或展示环境，【主角】负责持机自拍。",
+          "why": "co_photo_for_Person_012"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_272",
+          "signal": "2026年1月24日20:59，上海徐汇区某室内手工坊，【主角】与Person_012并肩进行自拍合影，两人共同展示手工制作的维尼熊簇绒挂毯。",
+          "why": "co_photo_for_Person_012"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_273",
+          "signal": "2026年1月24日20:59，上海徐汇区某室内手工工作室，【主角】正手持设备进行自拍，身旁女性低头注视手中的维尼熊手工织物，两人处于亲密的社交距离。",
+          "why": "co_photo_for_Person_012"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_282",
+          "signal": "2026年2月1日下午15:34，上海宝山区某室内石膏彩绘工作室，【主角】与Person_012共同展示刚完成的彩绘陶瓷碗，处于手工DIY活动的收尾阶段。",
+          "why": "co_photo_for_Person_012"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_283",
+          "signal": "2026年2月1日下午15:36，在上海宝山区的一家手工陶艺店内，【主角】拍摄了Person_012展示其手绘陶瓷碗的画面。",
+          "why": "co_photo_for_Person_012"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_284",
+          "signal": "2026年2月1日下午15:36，在上海宝山区的一家室内陶艺手工坊内，【主角】拍摄了Person_012展示其手绘陶瓷碗的画面，记录了手工制作活动的完成阶段。",
+          "why": "co_photo_for_Person_012"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_285",
+          "signal": "2026年2月1日15:36，上海宝山区某陶艺手工坊内，【主角】正在拍摄Person_012展示其手绘陶瓷碗的瞬间。",
+          "why": "co_photo_for_Person_012"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_288",
+          "signal": "2026年2月1日下午15:39，上海宝山区某室内石膏彩绘工作坊，【主角】与同伴共同展示刚完成的陶瓷手作，处于互动合影状态。",
+          "why": "co_photo_for_Person_012"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_289",
+          "signal": "2026年2月1日下午15:41，上海宝山区某室内陶艺手工坊内，【主角】与一名女性友人并肩自拍，两人共同展示一件刚完成的彩绘陶瓷碗，处于手工制作后的展示环节。",
+          "why": "co_photo_for_Person_012"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_290",
+          "signal": "2026年2月1日下午15:41，上海宝山区某室内石膏彩绘工作坊，【主角】与一名女性友人进行自拍合影，两人共同展示一件刚完成的彩绘陶瓷碗。",
+          "why": "co_photo_for_Person_012"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_292",
+          "signal": "2026年2月1日下午15:42，上海宝山区某室内陶艺手工坊，【主角】与Person_012并肩自拍，展示两人共同完成的彩绘陶瓷碗作品。",
+          "why": "co_photo_for_Person_012"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_294",
+          "signal": "2026年2月1日15:42，上海宝山区某室内陶艺手工坊，【主角】与Person_012共同展示手绘陶瓷碗，处于手工制作后的合影阶段。",
+          "why": "co_photo_for_Person_012"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_304",
+          "signal": "2026年2月10日19:22，上海徐汇区某室内餐饮空间，【主角】与两名女性友人进行自拍合影，现场氛围轻松，处于社交聚会中。",
+          "why": "co_photo_for_Person_012"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_305",
+          "signal": "2026年2月10日19:22，上海徐汇区某室内商业空间，【主角】与Person_012进行自拍合影，两人处于社交互动状态，背景为带有装饰性棕榈树与暖色调灯光的休闲场所。",
+          "why": "co_photo_for_Person_012"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_306",
+          "signal": "2026年2月10日19:24，上海徐汇区某室内空间，【主角】与Person_012进行近距离自拍合影，两人处于社交互动状态。",
+          "why": "co_photo_for_Person_012"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_307",
+          "signal": "2026年2月10日19:24，上海徐汇区某室内餐厅，【主角】与Person_012进行近距离自拍，两人处于社交聚会状态。",
+          "why": "co_photo_for_Person_012"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_308",
+          "signal": "2026年2月10日19:26，上海徐汇区某室内餐厅，【主角】与Person_012进行近距离自拍合影，两人处于亲密的社交互动状态。",
+          "why": "co_photo_for_Person_012"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_309",
+          "signal": "2026年2月10日19:27，上海徐汇区某室内餐厅，【主角】与Person_012进行近距离自拍合影，两人处于亲密的社交互动状态。",
+          "why": "co_photo_for_Person_012"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_310",
+          "signal": "2026年2月10日19:27，上海徐汇区某室内餐厅，【主角】与Person_012进行近距离自拍合影，两人处于亲密的社交互动状态。",
+          "why": "co_photo_for_Person_012"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_311",
+          "signal": "2026年2月10日19:27，上海徐汇区某室内咖啡馆，【主角】与Person_012进行近距离自拍合影，两人处于亲密的社交互动状态。",
+          "why": "co_photo_for_Person_012"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_312",
+          "signal": "2026年2月10日19:27，上海徐汇区某室内餐厅，【主角】与Person_012进行近距离自拍合影，两人处于亲密的社交互动状态。",
+          "why": "co_photo_for_Person_012"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_313",
+          "signal": "2026-02-10 19:27，上海徐汇区某室内餐厅，【主角】与Person_012进行近距离自拍合影，两人处于亲密的社交互动状态。",
+          "why": "co_photo_for_Person_012"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_164",
+          "signal": "2026-02-11 10:47，在室内暖色调灯光环境下，【主角】与Person_012并肩进行自拍，两人处于亲密的社交互动状态。",
+          "why": "co_photo_for_Person_012"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_066",
+          "signal": "2026-02-11 13:51，室内暖色调灯光环境，【主角】与Person_012在餐厅进行近距离自拍，两人处于亲密的社交互动状态。",
+          "why": "co_photo_for_Person_012"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_067",
+          "signal": "2026-02-11 13:54，室内暖色调灯光环境，【主角】与Person_012在餐厅或咖啡厅内进行自拍合影，两人头部紧靠，处于亲密的社交互动状态。",
+          "why": "co_photo_for_Person_012"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_167",
+          "signal": "2026-02-11 14:01，室内暖色调灯光环境下，【主角】与Person_012在咖啡厅进行自拍合影，两人头部紧靠，处于亲密社交状态。",
+          "why": "co_photo_for_Person_012"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_572",
+          "signal": "2026-02-14 10:07，【主角】正在手机社交App发布动态，上传了两张照片，一张为与Person_012的合影，另一张为丰盛的西式晚餐现场。",
+          "why": "co_photo_for_Person_012"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_328",
+          "signal": "2026年2月14日21:59，上海宝山区某室内空间，【主角】与Person_012在镜前合影，两人共同手持一束粉色玫瑰花，处于情人节庆祝的社交情境中。",
+          "why": "co_photo_for_Person_012"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_329",
+          "signal": "2026-02-14 21:59，上海宝山区某室内空间，【主角】与女性同伴手持花束进行镜前自拍，记录情人节庆祝时刻。",
+          "why": "co_photo_for_Person_012"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_330",
+          "signal": "2026年2月14日22:00，在上海宝山区某室内空间，【主角】与Person_012在镜前合影，【主角】手持手机进行自拍，Person_012怀抱大型粉色系玫瑰花束，处于情人节庆祝场景中。",
+          "why": "co_photo_for_Person_012"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_331",
+          "signal": "2026年2月14日22:01，上海宝山区某室内空间，【主角】与Person_012共同进行自拍，两人手持粉色系花束及手写卡片，处于情人节庆祝活动的尾声。",
+          "why": "co_photo_for_Person_012"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_333",
+          "signal": "2026年2月14日22:01，上海宝山区某室内空间，【主角】与Person_012共同进行情人节自拍，两人手持花束与手写卡片，处于亲密社交状态。",
+          "why": "co_photo_for_Person_012"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_176",
+          "signal": "2026年3月25日07:59，在室内暖色调灯光环境下，【主角】与Person_012进行近距离自拍，两人处于亲密的社交互动状态。",
+          "why": "co_photo_for_Person_012"
+        },
+        {
+          "source_type": "event",
+          "source_id": "EVT_0022",
+          "signal": "Exploring Yanzhou Ancient City",
+          "why": "shared_event_for_Person_012"
+        },
+        {
+          "source_type": "event",
+          "source_id": "EVT_0069",
+          "signal": "Valentine's Day Celebration",
+          "why": "shared_event_for_Person_012"
+        },
+        {
+          "source_type": "event",
+          "source_id": "EVT_0043",
+          "signal": "Dinner Date Selfies",
+          "why": "shared_event_for_Person_012"
+        },
+        {
+          "source_type": "event",
+          "source_id": "EVT_0034",
+          "signal": "Tufting Workshop Date",
+          "why": "shared_event_for_Person_012"
+        },
+        {
+          "source_type": "event",
+          "source_id": "EVT_0054",
+          "signal": "Afternoon Cafe Date",
+          "why": "shared_event_for_Person_012"
+        },
+        {
+          "source_type": "event",
+          "source_id": "EVT_0051",
+          "signal": "Morning Date Selfie",
+          "why": "shared_event_for_Person_012"
+        },
+        {
+          "source_type": "event",
+          "source_id": "EVT_0065",
+          "signal": "Posting Valentine's Memories",
+          "why": "shared_event_for_Person_012"
+        },
+        {
+          "source_type": "feature",
+          "source_id": "photo_count",
+          "signal": "40",
+          "why": "relationship_frequency"
+        },
+        {
+          "source_type": "feature",
+          "source_id": "monthly_frequency",
+          "signal": "18.2",
+          "why": "relationship_frequency"
+        }
+      ],
+      "contradicting_refs": []
+    }
+  },
+  {
+    "person_id": "Person_034",
+    "relationship_type": "close_friend",
+    "intimacy_score": 0.7,
+    "status": "growing",
+    "confidence": 0.7,
+    "reasoning": "关键事件 EVT_0070；共现 11 张，覆盖 6 类场景，月均 11.0 次，判为 close_friend。",
+    "shared_events": [
+      {
+        "event_id": "EVT_0070",
+        "date": "2026-02-15",
+        "narrative": "The protagonist and a companion take playful mirror selfies while wearing Hello Kitty face masks during a late-night skincare routine."
+      }
+    ],
+    "evidence": {
+      "photo_ids": [
+        "photo_334",
+        "photo_335",
+        "photo_336",
+        "photo_337",
+        "photo_338",
+        "photo_339",
+        "photo_340",
+        "photo_341",
+        "photo_342",
+        "photo_343",
+        "photo_344"
+      ],
+      "event_ids": [
+        "EVT_0070"
+      ],
+      "person_ids": [
+        "Person_034",
+        "Person_035"
+      ],
+      "group_ids": [],
+      "feature_names": [
+        "photo_count",
+        "monthly_frequency",
+        "relationship_type:close_friend"
+      ],
+      "supporting_refs": [
+        {
+          "source_type": "photo",
+          "source_id": "photo_334",
+          "signal": "2026年2月15日00:03，上海宝山区某室内浴室，【主角】正通过镜面反射进行自拍，记录下与Person_035和Person_034共同敷Hello Kitty主题面膜的居家生活瞬间。",
+          "why": "co_photo_for_Person_034"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_335",
+          "signal": "2026年2月15日凌晨00:03，上海宝山区某室内洗手间，【主角】正通过镜面反射与Person_035进行自拍，两人均敷着Hello Kitty图案的面膜，处于居家护肤后的休闲状态。",
+          "why": "co_photo_for_Person_034"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_336",
+          "signal": "2026年2月15日凌晨00:04，上海宝山区某室内浴室，【主角】正手持手机通过镜面反射拍摄与Person_035、Person_034的合影，三人均处于居家护肤状态。",
+          "why": "co_photo_for_Person_034"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_337",
+          "signal": "2026年2月15日凌晨00:04，上海宝山区某室内空间，【主角】手持设备拍摄Person_034与Person_035共同敷Hello Kitty主题面膜的居家场景。",
+          "why": "co_photo_for_Person_034"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_338",
+          "signal": "2026年2月15日00:05，上海宝山区某室内浴室环境，【主角】持手机进行自拍，记录下Person_034与Person_035共同敷Hello Kitty主题面膜的居家生活瞬间。",
+          "why": "co_photo_for_Person_034"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_339",
+          "signal": "2026年2月15日00:05，上海宝山区某室内空间，【主角】以第一人称视角拍摄了Person_034与Person_035共同敷Hello Kitty主题面膜的居家生活场景。",
+          "why": "co_photo_for_Person_034"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_340",
+          "signal": "2026年2月15日00:05，上海宝山区某室内空间，【主角】作为拍摄者记录下Person_034与Person_035共同敷Hello Kitty主题面膜的居家护肤时刻。",
+          "why": "co_photo_for_Person_034"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_341",
+          "signal": "2026年2月15日凌晨00:06，上海宝山区某室内空间，【主角】手持设备拍摄Person_034与Person_035共同敷Hello Kitty主题面膜的近景合影，记录居家护肤时刻。",
+          "why": "co_photo_for_Person_034"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_342",
+          "signal": "2026年2月15日凌晨00:06，在上海宝山区某室内空间，【主角】通过自拍视角记录下与Person_034、Person_035共同进行护肤活动的场景。",
+          "why": "co_photo_for_Person_034"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_343",
+          "signal": "2026年2月15日凌晨00:06，上海宝山区某室内空间，【主角】正在拍摄Person_034与Person_035共同敷Hello Kitty主题面膜的自拍合影，两人处于亲密的居家护肤状态。",
+          "why": "co_photo_for_Person_034"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_344",
+          "signal": "2026年2月15日00:06，上海宝山区某室内空间，【主角】手持设备拍摄Person_034与Person_035敷Hello Kitty主题面膜的亲密合影，记录居家护肤时刻。",
+          "why": "co_photo_for_Person_034"
+        },
+        {
+          "source_type": "event",
+          "source_id": "EVT_0070",
+          "signal": "Late Night Skincare Routine",
+          "why": "shared_event_for_Person_034"
+        },
+        {
+          "source_type": "person",
+          "source_id": "Person_035",
+          "signal": "co_ratio=1.0",
+          "why": "third_party_co_appearance"
+        },
+        {
+          "source_type": "feature",
+          "source_id": "photo_count",
+          "signal": "11",
+          "why": "relationship_frequency"
+        },
+        {
+          "source_type": "feature",
+          "source_id": "monthly_frequency",
+          "signal": "11.0",
+          "why": "relationship_frequency"
+        }
+      ],
+      "contradicting_refs": []
+    }
+  },
+  {
+    "person_id": "Person_035",
+    "relationship_type": "close_friend",
+    "intimacy_score": 0.7,
+    "status": "growing",
+    "confidence": 0.7,
+    "reasoning": "关键事件 EVT_0070；共现 11 张，覆盖 6 类场景，月均 11.0 次，判为 close_friend。",
+    "shared_events": [
+      {
+        "event_id": "EVT_0070",
+        "date": "2026-02-15",
+        "narrative": "The protagonist and a companion take playful mirror selfies while wearing Hello Kitty face masks during a late-night skincare routine."
+      }
+    ],
+    "evidence": {
+      "photo_ids": [
+        "photo_334",
+        "photo_335",
+        "photo_336",
+        "photo_337",
+        "photo_338",
+        "photo_339",
+        "photo_340",
+        "photo_341",
+        "photo_342",
+        "photo_343",
+        "photo_344"
+      ],
+      "event_ids": [
+        "EVT_0070"
+      ],
+      "person_ids": [
+        "Person_035",
+        "Person_034"
+      ],
+      "group_ids": [],
+      "feature_names": [
+        "photo_count",
+        "monthly_frequency",
+        "relationship_type:close_friend"
+      ],
+      "supporting_refs": [
+        {
+          "source_type": "photo",
+          "source_id": "photo_334",
+          "signal": "2026年2月15日00:03，上海宝山区某室内浴室，【主角】正通过镜面反射进行自拍，记录下与Person_035和Person_034共同敷Hello Kitty主题面膜的居家生活瞬间。",
+          "why": "co_photo_for_Person_035"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_335",
+          "signal": "2026年2月15日凌晨00:03，上海宝山区某室内洗手间，【主角】正通过镜面反射与Person_035进行自拍，两人均敷着Hello Kitty图案的面膜，处于居家护肤后的休闲状态。",
+          "why": "co_photo_for_Person_035"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_336",
+          "signal": "2026年2月15日凌晨00:04，上海宝山区某室内浴室，【主角】正手持手机通过镜面反射拍摄与Person_035、Person_034的合影，三人均处于居家护肤状态。",
+          "why": "co_photo_for_Person_035"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_337",
+          "signal": "2026年2月15日凌晨00:04，上海宝山区某室内空间，【主角】手持设备拍摄Person_034与Person_035共同敷Hello Kitty主题面膜的居家场景。",
+          "why": "co_photo_for_Person_035"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_338",
+          "signal": "2026年2月15日00:05，上海宝山区某室内浴室环境，【主角】持手机进行自拍，记录下Person_034与Person_035共同敷Hello Kitty主题面膜的居家生活瞬间。",
+          "why": "co_photo_for_Person_035"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_339",
+          "signal": "2026年2月15日00:05，上海宝山区某室内空间，【主角】以第一人称视角拍摄了Person_034与Person_035共同敷Hello Kitty主题面膜的居家生活场景。",
+          "why": "co_photo_for_Person_035"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_340",
+          "signal": "2026年2月15日00:05，上海宝山区某室内空间，【主角】作为拍摄者记录下Person_034与Person_035共同敷Hello Kitty主题面膜的居家护肤时刻。",
+          "why": "co_photo_for_Person_035"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_341",
+          "signal": "2026年2月15日凌晨00:06，上海宝山区某室内空间，【主角】手持设备拍摄Person_034与Person_035共同敷Hello Kitty主题面膜的近景合影，记录居家护肤时刻。",
+          "why": "co_photo_for_Person_035"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_342",
+          "signal": "2026年2月15日凌晨00:06，在上海宝山区某室内空间，【主角】通过自拍视角记录下与Person_034、Person_035共同进行护肤活动的场景。",
+          "why": "co_photo_for_Person_035"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_343",
+          "signal": "2026年2月15日凌晨00:06，上海宝山区某室内空间，【主角】正在拍摄Person_034与Person_035共同敷Hello Kitty主题面膜的自拍合影，两人处于亲密的居家护肤状态。",
+          "why": "co_photo_for_Person_035"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_344",
+          "signal": "2026年2月15日00:06，上海宝山区某室内空间，【主角】手持设备拍摄Person_034与Person_035敷Hello Kitty主题面膜的亲密合影，记录居家护肤时刻。",
+          "why": "co_photo_for_Person_035"
+        },
+        {
+          "source_type": "event",
+          "source_id": "EVT_0070",
+          "signal": "Late Night Skincare Routine",
+          "why": "shared_event_for_Person_035"
+        },
+        {
+          "source_type": "person",
+          "source_id": "Person_034",
+          "signal": "co_ratio=1.0",
+          "why": "third_party_co_appearance"
+        },
+        {
+          "source_type": "feature",
+          "source_id": "photo_count",
+          "signal": "11",
+          "why": "relationship_frequency"
+        },
+        {
+          "source_type": "feature",
+          "source_id": "monthly_frequency",
+          "signal": "11.0",
+          "why": "relationship_frequency"
+        }
+      ],
+      "contradicting_refs": []
+    }
+  }
+]

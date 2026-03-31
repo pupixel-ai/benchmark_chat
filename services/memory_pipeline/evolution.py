@@ -1541,7 +1541,7 @@ def _build_gt_field_cycles(
 
         has_valid_proposal = (
             reflect_result is not None
-            and reflect_result.get("status") == "ok"
+            and reflect_result.get("status") in ("ok", "needs_review")
             and reflect_result.get("confidence", 0) >= 0.6
         )
 

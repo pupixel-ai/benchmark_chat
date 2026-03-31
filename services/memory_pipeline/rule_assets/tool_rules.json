@@ -23,5 +23,68 @@
       "vlm_observations"
     ],
     "evidence_sort_strategy": "by_location_recurrence"
+  },
+  "long_term_facts.time.event_cycles": {
+    "required_evidence_types": [
+      "event",
+      "vlm_observations"
+    ],
+    "evidence_filters": {
+      "time_based": true,
+      "recurring_events": true
+    }
+  },
+  "short_term_facts.phase_change": {
+    "required_evidence_types": [
+      "event",
+      "vlm_observations"
+    ],
+    "evidence_filters": {
+      "time_range": "last_6_months",
+      "activity_diversity_threshold": 3
+    },
+    "evidence_sort_priority": [
+      "activity_pattern_change",
+      "time_allocation_shift"
+    ],
+    "min_time_window_span": 90
+  },
+  "long_term_expression.aesthetic_tendency": {
+    "max_refs_per_source": 5,
+    "required_evidence_types": [
+      "event",
+      "photo",
+      "vlm_observations"
+    ],
+    "evidence_sort_priority": [
+      "visual_art",
+      "fashion_style",
+      "decoration_style"
+    ]
+  },
+  "long_term_expression.attitude_style": {
+    "required_evidence_types": [
+      "event",
+      "photo"
+    ],
+    "min_diverse_evidence_count": 3,
+    "diversity_requirements": {
+      "activity_types": [
+        "creative",
+        "playful",
+        "artistic"
+      ],
+      "time_range": "long_term"
+    }
+  },
+  "long_term_facts.physiology.fitness_level": {
+    "required_evidence_types": [
+      "sports_activity",
+      "exercise"
+    ],
+    "secondary_evidence_types": [
+      "daily_activity"
+    ],
+    "evidence_priority": "直接体能活动证据优先于日常活动证据"
   }
 }

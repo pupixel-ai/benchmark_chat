@@ -1,0 +1,5277 @@
+[
+  {
+    "event_id": "EVT_0001",
+    "batch_id": "BATCH_0001",
+    "anchor_photo_id": "photo_004",
+    "supporting_photo_ids": [
+      "photo_004",
+      "photo_005"
+    ],
+    "started_at": "2024-11-02T22:58:06",
+    "ended_at": "2024-11-02T22:58:08",
+    "title": "Theme Park Halloween Event",
+    "narrative_synthesis": "The protagonist is attending a Halloween or themed event at an amusement park and takes a selfie with a costumed performer.",
+    "participant_person_ids": [
+      "Person_001",
+      "Person_002"
+    ],
+    "depicted_person_ids": [
+      "Person_001",
+      "Person_002"
+    ],
+    "place_refs": [
+      "Theme park / Halloween event"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [
+        "Enjoys immersive theme park events and pop culture/gaming references."
+      ],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "Theme Park",
+      "Halloween",
+      "Selfie",
+      "Entertainment"
+    ],
+    "confidence": 0.95,
+    "reason": "Photos share the exact same timestamp, location, and subjects.",
+    "meta_info": {
+      "title": "Theme Park Halloween Event",
+      "location_context": "Theme park / Halloween event",
+      "photo_count": 2
+    },
+    "objective_fact": {
+      "scene_description": "Outdoor night scene at a theme park with amusement rides in the background. Person_001 is taking a selfie with Person_002, who is wearing a Payday-style mask and holding a prop assault rifle.",
+      "participants": [
+        "Person_001",
+        "Person_002"
+      ]
+    },
+    "source_temp_event_id": "event_1"
+  },
+  {
+    "event_id": "EVT_0002",
+    "batch_id": "BATCH_0001",
+    "anchor_photo_id": "photo_185",
+    "supporting_photo_ids": [
+      "photo_185"
+    ],
+    "started_at": "2025-10-03T18:45:10",
+    "ended_at": "2025-10-03T18:45:10",
+    "title": "Documenting Smartphone",
+    "narrative_synthesis": "The protagonist is documenting or showing off a smartphone, possibly a new device or case.",
+    "participant_person_ids": [],
+    "depicted_person_ids": [],
+    "place_refs": [
+      "Unknown indoor space"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [
+        "Interested in tech gadgets."
+      ],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "Tech",
+      "Smartphone",
+      "Indoor"
+    ],
+    "confidence": 0.9,
+    "reason": "Single photo of a specific object.",
+    "meta_info": {
+      "title": "Documenting Smartphone",
+      "location_context": "Unknown indoor space",
+      "photo_count": 1
+    },
+    "objective_fact": {
+      "scene_description": "A hand is holding a copper-gold smartphone with a clear case in an indoor setting.",
+      "participants": []
+    },
+    "source_temp_event_id": "event_2"
+  },
+  {
+    "event_id": "EVT_0003",
+    "batch_id": "BATCH_0001",
+    "anchor_photo_id": "photo_186",
+    "supporting_photo_ids": [
+      "photo_186",
+      "photo_187"
+    ],
+    "started_at": "2025-11-16T08:27:00",
+    "ended_at": "2025-11-16T08:27:04",
+    "title": "Documenting Product Box",
+    "narrative_synthesis": "The protagonist is documenting a product box, likely participating in a consumer testing or research project.",
+    "participant_person_ids": [],
+    "depicted_person_ids": [],
+    "place_refs": [
+      "Baoshan District, Shanghai"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [
+        "Participates in consumer research or clinical trials."
+      ],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "Documentation",
+      "Research",
+      "Product Testing"
+    ],
+    "confidence": 0.95,
+    "reason": "Photos taken seconds apart showing the same object.",
+    "meta_info": {
+      "title": "Documenting Product Box",
+      "location_context": "Baoshan District, Shanghai",
+      "photo_count": 2
+    },
+    "objective_fact": {
+      "scene_description": "Close-up shots of a white product box label for a clinical/consumer trial (SCSE-2025-599) containing condoms.",
+      "participants": []
+    },
+    "source_temp_event_id": "event_3"
+  },
+  {
+    "event_id": "EVT_0004",
+    "batch_id": "BATCH_0001",
+    "anchor_photo_id": "photo_188",
+    "supporting_photo_ids": [
+      "photo_188"
+    ],
+    "started_at": "2025-11-16T11:52:30",
+    "ended_at": "2025-11-16T11:52:30",
+    "title": "Observing Cosplay Preparation",
+    "narrative_synthesis": "The protagonist observes and photographs a group of people preparing for a cosplay event inside a McDonald's.",
+    "participant_person_ids": [
+      "Person_001",
+      "Person_002",
+      "Person_003"
+    ],
+    "depicted_person_ids": [
+      "Person_001",
+      "Person_002",
+      "Person_003"
+    ],
+    "place_refs": [
+      "McDonald's"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [
+        "Observant of subcultures and public activities."
+      ],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "Observation",
+      "Cosplay",
+      "Public Space"
+    ],
+    "confidence": 0.9,
+    "reason": "Single photo capturing a specific scene.",
+    "meta_info": {
+      "title": "Observing Cosplay Preparation",
+      "location_context": "McDonald's",
+      "photo_count": 1
+    },
+    "objective_fact": {
+      "scene_description": "Three people are sitting at a high table in a McDonald's, preparing cosplay props, including a wig and a pink suitcase.",
+      "participants": [
+        "Person_001",
+        "Person_002",
+        "Person_003"
+      ]
+    },
+    "source_temp_event_id": "event_4"
+  },
+  {
+    "event_id": "EVT_0005",
+    "batch_id": "BATCH_0001",
+    "anchor_photo_id": "photo_477",
+    "supporting_photo_ids": [
+      "photo_477"
+    ],
+    "started_at": "2025-11-16T15:10:28",
+    "ended_at": "2025-11-16T15:10:28",
+    "title": "Filling Out Online Survey",
+    "narrative_synthesis": "The protagonist is filling out an online market research survey.",
+    "participant_person_ids": [],
+    "depicted_person_ids": [],
+    "place_refs": [
+      "Digital space"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [
+        "Engages in online surveys and market research."
+      ],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "Digital",
+      "Survey",
+      "Market Research"
+    ],
+    "confidence": 0.95,
+    "reason": "Single screenshot of a specific digital activity.",
+    "meta_info": {
+      "title": "Filling Out Online Survey",
+      "location_context": "Digital space",
+      "photo_count": 1
+    },
+    "objective_fact": {
+      "scene_description": "Screenshot of an Ipsos market research survey on a mobile device.",
+      "participants": []
+    },
+    "source_temp_event_id": "event_5"
+  },
+  {
+    "event_id": "EVT_0006",
+    "batch_id": "BATCH_0001",
+    "anchor_photo_id": "photo_478",
+    "supporting_photo_ids": [
+      "photo_478",
+      "photo_479",
+      "photo_480"
+    ],
+    "started_at": "2025-11-16T17:34:55",
+    "ended_at": "2025-11-16T17:35:39",
+    "title": "Checking E-commerce Orders",
+    "narrative_synthesis": "The protagonist is checking recent e-commerce orders and refunds on their phone.",
+    "participant_person_ids": [],
+    "depicted_person_ids": [],
+    "place_refs": [
+      "Digital space"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [
+        "Active online shopper, purchases home appliances."
+      ],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "Digital",
+      "Shopping",
+      "E-commerce"
+    ],
+    "confidence": 0.95,
+    "reason": "Sequential screenshots of the same app within a minute.",
+    "meta_info": {
+      "title": "Checking E-commerce Orders",
+      "location_context": "Digital space",
+      "photo_count": 3
+    },
+    "objective_fact": {
+      "scene_description": "Screenshots of Tmall order details, including a Tineco floor washer and a refunded hair spray.",
+      "participants": []
+    },
+    "source_temp_event_id": "event_6"
+  },
+  {
+    "event_id": "EVT_0007",
+    "batch_id": "BATCH_0001",
+    "anchor_photo_id": "photo_189",
+    "supporting_photo_ids": [
+      "photo_189",
+      "photo_190",
+      "photo_191",
+      "photo_193",
+      "photo_194",
+      "photo_196",
+      "photo_197",
+      "photo_198",
+      "photo_199"
+    ],
+    "started_at": "2025-11-16T19:00:17",
+    "ended_at": "2025-11-16T21:12:08",
+    "title": "Attending Large-Scale Concert",
+    "narrative_synthesis": "The protagonist attends a large-scale concert at Hongkou Football Stadium, enjoying the performances and stage visuals from a high vantage point.",
+    "participant_person_ids": [
+      "Person_003"
+    ],
+    "depicted_person_ids": [
+      "Person_003"
+    ],
+    "place_refs": [
+      "Hongkou Football Stadium, Shanghai"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [
+        "Enjoys live music and large-scale entertainment events."
+      ],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "Concert",
+      "Live Music",
+      "Entertainment",
+      "Nightlife"
+    ],
+    "confidence": 0.95,
+    "reason": "Continuous sequence of photos from the same event and location over a few hours.",
+    "meta_info": {
+      "title": "Attending Large-Scale Concert",
+      "location_context": "Hongkou Football Stadium, Shanghai",
+      "photo_count": 9
+    },
+    "objective_fact": {
+      "scene_description": "High-angle views of a large outdoor concert at night. The stage features large LED screens showing performers (including Fish Leong and Andreas Hemmeth). The audience is holding light sticks.",
+      "participants": [
+        "Person_003"
+      ]
+    },
+    "source_temp_event_id": "event_7"
+  },
+  {
+    "event_id": "EVT_0008",
+    "batch_id": "BATCH_0001",
+    "anchor_photo_id": "photo_200",
+    "supporting_photo_ids": [
+      "photo_200",
+      "photo_201",
+      "photo_202",
+      "photo_040",
+      "photo_203",
+      "photo_204",
+      "photo_205",
+      "photo_207",
+      "photo_006",
+      "photo_007",
+      "photo_008",
+      "photo_009",
+      "photo_011",
+      "photo_014",
+      "photo_015",
+      "photo_017",
+      "photo_018",
+      "photo_019",
+      "photo_020",
+      "photo_021",
+      "photo_022",
+      "photo_023"
+    ],
+    "started_at": "2025-11-29T16:02:00",
+    "ended_at": "2025-11-29T16:29:12",
+    "title": "Visiting Art Exhibition",
+    "narrative_synthesis": "The protagonist visits the 'Smile Park' art exhibition with a companion, taking photos of the artworks, their tickets, a themed plush toy, and their friend enjoying the gallery.",
+    "participant_person_ids": [
+      "Person_001",
+      "Person_004"
+    ],
+    "depicted_person_ids": [
+      "Person_004",
+      "Person_001",
+      "Person_002"
+    ],
+    "place_refs": [
+      "Art gallery, Huangpu District, Shanghai"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [
+        "Appreciates contemporary pop art, illustration, and cultural exhibitions."
+      ],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "Art Exhibition",
+      "Gallery",
+      "Culture",
+      "Leisure"
+    ],
+    "confidence": 0.95,
+    "reason": "Continuous sequence of photos in the same gallery setting.",
+    "meta_info": {
+      "title": "Visiting Art Exhibition",
+      "location_context": "Art gallery, Huangpu District, Shanghai",
+      "photo_count": 22
+    },
+    "objective_fact": {
+      "scene_description": "Photos of various pop-art/cartoon style paintings in a white-walled gallery. The protagonist holds exhibition tickets ('Smile Park') and a matching plush toy. A companion (Person_004) is also photographed looking at the art.",
+      "participants": [
+        "Person_001",
+        "Person_004"
+      ]
+    },
+    "source_temp_event_id": "event_8"
+  },
+  {
+    "event_id": "EVT_0009",
+    "batch_id": "BATCH_0001",
+    "anchor_photo_id": "photo_024",
+    "supporting_photo_ids": [
+      "photo_024"
+    ],
+    "started_at": "2025-11-29T16:50:12",
+    "ended_at": "2025-11-29T16:50:12",
+    "title": "Shopping for Clothes",
+    "narrative_synthesis": "The protagonist takes a mirror selfie while shopping for clothes.",
+    "participant_person_ids": [
+      "Person_005"
+    ],
+    "depicted_person_ids": [
+      "Person_005"
+    ],
+    "place_refs": [
+      "Clothing store/showroom"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [
+        "Interested in fashion and personal style."
+      ],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "Shopping",
+      "Selfie",
+      "Fashion"
+    ],
+    "confidence": 0.9,
+    "reason": "Distinct location and activity following the gallery visit.",
+    "meta_info": {
+      "title": "Shopping for Clothes",
+      "location_context": "Clothing store/showroom",
+      "photo_count": 1
+    },
+    "objective_fact": {
+      "scene_description": "A mirror selfie of a man holding a coffee cup in a clothing store or showroom with clothes racks and boxes in the background.",
+      "participants": [
+        "Person_005"
+      ]
+    },
+    "source_temp_event_id": "event_9"
+  },
+  {
+    "event_id": "EVT_0010",
+    "batch_id": "BATCH_0001",
+    "anchor_photo_id": "photo_481",
+    "supporting_photo_ids": [
+      "photo_481"
+    ],
+    "started_at": "2025-11-29T18:53:09",
+    "ended_at": "2025-11-29T18:53:09",
+    "title": "Completing Online Survey",
+    "narrative_synthesis": "The protagonist completes an online survey.",
+    "participant_person_ids": [],
+    "depicted_person_ids": [],
+    "place_refs": [
+      "Digital space"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [
+        "Participates in online feedback or research."
+      ],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "Digital",
+      "Survey"
+    ],
+    "confidence": 0.9,
+    "reason": "Single screenshot of a specific digital activity.",
+    "meta_info": {
+      "title": "Completing Online Survey",
+      "location_context": "Digital space",
+      "photo_count": 1
+    },
+    "objective_fact": {
+      "scene_description": "Screenshot of a completed online survey page on a mobile browser.",
+      "participants": []
+    },
+    "source_temp_event_id": "event_10"
+  },
+  {
+    "event_id": "EVT_0011",
+    "batch_id": "BATCH_0001",
+    "anchor_photo_id": "photo_208",
+    "supporting_photo_ids": [
+      "photo_208"
+    ],
+    "started_at": "2025-11-29T21:13:12",
+    "ended_at": "2025-11-29T21:13:12",
+    "title": "Showing Off Luxury Bag",
+    "narrative_synthesis": "The protagonist shows off a newly purchased or acquired luxury Louis Vuitton bag.",
+    "participant_person_ids": [],
+    "depicted_person_ids": [],
+    "place_refs": [
+      "Commercial space, Huangpu District"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [
+        "Consumes or interacts with luxury fashion brands."
+      ],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "Luxury",
+      "Shopping",
+      "Fashion"
+    ],
+    "confidence": 0.9,
+    "reason": "Single photo of a specific object.",
+    "meta_info": {
+      "title": "Showing Off Luxury Bag",
+      "location_context": "Commercial space, Huangpu District",
+      "photo_count": 1
+    },
+    "objective_fact": {
+      "scene_description": "A hand holds a new Louis Vuitton dolphin-shaped bag with protective wrapping still on the handle.",
+      "participants": []
+    },
+    "source_temp_event_id": "event_11"
+  },
+  {
+    "event_id": "EVT_0012",
+    "batch_id": "BATCH_0001",
+    "anchor_photo_id": "photo_062",
+    "supporting_photo_ids": [
+      "photo_062",
+      "photo_063",
+      "photo_064"
+    ],
+    "started_at": "2025-11-29T21:31:36",
+    "ended_at": "2025-11-29T21:39:10",
+    "title": "Resting in Art Gallery",
+    "narrative_synthesis": "The protagonist and their companions take a break and continue viewing art in a gallery.",
+    "participant_person_ids": [
+      "Person_004",
+      "Person_006"
+    ],
+    "depicted_person_ids": [
+      "Person_006",
+      "Person_004"
+    ],
+    "place_refs": [
+      "Art gallery"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [
+        "Enjoys leisurely cultural outings with friends."
+      ],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "Art Gallery",
+      "Leisure",
+      "Social"
+    ],
+    "confidence": 0.95,
+    "reason": "Sequence of photos in the same location with the same people.",
+    "meta_info": {
+      "title": "Resting in Art Gallery",
+      "location_context": "Art gallery",
+      "photo_count": 3
+    },
+    "objective_fact": {
+      "scene_description": "Photos of companions resting on a blue sofa and looking at art in a gallery setting.",
+      "participants": [
+        "Person_004",
+        "Person_006"
+      ]
+    },
+    "source_temp_event_id": "event_12"
+  },
+  {
+    "event_id": "EVT_0013",
+    "batch_id": "BATCH_0001",
+    "anchor_photo_id": "photo_041",
+    "supporting_photo_ids": [
+      "photo_041"
+    ],
+    "started_at": "2025-12-03T00:28:12",
+    "ended_at": "2025-12-03T00:28:12",
+    "title": "Documenting Skincare Routine",
+    "narrative_synthesis": "The protagonist documents their late-night skincare routine or products.",
+    "participant_person_ids": [
+      "Person_001"
+    ],
+    "depicted_person_ids": [
+      "Person_001"
+    ],
+    "place_refs": [
+      "Home, Baoshan District"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [
+        "Attentive to personal grooming and skincare."
+      ],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "Skincare",
+      "Selfie",
+      "Home"
+    ],
+    "confidence": 0.9,
+    "reason": "Single photo of a specific activity.",
+    "meta_info": {
+      "title": "Documenting Skincare Routine",
+      "location_context": "Home, Baoshan District",
+      "photo_count": 1
+    },
+    "objective_fact": {
+      "scene_description": "A selfie showing the protagonist with three skincare products (including AHAVA and Nivea) in an indoor setting.",
+      "participants": [
+        "Person_001"
+      ]
+    },
+    "source_temp_event_id": "event_13"
+  },
+  {
+    "event_id": "EVT_0014",
+    "batch_id": "BATCH_0001",
+    "anchor_photo_id": "photo_042",
+    "supporting_photo_ids": [
+      "photo_042",
+      "photo_043",
+      "photo_044",
+      "photo_045",
+      "photo_046",
+      "photo_047",
+      "photo_048",
+      "photo_049",
+      "photo_050"
+    ],
+    "started_at": "2025-12-03T08:28:50",
+    "ended_at": "2025-12-03T08:29:56",
+    "title": "Morning Commute Selfies",
+    "narrative_synthesis": "The protagonist takes multiple selfies during his morning commute, bundled up against the cold in a TNF jacket.",
+    "participant_person_ids": [
+      "Person_001",
+      "Person_007"
+    ],
+    "depicted_person_ids": [
+      "Person_007",
+      "Person_001"
+    ],
+    "place_refs": [
+      "Indoor/Elevator, Baoshan District"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [
+        "Documents daily outfits and commute; wears functional outdoor clothing."
+      ],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "Commute",
+      "Selfie",
+      "Morning"
+    ],
+    "confidence": 0.95,
+    "reason": "Continuous sequence of selfies in similar attire and settings over one minute.",
+    "meta_info": {
+      "title": "Morning Commute Selfies",
+      "location_context": "Indoor/Elevator, Baoshan District",
+      "photo_count": 9
+    },
+    "objective_fact": {
+      "scene_description": "A series of close-up selfies of a man wearing a black and white The North Face jacket zipped up to his nose, taken in hallways and an elevator.",
+      "participants": [
+        "Person_001",
+        "Person_007"
+      ]
+    },
+    "source_temp_event_id": "event_14"
+  },
+  {
+    "event_id": "EVT_0015",
+    "batch_id": "BATCH_0001",
+    "anchor_photo_id": "photo_209",
+    "supporting_photo_ids": [
+      "photo_209",
+      "photo_210",
+      "photo_211",
+      "photo_212",
+      "photo_214"
+    ],
+    "started_at": "2025-12-12T00:22:36",
+    "ended_at": "2025-12-12T00:23:12",
+    "title": "Interacting with Pet Cat",
+    "narrative_synthesis": "The protagonist interacts with and photographs their pet cat late at night at home.",
+    "participant_person_ids": [
+      "Person_008"
+    ],
+    "depicted_person_ids": [
+      "Person_008"
+    ],
+    "place_refs": [
+      "Home, Baoshan District"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [
+        "Pet owner, affectionate towards animals."
+      ],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "Pet",
+      "Cat",
+      "Home",
+      "Late Night"
+    ],
+    "confidence": 0.95,
+    "reason": "Sequence of photos of the same cat in the same location.",
+    "meta_info": {
+      "title": "Interacting with Pet Cat",
+      "location_context": "Home, Baoshan District",
+      "photo_count": 5
+    },
+    "objective_fact": {
+      "scene_description": "Photos of an orange and white cat wearing a pink collar, sitting on the floor and hiding under furniture.",
+      "participants": [
+        "Person_008"
+      ]
+    },
+    "source_temp_event_id": "event_15"
+  },
+  {
+    "event_id": "EVT_0016",
+    "batch_id": "BATCH_0001",
+    "anchor_photo_id": "photo_215",
+    "supporting_photo_ids": [
+      "photo_215",
+      "photo_216",
+      "photo_217",
+      "photo_218",
+      "photo_220",
+      "photo_221",
+      "photo_222",
+      "photo_223",
+      "photo_224",
+      "photo_051",
+      "photo_052",
+      "photo_053",
+      "photo_054",
+      "photo_055",
+      "photo_056",
+      "photo_065"
+    ],
+    "started_at": "2025-12-12T21:25:42",
+    "ended_at": "2025-12-12T22:47:07",
+    "title": "Post-Workout Selfies",
+    "narrative_synthesis": "The protagonist takes multiple selfies while resting after an intense evening sports session (likely football or tennis).",
+    "participant_person_ids": [
+      "Person_001"
+    ],
+    "depicted_person_ids": [
+      "Person_001"
+    ],
+    "place_refs": [
+      "Outdoor sports field, Baoshan District"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [
+        "Active in sports, football fan (Spurs)."
+      ],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "Sports",
+      "Workout",
+      "Selfie",
+      "Night"
+    ],
+    "confidence": 0.95,
+    "reason": "Continuous sequence of selfies in the same location and attire.",
+    "meta_info": {
+      "title": "Post-Workout Selfies",
+      "location_context": "Outdoor sports field, Baoshan District",
+      "photo_count": 16
+    },
+    "objective_fact": {
+      "scene_description": "A series of sweaty selfies taken at night near a chain-link fence. The protagonist is wearing a blue Nike Tottenham Hotspur jacket.",
+      "participants": [
+        "Person_001"
+      ]
+    },
+    "source_temp_event_id": "event_16"
+  },
+  {
+    "event_id": "EVT_0017",
+    "batch_id": "BATCH_0001",
+    "anchor_photo_id": "photo_225",
+    "supporting_photo_ids": [
+      "photo_225",
+      "photo_226"
+    ],
+    "started_at": "2025-12-31T22:01:43",
+    "ended_at": "2025-12-31T22:03:05",
+    "title": "New Year's Eve Subway Commute",
+    "narrative_synthesis": "The protagonist takes selfies while commuting on the subway late on New Year's Eve.",
+    "participant_person_ids": [
+      "Person_001"
+    ],
+    "depicted_person_ids": [
+      "Person_001"
+    ],
+    "place_refs": [
+      "Subway, Shanghai"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [
+        "Uses public transport, documents daily life."
+      ],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "Commute",
+      "Subway",
+      "Selfie",
+      "New Year's Eve"
+    ],
+    "confidence": 0.95,
+    "reason": "Photos taken minutes apart during a subway commute.",
+    "meta_info": {
+      "title": "New Year's Eve Subway Commute",
+      "location_context": "Subway, Shanghai",
+      "photo_count": 2
+    },
+    "objective_fact": {
+      "scene_description": "Selfies taken inside a subway car and a station, showing the protagonist wearing earphones and a jacket.",
+      "participants": [
+        "Person_001"
+      ]
+    },
+    "source_temp_event_id": "event_17"
+  },
+  {
+    "event_id": "EVT_0018",
+    "batch_id": "BATCH_0001",
+    "anchor_photo_id": "photo_228",
+    "supporting_photo_ids": [
+      "photo_228",
+      "photo_232",
+      "photo_235",
+      "photo_236",
+      "photo_239",
+      "photo_240"
+    ],
+    "started_at": "2026-01-18T12:59:12",
+    "ended_at": "2026-01-18T13:02:35",
+    "title": "Relaxing on Balcony",
+    "narrative_synthesis": "The protagonist relaxes and enjoys the scenic view of Qiandao Lake from a hotel or homestay balcony.",
+    "participant_person_ids": [
+      "Person_001"
+    ],
+    "depicted_person_ids": [
+      "Person_001"
+    ],
+    "place_refs": [
+      "Qiandao Lake, Chun'an County"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [
+        "Enjoys nature and scenic getaways."
+      ],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "Travel",
+      "Sightseeing",
+      "Relaxation",
+      "Nature"
+    ],
+    "confidence": 0.95,
+    "reason": "Sequence of photos in the same location with the same subject.",
+    "meta_info": {
+      "title": "Relaxing on Balcony",
+      "location_context": "Qiandao Lake, Chun'an County",
+      "photo_count": 6
+    },
+    "objective_fact": {
+      "scene_description": "Photos of a man in a grey sweater standing and sitting on a balcony with a glass railing, looking out over a lake and islands.",
+      "participants": [
+        "Person_001"
+      ]
+    },
+    "source_temp_event_id": "event_18"
+  },
+  {
+    "event_id": "EVT_0019",
+    "batch_id": "BATCH_0001",
+    "anchor_photo_id": "photo_241",
+    "supporting_photo_ids": [
+      "photo_241"
+    ],
+    "started_at": "2026-01-18T13:40:24",
+    "ended_at": "2026-01-18T13:40:24",
+    "title": "Resting Indoors",
+    "narrative_synthesis": "The protagonist takes a selfie while resting indoors during the trip.",
+    "participant_person_ids": [
+      "Person_001"
+    ],
+    "depicted_person_ids": [
+      "Person_001"
+    ],
+    "place_refs": [
+      "Indoor, Chun'an County"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [
+        "Documents moments of rest or fatigue."
+      ],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "Rest",
+      "Selfie",
+      "Travel"
+    ],
+    "confidence": 0.9,
+    "reason": "Single photo capturing a moment of rest.",
+    "meta_info": {
+      "title": "Resting Indoors",
+      "location_context": "Indoor, Chun'an County",
+      "photo_count": 1
+    },
+    "objective_fact": {
+      "scene_description": "A close-up selfie of the protagonist with eyes closed, resting a hand near his mouth.",
+      "participants": [
+        "Person_001"
+      ]
+    },
+    "source_temp_event_id": "event_19"
+  },
+  {
+    "event_id": "EVT_0020",
+    "batch_id": "BATCH_0001",
+    "anchor_photo_id": "photo_482",
+    "supporting_photo_ids": [
+      "photo_482"
+    ],
+    "started_at": "2026-01-18T13:43:27",
+    "ended_at": "2026-01-18T13:43:27",
+    "title": "Watching Douyin Video",
+    "narrative_synthesis": "The protagonist watches short videos analyzing popular TV shows on Douyin.",
+    "participant_person_ids": [
+      "Person_009"
+    ],
+    "depicted_person_ids": [
+      "Person_009",
+      "Person_010",
+      "Person_011"
+    ],
+    "place_refs": [
+      "Digital space"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [
+        "Consumes pop culture and media analysis content."
+      ],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "Digital",
+      "Entertainment",
+      "Douyin"
+    ],
+    "confidence": 0.9,
+    "reason": "Single screenshot of digital activity.",
+    "meta_info": {
+      "title": "Watching Douyin Video",
+      "location_context": "Digital space",
+      "photo_count": 1
+    },
+    "objective_fact": {
+      "scene_description": "Screenshot of a Douyin video analyzing the character Gao Qiqiang from the TV show 'The Knockout'.",
+      "participants": [
+        "Person_009"
+      ]
+    },
+    "source_temp_event_id": "event_20"
+  },
+  {
+    "event_id": "EVT_0021",
+    "batch_id": "BATCH_0001",
+    "anchor_photo_id": "photo_242",
+    "supporting_photo_ids": [
+      "photo_242",
+      "photo_247",
+      "photo_252"
+    ],
+    "started_at": "2026-01-18T13:52:29",
+    "ended_at": "2026-01-18T13:52:47",
+    "title": "Enjoying Lake Scenery",
+    "narrative_synthesis": "The protagonist and a companion enjoy the outdoor scenery by the lake.",
+    "participant_person_ids": [
+      "Person_001",
+      "Person_006"
+    ],
+    "depicted_person_ids": [
+      "Person_006",
+      "Person_001"
+    ],
+    "place_refs": [
+      "Qiandao Lake scenic area"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [
+        "Enjoys outdoor travel and scenic views."
+      ],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "Travel",
+      "Sightseeing",
+      "Nature"
+    ],
+    "confidence": 0.95,
+    "reason": "Sequence of photos in the same location.",
+    "meta_info": {
+      "title": "Enjoying Lake Scenery",
+      "location_context": "Qiandao Lake scenic area",
+      "photo_count": 3
+    },
+    "objective_fact": {
+      "scene_description": "Photos of a man in a white jacket standing by a stone wall, looking out at the lake and mountains.",
+      "participants": [
+        "Person_001",
+        "Person_006"
+      ]
+    },
+    "source_temp_event_id": "event_21"
+  },
+  {
+    "event_id": "EVT_0022",
+    "batch_id": "BATCH_0001",
+    "anchor_photo_id": "photo_253",
+    "supporting_photo_ids": [
+      "photo_253",
+      "photo_254",
+      "photo_255",
+      "photo_256",
+      "photo_257",
+      "photo_258",
+      "photo_259",
+      "photo_260",
+      "photo_261"
+    ],
+    "started_at": "2026-01-18T16:41:30",
+    "ended_at": "2026-01-18T16:46:45",
+    "title": "Exploring Yanzhou Ancient City",
+    "narrative_synthesis": "The protagonist explores Yanzhou Ancient City with a female companion, taking scenic shots and portraits together.",
+    "participant_person_ids": [
+      "Person_001",
+      "Person_012"
+    ],
+    "depicted_person_ids": [
+      "Person_001",
+      "Person_012"
+    ],
+    "place_refs": [
+      "Yanzhou Ancient City, Jiande"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [
+        "Enjoys cultural tourism and photography."
+      ],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "Travel",
+      "Sightseeing",
+      "Ancient Town",
+      "Portrait"
+    ],
+    "confidence": 0.95,
+    "reason": "Continuous sequence of photos in the same location with the same companion.",
+    "meta_info": {
+      "title": "Exploring Yanzhou Ancient City",
+      "location_context": "Yanzhou Ancient City, Jiande",
+      "photo_count": 9
+    },
+    "objective_fact": {
+      "scene_description": "Photos of an ancient town with traditional architecture, red lanterns, and a river view. Includes selfies and portraits of the protagonist and a female companion (Person_012).",
+      "participants": [
+        "Person_001",
+        "Person_012"
+      ]
+    },
+    "source_temp_event_id": "event_22"
+  },
+  {
+    "event_id": "EVT_0023",
+    "batch_id": "BATCH_0001",
+    "anchor_photo_id": "photo_095",
+    "supporting_photo_ids": [
+      "photo_095",
+      "photo_057"
+    ],
+    "started_at": "2026-01-18T19:14:45",
+    "ended_at": "2026-01-18T19:26:14",
+    "title": "Relaxing on Hotel Balcony",
+    "narrative_synthesis": "The protagonist relaxes on the hotel balcony, enjoying the evening view of the lake.",
+    "participant_person_ids": [
+      "Person_001"
+    ],
+    "depicted_person_ids": [
+      "Person_001"
+    ],
+    "place_refs": [
+      "Lakeview hotel balcony"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [
+        "Values quiet moments during travel."
+      ],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "Travel",
+      "Relaxation",
+      "Evening"
+    ],
+    "confidence": 0.95,
+    "reason": "Photos taken in the same location showing the same activity.",
+    "meta_info": {
+      "title": "Relaxing on Hotel Balcony",
+      "location_context": "Lakeview hotel balcony",
+      "photo_count": 2
+    },
+    "objective_fact": {
+      "scene_description": "Photos of the protagonist sitting on a balcony chair, looking at the lake in the evening.",
+      "participants": [
+        "Person_001"
+      ]
+    },
+    "source_temp_event_id": "event_23"
+  },
+  {
+    "event_id": "EVT_0024",
+    "batch_id": "BATCH_0001",
+    "anchor_photo_id": "photo_262",
+    "supporting_photo_ids": [
+      "photo_262"
+    ],
+    "started_at": "2026-01-20T17:03:37",
+    "ended_at": "2026-01-20T17:03:37",
+    "title": "Listening to Audio",
+    "narrative_synthesis": "The protagonist takes a selfie while listening to audio in an office or public space.",
+    "participant_person_ids": [
+      "Person_001"
+    ],
+    "depicted_person_ids": [
+      "Person_001"
+    ],
+    "place_refs": [
+      "Jiading District, Shanghai"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [
+        "Documents daily life."
+      ],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "Selfie",
+      "Daily Life"
+    ],
+    "confidence": 0.9,
+    "reason": "Single photo of a specific activity.",
+    "meta_info": {
+      "title": "Listening to Audio",
+      "location_context": "Jiading District, Shanghai",
+      "photo_count": 1
+    },
+    "objective_fact": {
+      "scene_description": "A close-up selfie of the protagonist wearing earphones in an indoor setting with a grid ceiling.",
+      "participants": [
+        "Person_001"
+      ]
+    },
+    "source_temp_event_id": "event_24"
+  },
+  {
+    "event_id": "EVT_0025",
+    "batch_id": "BATCH_0001",
+    "anchor_photo_id": "photo_263",
+    "supporting_photo_ids": [
+      "photo_263",
+      "photo_264",
+      "photo_265",
+      "photo_266"
+    ],
+    "started_at": "2026-01-20T18:03:10",
+    "ended_at": "2026-01-20T18:06:09",
+    "title": "Organizing Clothes and Sneakers",
+    "narrative_synthesis": "The protagonist organizes and documents their collection of football jerseys, streetwear, and sneakers at home.",
+    "participant_person_ids": [
+      "Person_001"
+    ],
+    "depicted_person_ids": [
+      "Person_001"
+    ],
+    "place_refs": [
+      "Home, Baoshan District"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [
+        "Sneakerhead, football fan, values streetwear fashion."
+      ],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "Home",
+      "Organization",
+      "Fashion",
+      "Sneakers"
+    ],
+    "confidence": 0.95,
+    "reason": "Sequence of photos showing the organization of personal items at home.",
+    "meta_info": {
+      "title": "Organizing Clothes and Sneakers",
+      "location_context": "Home, Baoshan District",
+      "photo_count": 4
+    },
+    "objective_fact": {
+      "scene_description": "Photos showing a collection of sports jerseys (Arsenal, Spurs) and jackets laid out on a bed, followed by a collection of sneakers near a shoe cabinet.",
+      "participants": [
+        "Person_001"
+      ]
+    },
+    "source_temp_event_id": "event_25"
+  },
+  {
+    "event_id": "EVT_0026",
+    "batch_id": "BATCH_0001",
+    "anchor_photo_id": "photo_483",
+    "supporting_photo_ids": [
+      "photo_483"
+    ],
+    "started_at": "2026-01-22T14:10:05",
+    "ended_at": "2026-01-22T14:10:05",
+    "title": "Booking Exhibition Ticket",
+    "narrative_synthesis": "The protagonist books a ticket for a Louis Vuitton exhibition.",
+    "participant_person_ids": [],
+    "depicted_person_ids": [],
+    "place_refs": [
+      "Digital space"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [
+        "Interested in luxury brand exhibitions and cultural events."
+      ],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "Digital",
+      "Booking",
+      "Exhibition"
+    ],
+    "confidence": 0.9,
+    "reason": "Single screenshot of a specific digital activity.",
+    "meta_info": {
+      "title": "Booking Exhibition Ticket",
+      "location_context": "Digital space",
+      "photo_count": 1
+    },
+    "objective_fact": {
+      "scene_description": "Screenshot of a WeChat mini-program showing a reservation for the 'Louis Vuitton Visionary Journeys' exhibition.",
+      "participants": []
+    },
+    "source_temp_event_id": "event_26"
+  },
+  {
+    "event_id": "EVT_0027",
+    "batch_id": "BATCH_0001",
+    "anchor_photo_id": "photo_484",
+    "supporting_photo_ids": [
+      "photo_484"
+    ],
+    "started_at": "2026-01-23T10:57:08",
+    "ended_at": "2026-01-23T10:57:08",
+    "title": "Playing Online Card Game",
+    "narrative_synthesis": "The protagonist plays an online card game.",
+    "participant_person_ids": [],
+    "depicted_person_ids": [],
+    "place_refs": [
+      "Digital space"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [
+        "Plays casual online games."
+      ],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "Digital",
+      "Gaming"
+    ],
+    "confidence": 0.9,
+    "reason": "Single screenshot of a specific digital activity.",
+    "meta_info": {
+      "title": "Playing Online Card Game",
+      "location_context": "Digital space",
+      "photo_count": 1
+    },
+    "objective_fact": {
+      "scene_description": "Screenshot of a card game ('Paodekuai') being played on the QQ Games platform.",
+      "participants": []
+    },
+    "source_temp_event_id": "event_27"
+  },
+  {
+    "event_id": "EVT_0028",
+    "batch_id": "BATCH_0001",
+    "anchor_photo_id": "photo_485",
+    "supporting_photo_ids": [
+      "photo_485",
+      "photo_488"
+    ],
+    "started_at": "2026-01-23T18:46:18",
+    "ended_at": "2026-01-23T21:12:00",
+    "title": "Work-Related Communication",
+    "narrative_synthesis": "The protagonist deals with work-related communication regarding a sunscreen project, including being removed from a group chat.",
+    "participant_person_ids": [],
+    "depicted_person_ids": [],
+    "place_refs": [
+      "Digital space"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [
+        "Involved in project-based work, possibly market research or product testing."
+      ],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "Digital",
+      "Work",
+      "Communication"
+    ],
+    "confidence": 0.95,
+    "reason": "Screenshots of the same WeChat group chat.",
+    "meta_info": {
+      "title": "Work-Related Communication",
+      "location_context": "Digital space",
+      "photo_count": 2
+    },
+    "objective_fact": {
+      "scene_description": "Screenshots of a WeChat group chat named 'ZY-261001 Sunscreen Spray Project (36)', showing the protagonist being removed from the group and a message about a consent form.",
+      "participants": []
+    },
+    "source_temp_event_id": "event_28"
+  },
+  {
+    "event_id": "EVT_0029",
+    "batch_id": "BATCH_0001",
+    "anchor_photo_id": "photo_616",
+    "supporting_photo_ids": [
+      "photo_616",
+      "photo_617",
+      "photo_486"
+    ],
+    "started_at": "2026-01-23T19:04:14",
+    "ended_at": "2026-01-23T19:13:15",
+    "title": "Dining Out and Queuing",
+    "narrative_synthesis": "The protagonist is dining out, managing a queue for a popular Jiangxi restaurant while possibly having drinks or a meal at a nearby tavern.",
+    "participant_person_ids": [],
+    "depicted_person_ids": [],
+    "place_refs": [
+      "Restaurants (Hushi Jiangxi Cuisine, Hutaoli)"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [
+        "Enjoys popular restaurants and uses apps to manage queues."
+      ],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "Dining",
+      "Restaurant",
+      "Social"
+    ],
+    "confidence": 0.95,
+    "reason": "Photos and screenshots related to dining out and queuing within a short timeframe.",
+    "meta_info": {
+      "title": "Dining Out and Queuing",
+      "location_context": "Restaurants (Hushi Jiangxi Cuisine, Hutaoli)",
+      "photo_count": 3
+    },
+    "objective_fact": {
+      "scene_description": "Photos of a queue ticket for 'Hushi Jiangxi Cuisine', a receipt for 'Hutaoli Music Tavern', and a screenshot of the Dianping app showing the queue status.",
+      "participants": []
+    },
+    "source_temp_event_id": "event_29"
+  },
+  {
+    "event_id": "EVT_0030",
+    "batch_id": "BATCH_0001",
+    "anchor_photo_id": "photo_487",
+    "supporting_photo_ids": [
+      "photo_487"
+    ],
+    "started_at": "2026-01-23T20:51:18",
+    "ended_at": "2026-01-23T20:51:18",
+    "title": "Browsing Home Appliances",
+    "narrative_synthesis": "The protagonist browses for home appliances online.",
+    "participant_person_ids": [],
+    "depicted_person_ids": [],
+    "place_refs": [
+      "Digital space"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [
+        "Shops for home goods online."
+      ],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "Digital",
+      "Shopping"
+    ],
+    "confidence": 0.9,
+    "reason": "Single screenshot of a specific digital activity.",
+    "meta_info": {
+      "title": "Browsing Home Appliances",
+      "location_context": "Digital space",
+      "photo_count": 1
+    },
+    "objective_fact": {
+      "scene_description": "Screenshot of a Tmall product page for a Zojirushi water boiler.",
+      "participants": []
+    },
+    "source_temp_event_id": "event_30"
+  },
+  {
+    "event_id": "EVT_0031",
+    "batch_id": "BATCH_0001",
+    "anchor_photo_id": "photo_267",
+    "supporting_photo_ids": [
+      "photo_267"
+    ],
+    "started_at": "2026-01-23T21:07:15",
+    "ended_at": "2026-01-23T21:07:15",
+    "title": "Late Dinner or Snack",
+    "narrative_synthesis": "The protagonist enjoys a late dinner or snack at a restaurant.",
+    "participant_person_ids": [],
+    "depicted_person_ids": [],
+    "place_refs": [
+      "Restaurant, Huangpu District"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [
+        "Enjoys dining out and photographing food."
+      ],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "Dining",
+      "Food"
+    ],
+    "confidence": 0.9,
+    "reason": "Single photo of a specific activity.",
+    "meta_info": {
+      "title": "Late Dinner or Snack",
+      "location_context": "Restaurant, Huangpu District",
+      "photo_count": 1
+    },
+    "objective_fact": {
+      "scene_description": "A photo of a dish consisting of meat sauce and toasted bread on a wooden table.",
+      "participants": []
+    },
+    "source_temp_event_id": "event_31"
+  },
+  {
+    "event_id": "EVT_0032",
+    "batch_id": "BATCH_0001",
+    "anchor_photo_id": "photo_489",
+    "supporting_photo_ids": [
+      "photo_489",
+      "photo_490",
+      "photo_491"
+    ],
+    "started_at": "2026-01-23T21:58:00",
+    "ended_at": "2026-01-23T22:06:21",
+    "title": "Purchasing Movie Tickets",
+    "narrative_synthesis": "The protagonist buys two movie tickets for a late-night screening of 'Return to Silent Hill' via a third-party seller on Xianyu.",
+    "participant_person_ids": [],
+    "depicted_person_ids": [],
+    "place_refs": [
+      "Digital space"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [
+        "Looks for deals on entertainment, watches horror movies."
+      ],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "Digital",
+      "Entertainment",
+      "Movie",
+      "Shopping"
+    ],
+    "confidence": 0.95,
+    "reason": "Sequence of screenshots related to purchasing movie tickets.",
+    "meta_info": {
+      "title": "Purchasing Movie Tickets",
+      "location_context": "Digital space",
+      "photo_count": 3
+    },
+    "objective_fact": {
+      "scene_description": "Screenshots of a movie ticketing app showing seat selection for 'Return to Silent Hill' and a Xianyu chat negotiating the ticket purchase.",
+      "participants": []
+    },
+    "source_temp_event_id": "event_32"
+  },
+  {
+    "event_id": "EVT_0033",
+    "batch_id": "BATCH_0001",
+    "anchor_photo_id": "photo_268",
+    "supporting_photo_ids": [
+      "photo_268",
+      "photo_269"
+    ],
+    "started_at": "2026-01-24T19:18:37",
+    "ended_at": "2026-01-24T19:18:44",
+    "title": "Showing Off Custom Lighter",
+    "narrative_synthesis": "The protagonist takes selfies showing off a custom or designer lighter.",
+    "participant_person_ids": [
+      "Person_001"
+    ],
+    "depicted_person_ids": [
+      "Person_001"
+    ],
+    "place_refs": [
+      "Xuhui District, Shanghai"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [
+        "Appreciates custom or designer accessories."
+      ],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "Selfie",
+      "Accessories"
+    ],
+    "confidence": 0.95,
+    "reason": "Photos taken seconds apart showing the same object.",
+    "meta_info": {
+      "title": "Showing Off Custom Lighter",
+      "location_context": "Xuhui District, Shanghai",
+      "photo_count": 2
+    },
+    "objective_fact": {
+      "scene_description": "Selfies of the protagonist holding a custom lighter with a cartoon design.",
+      "participants": [
+        "Person_001"
+      ]
+    },
+    "source_temp_event_id": "event_33"
+  },
+  {
+    "event_id": "EVT_0034",
+    "batch_id": "BATCH_0001",
+    "anchor_photo_id": "photo_270",
+    "supporting_photo_ids": [
+      "photo_270",
+      "photo_271",
+      "photo_272",
+      "photo_273"
+    ],
+    "started_at": "2026-01-24T20:59:25",
+    "ended_at": "2026-01-24T20:59:52",
+    "title": "Tufting Workshop Date",
+    "narrative_synthesis": "The protagonist and a companion complete a tufting DIY project and take photos with their finished Winnie the Pooh rug.",
+    "participant_person_ids": [
+      "Person_001",
+      "Person_012"
+    ],
+    "depicted_person_ids": [
+      "Person_001",
+      "Person_012"
+    ],
+    "place_refs": [
+      "Tufting workshop, Xuhui District"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [
+        "Enjoys hands-on DIY activities and creative dates."
+      ],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "DIY",
+      "Crafts",
+      "Social",
+      "Date"
+    ],
+    "confidence": 0.95,
+    "reason": "Continuous sequence of photos in the same location with the same companion.",
+    "meta_info": {
+      "title": "Tufting Workshop Date",
+      "location_context": "Tufting workshop, Xuhui District",
+      "photo_count": 4
+    },
+    "objective_fact": {
+      "scene_description": "Selfies of the protagonist and a female companion in a tufting workshop, holding a finished Winnie the Pooh tufted rug.",
+      "participants": [
+        "Person_001",
+        "Person_012"
+      ]
+    },
+    "source_temp_event_id": "event_34"
+  },
+  {
+    "event_id": "EVT_0035",
+    "batch_id": "BATCH_0001",
+    "anchor_photo_id": "photo_275",
+    "supporting_photo_ids": [
+      "photo_275"
+    ],
+    "started_at": "2026-01-29T08:41:48",
+    "ended_at": "2026-01-29T08:41:48",
+    "title": "Subway Commute",
+    "narrative_synthesis": "The protagonist takes a photo of the view from a moving subway train.",
+    "participant_person_ids": [],
+    "depicted_person_ids": [],
+    "place_refs": [
+      "Subway Line 3/4, Hongkou District"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [
+        "Uses public transport."
+      ],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "Commute",
+      "Subway",
+      "Cityscape"
+    ],
+    "confidence": 0.9,
+    "reason": "Single photo of a specific activity.",
+    "meta_info": {
+      "title": "Subway Commute",
+      "location_context": "Subway Line 3/4, Hongkou District",
+      "photo_count": 1
+    },
+    "objective_fact": {
+      "scene_description": "A photo taken from inside a moving subway train, showing the tracks and city landscape.",
+      "participants": []
+    },
+    "source_temp_event_id": "event_35"
+  },
+  {
+    "event_id": "EVT_0036",
+    "batch_id": "BATCH_0002",
+    "anchor_photo_id": "photo_540",
+    "supporting_photo_ids": [
+      "photo_539",
+      "photo_540",
+      "photo_541",
+      "photo_542",
+      "photo_543",
+      "photo_544"
+    ],
+    "started_at": "2026-02-09T11:41:04",
+    "ended_at": "2026-02-09T11:42:42",
+    "title": "Browsing Social Media Memories",
+    "narrative_synthesis": "The protagonist spends time browsing their own and others' past social media posts, including concert memories, sports events, and personal collections.",
+    "participant_person_ids": [
+      "Person_001"
+    ],
+    "depicted_person_ids": [
+      "Person_001"
+    ],
+    "place_refs": [
+      "Digital Space"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "#SocialMedia",
+      "#Memories"
+    ],
+    "confidence": 0.9,
+    "reason": "Photos show the protagonist browsing various social media posts and memories.",
+    "meta_info": {
+      "title": "Browsing Social Media Memories",
+      "location_context": "Digital Space",
+      "photo_count": 6
+    },
+    "objective_fact": {
+      "scene_description": "The protagonist spends time browsing their own and others' past social media posts, including concert memories, sports events, and personal collections.",
+      "participants": [
+        "Person_001"
+      ]
+    },
+    "source_temp_event_id": "EVT_0036"
+  },
+  {
+    "event_id": "EVT_0037",
+    "batch_id": "BATCH_0002",
+    "anchor_photo_id": "photo_545",
+    "supporting_photo_ids": [
+      "photo_545",
+      "photo_546"
+    ],
+    "started_at": "2026-02-09T14:04:12",
+    "ended_at": "2026-02-09T14:16:36",
+    "title": "Mobile App Management and Gaming",
+    "narrative_synthesis": "The protagonist manages mobile apps and plays a session of Subway Surfers.",
+    "participant_person_ids": [],
+    "depicted_person_ids": [],
+    "place_refs": [
+      "Digital Space"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "#MobileGaming",
+      "#AppManagement"
+    ],
+    "confidence": 0.9,
+    "reason": "Photos show the protagonist managing apps and playing Subway Surfers.",
+    "meta_info": {
+      "title": "Mobile App Management and Gaming",
+      "location_context": "Digital Space",
+      "photo_count": 2
+    },
+    "objective_fact": {
+      "scene_description": "The protagonist manages mobile apps and plays a session of Subway Surfers.",
+      "participants": []
+    },
+    "source_temp_event_id": "EVT_0037"
+  },
+  {
+    "event_id": "EVT_0038",
+    "batch_id": "BATCH_0002",
+    "anchor_photo_id": "photo_547",
+    "supporting_photo_ids": [
+      "photo_547"
+    ],
+    "started_at": "2026-02-09T17:43:04",
+    "ended_at": "2026-02-09T17:43:04",
+    "title": "Relationship Announcement",
+    "narrative_synthesis": "A social media post announces a new relationship with a photo of two people.",
+    "participant_person_ids": [
+      "Person_001",
+      "Person_002"
+    ],
+    "depicted_person_ids": [
+      "Person_001",
+      "Person_002"
+    ],
+    "place_refs": [
+      "Unknown Indoor Space"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "#Relationship",
+      "#SocialMedia"
+    ],
+    "confidence": 0.9,
+    "reason": "Photo shows a social media post announcing a relationship.",
+    "meta_info": {
+      "title": "Relationship Announcement",
+      "location_context": "Unknown Indoor Space",
+      "photo_count": 1
+    },
+    "objective_fact": {
+      "scene_description": "A social media post announces a new relationship with a photo of two people.",
+      "participants": [
+        "Person_001",
+        "Person_002"
+      ]
+    },
+    "source_temp_event_id": "EVT_0038"
+  },
+  {
+    "event_id": "EVT_0039",
+    "batch_id": "BATCH_0002",
+    "anchor_photo_id": "photo_548",
+    "supporting_photo_ids": [
+      "photo_548"
+    ],
+    "started_at": "2026-02-10T04:52:24",
+    "ended_at": "2026-02-10T04:52:24",
+    "title": "Late Night Sports News",
+    "narrative_synthesis": "The protagonist browses sports news on the Dongqiudi app late at night.",
+    "participant_person_ids": [
+      "Person_024"
+    ],
+    "depicted_person_ids": [
+      "Person_024"
+    ],
+    "place_refs": [
+      "Digital Space"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "#SportsNews",
+      "#LateNight"
+    ],
+    "confidence": 0.9,
+    "reason": "Photo shows the protagonist browsing sports news on the Dongqiudi app.",
+    "meta_info": {
+      "title": "Late Night Sports News",
+      "location_context": "Digital Space",
+      "photo_count": 1
+    },
+    "objective_fact": {
+      "scene_description": "The protagonist browses sports news on the Dongqiudi app late at night.",
+      "participants": [
+        "Person_024"
+      ]
+    },
+    "source_temp_event_id": "EVT_0039"
+  },
+  {
+    "event_id": "EVT_0040",
+    "batch_id": "BATCH_0002",
+    "anchor_photo_id": "photo_549",
+    "supporting_photo_ids": [
+      "photo_549"
+    ],
+    "started_at": "2026-02-10T09:53:31",
+    "ended_at": "2026-02-10T09:53:31",
+    "title": "Checking Calendar",
+    "narrative_synthesis": "The protagonist checks their calendar, noting upcoming holidays and work schedules.",
+    "participant_person_ids": [],
+    "depicted_person_ids": [],
+    "place_refs": [
+      "Digital Space"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "#Calendar",
+      "#Planning"
+    ],
+    "confidence": 0.9,
+    "reason": "Photo shows the protagonist checking their calendar.",
+    "meta_info": {
+      "title": "Checking Calendar",
+      "location_context": "Digital Space",
+      "photo_count": 1
+    },
+    "objective_fact": {
+      "scene_description": "The protagonist checks their calendar, noting upcoming holidays and work schedules.",
+      "participants": []
+    },
+    "source_temp_event_id": "EVT_0040"
+  },
+  {
+    "event_id": "EVT_0041",
+    "batch_id": "BATCH_0002",
+    "anchor_photo_id": "photo_550",
+    "supporting_photo_ids": [
+      "photo_550"
+    ],
+    "started_at": "2026-02-10T11:58:52",
+    "ended_at": "2026-02-10T11:58:52",
+    "title": "Browsing Douyin Profile",
+    "narrative_synthesis": "The protagonist views a Douyin profile.",
+    "participant_person_ids": [
+      "Person_025"
+    ],
+    "depicted_person_ids": [
+      "Person_025"
+    ],
+    "place_refs": [
+      "Digital Space"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "#Douyin",
+      "#SocialMedia"
+    ],
+    "confidence": 0.9,
+    "reason": "Photo shows the protagonist viewing a Douyin profile.",
+    "meta_info": {
+      "title": "Browsing Douyin Profile",
+      "location_context": "Digital Space",
+      "photo_count": 1
+    },
+    "objective_fact": {
+      "scene_description": "The protagonist views a Douyin profile.",
+      "participants": [
+        "Person_025"
+      ]
+    },
+    "source_temp_event_id": "EVT_0041"
+  },
+  {
+    "event_id": "EVT_0042",
+    "batch_id": "BATCH_0002",
+    "anchor_photo_id": "photo_551",
+    "supporting_photo_ids": [
+      "photo_551",
+      "photo_552"
+    ],
+    "started_at": "2026-02-10T19:14:11",
+    "ended_at": "2026-02-10T19:14:16",
+    "title": "Accessing Corporate Event Stream",
+    "narrative_synthesis": "The protagonist logs into a corporate portal to watch an annual commendation and Spring Festival gala stream.",
+    "participant_person_ids": [],
+    "depicted_person_ids": [],
+    "place_refs": [
+      "Digital Space"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "#CorporateEvent",
+      "#LiveStream"
+    ],
+    "confidence": 0.9,
+    "reason": "Photos show the protagonist logging into a corporate portal to watch a stream.",
+    "meta_info": {
+      "title": "Accessing Corporate Event Stream",
+      "location_context": "Digital Space",
+      "photo_count": 2
+    },
+    "objective_fact": {
+      "scene_description": "The protagonist logs into a corporate portal to watch an annual commendation and Spring Festival gala stream.",
+      "participants": []
+    },
+    "source_temp_event_id": "EVT_0042"
+  },
+  {
+    "event_id": "EVT_0043",
+    "batch_id": "BATCH_0002",
+    "anchor_photo_id": "photo_304",
+    "supporting_photo_ids": [
+      "photo_304",
+      "photo_305",
+      "photo_306",
+      "photo_307",
+      "photo_308",
+      "photo_309",
+      "photo_310",
+      "photo_311",
+      "photo_312",
+      "photo_313"
+    ],
+    "started_at": "2026-02-10T19:22:45",
+    "ended_at": "2026-02-10T19:27:49",
+    "title": "Dinner Date Selfies",
+    "narrative_synthesis": "The protagonist and a female companion take numerous close-up selfies during a dinner date at a stylish restaurant.",
+    "participant_person_ids": [
+      "Person_001",
+      "Person_012",
+      "Person_026"
+    ],
+    "depicted_person_ids": [
+      "Person_012",
+      "Person_026",
+      "Person_001"
+    ],
+    "place_refs": [
+      "Xuhui District, Shanghai"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "#DinnerDate",
+      "#Selfies"
+    ],
+    "confidence": 0.9,
+    "reason": "Photos show the protagonist and a companion taking selfies during a dinner date.",
+    "meta_info": {
+      "title": "Dinner Date Selfies",
+      "location_context": "Xuhui District, Shanghai",
+      "photo_count": 10
+    },
+    "objective_fact": {
+      "scene_description": "The protagonist and a female companion take numerous close-up selfies during a dinner date at a stylish restaurant.",
+      "participants": [
+        "Person_001",
+        "Person_012",
+        "Person_026"
+      ]
+    },
+    "source_temp_event_id": "EVT_0043"
+  },
+  {
+    "event_id": "EVT_0044",
+    "batch_id": "BATCH_0002",
+    "anchor_photo_id": "photo_553",
+    "supporting_photo_ids": [
+      "photo_553"
+    ],
+    "started_at": "2026-02-10T19:30:16",
+    "ended_at": "2026-02-10T19:30:16",
+    "title": "Watching Live Stream",
+    "narrative_synthesis": "The protagonist watches a live stream on their phone.",
+    "participant_person_ids": [
+      "Person_027"
+    ],
+    "depicted_person_ids": [
+      "Person_027"
+    ],
+    "place_refs": [
+      "Digital Space"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "#LiveStream",
+      "#Entertainment"
+    ],
+    "confidence": 0.9,
+    "reason": "Photo shows the protagonist watching a live stream.",
+    "meta_info": {
+      "title": "Watching Live Stream",
+      "location_context": "Digital Space",
+      "photo_count": 1
+    },
+    "objective_fact": {
+      "scene_description": "The protagonist watches a live stream on their phone.",
+      "participants": [
+        "Person_027"
+      ]
+    },
+    "source_temp_event_id": "EVT_0044"
+  },
+  {
+    "event_id": "EVT_0045",
+    "batch_id": "BATCH_0002",
+    "anchor_photo_id": "photo_314",
+    "supporting_photo_ids": [
+      "photo_314",
+      "photo_315",
+      "photo_316",
+      "photo_317",
+      "photo_318"
+    ],
+    "started_at": "2026-02-10T20:03:35",
+    "ended_at": "2026-02-10T20:12:18",
+    "title": "Skincare Shopping",
+    "narrative_synthesis": "The protagonist browses skincare products at various cosmetic counters and stores, comparing prices and promotions.",
+    "participant_person_ids": [
+      "Person_001",
+      "Person_028",
+      "Person_029",
+      "Person_030"
+    ],
+    "depicted_person_ids": [
+      "Person_028",
+      "Person_001",
+      "Person_029",
+      "Person_030"
+    ],
+    "place_refs": [
+      "Xuhui District, Shanghai"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "#Shopping",
+      "#Skincare"
+    ],
+    "confidence": 0.9,
+    "reason": "Photos show the protagonist browsing skincare products at various stores.",
+    "meta_info": {
+      "title": "Skincare Shopping",
+      "location_context": "Xuhui District, Shanghai",
+      "photo_count": 5
+    },
+    "objective_fact": {
+      "scene_description": "The protagonist browses skincare products at various cosmetic counters and stores, comparing prices and promotions.",
+      "participants": [
+        "Person_001",
+        "Person_028",
+        "Person_029",
+        "Person_030"
+      ]
+    },
+    "source_temp_event_id": "EVT_0045"
+  },
+  {
+    "event_id": "EVT_0046",
+    "batch_id": "BATCH_0002",
+    "anchor_photo_id": "photo_554",
+    "supporting_photo_ids": [
+      "photo_554",
+      "photo_555"
+    ],
+    "started_at": "2026-02-10T20:19:54",
+    "ended_at": "2026-02-10T21:43:37",
+    "title": "Online Skincare Purchases",
+    "narrative_synthesis": "The protagonist completes online purchases for skincare products on Taobao and JD.com.",
+    "participant_person_ids": [],
+    "depicted_person_ids": [],
+    "place_refs": [
+      "Digital Space"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "#OnlineShopping",
+      "#Skincare"
+    ],
+    "confidence": 0.9,
+    "reason": "Photos show the protagonist completing online purchases for skincare products.",
+    "meta_info": {
+      "title": "Online Skincare Purchases",
+      "location_context": "Digital Space",
+      "photo_count": 2
+    },
+    "objective_fact": {
+      "scene_description": "The protagonist completes online purchases for skincare products on Taobao and JD.com.",
+      "participants": []
+    },
+    "source_temp_event_id": "EVT_0046"
+  },
+  {
+    "event_id": "EVT_0047",
+    "batch_id": "BATCH_0002",
+    "anchor_photo_id": "photo_319",
+    "supporting_photo_ids": [
+      "photo_319",
+      "photo_320",
+      "photo_058"
+    ],
+    "started_at": "2026-02-10T21:46:13",
+    "ended_at": "2026-02-10T21:47:33",
+    "title": "Subway Commute Selfies",
+    "narrative_synthesis": "The protagonist takes selfies while riding the subway late at night.",
+    "participant_person_ids": [
+      "Person_001"
+    ],
+    "depicted_person_ids": [
+      "Person_001"
+    ],
+    "place_refs": [
+      "Shanghai Subway"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "#Commute",
+      "#Selfies"
+    ],
+    "confidence": 0.9,
+    "reason": "Photos show the protagonist taking selfies on the subway.",
+    "meta_info": {
+      "title": "Subway Commute Selfies",
+      "location_context": "Shanghai Subway",
+      "photo_count": 3
+    },
+    "objective_fact": {
+      "scene_description": "The protagonist takes selfies while riding the subway late at night.",
+      "participants": [
+        "Person_001"
+      ]
+    },
+    "source_temp_event_id": "EVT_0047"
+  },
+  {
+    "event_id": "EVT_0048",
+    "batch_id": "BATCH_0002",
+    "anchor_photo_id": "photo_556",
+    "supporting_photo_ids": [
+      "photo_556",
+      "photo_557"
+    ],
+    "started_at": "2026-02-10T22:13:13",
+    "ended_at": "2026-02-10T22:14:20",
+    "title": "Late Night Social Media",
+    "narrative_synthesis": "The protagonist browses short videos and social media groups before bed.",
+    "participant_person_ids": [
+      "Person_031"
+    ],
+    "depicted_person_ids": [
+      "Person_031"
+    ],
+    "place_refs": [
+      "Digital Space"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "#SocialMedia",
+      "#LateNight"
+    ],
+    "confidence": 0.9,
+    "reason": "Photos show the protagonist browsing social media late at night.",
+    "meta_info": {
+      "title": "Late Night Social Media",
+      "location_context": "Digital Space",
+      "photo_count": 2
+    },
+    "objective_fact": {
+      "scene_description": "The protagonist browses short videos and social media groups before bed.",
+      "participants": [
+        "Person_031"
+      ]
+    },
+    "source_temp_event_id": "EVT_0048"
+  },
+  {
+    "event_id": "EVT_0049",
+    "batch_id": "BATCH_0002",
+    "anchor_photo_id": "photo_321",
+    "supporting_photo_ids": [
+      "photo_321"
+    ],
+    "started_at": "2026-02-11T09:13:25",
+    "ended_at": "2026-02-11T09:13:25",
+    "title": "Building Access QR Code",
+    "narrative_synthesis": "The protagonist photographs a temporary QR code used for building access.",
+    "participant_person_ids": [],
+    "depicted_person_ids": [],
+    "place_refs": [
+      "Jing'an District, Shanghai"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "#AccessCode",
+      "#BuildingEntry"
+    ],
+    "confidence": 0.9,
+    "reason": "Photo shows a QR code for building access.",
+    "meta_info": {
+      "title": "Building Access QR Code",
+      "location_context": "Jing'an District, Shanghai",
+      "photo_count": 1
+    },
+    "objective_fact": {
+      "scene_description": "The protagonist photographs a temporary QR code used for building access.",
+      "participants": []
+    },
+    "source_temp_event_id": "EVT_0049"
+  },
+  {
+    "event_id": "EVT_0050",
+    "batch_id": "BATCH_0002",
+    "anchor_photo_id": "photo_558",
+    "supporting_photo_ids": [
+      "photo_558"
+    ],
+    "started_at": "2026-02-11T10:45:58",
+    "ended_at": "2026-02-11T10:45:58",
+    "title": "Checking Hotel Reviews",
+    "narrative_synthesis": "The protagonist reads a hotel review on a mobile app.",
+    "participant_person_ids": [],
+    "depicted_person_ids": [],
+    "place_refs": [
+      "Digital Space"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "#HotelReviews",
+      "#TravelPlanning"
+    ],
+    "confidence": 0.9,
+    "reason": "Photo shows the protagonist reading a hotel review.",
+    "meta_info": {
+      "title": "Checking Hotel Reviews",
+      "location_context": "Digital Space",
+      "photo_count": 1
+    },
+    "objective_fact": {
+      "scene_description": "The protagonist reads a hotel review on a mobile app.",
+      "participants": []
+    },
+    "source_temp_event_id": "EVT_0050"
+  },
+  {
+    "event_id": "EVT_0051",
+    "batch_id": "BATCH_0002",
+    "anchor_photo_id": "photo_164",
+    "supporting_photo_ids": [
+      "photo_164"
+    ],
+    "started_at": "2026-02-11T10:47:22",
+    "ended_at": "2026-02-11T10:47:22",
+    "title": "Morning Date Selfie",
+    "narrative_synthesis": "The protagonist and a companion take a selfie together in a warmly lit indoor space.",
+    "participant_person_ids": [
+      "Person_001",
+      "Person_012"
+    ],
+    "depicted_person_ids": [
+      "Person_001",
+      "Person_012"
+    ],
+    "place_refs": [
+      "Unknown Indoor Space"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "#Date",
+      "#Selfie"
+    ],
+    "confidence": 0.9,
+    "reason": "Photo shows the protagonist and a companion taking a selfie.",
+    "meta_info": {
+      "title": "Morning Date Selfie",
+      "location_context": "Unknown Indoor Space",
+      "photo_count": 1
+    },
+    "objective_fact": {
+      "scene_description": "The protagonist and a companion take a selfie together in a warmly lit indoor space.",
+      "participants": [
+        "Person_001",
+        "Person_012"
+      ]
+    },
+    "source_temp_event_id": "EVT_0051"
+  },
+  {
+    "event_id": "EVT_0052",
+    "batch_id": "BATCH_0002",
+    "anchor_photo_id": "photo_559",
+    "supporting_photo_ids": [
+      "photo_559"
+    ],
+    "started_at": "2026-02-11T13:27:27",
+    "ended_at": "2026-02-11T13:27:27",
+    "title": "Valentine's Gift Shopping",
+    "narrative_synthesis": "The protagonist browses for a Jellycat plush toy online, likely as a Valentine's Day gift.",
+    "participant_person_ids": [],
+    "depicted_person_ids": [],
+    "place_refs": [
+      "Digital Space"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "#GiftShopping",
+      "#ValentinesDay"
+    ],
+    "confidence": 0.9,
+    "reason": "Photo shows the protagonist browsing for a Jellycat plush toy.",
+    "meta_info": {
+      "title": "Valentine's Gift Shopping",
+      "location_context": "Digital Space",
+      "photo_count": 1
+    },
+    "objective_fact": {
+      "scene_description": "The protagonist browses for a Jellycat plush toy online, likely as a Valentine's Day gift.",
+      "participants": []
+    },
+    "source_temp_event_id": "EVT_0052"
+  },
+  {
+    "event_id": "EVT_0053",
+    "batch_id": "BATCH_0002",
+    "anchor_photo_id": "photo_560",
+    "supporting_photo_ids": [
+      "photo_560"
+    ],
+    "started_at": "2026-02-11T13:29:05",
+    "ended_at": "2026-02-11T13:29:05",
+    "title": "Reviewing Port Data",
+    "narrative_synthesis": "The protagonist reviews an Excel spreadsheet containing port facility data for a cruise ship.",
+    "participant_person_ids": [],
+    "depicted_person_ids": [],
+    "place_refs": [
+      "Digital Space"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "#Work",
+      "#DataReview"
+    ],
+    "confidence": 0.9,
+    "reason": "Photo shows the protagonist reviewing an Excel spreadsheet with port data.",
+    "meta_info": {
+      "title": "Reviewing Port Data",
+      "location_context": "Digital Space",
+      "photo_count": 1
+    },
+    "objective_fact": {
+      "scene_description": "The protagonist reviews an Excel spreadsheet containing port facility data for a cruise ship.",
+      "participants": []
+    },
+    "source_temp_event_id": "EVT_0053"
+  },
+  {
+    "event_id": "EVT_0054",
+    "batch_id": "BATCH_0002",
+    "anchor_photo_id": "photo_066",
+    "supporting_photo_ids": [
+      "photo_066",
+      "photo_067",
+      "photo_167"
+    ],
+    "started_at": "2026-02-11T13:51:10",
+    "ended_at": "2026-02-11T14:01:03",
+    "title": "Afternoon Cafe Date",
+    "narrative_synthesis": "The protagonist and a companion take several selfies together while at a cafe or restaurant.",
+    "participant_person_ids": [
+      "Person_001",
+      "Person_012"
+    ],
+    "depicted_person_ids": [
+      "Person_001",
+      "Person_012"
+    ],
+    "place_refs": [
+      "Unknown Cafe/Restaurant"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "#CafeDate",
+      "#Selfies"
+    ],
+    "confidence": 0.9,
+    "reason": "Photos show the protagonist and a companion taking selfies at a cafe.",
+    "meta_info": {
+      "title": "Afternoon Cafe Date",
+      "location_context": "Unknown Cafe/Restaurant",
+      "photo_count": 3
+    },
+    "objective_fact": {
+      "scene_description": "The protagonist and a companion take several selfies together while at a cafe or restaurant.",
+      "participants": [
+        "Person_001",
+        "Person_012"
+      ]
+    },
+    "source_temp_event_id": "EVT_0054"
+  },
+  {
+    "event_id": "EVT_0055",
+    "batch_id": "BATCH_0002",
+    "anchor_photo_id": "photo_561",
+    "supporting_photo_ids": [
+      "photo_561",
+      "photo_562",
+      "photo_563",
+      "photo_564"
+    ],
+    "started_at": "2026-02-11T14:27:57",
+    "ended_at": "2026-02-11T14:29:35",
+    "title": "Reviewing Football Memories",
+    "narrative_synthesis": "The protagonist browses past social media posts and ticket orders related to football matches, specifically focusing on Shanghai Shenhua and Tottenham Hotspur.",
+    "participant_person_ids": [
+      "Person_032"
+    ],
+    "depicted_person_ids": [
+      "Person_032"
+    ],
+    "place_refs": [
+      "Digital Space"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "#Football",
+      "#Memories"
+    ],
+    "confidence": 0.9,
+    "reason": "Photos show the protagonist browsing football-related memories and ticket orders.",
+    "meta_info": {
+      "title": "Reviewing Football Memories",
+      "location_context": "Digital Space",
+      "photo_count": 4
+    },
+    "objective_fact": {
+      "scene_description": "The protagonist browses past social media posts and ticket orders related to football matches, specifically focusing on Shanghai Shenhua and Tottenham Hotspur.",
+      "participants": [
+        "Person_032"
+      ]
+    },
+    "source_temp_event_id": "EVT_0055"
+  },
+  {
+    "event_id": "EVT_0056",
+    "batch_id": "BATCH_0002",
+    "anchor_photo_id": "photo_565",
+    "supporting_photo_ids": [
+      "photo_565",
+      "photo_566"
+    ],
+    "started_at": "2026-02-12T03:47:03",
+    "ended_at": "2026-02-12T03:52:06",
+    "title": "Early Morning Alarms",
+    "narrative_synthesis": "The protagonist manages early morning alarms on their phone.",
+    "participant_person_ids": [],
+    "depicted_person_ids": [],
+    "place_refs": [
+      "Unknown Indoor Space"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "#Alarms",
+      "#EarlyMorning"
+    ],
+    "confidence": 0.9,
+    "reason": "Photos show the protagonist managing early morning alarms.",
+    "meta_info": {
+      "title": "Early Morning Alarms",
+      "location_context": "Unknown Indoor Space",
+      "photo_count": 2
+    },
+    "objective_fact": {
+      "scene_description": "The protagonist manages early morning alarms on their phone.",
+      "participants": []
+    },
+    "source_temp_event_id": "EVT_0056"
+  },
+  {
+    "event_id": "EVT_0057",
+    "batch_id": "BATCH_0002",
+    "anchor_photo_id": "photo_567",
+    "supporting_photo_ids": [
+      "photo_567"
+    ],
+    "started_at": "2026-02-12T09:52:27",
+    "ended_at": "2026-02-12T09:52:27",
+    "title": "Reading Social Media Comments",
+    "narrative_synthesis": "The protagonist reads comments on Weibo regarding live streaming platform bans.",
+    "participant_person_ids": [],
+    "depicted_person_ids": [],
+    "place_refs": [
+      "Digital Space"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "#SocialMedia",
+      "#Comments"
+    ],
+    "confidence": 0.9,
+    "reason": "Photo shows the protagonist reading comments on Weibo.",
+    "meta_info": {
+      "title": "Reading Social Media Comments",
+      "location_context": "Digital Space",
+      "photo_count": 1
+    },
+    "objective_fact": {
+      "scene_description": "The protagonist reads comments on Weibo regarding live streaming platform bans.",
+      "participants": []
+    },
+    "source_temp_event_id": "EVT_0057"
+  },
+  {
+    "event_id": "EVT_0058",
+    "batch_id": "BATCH_0002",
+    "anchor_photo_id": "photo_322",
+    "supporting_photo_ids": [
+      "photo_322"
+    ],
+    "started_at": "2026-02-12T12:07:25",
+    "ended_at": "2026-02-12T12:07:25",
+    "title": "Canteen Lunch",
+    "narrative_synthesis": "The protagonist has a quick lunch at a canteen or fast-food restaurant.",
+    "participant_person_ids": [],
+    "depicted_person_ids": [],
+    "place_refs": [
+      "Unknown Canteen"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "#Lunch",
+      "#Canteen"
+    ],
+    "confidence": 0.9,
+    "reason": "Photo shows the protagonist having lunch at a canteen.",
+    "meta_info": {
+      "title": "Canteen Lunch",
+      "location_context": "Unknown Canteen",
+      "photo_count": 1
+    },
+    "objective_fact": {
+      "scene_description": "The protagonist has a quick lunch at a canteen or fast-food restaurant.",
+      "participants": []
+    },
+    "source_temp_event_id": "EVT_0058"
+  },
+  {
+    "event_id": "EVT_0059",
+    "batch_id": "BATCH_0002",
+    "anchor_photo_id": "photo_568",
+    "supporting_photo_ids": [
+      "photo_568"
+    ],
+    "started_at": "2026-02-12T15:36:51",
+    "ended_at": "2026-02-12T15:36:51",
+    "title": "Checking Home Security Camera",
+    "narrative_synthesis": "The protagonist checks a home security camera feed via a mobile app.",
+    "participant_person_ids": [],
+    "depicted_person_ids": [],
+    "place_refs": [
+      "Digital Space"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "#HomeSecurity",
+      "#CameraFeed"
+    ],
+    "confidence": 0.9,
+    "reason": "Photo shows the protagonist checking a home security camera feed.",
+    "meta_info": {
+      "title": "Checking Home Security Camera",
+      "location_context": "Digital Space",
+      "photo_count": 1
+    },
+    "objective_fact": {
+      "scene_description": "The protagonist checks a home security camera feed via a mobile app.",
+      "participants": []
+    },
+    "source_temp_event_id": "EVT_0059"
+  },
+  {
+    "event_id": "EVT_0060",
+    "batch_id": "BATCH_0002",
+    "anchor_photo_id": "photo_569",
+    "supporting_photo_ids": [
+      "photo_569"
+    ],
+    "started_at": "2026-02-12T18:20:26",
+    "ended_at": "2026-02-12T18:20:26",
+    "title": "Checking Phone Specs",
+    "narrative_synthesis": "The protagonist checks the hardware specifications of their Xiaomi 15 phone.",
+    "participant_person_ids": [],
+    "depicted_person_ids": [],
+    "place_refs": [
+      "Digital Space"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "#PhoneSpecs",
+      "#Tech"
+    ],
+    "confidence": 0.9,
+    "reason": "Photo shows the protagonist checking their phone's hardware specifications.",
+    "meta_info": {
+      "title": "Checking Phone Specs",
+      "location_context": "Digital Space",
+      "photo_count": 1
+    },
+    "objective_fact": {
+      "scene_description": "The protagonist checks the hardware specifications of their Xiaomi 15 phone.",
+      "participants": []
+    },
+    "source_temp_event_id": "EVT_0060"
+  },
+  {
+    "event_id": "EVT_0061",
+    "batch_id": "BATCH_0002",
+    "anchor_photo_id": "photo_323",
+    "supporting_photo_ids": [
+      "photo_323"
+    ],
+    "started_at": "2026-02-12T18:36:55",
+    "ended_at": "2026-02-12T18:36:55",
+    "title": "Bathroom Mirror Selfie",
+    "narrative_synthesis": "The protagonist takes a mirror selfie in a bathroom.",
+    "participant_person_ids": [
+      "Person_033"
+    ],
+    "depicted_person_ids": [
+      "Person_033"
+    ],
+    "place_refs": [
+      "Baoshan District, Shanghai"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "#Selfie",
+      "#Bathroom"
+    ],
+    "confidence": 0.9,
+    "reason": "Photo shows the protagonist taking a mirror selfie in a bathroom.",
+    "meta_info": {
+      "title": "Bathroom Mirror Selfie",
+      "location_context": "Baoshan District, Shanghai",
+      "photo_count": 1
+    },
+    "objective_fact": {
+      "scene_description": "The protagonist takes a mirror selfie in a bathroom.",
+      "participants": [
+        "Person_033"
+      ]
+    },
+    "source_temp_event_id": "EVT_0061"
+  },
+  {
+    "event_id": "EVT_0062",
+    "batch_id": "BATCH_0002",
+    "anchor_photo_id": "photo_570",
+    "supporting_photo_ids": [
+      "photo_570",
+      "photo_571"
+    ],
+    "started_at": "2026-02-12T21:04:48",
+    "ended_at": "2026-02-12T21:08:36",
+    "title": "Browsing Hotel Rooms",
+    "narrative_synthesis": "The protagonist browses photos and details of luxury hotel rooms on a booking app.",
+    "participant_person_ids": [],
+    "depicted_person_ids": [],
+    "place_refs": [
+      "Digital Space"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "#HotelBooking",
+      "#TravelPlanning"
+    ],
+    "confidence": 0.9,
+    "reason": "Photos show the protagonist browsing hotel rooms on a booking app.",
+    "meta_info": {
+      "title": "Browsing Hotel Rooms",
+      "location_context": "Digital Space",
+      "photo_count": 2
+    },
+    "objective_fact": {
+      "scene_description": "The protagonist browses photos and details of luxury hotel rooms on a booking app.",
+      "participants": []
+    },
+    "source_temp_event_id": "EVT_0062"
+  },
+  {
+    "event_id": "EVT_0063",
+    "batch_id": "BATCH_0002",
+    "anchor_photo_id": "photo_324",
+    "supporting_photo_ids": [
+      "photo_324"
+    ],
+    "started_at": "2026-02-13T13:28:21",
+    "ended_at": "2026-02-13T13:28:21",
+    "title": "Skin Condition Check",
+    "narrative_synthesis": "The protagonist takes a close-up selfie to check their skin condition.",
+    "participant_person_ids": [
+      "Person_001"
+    ],
+    "depicted_person_ids": [
+      "Person_001"
+    ],
+    "place_refs": [
+      "Huangpu District, Shanghai"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "#Skincare",
+      "#Selfie"
+    ],
+    "confidence": 0.9,
+    "reason": "Photo shows the protagonist taking a close-up selfie to check their skin.",
+    "meta_info": {
+      "title": "Skin Condition Check",
+      "location_context": "Huangpu District, Shanghai",
+      "photo_count": 1
+    },
+    "objective_fact": {
+      "scene_description": "The protagonist takes a close-up selfie to check their skin condition.",
+      "participants": [
+        "Person_001"
+      ]
+    },
+    "source_temp_event_id": "EVT_0063"
+  },
+  {
+    "event_id": "EVT_0064",
+    "batch_id": "BATCH_0002",
+    "anchor_photo_id": "photo_325",
+    "supporting_photo_ids": [
+      "photo_325"
+    ],
+    "started_at": "2026-02-13T18:18:11",
+    "ended_at": "2026-02-13T18:18:11",
+    "title": "Documenting Gift Box",
+    "narrative_synthesis": "The protagonist takes a photo of the label on a New Year gift box.",
+    "participant_person_ids": [],
+    "depicted_person_ids": [],
+    "place_refs": [
+      "Baoshan District, Shanghai"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "#Gift",
+      "#Documentation"
+    ],
+    "confidence": 0.9,
+    "reason": "Photo shows the protagonist documenting a gift box label.",
+    "meta_info": {
+      "title": "Documenting Gift Box",
+      "location_context": "Baoshan District, Shanghai",
+      "photo_count": 1
+    },
+    "objective_fact": {
+      "scene_description": "The protagonist takes a photo of the label on a New Year gift box.",
+      "participants": []
+    },
+    "source_temp_event_id": "EVT_0064"
+  },
+  {
+    "event_id": "EVT_0065",
+    "batch_id": "BATCH_0002",
+    "anchor_photo_id": "photo_572",
+    "supporting_photo_ids": [
+      "photo_572"
+    ],
+    "started_at": "2026-02-14T10:07:57",
+    "ended_at": "2026-02-14T10:07:57",
+    "title": "Posting Valentine's Memories",
+    "narrative_synthesis": "The protagonist prepares a social media post with photos from a Valentine's Day dinner.",
+    "participant_person_ids": [
+      "Person_001",
+      "Person_012"
+    ],
+    "depicted_person_ids": [
+      "Person_001",
+      "Person_012"
+    ],
+    "place_refs": [
+      "Digital Space"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "#ValentinesDay",
+      "#SocialMedia"
+    ],
+    "confidence": 0.9,
+    "reason": "Photo shows the protagonist preparing a social media post with Valentine's Day photos.",
+    "meta_info": {
+      "title": "Posting Valentine's Memories",
+      "location_context": "Digital Space",
+      "photo_count": 1
+    },
+    "objective_fact": {
+      "scene_description": "The protagonist prepares a social media post with photos from a Valentine's Day dinner.",
+      "participants": [
+        "Person_001",
+        "Person_012"
+      ]
+    },
+    "source_temp_event_id": "EVT_0065"
+  },
+  {
+    "event_id": "EVT_0066",
+    "batch_id": "BATCH_0002",
+    "anchor_photo_id": "photo_573",
+    "supporting_photo_ids": [
+      "photo_573"
+    ],
+    "started_at": "2026-02-14T10:22:01",
+    "ended_at": "2026-02-14T10:22:01",
+    "title": "Viewing Shared File",
+    "narrative_synthesis": "The protagonist views a promotional image shared via a cloud drive app.",
+    "participant_person_ids": [],
+    "depicted_person_ids": [],
+    "place_refs": [
+      "Digital Space"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "#CloudDrive",
+      "#FileViewing"
+    ],
+    "confidence": 0.9,
+    "reason": "Photo shows the protagonist viewing a shared file on a cloud drive app.",
+    "meta_info": {
+      "title": "Viewing Shared File",
+      "location_context": "Digital Space",
+      "photo_count": 1
+    },
+    "objective_fact": {
+      "scene_description": "The protagonist views a promotional image shared via a cloud drive app.",
+      "participants": []
+    },
+    "source_temp_event_id": "EVT_0066"
+  },
+  {
+    "event_id": "EVT_0067",
+    "batch_id": "BATCH_0002",
+    "anchor_photo_id": "photo_326",
+    "supporting_photo_ids": [
+      "photo_326",
+      "photo_327"
+    ],
+    "started_at": "2026-02-14T16:29:35",
+    "ended_at": "2026-02-14T16:29:37",
+    "title": "Getting Ready",
+    "narrative_synthesis": "The protagonist uses a Dyson hairdryer while getting ready in the bathroom.",
+    "participant_person_ids": [],
+    "depicted_person_ids": [],
+    "place_refs": [
+      "Baoshan District, Shanghai"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "#GettingReady",
+      "#Haircare"
+    ],
+    "confidence": 0.9,
+    "reason": "Photos show the protagonist using a hairdryer in the bathroom.",
+    "meta_info": {
+      "title": "Getting Ready",
+      "location_context": "Baoshan District, Shanghai",
+      "photo_count": 2
+    },
+    "objective_fact": {
+      "scene_description": "The protagonist uses a Dyson hairdryer while getting ready in the bathroom.",
+      "participants": []
+    },
+    "source_temp_event_id": "EVT_0067"
+  },
+  {
+    "event_id": "EVT_0068",
+    "batch_id": "BATCH_0002",
+    "anchor_photo_id": "photo_574",
+    "supporting_photo_ids": [
+      "photo_574"
+    ],
+    "started_at": "2026-02-14T18:59:07",
+    "ended_at": "2026-02-14T18:59:07",
+    "title": "Hotpot Dinner Bill",
+    "narrative_synthesis": "The protagonist checks the digital bill after a hotpot dinner.",
+    "participant_person_ids": [],
+    "depicted_person_ids": [],
+    "place_refs": [
+      "Hotpot Restaurant"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "#Dinner",
+      "#Bill"
+    ],
+    "confidence": 0.9,
+    "reason": "Photo shows the protagonist checking a digital bill after dinner.",
+    "meta_info": {
+      "title": "Hotpot Dinner Bill",
+      "location_context": "Hotpot Restaurant",
+      "photo_count": 1
+    },
+    "objective_fact": {
+      "scene_description": "The protagonist checks the digital bill after a hotpot dinner.",
+      "participants": []
+    },
+    "source_temp_event_id": "EVT_0068"
+  },
+  {
+    "event_id": "EVT_0069",
+    "batch_id": "BATCH_0002",
+    "anchor_photo_id": "photo_328",
+    "supporting_photo_ids": [
+      "photo_328",
+      "photo_329",
+      "photo_330",
+      "photo_331",
+      "photo_333"
+    ],
+    "started_at": "2026-02-14T21:59:55",
+    "ended_at": "2026-02-14T22:01:32",
+    "title": "Valentine's Day Celebration",
+    "narrative_synthesis": "The protagonist and a companion take mirror selfies with a bouquet of roses and a handwritten card to celebrate Valentine's Day.",
+    "participant_person_ids": [
+      "Person_001",
+      "Person_012"
+    ],
+    "depicted_person_ids": [
+      "Person_012",
+      "Person_001"
+    ],
+    "place_refs": [
+      "Baoshan District, Shanghai"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "#ValentinesDay",
+      "#Celebration"
+    ],
+    "confidence": 0.9,
+    "reason": "Photos show the protagonist and a companion celebrating Valentine's Day with flowers and a card.",
+    "meta_info": {
+      "title": "Valentine's Day Celebration",
+      "location_context": "Baoshan District, Shanghai",
+      "photo_count": 5
+    },
+    "objective_fact": {
+      "scene_description": "The protagonist and a companion take mirror selfies with a bouquet of roses and a handwritten card to celebrate Valentine's Day.",
+      "participants": [
+        "Person_001",
+        "Person_012"
+      ]
+    },
+    "source_temp_event_id": "EVT_0069"
+  },
+  {
+    "event_id": "EVT_0070",
+    "batch_id": "BATCH_0002",
+    "anchor_photo_id": "photo_334",
+    "supporting_photo_ids": [
+      "photo_334",
+      "photo_335",
+      "photo_336",
+      "photo_337",
+      "photo_338",
+      "photo_339",
+      "photo_340",
+      "photo_341",
+      "photo_342",
+      "photo_343",
+      "photo_344"
+    ],
+    "started_at": "2026-02-15T00:03:48",
+    "ended_at": "2026-02-15T00:06:52",
+    "title": "Late Night Skincare Routine",
+    "narrative_synthesis": "The protagonist and a companion take playful mirror selfies while wearing Hello Kitty face masks during a late-night skincare routine.",
+    "participant_person_ids": [
+      "Person_034",
+      "Person_035"
+    ],
+    "depicted_person_ids": [
+      "Person_034",
+      "Person_035"
+    ],
+    "place_refs": [
+      "Baoshan District, Shanghai"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "#Skincare",
+      "#LateNight"
+    ],
+    "confidence": 0.9,
+    "reason": "Photos show the protagonist and a companion doing a skincare routine with face masks.",
+    "meta_info": {
+      "title": "Late Night Skincare Routine",
+      "location_context": "Baoshan District, Shanghai",
+      "photo_count": 11
+    },
+    "objective_fact": {
+      "scene_description": "The protagonist and a companion take playful mirror selfies while wearing Hello Kitty face masks during a late-night skincare routine.",
+      "participants": [
+        "Person_034",
+        "Person_035"
+      ]
+    },
+    "source_temp_event_id": "EVT_0070"
+  },
+  {
+    "event_id": "EVT_0071",
+    "batch_id": "BATCH_0002",
+    "anchor_photo_id": "photo_575",
+    "supporting_photo_ids": [
+      "photo_575"
+    ],
+    "started_at": "2026-02-15T07:51:24",
+    "ended_at": "2026-02-15T07:51:24",
+    "title": "Waiting for Ride-Hailing Car",
+    "narrative_synthesis": "The protagonist checks a ride-hailing app while waiting for a car.",
+    "participant_person_ids": [],
+    "depicted_person_ids": [],
+    "place_refs": [
+      "Baoshan District, Shanghai"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "#RideHailing",
+      "#Commute"
+    ],
+    "confidence": 0.9,
+    "reason": "Photo shows the protagonist checking a ride-hailing app.",
+    "meta_info": {
+      "title": "Waiting for Ride-Hailing Car",
+      "location_context": "Baoshan District, Shanghai",
+      "photo_count": 1
+    },
+    "objective_fact": {
+      "scene_description": "The protagonist checks a ride-hailing app while waiting for a car.",
+      "participants": []
+    },
+    "source_temp_event_id": "EVT_0071"
+  },
+  {
+    "event_id": "EVT_0072",
+    "batch_id": "BATCH_0002",
+    "anchor_photo_id": "photo_576",
+    "supporting_photo_ids": [
+      "photo_576",
+      "photo_577",
+      "photo_578"
+    ],
+    "started_at": "2026-02-15T11:36:14",
+    "ended_at": "2026-02-15T18:50:43",
+    "title": "Booking Movie Tickets",
+    "narrative_synthesis": "The protagonist browses movie showtimes, selects seats, and arranges to buy tickets through a third-party seller.",
+    "participant_person_ids": [],
+    "depicted_person_ids": [],
+    "place_refs": [
+      "Digital Space"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "#MovieTickets",
+      "#Entertainment"
+    ],
+    "confidence": 0.9,
+    "reason": "Photos show the protagonist booking movie tickets.",
+    "meta_info": {
+      "title": "Booking Movie Tickets",
+      "location_context": "Digital Space",
+      "photo_count": 3
+    },
+    "objective_fact": {
+      "scene_description": "The protagonist browses movie showtimes, selects seats, and arranges to buy tickets through a third-party seller.",
+      "participants": []
+    },
+    "source_temp_event_id": "EVT_0072"
+  },
+  {
+    "event_id": "EVT_0073",
+    "batch_id": "BATCH_0002",
+    "anchor_photo_id": "photo_579",
+    "supporting_photo_ids": [
+      "photo_579"
+    ],
+    "started_at": "2026-02-16T13:32:55",
+    "ended_at": "2026-02-16T13:32:55",
+    "title": "Pizza Hut Order",
+    "narrative_synthesis": "The protagonist reviews an order for pizza and drinks on the Alipay app.",
+    "participant_person_ids": [],
+    "depicted_person_ids": [],
+    "place_refs": [
+      "Baoshan Wanda Plaza, Shanghai"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "#FoodOrder",
+      "#Dining"
+    ],
+    "confidence": 0.9,
+    "reason": "Photo shows the protagonist reviewing a food order.",
+    "meta_info": {
+      "title": "Pizza Hut Order",
+      "location_context": "Baoshan Wanda Plaza, Shanghai",
+      "photo_count": 1
+    },
+    "objective_fact": {
+      "scene_description": "The protagonist reviews an order for pizza and drinks on the Alipay app.",
+      "participants": []
+    },
+    "source_temp_event_id": "EVT_0073"
+  },
+  {
+    "event_id": "EVT_0074",
+    "batch_id": "BATCH_0002",
+    "anchor_photo_id": "photo_345",
+    "supporting_photo_ids": [
+      "photo_345",
+      "photo_346"
+    ],
+    "started_at": "2026-02-16T17:52:14",
+    "ended_at": "2026-02-16T17:52:37",
+    "title": "Cat on the Fish Tank",
+    "narrative_synthesis": "The protagonist photographs their cat sitting on top of a fish tank at home.",
+    "participant_person_ids": [],
+    "depicted_person_ids": [],
+    "place_refs": [
+      "Baoshan District, Shanghai"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "#Pets",
+      "#HomeLife"
+    ],
+    "confidence": 0.9,
+    "reason": "Photos show the protagonist's cat on a fish tank.",
+    "meta_info": {
+      "title": "Cat on the Fish Tank",
+      "location_context": "Baoshan District, Shanghai",
+      "photo_count": 2
+    },
+    "objective_fact": {
+      "scene_description": "The protagonist photographs their cat sitting on top of a fish tank at home.",
+      "participants": []
+    },
+    "source_temp_event_id": "EVT_0074"
+  },
+  {
+    "event_id": "EVT_0075",
+    "batch_id": "BATCH_0002",
+    "anchor_photo_id": "photo_580",
+    "supporting_photo_ids": [
+      "photo_580"
+    ],
+    "started_at": "2026-02-18T04:05:09",
+    "ended_at": "2026-02-18T04:05:09",
+    "title": "Early Morning Train Ride",
+    "narrative_synthesis": "The protagonist manages alarms on their phone while riding a train early in the morning.",
+    "participant_person_ids": [],
+    "depicted_person_ids": [],
+    "place_refs": [
+      "Moving Train"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "#Travel",
+      "#EarlyMorning"
+    ],
+    "confidence": 0.9,
+    "reason": "Photo shows the protagonist managing alarms on a train.",
+    "meta_info": {
+      "title": "Early Morning Train Ride",
+      "location_context": "Moving Train",
+      "photo_count": 1
+    },
+    "objective_fact": {
+      "scene_description": "The protagonist manages alarms on their phone while riding a train early in the morning.",
+      "participants": []
+    },
+    "source_temp_event_id": "EVT_0075"
+  },
+  {
+    "event_id": "EVT_0076",
+    "batch_id": "BATCH_0002",
+    "anchor_photo_id": "photo_581",
+    "supporting_photo_ids": [
+      "photo_581",
+      "photo_582",
+      "photo_583"
+    ],
+    "started_at": "2026-02-18T11:11:54",
+    "ended_at": "2026-02-18T16:30:33",
+    "title": "Browsing News and Info",
+    "narrative_synthesis": "The protagonist browses social media for news, checks movie rankings on Douban, and searches for information about the Qingdao Cruise Port.",
+    "participant_person_ids": [
+      "Person_036"
+    ],
+    "depicted_person_ids": [
+      "Person_036"
+    ],
+    "place_refs": [
+      "Digital Space"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "#News",
+      "#InformationSearch"
+    ],
+    "confidence": 0.9,
+    "reason": "Photos show the protagonist browsing news and information.",
+    "meta_info": {
+      "title": "Browsing News and Info",
+      "location_context": "Digital Space",
+      "photo_count": 3
+    },
+    "objective_fact": {
+      "scene_description": "The protagonist browses social media for news, checks movie rankings on Douban, and searches for information about the Qingdao Cruise Port.",
+      "participants": [
+        "Person_036"
+      ]
+    },
+    "source_temp_event_id": "EVT_0076"
+  },
+  {
+    "event_id": "EVT_0077",
+    "batch_id": "BATCH_0002",
+    "anchor_photo_id": "photo_584",
+    "supporting_photo_ids": [
+      "photo_584",
+      "photo_585"
+    ],
+    "started_at": "2026-02-18T17:38:49",
+    "ended_at": "2026-02-18T17:46:58",
+    "title": "Selecting Movie Seats",
+    "narrative_synthesis": "The protagonist selects seats for a movie screening on a ticketing app.",
+    "participant_person_ids": [],
+    "depicted_person_ids": [],
+    "place_refs": [
+      "Digital Space"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "#MovieTickets",
+      "#Entertainment"
+    ],
+    "confidence": 0.9,
+    "reason": "Photos show the protagonist selecting movie seats.",
+    "meta_info": {
+      "title": "Selecting Movie Seats",
+      "location_context": "Digital Space",
+      "photo_count": 2
+    },
+    "objective_fact": {
+      "scene_description": "The protagonist selects seats for a movie screening on a ticketing app.",
+      "participants": []
+    },
+    "source_temp_event_id": "EVT_0077"
+  },
+  {
+    "event_id": "EVT_0078",
+    "batch_id": "BATCH_0002",
+    "anchor_photo_id": "photo_586",
+    "supporting_photo_ids": [
+      "photo_586",
+      "photo_587"
+    ],
+    "started_at": "2026-02-18T18:59:16",
+    "ended_at": "2026-02-18T21:47:59",
+    "title": "Watching Short Videos",
+    "narrative_synthesis": "The protagonist watches short videos on Douyin about movie box office rankings and local schools.",
+    "participant_person_ids": [
+      "Person_037"
+    ],
+    "depicted_person_ids": [
+      "Person_037"
+    ],
+    "place_refs": [
+      "Digital Space"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "#ShortVideos",
+      "#Entertainment"
+    ],
+    "confidence": 0.9,
+    "reason": "Photos show the protagonist watching short videos.",
+    "meta_info": {
+      "title": "Watching Short Videos",
+      "location_context": "Digital Space",
+      "photo_count": 2
+    },
+    "objective_fact": {
+      "scene_description": "The protagonist watches short videos on Douyin about movie box office rankings and local schools.",
+      "participants": [
+        "Person_037"
+      ]
+    },
+    "source_temp_event_id": "EVT_0078"
+  },
+  {
+    "event_id": "EVT_0079",
+    "batch_id": "BATCH_0002",
+    "anchor_photo_id": "photo_588",
+    "supporting_photo_ids": [
+      "photo_588"
+    ],
+    "started_at": "2026-02-20T08:42:56",
+    "ended_at": "2026-02-20T08:42:56",
+    "title": "Reviewing Travel History",
+    "narrative_synthesis": "The protagonist reviews their recent driving routes on a tracking app.",
+    "participant_person_ids": [],
+    "depicted_person_ids": [],
+    "place_refs": [
+      "Digital Space"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "#TravelHistory",
+      "#Tracking"
+    ],
+    "confidence": 0.9,
+    "reason": "Photo shows the protagonist reviewing travel history.",
+    "meta_info": {
+      "title": "Reviewing Travel History",
+      "location_context": "Digital Space",
+      "photo_count": 1
+    },
+    "objective_fact": {
+      "scene_description": "The protagonist reviews their recent driving routes on a tracking app.",
+      "participants": []
+    },
+    "source_temp_event_id": "EVT_0079"
+  },
+  {
+    "event_id": "EVT_0080",
+    "batch_id": "BATCH_0002",
+    "anchor_photo_id": "photo_347",
+    "supporting_photo_ids": [
+      "photo_347"
+    ],
+    "started_at": "2026-02-21T01:01:47",
+    "ended_at": "2026-02-21T01:01:47",
+    "title": "Accidental Dark Photo",
+    "narrative_synthesis": "A completely dark photo, likely taken by accident.",
+    "participant_person_ids": [],
+    "depicted_person_ids": [],
+    "place_refs": [
+      "Baoshan District, Shanghai"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "#AccidentalPhoto"
+    ],
+    "confidence": 0.9,
+    "reason": "Photo is completely dark.",
+    "meta_info": {
+      "title": "Accidental Dark Photo",
+      "location_context": "Baoshan District, Shanghai",
+      "photo_count": 1
+    },
+    "objective_fact": {
+      "scene_description": "A completely dark photo, likely taken by accident.",
+      "participants": []
+    },
+    "source_temp_event_id": "EVT_0080"
+  },
+  {
+    "event_id": "EVT_0081",
+    "batch_id": "BATCH_0002",
+    "anchor_photo_id": "photo_589",
+    "supporting_photo_ids": [
+      "photo_589"
+    ],
+    "started_at": "2026-02-21T04:55:12",
+    "ended_at": "2026-02-21T04:55:12",
+    "title": "Early Morning Alarm",
+    "narrative_synthesis": "The protagonist's phone alarm goes off early in the morning.",
+    "participant_person_ids": [],
+    "depicted_person_ids": [],
+    "place_refs": [
+      "Unknown Indoor Space"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "#Alarm",
+      "#EarlyMorning"
+    ],
+    "confidence": 0.9,
+    "reason": "Photo shows an early morning alarm.",
+    "meta_info": {
+      "title": "Early Morning Alarm",
+      "location_context": "Unknown Indoor Space",
+      "photo_count": 1
+    },
+    "objective_fact": {
+      "scene_description": "The protagonist's phone alarm goes off early in the morning.",
+      "participants": []
+    },
+    "source_temp_event_id": "EVT_0081"
+  },
+  {
+    "event_id": "EVT_0082",
+    "batch_id": "BATCH_0002",
+    "anchor_photo_id": "photo_590",
+    "supporting_photo_ids": [
+      "photo_590",
+      "photo_591"
+    ],
+    "started_at": "2026-02-21T12:33:59",
+    "ended_at": "2026-02-21T12:39:23",
+    "title": "Booking Go-Karting",
+    "narrative_synthesis": "The protagonist browses and purchases go-karting tickets online.",
+    "participant_person_ids": [],
+    "depicted_person_ids": [],
+    "place_refs": [
+      "Digital Space"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "#GoKarting",
+      "#Entertainment"
+    ],
+    "confidence": 0.9,
+    "reason": "Photos show the protagonist booking go-karting tickets.",
+    "meta_info": {
+      "title": "Booking Go-Karting",
+      "location_context": "Digital Space",
+      "photo_count": 2
+    },
+    "objective_fact": {
+      "scene_description": "The protagonist browses and purchases go-karting tickets online.",
+      "participants": []
+    },
+    "source_temp_event_id": "EVT_0082"
+  },
+  {
+    "event_id": "EVT_0083",
+    "batch_id": "BATCH_0002",
+    "anchor_photo_id": "photo_592",
+    "supporting_photo_ids": [
+      "photo_592"
+    ],
+    "started_at": "2026-02-21T12:40:39",
+    "ended_at": "2026-02-21T12:40:39",
+    "title": "Selecting Movie Seat",
+    "narrative_synthesis": "The protagonist selects a seat for a movie on a ticketing app.",
+    "participant_person_ids": [],
+    "depicted_person_ids": [],
+    "place_refs": [
+      "Digital Space"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "#MovieTickets",
+      "#Entertainment"
+    ],
+    "confidence": 0.9,
+    "reason": "Photo shows the protagonist selecting a movie seat.",
+    "meta_info": {
+      "title": "Selecting Movie Seat",
+      "location_context": "Digital Space",
+      "photo_count": 1
+    },
+    "objective_fact": {
+      "scene_description": "The protagonist selects a seat for a movie on a ticketing app.",
+      "participants": []
+    },
+    "source_temp_event_id": "EVT_0083"
+  },
+  {
+    "event_id": "EVT_0084",
+    "batch_id": "BATCH_0002",
+    "anchor_photo_id": "photo_593",
+    "supporting_photo_ids": [
+      "photo_593"
+    ],
+    "started_at": "2026-02-21T14:32:17",
+    "ended_at": "2026-02-21T14:32:17",
+    "title": "Kitchen Staff Interaction",
+    "narrative_synthesis": "The protagonist captures a playful moment between two kitchen staff members.",
+    "participant_person_ids": [
+      "Person_038",
+      "Person_039"
+    ],
+    "depicted_person_ids": [
+      "Person_038",
+      "Person_039"
+    ],
+    "place_refs": [
+      "Restaurant Kitchen"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "#Workplace",
+      "#Interaction"
+    ],
+    "confidence": 0.9,
+    "reason": "Photo shows kitchen staff interacting.",
+    "meta_info": {
+      "title": "Kitchen Staff Interaction",
+      "location_context": "Restaurant Kitchen",
+      "photo_count": 1
+    },
+    "objective_fact": {
+      "scene_description": "The protagonist captures a playful moment between two kitchen staff members.",
+      "participants": [
+        "Person_038",
+        "Person_039"
+      ]
+    },
+    "source_temp_event_id": "EVT_0084"
+  },
+  {
+    "event_id": "EVT_0085",
+    "batch_id": "BATCH_0002",
+    "anchor_photo_id": "photo_594",
+    "supporting_photo_ids": [
+      "photo_594"
+    ],
+    "started_at": "2026-02-21T17:58:33",
+    "ended_at": "2026-02-21T17:58:33",
+    "title": "Watching Douyin Video",
+    "narrative_synthesis": "The protagonist watches a Douyin video featuring the TANK Shanghai art center.",
+    "participant_person_ids": [],
+    "depicted_person_ids": [],
+    "place_refs": [
+      "Digital Space"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "#Douyin",
+      "#Entertainment"
+    ],
+    "confidence": 0.9,
+    "reason": "Photo shows the protagonist watching a Douyin video.",
+    "meta_info": {
+      "title": "Watching Douyin Video",
+      "location_context": "Digital Space",
+      "photo_count": 1
+    },
+    "objective_fact": {
+      "scene_description": "The protagonist watches a Douyin video featuring the TANK Shanghai art center.",
+      "participants": []
+    },
+    "source_temp_event_id": "EVT_0085"
+  },
+  {
+    "event_id": "EVT_0086",
+    "batch_id": "BATCH_0002",
+    "anchor_photo_id": "photo_595",
+    "supporting_photo_ids": [
+      "photo_595"
+    ],
+    "started_at": "2026-02-22T09:22:52",
+    "ended_at": "2026-02-22T09:22:52",
+    "title": "Confirming Movie Seats",
+    "narrative_synthesis": "The protagonist confirms seat selections for a movie.",
+    "participant_person_ids": [],
+    "depicted_person_ids": [],
+    "place_refs": [
+      "Digital Space"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "#MovieTickets",
+      "#Entertainment"
+    ],
+    "confidence": 0.9,
+    "reason": "Photo shows the protagonist confirming movie seats.",
+    "meta_info": {
+      "title": "Confirming Movie Seats",
+      "location_context": "Digital Space",
+      "photo_count": 1
+    },
+    "objective_fact": {
+      "scene_description": "The protagonist confirms seat selections for a movie.",
+      "participants": []
+    },
+    "source_temp_event_id": "EVT_0086"
+  },
+  {
+    "event_id": "EVT_0087",
+    "batch_id": "BATCH_0002",
+    "anchor_photo_id": "photo_596",
+    "supporting_photo_ids": [
+      "photo_596",
+      "photo_597"
+    ],
+    "started_at": "2026-02-23T14:06:58",
+    "ended_at": "2026-02-23T14:26:51",
+    "title": "WeChat Communications",
+    "narrative_synthesis": "The protagonist checks a contact's profile and reviews task requirements in a WeChat group.",
+    "participant_person_ids": [],
+    "depicted_person_ids": [],
+    "place_refs": [
+      "Digital Space"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "#WeChat",
+      "#Communication"
+    ],
+    "confidence": 0.9,
+    "reason": "Photos show the protagonist using WeChat.",
+    "meta_info": {
+      "title": "WeChat Communications",
+      "location_context": "Digital Space",
+      "photo_count": 2
+    },
+    "objective_fact": {
+      "scene_description": "The protagonist checks a contact's profile and reviews task requirements in a WeChat group.",
+      "participants": []
+    },
+    "source_temp_event_id": "EVT_0087"
+  },
+  {
+    "event_id": "EVT_0088",
+    "batch_id": "BATCH_0002",
+    "anchor_photo_id": "photo_348",
+    "supporting_photo_ids": [
+      "photo_348",
+      "photo_349"
+    ],
+    "started_at": "2026-02-24T09:10:14",
+    "ended_at": "2026-02-24T09:10:32",
+    "title": "Checking Cruise Schedules",
+    "narrative_synthesis": "The protagonist photographs posted cruise schedules for 2024 and 2025.",
+    "participant_person_ids": [],
+    "depicted_person_ids": [],
+    "place_refs": [
+      "Shanghai Wusongkou International Cruise Terminal"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "#CruiseSchedules",
+      "#TravelPlanning"
+    ],
+    "confidence": 0.9,
+    "reason": "Photos show the protagonist checking cruise schedules.",
+    "meta_info": {
+      "title": "Checking Cruise Schedules",
+      "location_context": "Shanghai Wusongkou International Cruise Terminal",
+      "photo_count": 2
+    },
+    "objective_fact": {
+      "scene_description": "The protagonist photographs posted cruise schedules for 2024 and 2025.",
+      "participants": []
+    },
+    "source_temp_event_id": "EVT_0088"
+  },
+  {
+    "event_id": "EVT_0089",
+    "batch_id": "BATCH_0002",
+    "anchor_photo_id": "photo_598",
+    "supporting_photo_ids": [
+      "photo_598"
+    ],
+    "started_at": "2026-02-24T10:28:39",
+    "ended_at": "2026-02-24T10:28:39",
+    "title": "Train Window View",
+    "narrative_synthesis": "The protagonist takes a photo of the view from a moving train window.",
+    "participant_person_ids": [],
+    "depicted_person_ids": [],
+    "place_refs": [
+      "Moving Train"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "#Travel",
+      "#TrainRide"
+    ],
+    "confidence": 0.9,
+    "reason": "Photo shows the view from a train window.",
+    "meta_info": {
+      "title": "Train Window View",
+      "location_context": "Moving Train",
+      "photo_count": 1
+    },
+    "objective_fact": {
+      "scene_description": "The protagonist takes a photo of the view from a moving train window.",
+      "participants": []
+    },
+    "source_temp_event_id": "EVT_0089"
+  },
+  {
+    "event_id": "EVT_0090",
+    "batch_id": "BATCH_0002",
+    "anchor_photo_id": "photo_599",
+    "supporting_photo_ids": [
+      "photo_599"
+    ],
+    "started_at": "2026-02-24T13:55:33",
+    "ended_at": "2026-02-24T13:55:33",
+    "title": "Viewing WeChat Profile",
+    "narrative_synthesis": "The protagonist views a contact's profile on WeChat.",
+    "participant_person_ids": [],
+    "depicted_person_ids": [],
+    "place_refs": [
+      "Digital Space"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "#WeChat",
+      "#SocialMedia"
+    ],
+    "confidence": 0.9,
+    "reason": "Photo shows the protagonist viewing a WeChat profile.",
+    "meta_info": {
+      "title": "Viewing WeChat Profile",
+      "location_context": "Digital Space",
+      "photo_count": 1
+    },
+    "objective_fact": {
+      "scene_description": "The protagonist views a contact's profile on WeChat.",
+      "participants": []
+    },
+    "source_temp_event_id": "EVT_0090"
+  },
+  {
+    "event_id": "EVT_0091",
+    "batch_id": "BATCH_0002",
+    "anchor_photo_id": "photo_600",
+    "supporting_photo_ids": [
+      "photo_600"
+    ],
+    "started_at": "2026-02-24T15:20:24",
+    "ended_at": "2026-02-24T15:20:24",
+    "title": "Checking Work Schedule",
+    "narrative_synthesis": "The protagonist checks their work schedule on a calendar app.",
+    "participant_person_ids": [],
+    "depicted_person_ids": [],
+    "place_refs": [
+      "Digital Space"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "#WorkSchedule",
+      "#Planning"
+    ],
+    "confidence": 0.9,
+    "reason": "Photo shows the protagonist checking their work schedule.",
+    "meta_info": {
+      "title": "Checking Work Schedule",
+      "location_context": "Digital Space",
+      "photo_count": 1
+    },
+    "objective_fact": {
+      "scene_description": "The protagonist checks their work schedule on a calendar app.",
+      "participants": []
+    },
+    "source_temp_event_id": "EVT_0091"
+  },
+  {
+    "event_id": "EVT_0092",
+    "batch_id": "BATCH_0002",
+    "anchor_photo_id": "photo_601",
+    "supporting_photo_ids": [
+      "photo_601"
+    ],
+    "started_at": "2026-02-24T17:50:55",
+    "ended_at": "2026-02-24T17:50:55",
+    "title": "Providing Survey Info",
+    "narrative_synthesis": "The protagonist provides information for a survey in a WeChat group.",
+    "participant_person_ids": [],
+    "depicted_person_ids": [],
+    "place_refs": [
+      "Digital Space"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "#Survey",
+      "#Communication"
+    ],
+    "confidence": 0.9,
+    "reason": "Photo shows the protagonist providing survey info in a WeChat group.",
+    "meta_info": {
+      "title": "Providing Survey Info",
+      "location_context": "Digital Space",
+      "photo_count": 1
+    },
+    "objective_fact": {
+      "scene_description": "The protagonist provides information for a survey in a WeChat group.",
+      "participants": []
+    },
+    "source_temp_event_id": "EVT_0092"
+  },
+  {
+    "event_id": "EVT_0093",
+    "batch_id": "BATCH_0002",
+    "anchor_photo_id": "photo_602",
+    "supporting_photo_ids": [
+      "photo_602",
+      "photo_603"
+    ],
+    "started_at": "2026-02-24T19:47:08",
+    "ended_at": "2026-02-24T19:47:12",
+    "title": "Reviewing Event Tickets",
+    "narrative_synthesis": "The protagonist reviews past ticket orders for events on the Damai app.",
+    "participant_person_ids": [],
+    "depicted_person_ids": [],
+    "place_refs": [
+      "Digital Space"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "#EventTickets",
+      "#Review"
+    ],
+    "confidence": 0.9,
+    "reason": "Photos show the protagonist reviewing event tickets.",
+    "meta_info": {
+      "title": "Reviewing Event Tickets",
+      "location_context": "Digital Space",
+      "photo_count": 2
+    },
+    "objective_fact": {
+      "scene_description": "The protagonist reviews past ticket orders for events on the Damai app.",
+      "participants": []
+    },
+    "source_temp_event_id": "EVT_0093"
+  },
+  {
+    "event_id": "EVT_0094",
+    "batch_id": "BATCH_0002",
+    "anchor_photo_id": "photo_604",
+    "supporting_photo_ids": [
+      "photo_604"
+    ],
+    "started_at": "2026-02-24T19:49:20",
+    "ended_at": "2026-02-24T19:49:20",
+    "title": "Checking AI Search History",
+    "narrative_synthesis": "The protagonist checks their search history on an AI app.",
+    "participant_person_ids": [],
+    "depicted_person_ids": [],
+    "place_refs": [
+      "Digital Space"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "#AI",
+      "#SearchHistory"
+    ],
+    "confidence": 0.9,
+    "reason": "Photo shows the protagonist checking AI search history.",
+    "meta_info": {
+      "title": "Checking AI Search History",
+      "location_context": "Digital Space",
+      "photo_count": 1
+    },
+    "objective_fact": {
+      "scene_description": "The protagonist checks their search history on an AI app.",
+      "participants": []
+    },
+    "source_temp_event_id": "EVT_0094"
+  },
+  {
+    "event_id": "EVT_0095",
+    "batch_id": "BATCH_0002",
+    "anchor_photo_id": "photo_350",
+    "supporting_photo_ids": [
+      "photo_350"
+    ],
+    "started_at": "2026-02-25T10:57:22",
+    "ended_at": "2026-02-25T10:57:22",
+    "title": "Selfie in Hanfu",
+    "narrative_synthesis": "The protagonist takes a selfie while wearing a Hanfu-style top in a warehouse or work area.",
+    "participant_person_ids": [
+      "Person_001"
+    ],
+    "depicted_person_ids": [
+      "Person_001"
+    ],
+    "place_refs": [
+      "Baoshan District, Shanghai"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "#Selfie",
+      "#Hanfu"
+    ],
+    "confidence": 0.9,
+    "reason": "Photo shows the protagonist taking a selfie in Hanfu.",
+    "meta_info": {
+      "title": "Selfie in Hanfu",
+      "location_context": "Baoshan District, Shanghai",
+      "photo_count": 1
+    },
+    "objective_fact": {
+      "scene_description": "The protagonist takes a selfie while wearing a Hanfu-style top in a warehouse or work area.",
+      "participants": [
+        "Person_001"
+      ]
+    },
+    "source_temp_event_id": "EVT_0095"
+  },
+  {
+    "event_id": "EVT_0096",
+    "batch_id": "BATCH_0002",
+    "anchor_photo_id": "photo_605",
+    "supporting_photo_ids": [
+      "photo_605",
+      "photo_606"
+    ],
+    "started_at": "2026-02-25T14:59:23",
+    "ended_at": "2026-02-25T14:59:28",
+    "title": "Reviewing Second-Hand Purchases",
+    "narrative_synthesis": "The protagonist reviews completed orders for Disney merchandise on a second-hand trading app.",
+    "participant_person_ids": [],
+    "depicted_person_ids": [],
+    "place_refs": [
+      "Digital Space"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "#SecondHand",
+      "#Shopping"
+    ],
+    "confidence": 0.9,
+    "reason": "Photos show the protagonist reviewing second-hand purchases.",
+    "meta_info": {
+      "title": "Reviewing Second-Hand Purchases",
+      "location_context": "Digital Space",
+      "photo_count": 2
+    },
+    "objective_fact": {
+      "scene_description": "The protagonist reviews completed orders for Disney merchandise on a second-hand trading app.",
+      "participants": []
+    },
+    "source_temp_event_id": "EVT_0096"
+  },
+  {
+    "event_id": "EVT_0097",
+    "batch_id": "BATCH_0002",
+    "anchor_photo_id": "photo_351",
+    "supporting_photo_ids": [
+      "photo_351",
+      "photo_352",
+      "photo_353",
+      "photo_354",
+      "photo_059",
+      "photo_060",
+      "photo_061"
+    ],
+    "started_at": "2026-02-25T22:01:38",
+    "ended_at": "2026-02-25T22:05:07",
+    "title": "Photographing a Pink Xiaomi SU7",
+    "narrative_synthesis": "The protagonist takes multiple photos of a pink Xiaomi SU7 parked in a residential parking lot at night.",
+    "participant_person_ids": [],
+    "depicted_person_ids": [],
+    "place_refs": [
+      "Baoshan District, Shanghai"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "#CarPhotography",
+      "#XiaomiSU7"
+    ],
+    "confidence": 0.9,
+    "reason": "Photos show the protagonist photographing a pink Xiaomi SU7.",
+    "meta_info": {
+      "title": "Photographing a Pink Xiaomi SU7",
+      "location_context": "Baoshan District, Shanghai",
+      "photo_count": 7
+    },
+    "objective_fact": {
+      "scene_description": "The protagonist takes multiple photos of a pink Xiaomi SU7 parked in a residential parking lot at night.",
+      "participants": []
+    },
+    "source_temp_event_id": "EVT_0097"
+  },
+  {
+    "event_id": "EVT_0098",
+    "batch_id": "BATCH_0002",
+    "anchor_photo_id": "photo_355",
+    "supporting_photo_ids": [
+      "photo_355",
+      "photo_356"
+    ],
+    "started_at": "2026-02-25T22:02:51",
+    "ended_at": "2026-02-25T22:03:03",
+    "title": "Documenting EV Charging",
+    "narrative_synthesis": "The protagonist photographs an electric vehicle charging station at night.",
+    "participant_person_ids": [],
+    "depicted_person_ids": [],
+    "place_refs": [
+      "Baoshan District, Shanghai"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "#EVCharging",
+      "#Documentation"
+    ],
+    "confidence": 0.9,
+    "reason": "Photos show the protagonist documenting an EV charging station.",
+    "meta_info": {
+      "title": "Documenting EV Charging",
+      "location_context": "Baoshan District, Shanghai",
+      "photo_count": 2
+    },
+    "objective_fact": {
+      "scene_description": "The protagonist photographs an electric vehicle charging station at night.",
+      "participants": []
+    },
+    "source_temp_event_id": "EVT_0098"
+  },
+  {
+    "event_id": "EVT_0099",
+    "batch_id": "BATCH_0002",
+    "anchor_photo_id": "photo_607",
+    "supporting_photo_ids": [
+      "photo_607"
+    ],
+    "started_at": "2026-02-26T12:25:52",
+    "ended_at": "2026-02-26T12:25:52",
+    "title": "Browsing KFC Menu",
+    "narrative_synthesis": "The protagonist browses the KFC menu on a mobile app.",
+    "participant_person_ids": [],
+    "depicted_person_ids": [],
+    "place_refs": [
+      "Digital Space"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [
+      "#FoodOrder",
+      "#KFC"
+    ],
+    "confidence": 0.9,
+    "reason": "Photo shows the protagonist browsing the KFC menu.",
+    "meta_info": {
+      "title": "Browsing KFC Menu",
+      "location_context": "Digital Space",
+      "photo_count": 1
+    },
+    "objective_fact": {
+      "scene_description": "The protagonist browses the KFC menu on a mobile app.",
+      "participants": []
+    },
+    "source_temp_event_id": "EVT_0099"
+  },
+  {
+    "event_id": "EVT_0100",
+    "batch_id": "BATCH_0003",
+    "anchor_photo_id": "photo_118",
+    "supporting_photo_ids": [
+      "photo_110",
+      "photo_111",
+      "photo_113",
+      "photo_114",
+      "photo_115",
+      "photo_116",
+      "photo_117",
+      "photo_118",
+      "photo_119",
+      "photo_120",
+      "photo_121",
+      "photo_122",
+      "photo_632",
+      "photo_634",
+      "photo_635",
+      "photo_636",
+      "photo_637",
+      "photo_641",
+      "photo_643",
+      "photo_644",
+      "photo_650"
+    ],
+    "started_at": "2026-03-25T07:58:46.685366",
+    "ended_at": "2026-03-25T08:06:41.496925",
+    "title": "Driving and Car Maintenance",
+    "narrative_synthesis": "",
+    "participant_person_ids": [
+      "Protagonist"
+    ],
+    "depicted_person_ids": [],
+    "place_refs": [
+      "城市道路交叉口附近",
+      "私家车内",
+      "未知室外环境",
+      "户外公共充电站",
+      "上海中环路（靠近锦江乐园路段）",
+      "未知城市道路（导航显示即将进入迎宾大道）",
+      "地下停车场",
+      "私人或公共地下停车场",
+      "未知地下停车场",
+      "车内驾驶位",
+      "邮轮港地下停车场",
+      "上海市宝山区海江路",
+      "车内驾驶座",
+      "未知城市道路",
+      "上海市（根据车牌沪D开头推断）",
+      "上海市（根据车牌沪B前缀推断）"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [],
+    "confidence": 0.0,
+    "reason": "",
+    "meta_info": {
+      "title": "Driving and Car Maintenance",
+      "location_context": "城市道路交叉口附近",
+      "photo_count": 21
+    },
+    "objective_fact": {
+      "scene_description": "",
+      "participants": [
+        "Protagonist"
+      ]
+    },
+    "source_temp_event_id": "EVT_0100"
+  },
+  {
+    "event_id": "EVT_0101",
+    "batch_id": "BATCH_0003",
+    "anchor_photo_id": "photo_124",
+    "supporting_photo_ids": [
+      "photo_124",
+      "photo_125",
+      "photo_131",
+      "photo_132",
+      "photo_133",
+      "photo_134",
+      "photo_135",
+      "photo_136",
+      "photo_138",
+      "photo_139",
+      "photo_140",
+      "photo_142",
+      "photo_148",
+      "photo_149",
+      "photo_150",
+      "photo_157",
+      "photo_158",
+      "photo_159",
+      "photo_618",
+      "photo_630"
+    ],
+    "started_at": "2026-03-25T07:58:46.699161",
+    "ended_at": "2026-03-25T08:06:32.489914",
+    "title": "Home Life and Organization",
+    "narrative_synthesis": "",
+    "participant_person_ids": [
+      "Protagonist"
+    ],
+    "depicted_person_ids": [
+      "Person_001"
+    ],
+    "place_refs": [
+      "家庭厨房",
+      "私人住宅客厅",
+      "未知室内空间",
+      "家庭餐厅区域",
+      "室内居住空间或办公桌",
+      "私人住宅入口",
+      "卧室或酒店客房",
+      "私人住宅厨房及餐厅区域",
+      "私人住宅卧室",
+      "个人办公空间",
+      "室内居家环境",
+      "个人书房或办公桌",
+      "私人住宅洗手间",
+      "家庭洗衣区",
+      "住宅阳台/洗衣间",
+      "未知室内环境（家电附近）",
+      "住宅卧室或书房飘窗区域"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [],
+    "confidence": 0.0,
+    "reason": "",
+    "meta_info": {
+      "title": "Home Life and Organization",
+      "location_context": "家庭厨房",
+      "photo_count": 20
+    },
+    "objective_fact": {
+      "scene_description": "",
+      "participants": [
+        "Protagonist"
+      ]
+    },
+    "source_temp_event_id": "EVT_0101"
+  },
+  {
+    "event_id": "EVT_0102",
+    "batch_id": "BATCH_0003",
+    "anchor_photo_id": "photo_123",
+    "supporting_photo_ids": [
+      "photo_123",
+      "photo_126",
+      "photo_127",
+      "photo_130",
+      "photo_137",
+      "photo_154",
+      "photo_155",
+      "photo_156",
+      "photo_161",
+      "photo_162",
+      "photo_163",
+      "photo_184",
+      "photo_660",
+      "photo_670"
+    ],
+    "started_at": "2026-03-25T07:58:46.698421",
+    "ended_at": "2026-03-25T08:06:41.517925",
+    "title": "Digital Records and Screenshots",
+    "narrative_synthesis": "",
+    "participant_person_ids": [
+      "Protagonist"
+    ],
+    "depicted_person_ids": [
+      "Person_089"
+    ],
+    "place_refs": [
+      "未知（数字界面）",
+      "未知（移动设备屏幕）",
+      "未知（数字空间）",
+      "室内（卧室）",
+      "未知室内",
+      "未知（数字化文档界面）",
+      "室内个人工作空间",
+      "未知（电子设备屏幕）"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [],
+    "confidence": 0.0,
+    "reason": "",
+    "meta_info": {
+      "title": "Digital Records and Screenshots",
+      "location_context": "未知（数字界面）",
+      "photo_count": 14
+    },
+    "objective_fact": {
+      "scene_description": "",
+      "participants": [
+        "Protagonist"
+      ]
+    },
+    "source_temp_event_id": "EVT_0102"
+  },
+  {
+    "event_id": "EVT_0103",
+    "batch_id": "BATCH_0003",
+    "anchor_photo_id": "photo_143",
+    "supporting_photo_ids": [
+      "photo_143",
+      "photo_144",
+      "photo_145",
+      "photo_146",
+      "photo_147"
+    ],
+    "started_at": "2026-03-25T07:59:04.257568",
+    "ended_at": "2026-03-25T07:59:04.258953",
+    "title": "Surreal Art Photography",
+    "narrative_synthesis": "",
+    "participant_person_ids": [
+      "Protagonist",
+      "Models"
+    ],
+    "depicted_person_ids": [
+      "Person_001",
+      "Person_002",
+      "Person_003",
+      "Person_004"
+    ],
+    "place_refs": [
+      "户外开阔草地",
+      "未知（数字合成场景）",
+      "虚拟/艺术创作空间",
+      "未知室外管道设施",
+      "非物理实景，为数字合成或艺术摄影作品"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [],
+    "confidence": 0.0,
+    "reason": "",
+    "meta_info": {
+      "title": "Surreal Art Photography",
+      "location_context": "户外开阔草地",
+      "photo_count": 5
+    },
+    "objective_fact": {
+      "scene_description": "",
+      "participants": [
+        "Protagonist",
+        "Models"
+      ]
+    },
+    "source_temp_event_id": "EVT_0103"
+  },
+  {
+    "event_id": "EVT_0104",
+    "batch_id": "BATCH_0003",
+    "anchor_photo_id": "photo_168",
+    "supporting_photo_ids": [
+      "photo_168",
+      "photo_169",
+      "photo_170",
+      "photo_171",
+      "photo_172",
+      "photo_173",
+      "photo_174",
+      "photo_175"
+    ],
+    "started_at": "2026-03-25T07:59:04.329504",
+    "ended_at": "2026-03-25T07:59:19.806403",
+    "title": "Boom Pub Social Gathering",
+    "narrative_synthesis": "",
+    "participant_person_ids": [
+      "Protagonist",
+      "Friends",
+      "Pub Patrons"
+    ],
+    "depicted_person_ids": [
+      "Person_056",
+      "Person_057",
+      "Person_058",
+      "Person_059",
+      "Person_060",
+      "Person_061",
+      "Person_062",
+      "Person_063",
+      "Person_064",
+      "Person_065",
+      "Person_066",
+      "Person_067",
+      "Person_068",
+      "Person_069",
+      "Person_070",
+      "Person_071",
+      "Person_072",
+      "Person_073",
+      "Person_074",
+      "Person_075",
+      "Person_076",
+      "Person_077",
+      "Person_078",
+      "Person_079",
+      "Person_006"
+    ],
+    "place_refs": [
+      "体育主题酒吧",
+      "未知运动主题酒吧",
+      "未知酒吧/餐厅",
+      "BOOM PUB Brewing Company",
+      "Boom Pub Brewing Beer",
+      "BOOM PUB",
+      "Boom Pub"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [],
+    "confidence": 0.0,
+    "reason": "",
+    "meta_info": {
+      "title": "Boom Pub Social Gathering",
+      "location_context": "体育主题酒吧",
+      "photo_count": 8
+    },
+    "objective_fact": {
+      "scene_description": "",
+      "participants": [
+        "Protagonist",
+        "Friends",
+        "Pub Patrons"
+      ]
+    },
+    "source_temp_event_id": "EVT_0104"
+  },
+  {
+    "event_id": "EVT_0105",
+    "batch_id": "BATCH_0003",
+    "anchor_photo_id": "photo_178",
+    "supporting_photo_ids": [
+      "photo_178",
+      "photo_179",
+      "photo_180",
+      "photo_181"
+    ],
+    "started_at": "2026-03-25T07:59:19.852022",
+    "ended_at": "2026-03-25T07:59:19.853755",
+    "title": "Luxury Unboxing",
+    "narrative_synthesis": "",
+    "participant_person_ids": [
+      "Protagonist"
+    ],
+    "depicted_person_ids": [],
+    "place_refs": [
+      "高端美容沙龙或品牌专柜休息区",
+      "高端美容沙龙或品牌体验中心",
+      "未知室内空间"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [],
+    "confidence": 0.0,
+    "reason": "",
+    "meta_info": {
+      "title": "Luxury Unboxing",
+      "location_context": "高端美容沙龙或品牌专柜休息区",
+      "photo_count": 4
+    },
+    "objective_fact": {
+      "scene_description": "",
+      "participants": [
+        "Protagonist"
+      ]
+    },
+    "source_temp_event_id": "EVT_0105"
+  },
+  {
+    "event_id": "EVT_0106",
+    "batch_id": "BATCH_0003",
+    "anchor_photo_id": "photo_183",
+    "supporting_photo_ids": [
+      "photo_183",
+      "photo_360",
+      "photo_361",
+      "photo_362",
+      "photo_365",
+      "photo_368",
+      "photo_374",
+      "photo_378",
+      "photo_379",
+      "photo_384",
+      "photo_387",
+      "photo_389",
+      "photo_391",
+      "photo_393",
+      "photo_394",
+      "photo_395",
+      "photo_400",
+      "photo_402",
+      "photo_403",
+      "photo_406",
+      "photo_408",
+      "photo_411",
+      "photo_413",
+      "photo_418",
+      "photo_420",
+      "photo_421",
+      "photo_422",
+      "photo_423",
+      "photo_424",
+      "photo_425",
+      "photo_428",
+      "photo_429",
+      "photo_431",
+      "photo_432",
+      "photo_434",
+      "photo_436",
+      "photo_437",
+      "photo_438",
+      "photo_443",
+      "photo_444",
+      "photo_446",
+      "photo_448",
+      "photo_450",
+      "photo_451",
+      "photo_452",
+      "photo_454",
+      "photo_456",
+      "photo_457",
+      "photo_458",
+      "photo_459",
+      "photo_460",
+      "photo_461",
+      "photo_462",
+      "photo_463",
+      "photo_464",
+      "photo_465",
+      "photo_466",
+      "photo_467",
+      "photo_468",
+      "photo_470"
+    ],
+    "started_at": "2026-03-25T07:59:19.854974",
+    "ended_at": "2026-03-25T08:05:58.785876",
+    "title": "Attending a Concert",
+    "narrative_synthesis": "",
+    "participant_person_ids": [
+      "Protagonist",
+      "Concert Performer",
+      "Audience"
+    ],
+    "depicted_person_ids": [
+      "Person_001",
+      "Person_081",
+      "Person_082",
+      "Person_083"
+    ],
+    "place_refs": [
+      "大型室内体育馆（看台区）",
+      "大型室内体育馆（演唱会现场）",
+      "大型体育馆演唱会现场",
+      "大型室内演唱会场馆",
+      "大型室内体育馆演唱会现场",
+      "大型演唱会现场",
+      "大型室内演唱会现场",
+      "大型室内体育馆/演唱会现场",
+      "大型体育场馆（演唱会现场）",
+      "大型室内体育馆（具体场馆未明）",
+      "大型体育场馆（具体场馆未明）"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [],
+    "confidence": 0.0,
+    "reason": "",
+    "meta_info": {
+      "title": "Attending a Concert",
+      "location_context": "大型室内体育馆（看台区）",
+      "photo_count": 60
+    },
+    "objective_fact": {
+      "scene_description": "",
+      "participants": [
+        "Protagonist",
+        "Concert Performer",
+        "Audience"
+      ]
+    },
+    "source_temp_event_id": "EVT_0106"
+  },
+  {
+    "event_id": "EVT_0107",
+    "batch_id": "BATCH_0003",
+    "anchor_photo_id": "photo_471",
+    "supporting_photo_ids": [
+      "photo_471",
+      "photo_472",
+      "photo_473",
+      "photo_475",
+      "photo_476"
+    ],
+    "started_at": "2026-03-25T08:05:58.791876",
+    "ended_at": "2026-03-25T08:05:58.822876",
+    "title": "Art Gallery Visit",
+    "narrative_synthesis": "",
+    "participant_person_ids": [
+      "Protagonist"
+    ],
+    "depicted_person_ids": [
+      "Person_001"
+    ],
+    "place_refs": [
+      "未知艺术画廊/展览空间",
+      "当代艺术画廊",
+      "艺术画廊/美术馆展览空间",
+      "艺术画廊/艺术展厅",
+      "当代艺术画廊展厅"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [],
+    "confidence": 0.0,
+    "reason": "",
+    "meta_info": {
+      "title": "Art Gallery Visit",
+      "location_context": "未知艺术画廊/展览空间",
+      "photo_count": 5
+    },
+    "objective_fact": {
+      "scene_description": "",
+      "participants": [
+        "Protagonist"
+      ]
+    },
+    "source_temp_event_id": "EVT_0107"
+  },
+  {
+    "event_id": "EVT_0108",
+    "batch_id": "BATCH_0003",
+    "anchor_photo_id": "photo_619",
+    "supporting_photo_ids": [
+      "photo_619",
+      "photo_620",
+      "photo_621",
+      "photo_624",
+      "photo_625",
+      "photo_626",
+      "photo_627",
+      "photo_631",
+      "photo_649",
+      "photo_653",
+      "photo_666"
+    ],
+    "started_at": "2026-03-25T08:06:32.473914",
+    "ended_at": "2026-03-25T08:06:41.513822",
+    "title": "City Streets and Malls",
+    "narrative_synthesis": "",
+    "participant_person_ids": [
+      "Protagonist",
+      "Pedestrians"
+    ],
+    "depicted_person_ids": [
+      "Person_006",
+      "Person_001",
+      "Person_002",
+      "Person_003",
+      "Person_085",
+      "Person_086"
+    ],
+    "place_refs": [
+      "上海市静安区南京西路与石门一路交叉口（兴业太古汇附近）",
+      "未知商业综合体",
+      "御座鲜果茶饮店（根据背景招牌）",
+      "上海新天地商场",
+      "上海市某城市街道十字路口",
+      "上海市某街道（根据车牌‘沪’及环境特征）",
+      "上海市长宁区安顺路",
+      "未知商业综合体户外广场",
+      "大型购物中心内部",
+      "户外步行广场或人行道"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [],
+    "confidence": 0.0,
+    "reason": "",
+    "meta_info": {
+      "title": "City Streets and Malls",
+      "location_context": "上海市静安区南京西路与石门一路交叉口（兴业太古汇附近）",
+      "photo_count": 11
+    },
+    "objective_fact": {
+      "scene_description": "",
+      "participants": [
+        "Protagonist",
+        "Pedestrians"
+      ]
+    },
+    "source_temp_event_id": "EVT_0108"
+  },
+  {
+    "event_id": "EVT_0109",
+    "batch_id": "BATCH_0003",
+    "anchor_photo_id": "photo_622",
+    "supporting_photo_ids": [
+      "photo_622",
+      "photo_633",
+      "photo_642",
+      "photo_645",
+      "photo_648",
+      "photo_662",
+      "photo_674"
+    ],
+    "started_at": "2026-03-25T08:06:32.477914",
+    "ended_at": "2026-03-25T08:06:41.522048",
+    "title": "Dining and Food",
+    "narrative_synthesis": "",
+    "participant_person_ids": [
+      "Protagonist"
+    ],
+    "depicted_person_ids": [
+      "Person_084"
+    ],
+    "place_refs": [
+      "未知中式火锅餐厅",
+      "很久以前羊肉串（宝山花园城店）",
+      "未知室内空间",
+      "未知室内",
+      "未知室内餐厅或家庭餐桌",
+      "个人居家或办公工位"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [],
+    "confidence": 0.0,
+    "reason": "",
+    "meta_info": {
+      "title": "Dining and Food",
+      "location_context": "未知中式火锅餐厅",
+      "photo_count": 7
+    },
+    "objective_fact": {
+      "scene_description": "",
+      "participants": [
+        "Protagonist"
+      ]
+    },
+    "source_temp_event_id": "EVT_0109"
+  },
+  {
+    "event_id": "EVT_0110",
+    "batch_id": "BATCH_0003",
+    "anchor_photo_id": "photo_652",
+    "supporting_photo_ids": [
+      "photo_652",
+      "photo_655",
+      "photo_658",
+      "photo_659",
+      "photo_663",
+      "photo_664",
+      "photo_667",
+      "photo_676"
+    ],
+    "started_at": "2026-03-25T08:06:41.498925",
+    "ended_at": "2026-03-25T08:06:41.523695",
+    "title": "Taking Supplements",
+    "narrative_synthesis": "",
+    "participant_person_ids": [
+      "Protagonist"
+    ],
+    "depicted_person_ids": [],
+    "place_refs": [
+      "未知室内空间",
+      "办公室内工位",
+      "室内居住空间"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [],
+    "confidence": 0.0,
+    "reason": "",
+    "meta_info": {
+      "title": "Taking Supplements",
+      "location_context": "未知室内空间",
+      "photo_count": 8
+    },
+    "objective_fact": {
+      "scene_description": "",
+      "participants": [
+        "Protagonist"
+      ]
+    },
+    "source_temp_event_id": "EVT_0110"
+  },
+  {
+    "event_id": "EVT_0111",
+    "batch_id": "BATCH_0003",
+    "anchor_photo_id": "photo_654",
+    "supporting_photo_ids": [
+      "photo_654",
+      "photo_656",
+      "photo_657"
+    ],
+    "started_at": "2026-03-25T08:06:41.500925",
+    "ended_at": "2026-03-25T08:06:41.503925",
+    "title": "Cinema Visit",
+    "narrative_synthesis": "",
+    "participant_person_ids": [
+      "Protagonist"
+    ],
+    "depicted_person_ids": [
+      "Person_087",
+      "Person_088"
+    ],
+    "place_refs": [
+      "电影院放映厅",
+      "CINITY影厅"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [],
+    "confidence": 0.0,
+    "reason": "",
+    "meta_info": {
+      "title": "Cinema Visit",
+      "location_context": "电影院放映厅",
+      "photo_count": 3
+    },
+    "objective_fact": {
+      "scene_description": "",
+      "participants": [
+        "Protagonist"
+      ]
+    },
+    "source_temp_event_id": "EVT_0111"
+  },
+  {
+    "event_id": "EVT_0112",
+    "batch_id": "BATCH_0003",
+    "anchor_photo_id": "photo_638",
+    "supporting_photo_ids": [
+      "photo_638",
+      "photo_639",
+      "photo_640"
+    ],
+    "started_at": "2026-03-25T08:06:32.498914",
+    "ended_at": "2026-03-25T08:06:32.501968",
+    "title": "Theater/Auditorium Event",
+    "narrative_synthesis": "",
+    "participant_person_ids": [
+      "Protagonist",
+      "Audience"
+    ],
+    "depicted_person_ids": [
+      "Person_001",
+      "Person_002",
+      "Person_003"
+    ],
+    "place_refs": [
+      "大型多功能礼堂/剧院",
+      "未知大型礼堂/剧院",
+      "未知剧场/礼堂"
+    ],
+    "social_dynamics": [],
+    "persona_evidence": {
+      "behavioral": [],
+      "aesthetic": [],
+      "socioeconomic": []
+    },
+    "tags": [],
+    "confidence": 0.0,
+    "reason": "",
+    "meta_info": {
+      "title": "Theater/Auditorium Event",
+      "location_context": "大型多功能礼堂/剧院",
+      "photo_count": 3
+    },
+    "objective_fact": {
+      "scene_description": "",
+      "participants": [
+        "Protagonist",
+        "Audience"
+      ]
+    },
+    "source_temp_event_id": "EVT_0112"
+  }
+]

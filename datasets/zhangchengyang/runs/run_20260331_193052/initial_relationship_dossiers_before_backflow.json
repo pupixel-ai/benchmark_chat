@@ -1,0 +1,2283 @@
+[
+  {
+    "person_id": "Person_002",
+    "person_kind": "real_person",
+    "memory_value": "candidate",
+    "photo_count": 3,
+    "time_span_days": 1,
+    "recent_gap_days": 159,
+    "monthly_frequency": 3.0,
+    "scene_profile": {
+      "scenes": [
+        "街头小吃摊位",
+        "景德镇某户外路面",
+        "景德镇市（根据GPS坐标 29.2950, 117.1699）"
+      ],
+      "private_scene_ratio": 0.0,
+      "dominant_scene_ratio": 0.33,
+      "with_user_only": false
+    },
+    "interaction_signals": [
+      "no_contact",
+      "no_contact",
+      "no_contact"
+    ],
+    "shared_events": [
+      {
+        "event_id": "EVT_003",
+        "date": "2025-10-02",
+        "title": "国庆美食之旅与社会事件记录",
+        "location": "城市户外 - 街头小吃摊位/公共场所/文创街区/糖水铺",
+        "photo_count": 13,
+        "description": "2025年10月2日至3日，国庆假期期间，【主角】在景德镇和九江进行旅行。记录了：在户外公共区域，Person_001情绪激动地展示江西省检验检疫报告（维权事件）；在街头“回头客鸡柳鸡排”摊位前排队，Person_002-Person_009等多人在场；在景德镇美食街拍摄炸鸡柳摊位，Person_003-Person_017等人围观；在景德镇户外与Person_001、Person_002分享零食，手持已咬过的酥饼；在商业街区品尝炸鸡，Person_018在旁；在景德镇夜市购物，手持国旗与史努比纸袋，Person_019（摊位主）在场，挑选发饰、珠串；在茶颜悦色取青花瓷主题茶饮，Person_001（店员）在服务。次日，在九江与Person_001一起手持余记港式糖水铺甜品，展示购买。",
+        "participants": [
+          "Person_001",
+          "Person_002",
+          "Person_003",
+          "Person_004",
+          "Person_005",
+          "Person_006",
+          "Person_007",
+          "Person_008",
+          "Person_009",
+          "Person_011",
+          "Person_012",
+          "Person_013",
+          "Person_014",
+          "Person_015",
+          "Person_016",
+          "Person_017",
+          "Person_018",
+          "Person_019"
+        ],
+        "narrative_synthesis": "",
+        "social_dynamics": []
+      }
+    ],
+    "trend_detail": {},
+    "co_appearing_persons": [
+      {
+        "person_id": "Person_001",
+        "co_count": 2,
+        "co_ratio": 0.67
+      }
+    ],
+    "anomalies": [],
+    "evidence_refs": [
+      {
+        "source_type": "photo",
+        "source_id": "photo_028",
+        "signal": "2025年10月2日下午14:18，【主角】在户外一处“回头客鸡柳鸡排”摊位前手持拍摄。画面前景有明显的手指遮挡，现场聚集了大量排队等候的顾客，由于高温天气，遮阳棚下人影交织，呈现出热闹的市井生活场景。",
+        "why": "co_photo_for_Person_002"
+      },
+      {
+        "source_type": "photo",
+        "source_id": "photo_030",
+        "signal": "2025年10月2日14:19，在景德镇（GPS坐标点附近）户外地面，【主角】正与多位同行者围聚在手持的零食袋周围，正进行分享或取食的动作。",
+        "why": "co_photo_for_Person_002"
+      },
+      {
+        "source_type": "photo",
+        "source_id": "photo_033",
+        "signal": "2025年10月2日14:19，于景德镇市某户外街道旁，【主角】右手持一份炸物小吃进行第一人称视角拍摄，背景中有多名行人聚集。",
+        "why": "co_photo_for_Person_002"
+      },
+      {
+        "source_type": "event",
+        "source_id": "EVT_003",
+        "signal": "国庆美食之旅与社会事件记录",
+        "why": "shared_event_for_Person_002"
+      },
+      {
+        "source_type": "person",
+        "source_id": "Person_001",
+        "signal": "co_ratio=0.67",
+        "why": "third_party_co_appearance"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "photo_count",
+        "signal": "3",
+        "why": "relationship_frequency"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "monthly_frequency",
+        "signal": "3.0",
+        "why": "relationship_frequency"
+      }
+    ],
+    "block_reasons": [],
+    "retention_decision": "suppress",
+    "retention_reason": "low_confidence_low_signal_relationship",
+    "group_eligible": false,
+    "group_block_reason": "retention=suppress",
+    "group_weight": 0.0,
+    "relationship_result": {
+      "relationship_type": "acquaintance",
+      "status": "new",
+      "confidence": 0.25,
+      "reasoning": "关键事件 EVT_003；共现 3 张，覆盖 3 类场景，月均 3.0 次，判为 acquaintance。"
+    },
+    "relationship_reflection": {
+      "triggered": false,
+      "issues": [],
+      "action": "keep",
+      "source": "llm"
+    }
+  },
+  {
+    "person_id": "Person_003",
+    "person_kind": "real_person",
+    "memory_value": "candidate",
+    "photo_count": 2,
+    "time_span_days": 1,
+    "recent_gap_days": 159,
+    "monthly_frequency": 2.0,
+    "scene_profile": {
+      "scenes": [
+        "街头小吃摊位",
+        "景德镇市某美食旅游打卡地"
+      ],
+      "private_scene_ratio": 0.0,
+      "dominant_scene_ratio": 0.5,
+      "with_user_only": false
+    },
+    "interaction_signals": [
+      "no_contact",
+      "no_contact"
+    ],
+    "shared_events": [
+      {
+        "event_id": "EVT_003",
+        "date": "2025-10-02",
+        "title": "国庆美食之旅与社会事件记录",
+        "location": "城市户外 - 街头小吃摊位/公共场所/文创街区/糖水铺",
+        "photo_count": 13,
+        "description": "2025年10月2日至3日，国庆假期期间，【主角】在景德镇和九江进行旅行。记录了：在户外公共区域，Person_001情绪激动地展示江西省检验检疫报告（维权事件）；在街头“回头客鸡柳鸡排”摊位前排队，Person_002-Person_009等多人在场；在景德镇美食街拍摄炸鸡柳摊位，Person_003-Person_017等人围观；在景德镇户外与Person_001、Person_002分享零食，手持已咬过的酥饼；在商业街区品尝炸鸡，Person_018在旁；在景德镇夜市购物，手持国旗与史努比纸袋，Person_019（摊位主）在场，挑选发饰、珠串；在茶颜悦色取青花瓷主题茶饮，Person_001（店员）在服务。次日，在九江与Person_001一起手持余记港式糖水铺甜品，展示购买。",
+        "participants": [
+          "Person_001",
+          "Person_002",
+          "Person_003",
+          "Person_004",
+          "Person_005",
+          "Person_006",
+          "Person_007",
+          "Person_008",
+          "Person_009",
+          "Person_011",
+          "Person_012",
+          "Person_013",
+          "Person_014",
+          "Person_015",
+          "Person_016",
+          "Person_017",
+          "Person_018",
+          "Person_019"
+        ],
+        "narrative_synthesis": "",
+        "social_dynamics": []
+      }
+    ],
+    "trend_detail": {},
+    "co_appearing_persons": [
+      {
+        "person_id": "Person_006",
+        "co_count": 2,
+        "co_ratio": 1.0
+      },
+      {
+        "person_id": "Person_007",
+        "co_count": 2,
+        "co_ratio": 1.0
+      },
+      {
+        "person_id": "Person_004",
+        "co_count": 2,
+        "co_ratio": 1.0
+      }
+    ],
+    "anomalies": [],
+    "evidence_refs": [
+      {
+        "source_type": "photo",
+        "source_id": "photo_028",
+        "signal": "2025年10月2日下午14:18，【主角】在户外一处“回头客鸡柳鸡排”摊位前手持拍摄。画面前景有明显的手指遮挡，现场聚集了大量排队等候的顾客，由于高温天气，遮阳棚下人影交织，呈现出热闹的市井生活场景。",
+        "why": "co_photo_for_Person_003"
+      },
+      {
+        "source_type": "photo",
+        "source_id": "photo_029",
+        "signal": "2025年10月2日下午14时18分，景德镇某户外路边摊位，【主角】正处于人潮围观中心，拍摄正在炸制鸡柳的商家工作实况。",
+        "why": "co_photo_for_Person_003"
+      },
+      {
+        "source_type": "event",
+        "source_id": "EVT_003",
+        "signal": "国庆美食之旅与社会事件记录",
+        "why": "shared_event_for_Person_003"
+      },
+      {
+        "source_type": "person",
+        "source_id": "Person_006",
+        "signal": "co_ratio=1.0",
+        "why": "third_party_co_appearance"
+      },
+      {
+        "source_type": "person",
+        "source_id": "Person_007",
+        "signal": "co_ratio=1.0",
+        "why": "third_party_co_appearance"
+      },
+      {
+        "source_type": "person",
+        "source_id": "Person_004",
+        "signal": "co_ratio=1.0",
+        "why": "third_party_co_appearance"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "photo_count",
+        "signal": "2",
+        "why": "relationship_frequency"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "monthly_frequency",
+        "signal": "2.0",
+        "why": "relationship_frequency"
+      }
+    ],
+    "block_reasons": [],
+    "retention_decision": "suppress",
+    "retention_reason": "low_confidence_low_signal_relationship",
+    "group_eligible": false,
+    "group_block_reason": "retention=suppress",
+    "group_weight": 0.0,
+    "relationship_result": {
+      "relationship_type": "acquaintance",
+      "status": "new",
+      "confidence": 0.25,
+      "reasoning": "关键事件 EVT_003；共现 2 张，覆盖 2 类场景，月均 2.0 次，判为 acquaintance。"
+    },
+    "relationship_reflection": {
+      "triggered": false,
+      "issues": [],
+      "action": "keep",
+      "source": "llm"
+    }
+  },
+  {
+    "person_id": "Person_004",
+    "person_kind": "real_person",
+    "memory_value": "candidate",
+    "photo_count": 2,
+    "time_span_days": 1,
+    "recent_gap_days": 159,
+    "monthly_frequency": 2.0,
+    "scene_profile": {
+      "scenes": [
+        "街头小吃摊位",
+        "景德镇市某美食旅游打卡地"
+      ],
+      "private_scene_ratio": 0.0,
+      "dominant_scene_ratio": 0.5,
+      "with_user_only": false
+    },
+    "interaction_signals": [
+      "contact_type",
+      "no_contact"
+    ],
+    "shared_events": [
+      {
+        "event_id": "EVT_003",
+        "date": "2025-10-02",
+        "title": "国庆美食之旅与社会事件记录",
+        "location": "城市户外 - 街头小吃摊位/公共场所/文创街区/糖水铺",
+        "photo_count": 13,
+        "description": "2025年10月2日至3日，国庆假期期间，【主角】在景德镇和九江进行旅行。记录了：在户外公共区域，Person_001情绪激动地展示江西省检验检疫报告（维权事件）；在街头“回头客鸡柳鸡排”摊位前排队，Person_002-Person_009等多人在场；在景德镇美食街拍摄炸鸡柳摊位，Person_003-Person_017等人围观；在景德镇户外与Person_001、Person_002分享零食，手持已咬过的酥饼；在商业街区品尝炸鸡，Person_018在旁；在景德镇夜市购物，手持国旗与史努比纸袋，Person_019（摊位主）在场，挑选发饰、珠串；在茶颜悦色取青花瓷主题茶饮，Person_001（店员）在服务。次日，在九江与Person_001一起手持余记港式糖水铺甜品，展示购买。",
+        "participants": [
+          "Person_001",
+          "Person_002",
+          "Person_003",
+          "Person_004",
+          "Person_005",
+          "Person_006",
+          "Person_007",
+          "Person_008",
+          "Person_009",
+          "Person_011",
+          "Person_012",
+          "Person_013",
+          "Person_014",
+          "Person_015",
+          "Person_016",
+          "Person_017",
+          "Person_018",
+          "Person_019"
+        ],
+        "narrative_synthesis": "",
+        "social_dynamics": []
+      }
+    ],
+    "trend_detail": {},
+    "co_appearing_persons": [
+      {
+        "person_id": "Person_003",
+        "co_count": 2,
+        "co_ratio": 1.0
+      },
+      {
+        "person_id": "Person_006",
+        "co_count": 2,
+        "co_ratio": 1.0
+      },
+      {
+        "person_id": "Person_007",
+        "co_count": 2,
+        "co_ratio": 1.0
+      }
+    ],
+    "anomalies": [],
+    "evidence_refs": [
+      {
+        "source_type": "photo",
+        "source_id": "photo_028",
+        "signal": "2025年10月2日下午14:18，【主角】在户外一处“回头客鸡柳鸡排”摊位前手持拍摄。画面前景有明显的手指遮挡，现场聚集了大量排队等候的顾客，由于高温天气，遮阳棚下人影交织，呈现出热闹的市井生活场景。",
+        "why": "co_photo_for_Person_004"
+      },
+      {
+        "source_type": "photo",
+        "source_id": "photo_029",
+        "signal": "2025年10月2日下午14时18分，景德镇某户外路边摊位，【主角】正处于人潮围观中心，拍摄正在炸制鸡柳的商家工作实况。",
+        "why": "co_photo_for_Person_004"
+      },
+      {
+        "source_type": "event",
+        "source_id": "EVT_003",
+        "signal": "国庆美食之旅与社会事件记录",
+        "why": "shared_event_for_Person_004"
+      },
+      {
+        "source_type": "person",
+        "source_id": "Person_003",
+        "signal": "co_ratio=1.0",
+        "why": "third_party_co_appearance"
+      },
+      {
+        "source_type": "person",
+        "source_id": "Person_006",
+        "signal": "co_ratio=1.0",
+        "why": "third_party_co_appearance"
+      },
+      {
+        "source_type": "person",
+        "source_id": "Person_007",
+        "signal": "co_ratio=1.0",
+        "why": "third_party_co_appearance"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "photo_count",
+        "signal": "2",
+        "why": "relationship_frequency"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "monthly_frequency",
+        "signal": "2.0",
+        "why": "relationship_frequency"
+      }
+    ],
+    "block_reasons": [],
+    "retention_decision": "suppress",
+    "retention_reason": "low_confidence_low_signal_relationship",
+    "group_eligible": false,
+    "group_block_reason": "retention=suppress",
+    "group_weight": 0.0,
+    "relationship_result": {
+      "relationship_type": "acquaintance",
+      "status": "new",
+      "confidence": 0.2,
+      "reasoning": "关键事件 EVT_003；共现 2 张，覆盖 2 类场景，月均 2.0 次，判为 acquaintance。"
+    },
+    "relationship_reflection": {
+      "triggered": false,
+      "issues": [],
+      "action": "keep",
+      "source": "llm"
+    }
+  },
+  {
+    "person_id": "Person_005",
+    "person_kind": "real_person",
+    "memory_value": "candidate",
+    "photo_count": 1,
+    "time_span_days": 1,
+    "recent_gap_days": 159,
+    "monthly_frequency": 1.0,
+    "scene_profile": {
+      "scenes": [
+        "街头小吃摊位"
+      ],
+      "private_scene_ratio": 0.0,
+      "dominant_scene_ratio": 1.0,
+      "with_user_only": false
+    },
+    "interaction_signals": [
+      "no_contact"
+    ],
+    "shared_events": [
+      {
+        "event_id": "EVT_003",
+        "date": "2025-10-02",
+        "title": "国庆美食之旅与社会事件记录",
+        "location": "城市户外 - 街头小吃摊位/公共场所/文创街区/糖水铺",
+        "photo_count": 13,
+        "description": "2025年10月2日至3日，国庆假期期间，【主角】在景德镇和九江进行旅行。记录了：在户外公共区域，Person_001情绪激动地展示江西省检验检疫报告（维权事件）；在街头“回头客鸡柳鸡排”摊位前排队，Person_002-Person_009等多人在场；在景德镇美食街拍摄炸鸡柳摊位，Person_003-Person_017等人围观；在景德镇户外与Person_001、Person_002分享零食，手持已咬过的酥饼；在商业街区品尝炸鸡，Person_018在旁；在景德镇夜市购物，手持国旗与史努比纸袋，Person_019（摊位主）在场，挑选发饰、珠串；在茶颜悦色取青花瓷主题茶饮，Person_001（店员）在服务。次日，在九江与Person_001一起手持余记港式糖水铺甜品，展示购买。",
+        "participants": [
+          "Person_001",
+          "Person_002",
+          "Person_003",
+          "Person_004",
+          "Person_005",
+          "Person_006",
+          "Person_007",
+          "Person_008",
+          "Person_009",
+          "Person_011",
+          "Person_012",
+          "Person_013",
+          "Person_014",
+          "Person_015",
+          "Person_016",
+          "Person_017",
+          "Person_018",
+          "Person_019"
+        ],
+        "narrative_synthesis": "",
+        "social_dynamics": []
+      }
+    ],
+    "trend_detail": {},
+    "co_appearing_persons": [],
+    "anomalies": [],
+    "evidence_refs": [
+      {
+        "source_type": "photo",
+        "source_id": "photo_028",
+        "signal": "2025年10月2日下午14:18，【主角】在户外一处“回头客鸡柳鸡排”摊位前手持拍摄。画面前景有明显的手指遮挡，现场聚集了大量排队等候的顾客，由于高温天气，遮阳棚下人影交织，呈现出热闹的市井生活场景。",
+        "why": "co_photo_for_Person_005"
+      },
+      {
+        "source_type": "event",
+        "source_id": "EVT_003",
+        "signal": "国庆美食之旅与社会事件记录",
+        "why": "shared_event_for_Person_005"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "photo_count",
+        "signal": "1",
+        "why": "relationship_frequency"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "monthly_frequency",
+        "signal": "1.0",
+        "why": "relationship_frequency"
+      }
+    ],
+    "block_reasons": [],
+    "retention_decision": "suppress",
+    "retention_reason": "single_photo_without_strong_signal",
+    "group_eligible": false,
+    "group_block_reason": "retention=suppress",
+    "group_weight": 0.0,
+    "relationship_result": {
+      "relationship_type": "acquaintance",
+      "status": "new",
+      "confidence": 0.25,
+      "reasoning": "关键事件 EVT_003；共现 1 张，覆盖 1 类场景，月均 1.0 次，判为 acquaintance。"
+    },
+    "relationship_reflection": {
+      "triggered": false,
+      "issues": [],
+      "action": "keep",
+      "source": "llm"
+    }
+  },
+  {
+    "person_id": "Person_006",
+    "person_kind": "real_person",
+    "memory_value": "candidate",
+    "photo_count": 2,
+    "time_span_days": 1,
+    "recent_gap_days": 159,
+    "monthly_frequency": 2.0,
+    "scene_profile": {
+      "scenes": [
+        "街头小吃摊位",
+        "景德镇市某美食旅游打卡地"
+      ],
+      "private_scene_ratio": 0.0,
+      "dominant_scene_ratio": 0.5,
+      "with_user_only": false
+    },
+    "interaction_signals": [
+      "no_contact",
+      "no_contact"
+    ],
+    "shared_events": [
+      {
+        "event_id": "EVT_003",
+        "date": "2025-10-02",
+        "title": "国庆美食之旅与社会事件记录",
+        "location": "城市户外 - 街头小吃摊位/公共场所/文创街区/糖水铺",
+        "photo_count": 13,
+        "description": "2025年10月2日至3日，国庆假期期间，【主角】在景德镇和九江进行旅行。记录了：在户外公共区域，Person_001情绪激动地展示江西省检验检疫报告（维权事件）；在街头“回头客鸡柳鸡排”摊位前排队，Person_002-Person_009等多人在场；在景德镇美食街拍摄炸鸡柳摊位，Person_003-Person_017等人围观；在景德镇户外与Person_001、Person_002分享零食，手持已咬过的酥饼；在商业街区品尝炸鸡，Person_018在旁；在景德镇夜市购物，手持国旗与史努比纸袋，Person_019（摊位主）在场，挑选发饰、珠串；在茶颜悦色取青花瓷主题茶饮，Person_001（店员）在服务。次日，在九江与Person_001一起手持余记港式糖水铺甜品，展示购买。",
+        "participants": [
+          "Person_001",
+          "Person_002",
+          "Person_003",
+          "Person_004",
+          "Person_005",
+          "Person_006",
+          "Person_007",
+          "Person_008",
+          "Person_009",
+          "Person_011",
+          "Person_012",
+          "Person_013",
+          "Person_014",
+          "Person_015",
+          "Person_016",
+          "Person_017",
+          "Person_018",
+          "Person_019"
+        ],
+        "narrative_synthesis": "",
+        "social_dynamics": []
+      }
+    ],
+    "trend_detail": {},
+    "co_appearing_persons": [
+      {
+        "person_id": "Person_003",
+        "co_count": 2,
+        "co_ratio": 1.0
+      },
+      {
+        "person_id": "Person_007",
+        "co_count": 2,
+        "co_ratio": 1.0
+      },
+      {
+        "person_id": "Person_004",
+        "co_count": 2,
+        "co_ratio": 1.0
+      }
+    ],
+    "anomalies": [],
+    "evidence_refs": [
+      {
+        "source_type": "photo",
+        "source_id": "photo_028",
+        "signal": "2025年10月2日下午14:18，【主角】在户外一处“回头客鸡柳鸡排”摊位前手持拍摄。画面前景有明显的手指遮挡，现场聚集了大量排队等候的顾客，由于高温天气，遮阳棚下人影交织，呈现出热闹的市井生活场景。",
+        "why": "co_photo_for_Person_006"
+      },
+      {
+        "source_type": "photo",
+        "source_id": "photo_029",
+        "signal": "2025年10月2日下午14时18分，景德镇某户外路边摊位，【主角】正处于人潮围观中心，拍摄正在炸制鸡柳的商家工作实况。",
+        "why": "co_photo_for_Person_006"
+      },
+      {
+        "source_type": "event",
+        "source_id": "EVT_003",
+        "signal": "国庆美食之旅与社会事件记录",
+        "why": "shared_event_for_Person_006"
+      },
+      {
+        "source_type": "person",
+        "source_id": "Person_003",
+        "signal": "co_ratio=1.0",
+        "why": "third_party_co_appearance"
+      },
+      {
+        "source_type": "person",
+        "source_id": "Person_007",
+        "signal": "co_ratio=1.0",
+        "why": "third_party_co_appearance"
+      },
+      {
+        "source_type": "person",
+        "source_id": "Person_004",
+        "signal": "co_ratio=1.0",
+        "why": "third_party_co_appearance"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "photo_count",
+        "signal": "2",
+        "why": "relationship_frequency"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "monthly_frequency",
+        "signal": "2.0",
+        "why": "relationship_frequency"
+      }
+    ],
+    "block_reasons": [],
+    "retention_decision": "suppress",
+    "retention_reason": "low_confidence_low_signal_relationship",
+    "group_eligible": false,
+    "group_block_reason": "retention=suppress",
+    "group_weight": 0.0,
+    "relationship_result": {
+      "relationship_type": "acquaintance",
+      "status": "new",
+      "confidence": 0.25,
+      "reasoning": "关键事件 EVT_003；共现 2 张，覆盖 2 类场景，月均 2.0 次，判为 acquaintance。"
+    },
+    "relationship_reflection": {
+      "triggered": false,
+      "issues": [],
+      "action": "keep",
+      "source": "llm"
+    }
+  },
+  {
+    "person_id": "Person_007",
+    "person_kind": "real_person",
+    "memory_value": "candidate",
+    "photo_count": 2,
+    "time_span_days": 1,
+    "recent_gap_days": 159,
+    "monthly_frequency": 2.0,
+    "scene_profile": {
+      "scenes": [
+        "街头小吃摊位",
+        "景德镇市某美食旅游打卡地"
+      ],
+      "private_scene_ratio": 0.0,
+      "dominant_scene_ratio": 0.5,
+      "with_user_only": false
+    },
+    "interaction_signals": [
+      "no_contact",
+      "no_contact"
+    ],
+    "shared_events": [
+      {
+        "event_id": "EVT_003",
+        "date": "2025-10-02",
+        "title": "国庆美食之旅与社会事件记录",
+        "location": "城市户外 - 街头小吃摊位/公共场所/文创街区/糖水铺",
+        "photo_count": 13,
+        "description": "2025年10月2日至3日，国庆假期期间，【主角】在景德镇和九江进行旅行。记录了：在户外公共区域，Person_001情绪激动地展示江西省检验检疫报告（维权事件）；在街头“回头客鸡柳鸡排”摊位前排队，Person_002-Person_009等多人在场；在景德镇美食街拍摄炸鸡柳摊位，Person_003-Person_017等人围观；在景德镇户外与Person_001、Person_002分享零食，手持已咬过的酥饼；在商业街区品尝炸鸡，Person_018在旁；在景德镇夜市购物，手持国旗与史努比纸袋，Person_019（摊位主）在场，挑选发饰、珠串；在茶颜悦色取青花瓷主题茶饮，Person_001（店员）在服务。次日，在九江与Person_001一起手持余记港式糖水铺甜品，展示购买。",
+        "participants": [
+          "Person_001",
+          "Person_002",
+          "Person_003",
+          "Person_004",
+          "Person_005",
+          "Person_006",
+          "Person_007",
+          "Person_008",
+          "Person_009",
+          "Person_011",
+          "Person_012",
+          "Person_013",
+          "Person_014",
+          "Person_015",
+          "Person_016",
+          "Person_017",
+          "Person_018",
+          "Person_019"
+        ],
+        "narrative_synthesis": "",
+        "social_dynamics": []
+      }
+    ],
+    "trend_detail": {},
+    "co_appearing_persons": [
+      {
+        "person_id": "Person_003",
+        "co_count": 2,
+        "co_ratio": 1.0
+      },
+      {
+        "person_id": "Person_006",
+        "co_count": 2,
+        "co_ratio": 1.0
+      },
+      {
+        "person_id": "Person_004",
+        "co_count": 2,
+        "co_ratio": 1.0
+      }
+    ],
+    "anomalies": [],
+    "evidence_refs": [
+      {
+        "source_type": "photo",
+        "source_id": "photo_028",
+        "signal": "2025年10月2日下午14:18，【主角】在户外一处“回头客鸡柳鸡排”摊位前手持拍摄。画面前景有明显的手指遮挡，现场聚集了大量排队等候的顾客，由于高温天气，遮阳棚下人影交织，呈现出热闹的市井生活场景。",
+        "why": "co_photo_for_Person_007"
+      },
+      {
+        "source_type": "photo",
+        "source_id": "photo_029",
+        "signal": "2025年10月2日下午14时18分，景德镇某户外路边摊位，【主角】正处于人潮围观中心，拍摄正在炸制鸡柳的商家工作实况。",
+        "why": "co_photo_for_Person_007"
+      },
+      {
+        "source_type": "event",
+        "source_id": "EVT_003",
+        "signal": "国庆美食之旅与社会事件记录",
+        "why": "shared_event_for_Person_007"
+      },
+      {
+        "source_type": "person",
+        "source_id": "Person_003",
+        "signal": "co_ratio=1.0",
+        "why": "third_party_co_appearance"
+      },
+      {
+        "source_type": "person",
+        "source_id": "Person_006",
+        "signal": "co_ratio=1.0",
+        "why": "third_party_co_appearance"
+      },
+      {
+        "source_type": "person",
+        "source_id": "Person_004",
+        "signal": "co_ratio=1.0",
+        "why": "third_party_co_appearance"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "photo_count",
+        "signal": "2",
+        "why": "relationship_frequency"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "monthly_frequency",
+        "signal": "2.0",
+        "why": "relationship_frequency"
+      }
+    ],
+    "block_reasons": [],
+    "retention_decision": "suppress",
+    "retention_reason": "low_confidence_low_signal_relationship",
+    "group_eligible": false,
+    "group_block_reason": "retention=suppress",
+    "group_weight": 0.0,
+    "relationship_result": {
+      "relationship_type": "acquaintance",
+      "status": "new",
+      "confidence": 0.2,
+      "reasoning": "关键事件 EVT_003；共现 2 张，覆盖 2 类场景，月均 2.0 次，判为 acquaintance。"
+    },
+    "relationship_reflection": {
+      "triggered": false,
+      "issues": [],
+      "action": "keep",
+      "source": "llm"
+    }
+  },
+  {
+    "person_id": "Person_008",
+    "person_kind": "real_person",
+    "memory_value": "candidate",
+    "photo_count": 1,
+    "time_span_days": 1,
+    "recent_gap_days": 159,
+    "monthly_frequency": 1.0,
+    "scene_profile": {
+      "scenes": [
+        "街头小吃摊位"
+      ],
+      "private_scene_ratio": 0.0,
+      "dominant_scene_ratio": 1.0,
+      "with_user_only": false
+    },
+    "interaction_signals": [
+      "no_contact"
+    ],
+    "shared_events": [
+      {
+        "event_id": "EVT_003",
+        "date": "2025-10-02",
+        "title": "国庆美食之旅与社会事件记录",
+        "location": "城市户外 - 街头小吃摊位/公共场所/文创街区/糖水铺",
+        "photo_count": 13,
+        "description": "2025年10月2日至3日，国庆假期期间，【主角】在景德镇和九江进行旅行。记录了：在户外公共区域，Person_001情绪激动地展示江西省检验检疫报告（维权事件）；在街头“回头客鸡柳鸡排”摊位前排队，Person_002-Person_009等多人在场；在景德镇美食街拍摄炸鸡柳摊位，Person_003-Person_017等人围观；在景德镇户外与Person_001、Person_002分享零食，手持已咬过的酥饼；在商业街区品尝炸鸡，Person_018在旁；在景德镇夜市购物，手持国旗与史努比纸袋，Person_019（摊位主）在场，挑选发饰、珠串；在茶颜悦色取青花瓷主题茶饮，Person_001（店员）在服务。次日，在九江与Person_001一起手持余记港式糖水铺甜品，展示购买。",
+        "participants": [
+          "Person_001",
+          "Person_002",
+          "Person_003",
+          "Person_004",
+          "Person_005",
+          "Person_006",
+          "Person_007",
+          "Person_008",
+          "Person_009",
+          "Person_011",
+          "Person_012",
+          "Person_013",
+          "Person_014",
+          "Person_015",
+          "Person_016",
+          "Person_017",
+          "Person_018",
+          "Person_019"
+        ],
+        "narrative_synthesis": "",
+        "social_dynamics": []
+      }
+    ],
+    "trend_detail": {},
+    "co_appearing_persons": [],
+    "anomalies": [],
+    "evidence_refs": [
+      {
+        "source_type": "photo",
+        "source_id": "photo_028",
+        "signal": "2025年10月2日下午14:18，【主角】在户外一处“回头客鸡柳鸡排”摊位前手持拍摄。画面前景有明显的手指遮挡，现场聚集了大量排队等候的顾客，由于高温天气，遮阳棚下人影交织，呈现出热闹的市井生活场景。",
+        "why": "co_photo_for_Person_008"
+      },
+      {
+        "source_type": "event",
+        "source_id": "EVT_003",
+        "signal": "国庆美食之旅与社会事件记录",
+        "why": "shared_event_for_Person_008"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "photo_count",
+        "signal": "1",
+        "why": "relationship_frequency"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "monthly_frequency",
+        "signal": "1.0",
+        "why": "relationship_frequency"
+      }
+    ],
+    "block_reasons": [],
+    "retention_decision": "suppress",
+    "retention_reason": "single_photo_without_strong_signal",
+    "group_eligible": false,
+    "group_block_reason": "retention=suppress",
+    "group_weight": 0.0,
+    "relationship_result": {
+      "relationship_type": "acquaintance",
+      "status": "new",
+      "confidence": 0.2,
+      "reasoning": "关键事件 EVT_003；共现 1 张，覆盖 1 类场景，月均 1.0 次，判为 acquaintance。"
+    },
+    "relationship_reflection": {
+      "triggered": false,
+      "issues": [],
+      "action": "keep",
+      "source": "llm"
+    }
+  },
+  {
+    "person_id": "Person_009",
+    "person_kind": "real_person",
+    "memory_value": "candidate",
+    "photo_count": 1,
+    "time_span_days": 1,
+    "recent_gap_days": 159,
+    "monthly_frequency": 1.0,
+    "scene_profile": {
+      "scenes": [
+        "街头小吃摊位"
+      ],
+      "private_scene_ratio": 0.0,
+      "dominant_scene_ratio": 1.0,
+      "with_user_only": false
+    },
+    "interaction_signals": [
+      "no_contact"
+    ],
+    "shared_events": [
+      {
+        "event_id": "EVT_003",
+        "date": "2025-10-02",
+        "title": "国庆美食之旅与社会事件记录",
+        "location": "城市户外 - 街头小吃摊位/公共场所/文创街区/糖水铺",
+        "photo_count": 13,
+        "description": "2025年10月2日至3日，国庆假期期间，【主角】在景德镇和九江进行旅行。记录了：在户外公共区域，Person_001情绪激动地展示江西省检验检疫报告（维权事件）；在街头“回头客鸡柳鸡排”摊位前排队，Person_002-Person_009等多人在场；在景德镇美食街拍摄炸鸡柳摊位，Person_003-Person_017等人围观；在景德镇户外与Person_001、Person_002分享零食，手持已咬过的酥饼；在商业街区品尝炸鸡，Person_018在旁；在景德镇夜市购物，手持国旗与史努比纸袋，Person_019（摊位主）在场，挑选发饰、珠串；在茶颜悦色取青花瓷主题茶饮，Person_001（店员）在服务。次日，在九江与Person_001一起手持余记港式糖水铺甜品，展示购买。",
+        "participants": [
+          "Person_001",
+          "Person_002",
+          "Person_003",
+          "Person_004",
+          "Person_005",
+          "Person_006",
+          "Person_007",
+          "Person_008",
+          "Person_009",
+          "Person_011",
+          "Person_012",
+          "Person_013",
+          "Person_014",
+          "Person_015",
+          "Person_016",
+          "Person_017",
+          "Person_018",
+          "Person_019"
+        ],
+        "narrative_synthesis": "",
+        "social_dynamics": []
+      }
+    ],
+    "trend_detail": {},
+    "co_appearing_persons": [],
+    "anomalies": [],
+    "evidence_refs": [
+      {
+        "source_type": "photo",
+        "source_id": "photo_028",
+        "signal": "2025年10月2日下午14:18，【主角】在户外一处“回头客鸡柳鸡排”摊位前手持拍摄。画面前景有明显的手指遮挡，现场聚集了大量排队等候的顾客，由于高温天气，遮阳棚下人影交织，呈现出热闹的市井生活场景。",
+        "why": "co_photo_for_Person_009"
+      },
+      {
+        "source_type": "event",
+        "source_id": "EVT_003",
+        "signal": "国庆美食之旅与社会事件记录",
+        "why": "shared_event_for_Person_009"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "photo_count",
+        "signal": "1",
+        "why": "relationship_frequency"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "monthly_frequency",
+        "signal": "1.0",
+        "why": "relationship_frequency"
+      }
+    ],
+    "block_reasons": [],
+    "retention_decision": "suppress",
+    "retention_reason": "single_photo_without_strong_signal",
+    "group_eligible": false,
+    "group_block_reason": "retention=suppress",
+    "group_weight": 0.0,
+    "relationship_result": {
+      "relationship_type": "acquaintance",
+      "status": "new",
+      "confidence": 0.2,
+      "reasoning": "关键事件 EVT_003；共现 1 张，覆盖 1 类场景，月均 1.0 次，判为 acquaintance。"
+    },
+    "relationship_reflection": {
+      "triggered": false,
+      "issues": [],
+      "action": "keep",
+      "source": "llm"
+    }
+  },
+  {
+    "person_id": "Person_011",
+    "person_kind": "real_person",
+    "memory_value": "candidate",
+    "photo_count": 1,
+    "time_span_days": 1,
+    "recent_gap_days": 159,
+    "monthly_frequency": 1.0,
+    "scene_profile": {
+      "scenes": [
+        "景德镇市某美食旅游打卡地"
+      ],
+      "private_scene_ratio": 0.0,
+      "dominant_scene_ratio": 1.0,
+      "with_user_only": false
+    },
+    "interaction_signals": [
+      "no_contact"
+    ],
+    "shared_events": [
+      {
+        "event_id": "EVT_003",
+        "date": "2025-10-02",
+        "title": "国庆美食之旅与社会事件记录",
+        "location": "城市户外 - 街头小吃摊位/公共场所/文创街区/糖水铺",
+        "photo_count": 13,
+        "description": "2025年10月2日至3日，国庆假期期间，【主角】在景德镇和九江进行旅行。记录了：在户外公共区域，Person_001情绪激动地展示江西省检验检疫报告（维权事件）；在街头“回头客鸡柳鸡排”摊位前排队，Person_002-Person_009等多人在场；在景德镇美食街拍摄炸鸡柳摊位，Person_003-Person_017等人围观；在景德镇户外与Person_001、Person_002分享零食，手持已咬过的酥饼；在商业街区品尝炸鸡，Person_018在旁；在景德镇夜市购物，手持国旗与史努比纸袋，Person_019（摊位主）在场，挑选发饰、珠串；在茶颜悦色取青花瓷主题茶饮，Person_001（店员）在服务。次日，在九江与Person_001一起手持余记港式糖水铺甜品，展示购买。",
+        "participants": [
+          "Person_001",
+          "Person_002",
+          "Person_003",
+          "Person_004",
+          "Person_005",
+          "Person_006",
+          "Person_007",
+          "Person_008",
+          "Person_009",
+          "Person_011",
+          "Person_012",
+          "Person_013",
+          "Person_014",
+          "Person_015",
+          "Person_016",
+          "Person_017",
+          "Person_018",
+          "Person_019"
+        ],
+        "narrative_synthesis": "",
+        "social_dynamics": []
+      }
+    ],
+    "trend_detail": {},
+    "co_appearing_persons": [],
+    "anomalies": [],
+    "evidence_refs": [
+      {
+        "source_type": "photo",
+        "source_id": "photo_029",
+        "signal": "2025年10月2日下午14时18分，景德镇某户外路边摊位，【主角】正处于人潮围观中心，拍摄正在炸制鸡柳的商家工作实况。",
+        "why": "co_photo_for_Person_011"
+      },
+      {
+        "source_type": "event",
+        "source_id": "EVT_003",
+        "signal": "国庆美食之旅与社会事件记录",
+        "why": "shared_event_for_Person_011"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "photo_count",
+        "signal": "1",
+        "why": "relationship_frequency"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "monthly_frequency",
+        "signal": "1.0",
+        "why": "relationship_frequency"
+      }
+    ],
+    "block_reasons": [],
+    "retention_decision": "suppress",
+    "retention_reason": "single_photo_without_strong_signal",
+    "group_eligible": false,
+    "group_block_reason": "retention=suppress",
+    "group_weight": 0.0,
+    "relationship_result": {
+      "relationship_type": "acquaintance",
+      "status": "new",
+      "confidence": 0.3,
+      "reasoning": "关键事件 EVT_003；共现 1 张，覆盖 1 类场景，月均 1.0 次，判为 acquaintance。"
+    },
+    "relationship_reflection": {
+      "triggered": false,
+      "issues": [],
+      "action": "keep",
+      "source": "llm"
+    }
+  },
+  {
+    "person_id": "Person_012",
+    "person_kind": "real_person",
+    "memory_value": "candidate",
+    "photo_count": 1,
+    "time_span_days": 1,
+    "recent_gap_days": 159,
+    "monthly_frequency": 1.0,
+    "scene_profile": {
+      "scenes": [
+        "景德镇市某美食旅游打卡地"
+      ],
+      "private_scene_ratio": 0.0,
+      "dominant_scene_ratio": 1.0,
+      "with_user_only": false
+    },
+    "interaction_signals": [
+      "no_contact"
+    ],
+    "shared_events": [
+      {
+        "event_id": "EVT_003",
+        "date": "2025-10-02",
+        "title": "国庆美食之旅与社会事件记录",
+        "location": "城市户外 - 街头小吃摊位/公共场所/文创街区/糖水铺",
+        "photo_count": 13,
+        "description": "2025年10月2日至3日，国庆假期期间，【主角】在景德镇和九江进行旅行。记录了：在户外公共区域，Person_001情绪激动地展示江西省检验检疫报告（维权事件）；在街头“回头客鸡柳鸡排”摊位前排队，Person_002-Person_009等多人在场；在景德镇美食街拍摄炸鸡柳摊位，Person_003-Person_017等人围观；在景德镇户外与Person_001、Person_002分享零食，手持已咬过的酥饼；在商业街区品尝炸鸡，Person_018在旁；在景德镇夜市购物，手持国旗与史努比纸袋，Person_019（摊位主）在场，挑选发饰、珠串；在茶颜悦色取青花瓷主题茶饮，Person_001（店员）在服务。次日，在九江与Person_001一起手持余记港式糖水铺甜品，展示购买。",
+        "participants": [
+          "Person_001",
+          "Person_002",
+          "Person_003",
+          "Person_004",
+          "Person_005",
+          "Person_006",
+          "Person_007",
+          "Person_008",
+          "Person_009",
+          "Person_011",
+          "Person_012",
+          "Person_013",
+          "Person_014",
+          "Person_015",
+          "Person_016",
+          "Person_017",
+          "Person_018",
+          "Person_019"
+        ],
+        "narrative_synthesis": "",
+        "social_dynamics": []
+      }
+    ],
+    "trend_detail": {},
+    "co_appearing_persons": [],
+    "anomalies": [],
+    "evidence_refs": [
+      {
+        "source_type": "photo",
+        "source_id": "photo_029",
+        "signal": "2025年10月2日下午14时18分，景德镇某户外路边摊位，【主角】正处于人潮围观中心，拍摄正在炸制鸡柳的商家工作实况。",
+        "why": "co_photo_for_Person_012"
+      },
+      {
+        "source_type": "event",
+        "source_id": "EVT_003",
+        "signal": "国庆美食之旅与社会事件记录",
+        "why": "shared_event_for_Person_012"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "photo_count",
+        "signal": "1",
+        "why": "relationship_frequency"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "monthly_frequency",
+        "signal": "1.0",
+        "why": "relationship_frequency"
+      }
+    ],
+    "block_reasons": [],
+    "retention_decision": "suppress",
+    "retention_reason": "single_photo_without_strong_signal",
+    "group_eligible": false,
+    "group_block_reason": "retention=suppress",
+    "group_weight": 0.0,
+    "relationship_result": {
+      "relationship_type": "acquaintance",
+      "status": "new",
+      "confidence": 0.2,
+      "reasoning": "关键事件 EVT_003；共现 1 张，覆盖 1 类场景，月均 1.0 次，判为 acquaintance。"
+    },
+    "relationship_reflection": {
+      "triggered": false,
+      "issues": [],
+      "action": "keep",
+      "source": "llm"
+    }
+  },
+  {
+    "person_id": "Person_013",
+    "person_kind": "real_person",
+    "memory_value": "candidate",
+    "photo_count": 1,
+    "time_span_days": 1,
+    "recent_gap_days": 159,
+    "monthly_frequency": 1.0,
+    "scene_profile": {
+      "scenes": [
+        "景德镇市某美食旅游打卡地"
+      ],
+      "private_scene_ratio": 0.0,
+      "dominant_scene_ratio": 1.0,
+      "with_user_only": false
+    },
+    "interaction_signals": [
+      "no_contact"
+    ],
+    "shared_events": [
+      {
+        "event_id": "EVT_003",
+        "date": "2025-10-02",
+        "title": "国庆美食之旅与社会事件记录",
+        "location": "城市户外 - 街头小吃摊位/公共场所/文创街区/糖水铺",
+        "photo_count": 13,
+        "description": "2025年10月2日至3日，国庆假期期间，【主角】在景德镇和九江进行旅行。记录了：在户外公共区域，Person_001情绪激动地展示江西省检验检疫报告（维权事件）；在街头“回头客鸡柳鸡排”摊位前排队，Person_002-Person_009等多人在场；在景德镇美食街拍摄炸鸡柳摊位，Person_003-Person_017等人围观；在景德镇户外与Person_001、Person_002分享零食，手持已咬过的酥饼；在商业街区品尝炸鸡，Person_018在旁；在景德镇夜市购物，手持国旗与史努比纸袋，Person_019（摊位主）在场，挑选发饰、珠串；在茶颜悦色取青花瓷主题茶饮，Person_001（店员）在服务。次日，在九江与Person_001一起手持余记港式糖水铺甜品，展示购买。",
+        "participants": [
+          "Person_001",
+          "Person_002",
+          "Person_003",
+          "Person_004",
+          "Person_005",
+          "Person_006",
+          "Person_007",
+          "Person_008",
+          "Person_009",
+          "Person_011",
+          "Person_012",
+          "Person_013",
+          "Person_014",
+          "Person_015",
+          "Person_016",
+          "Person_017",
+          "Person_018",
+          "Person_019"
+        ],
+        "narrative_synthesis": "",
+        "social_dynamics": []
+      }
+    ],
+    "trend_detail": {},
+    "co_appearing_persons": [],
+    "anomalies": [],
+    "evidence_refs": [
+      {
+        "source_type": "photo",
+        "source_id": "photo_029",
+        "signal": "2025年10月2日下午14时18分，景德镇某户外路边摊位，【主角】正处于人潮围观中心，拍摄正在炸制鸡柳的商家工作实况。",
+        "why": "co_photo_for_Person_013"
+      },
+      {
+        "source_type": "event",
+        "source_id": "EVT_003",
+        "signal": "国庆美食之旅与社会事件记录",
+        "why": "shared_event_for_Person_013"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "photo_count",
+        "signal": "1",
+        "why": "relationship_frequency"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "monthly_frequency",
+        "signal": "1.0",
+        "why": "relationship_frequency"
+      }
+    ],
+    "block_reasons": [],
+    "retention_decision": "suppress",
+    "retention_reason": "single_photo_without_strong_signal",
+    "group_eligible": false,
+    "group_block_reason": "retention=suppress",
+    "group_weight": 0.0,
+    "relationship_result": {
+      "relationship_type": "acquaintance",
+      "status": "new",
+      "confidence": 0.2,
+      "reasoning": "关键事件 EVT_003；共现 1 张，覆盖 1 类场景，月均 1.0 次，判为 acquaintance。"
+    },
+    "relationship_reflection": {
+      "triggered": false,
+      "issues": [],
+      "action": "keep",
+      "source": "llm"
+    }
+  },
+  {
+    "person_id": "Person_014",
+    "person_kind": "real_person",
+    "memory_value": "candidate",
+    "photo_count": 1,
+    "time_span_days": 1,
+    "recent_gap_days": 159,
+    "monthly_frequency": 1.0,
+    "scene_profile": {
+      "scenes": [
+        "景德镇市某美食旅游打卡地"
+      ],
+      "private_scene_ratio": 0.0,
+      "dominant_scene_ratio": 1.0,
+      "with_user_only": false
+    },
+    "interaction_signals": [
+      "no_contact"
+    ],
+    "shared_events": [
+      {
+        "event_id": "EVT_003",
+        "date": "2025-10-02",
+        "title": "国庆美食之旅与社会事件记录",
+        "location": "城市户外 - 街头小吃摊位/公共场所/文创街区/糖水铺",
+        "photo_count": 13,
+        "description": "2025年10月2日至3日，国庆假期期间，【主角】在景德镇和九江进行旅行。记录了：在户外公共区域，Person_001情绪激动地展示江西省检验检疫报告（维权事件）；在街头“回头客鸡柳鸡排”摊位前排队，Person_002-Person_009等多人在场；在景德镇美食街拍摄炸鸡柳摊位，Person_003-Person_017等人围观；在景德镇户外与Person_001、Person_002分享零食，手持已咬过的酥饼；在商业街区品尝炸鸡，Person_018在旁；在景德镇夜市购物，手持国旗与史努比纸袋，Person_019（摊位主）在场，挑选发饰、珠串；在茶颜悦色取青花瓷主题茶饮，Person_001（店员）在服务。次日，在九江与Person_001一起手持余记港式糖水铺甜品，展示购买。",
+        "participants": [
+          "Person_001",
+          "Person_002",
+          "Person_003",
+          "Person_004",
+          "Person_005",
+          "Person_006",
+          "Person_007",
+          "Person_008",
+          "Person_009",
+          "Person_011",
+          "Person_012",
+          "Person_013",
+          "Person_014",
+          "Person_015",
+          "Person_016",
+          "Person_017",
+          "Person_018",
+          "Person_019"
+        ],
+        "narrative_synthesis": "",
+        "social_dynamics": []
+      }
+    ],
+    "trend_detail": {},
+    "co_appearing_persons": [],
+    "anomalies": [],
+    "evidence_refs": [
+      {
+        "source_type": "photo",
+        "source_id": "photo_029",
+        "signal": "2025年10月2日下午14时18分，景德镇某户外路边摊位，【主角】正处于人潮围观中心，拍摄正在炸制鸡柳的商家工作实况。",
+        "why": "co_photo_for_Person_014"
+      },
+      {
+        "source_type": "event",
+        "source_id": "EVT_003",
+        "signal": "国庆美食之旅与社会事件记录",
+        "why": "shared_event_for_Person_014"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "photo_count",
+        "signal": "1",
+        "why": "relationship_frequency"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "monthly_frequency",
+        "signal": "1.0",
+        "why": "relationship_frequency"
+      }
+    ],
+    "block_reasons": [],
+    "retention_decision": "suppress",
+    "retention_reason": "single_photo_without_strong_signal",
+    "group_eligible": false,
+    "group_block_reason": "retention=suppress",
+    "group_weight": 0.0,
+    "relationship_result": {
+      "relationship_type": "acquaintance",
+      "status": "new",
+      "confidence": 0.2,
+      "reasoning": "关键事件 EVT_003；共现 1 张，覆盖 1 类场景，月均 1.0 次，判为 acquaintance。"
+    },
+    "relationship_reflection": {
+      "triggered": false,
+      "issues": [],
+      "action": "keep",
+      "source": "llm"
+    }
+  },
+  {
+    "person_id": "Person_015",
+    "person_kind": "real_person",
+    "memory_value": "candidate",
+    "photo_count": 1,
+    "time_span_days": 1,
+    "recent_gap_days": 159,
+    "monthly_frequency": 1.0,
+    "scene_profile": {
+      "scenes": [
+        "景德镇市某美食旅游打卡地"
+      ],
+      "private_scene_ratio": 0.0,
+      "dominant_scene_ratio": 1.0,
+      "with_user_only": false
+    },
+    "interaction_signals": [
+      "no_contact"
+    ],
+    "shared_events": [
+      {
+        "event_id": "EVT_003",
+        "date": "2025-10-02",
+        "title": "国庆美食之旅与社会事件记录",
+        "location": "城市户外 - 街头小吃摊位/公共场所/文创街区/糖水铺",
+        "photo_count": 13,
+        "description": "2025年10月2日至3日，国庆假期期间，【主角】在景德镇和九江进行旅行。记录了：在户外公共区域，Person_001情绪激动地展示江西省检验检疫报告（维权事件）；在街头“回头客鸡柳鸡排”摊位前排队，Person_002-Person_009等多人在场；在景德镇美食街拍摄炸鸡柳摊位，Person_003-Person_017等人围观；在景德镇户外与Person_001、Person_002分享零食，手持已咬过的酥饼；在商业街区品尝炸鸡，Person_018在旁；在景德镇夜市购物，手持国旗与史努比纸袋，Person_019（摊位主）在场，挑选发饰、珠串；在茶颜悦色取青花瓷主题茶饮，Person_001（店员）在服务。次日，在九江与Person_001一起手持余记港式糖水铺甜品，展示购买。",
+        "participants": [
+          "Person_001",
+          "Person_002",
+          "Person_003",
+          "Person_004",
+          "Person_005",
+          "Person_006",
+          "Person_007",
+          "Person_008",
+          "Person_009",
+          "Person_011",
+          "Person_012",
+          "Person_013",
+          "Person_014",
+          "Person_015",
+          "Person_016",
+          "Person_017",
+          "Person_018",
+          "Person_019"
+        ],
+        "narrative_synthesis": "",
+        "social_dynamics": []
+      }
+    ],
+    "trend_detail": {},
+    "co_appearing_persons": [],
+    "anomalies": [],
+    "evidence_refs": [
+      {
+        "source_type": "photo",
+        "source_id": "photo_029",
+        "signal": "2025年10月2日下午14时18分，景德镇某户外路边摊位，【主角】正处于人潮围观中心，拍摄正在炸制鸡柳的商家工作实况。",
+        "why": "co_photo_for_Person_015"
+      },
+      {
+        "source_type": "event",
+        "source_id": "EVT_003",
+        "signal": "国庆美食之旅与社会事件记录",
+        "why": "shared_event_for_Person_015"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "photo_count",
+        "signal": "1",
+        "why": "relationship_frequency"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "monthly_frequency",
+        "signal": "1.0",
+        "why": "relationship_frequency"
+      }
+    ],
+    "block_reasons": [],
+    "retention_decision": "suppress",
+    "retention_reason": "single_photo_without_strong_signal",
+    "group_eligible": false,
+    "group_block_reason": "retention=suppress",
+    "group_weight": 0.0,
+    "relationship_result": {
+      "relationship_type": "acquaintance",
+      "status": "new",
+      "confidence": 0.3,
+      "reasoning": "关键事件 EVT_003；共现 1 张，覆盖 1 类场景，月均 1.0 次，判为 acquaintance。"
+    },
+    "relationship_reflection": {
+      "triggered": false,
+      "issues": [],
+      "action": "keep",
+      "source": "llm"
+    }
+  },
+  {
+    "person_id": "Person_016",
+    "person_kind": "real_person",
+    "memory_value": "candidate",
+    "photo_count": 1,
+    "time_span_days": 1,
+    "recent_gap_days": 159,
+    "monthly_frequency": 1.0,
+    "scene_profile": {
+      "scenes": [
+        "景德镇市某美食旅游打卡地"
+      ],
+      "private_scene_ratio": 0.0,
+      "dominant_scene_ratio": 1.0,
+      "with_user_only": false
+    },
+    "interaction_signals": [
+      "no_contact"
+    ],
+    "shared_events": [
+      {
+        "event_id": "EVT_003",
+        "date": "2025-10-02",
+        "title": "国庆美食之旅与社会事件记录",
+        "location": "城市户外 - 街头小吃摊位/公共场所/文创街区/糖水铺",
+        "photo_count": 13,
+        "description": "2025年10月2日至3日，国庆假期期间，【主角】在景德镇和九江进行旅行。记录了：在户外公共区域，Person_001情绪激动地展示江西省检验检疫报告（维权事件）；在街头“回头客鸡柳鸡排”摊位前排队，Person_002-Person_009等多人在场；在景德镇美食街拍摄炸鸡柳摊位，Person_003-Person_017等人围观；在景德镇户外与Person_001、Person_002分享零食，手持已咬过的酥饼；在商业街区品尝炸鸡，Person_018在旁；在景德镇夜市购物，手持国旗与史努比纸袋，Person_019（摊位主）在场，挑选发饰、珠串；在茶颜悦色取青花瓷主题茶饮，Person_001（店员）在服务。次日，在九江与Person_001一起手持余记港式糖水铺甜品，展示购买。",
+        "participants": [
+          "Person_001",
+          "Person_002",
+          "Person_003",
+          "Person_004",
+          "Person_005",
+          "Person_006",
+          "Person_007",
+          "Person_008",
+          "Person_009",
+          "Person_011",
+          "Person_012",
+          "Person_013",
+          "Person_014",
+          "Person_015",
+          "Person_016",
+          "Person_017",
+          "Person_018",
+          "Person_019"
+        ],
+        "narrative_synthesis": "",
+        "social_dynamics": []
+      }
+    ],
+    "trend_detail": {},
+    "co_appearing_persons": [],
+    "anomalies": [],
+    "evidence_refs": [
+      {
+        "source_type": "photo",
+        "source_id": "photo_029",
+        "signal": "2025年10月2日下午14时18分，景德镇某户外路边摊位，【主角】正处于人潮围观中心，拍摄正在炸制鸡柳的商家工作实况。",
+        "why": "co_photo_for_Person_016"
+      },
+      {
+        "source_type": "event",
+        "source_id": "EVT_003",
+        "signal": "国庆美食之旅与社会事件记录",
+        "why": "shared_event_for_Person_016"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "photo_count",
+        "signal": "1",
+        "why": "relationship_frequency"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "monthly_frequency",
+        "signal": "1.0",
+        "why": "relationship_frequency"
+      }
+    ],
+    "block_reasons": [],
+    "retention_decision": "suppress",
+    "retention_reason": "single_photo_without_strong_signal",
+    "group_eligible": false,
+    "group_block_reason": "retention=suppress",
+    "group_weight": 0.0,
+    "relationship_result": {
+      "relationship_type": "acquaintance",
+      "status": "new",
+      "confidence": 0.2,
+      "reasoning": "关键事件 EVT_003；共现 1 张，覆盖 1 类场景，月均 1.0 次，判为 acquaintance。"
+    },
+    "relationship_reflection": {
+      "triggered": false,
+      "issues": [],
+      "action": "keep",
+      "source": "llm"
+    }
+  },
+  {
+    "person_id": "Person_017",
+    "person_kind": "real_person",
+    "memory_value": "candidate",
+    "photo_count": 1,
+    "time_span_days": 1,
+    "recent_gap_days": 159,
+    "monthly_frequency": 1.0,
+    "scene_profile": {
+      "scenes": [
+        "景德镇市某美食旅游打卡地"
+      ],
+      "private_scene_ratio": 0.0,
+      "dominant_scene_ratio": 1.0,
+      "with_user_only": false
+    },
+    "interaction_signals": [
+      "no_contact"
+    ],
+    "shared_events": [
+      {
+        "event_id": "EVT_003",
+        "date": "2025-10-02",
+        "title": "国庆美食之旅与社会事件记录",
+        "location": "城市户外 - 街头小吃摊位/公共场所/文创街区/糖水铺",
+        "photo_count": 13,
+        "description": "2025年10月2日至3日，国庆假期期间，【主角】在景德镇和九江进行旅行。记录了：在户外公共区域，Person_001情绪激动地展示江西省检验检疫报告（维权事件）；在街头“回头客鸡柳鸡排”摊位前排队，Person_002-Person_009等多人在场；在景德镇美食街拍摄炸鸡柳摊位，Person_003-Person_017等人围观；在景德镇户外与Person_001、Person_002分享零食，手持已咬过的酥饼；在商业街区品尝炸鸡，Person_018在旁；在景德镇夜市购物，手持国旗与史努比纸袋，Person_019（摊位主）在场，挑选发饰、珠串；在茶颜悦色取青花瓷主题茶饮，Person_001（店员）在服务。次日，在九江与Person_001一起手持余记港式糖水铺甜品，展示购买。",
+        "participants": [
+          "Person_001",
+          "Person_002",
+          "Person_003",
+          "Person_004",
+          "Person_005",
+          "Person_006",
+          "Person_007",
+          "Person_008",
+          "Person_009",
+          "Person_011",
+          "Person_012",
+          "Person_013",
+          "Person_014",
+          "Person_015",
+          "Person_016",
+          "Person_017",
+          "Person_018",
+          "Person_019"
+        ],
+        "narrative_synthesis": "",
+        "social_dynamics": []
+      }
+    ],
+    "trend_detail": {},
+    "co_appearing_persons": [],
+    "anomalies": [],
+    "evidence_refs": [
+      {
+        "source_type": "photo",
+        "source_id": "photo_029",
+        "signal": "2025年10月2日下午14时18分，景德镇某户外路边摊位，【主角】正处于人潮围观中心，拍摄正在炸制鸡柳的商家工作实况。",
+        "why": "co_photo_for_Person_017"
+      },
+      {
+        "source_type": "event",
+        "source_id": "EVT_003",
+        "signal": "国庆美食之旅与社会事件记录",
+        "why": "shared_event_for_Person_017"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "photo_count",
+        "signal": "1",
+        "why": "relationship_frequency"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "monthly_frequency",
+        "signal": "1.0",
+        "why": "relationship_frequency"
+      }
+    ],
+    "block_reasons": [],
+    "retention_decision": "suppress",
+    "retention_reason": "single_photo_without_strong_signal",
+    "group_eligible": false,
+    "group_block_reason": "retention=suppress",
+    "group_weight": 0.0,
+    "relationship_result": {
+      "relationship_type": "acquaintance",
+      "status": "new",
+      "confidence": 0.2,
+      "reasoning": "关键事件 EVT_003；共现 1 张，覆盖 1 类场景，月均 1.0 次，判为 acquaintance。"
+    },
+    "relationship_reflection": {
+      "triggered": false,
+      "issues": [],
+      "action": "keep",
+      "source": "llm"
+    }
+  },
+  {
+    "person_id": "Person_018",
+    "person_kind": "real_person",
+    "memory_value": "candidate",
+    "photo_count": 1,
+    "time_span_days": 1,
+    "recent_gap_days": 159,
+    "monthly_frequency": 1.0,
+    "scene_profile": {
+      "scenes": [
+        "景德镇十八桥商城附近户外街区"
+      ],
+      "private_scene_ratio": 0.0,
+      "dominant_scene_ratio": 1.0,
+      "with_user_only": true
+    },
+    "interaction_signals": [
+      "no_contact"
+    ],
+    "shared_events": [
+      {
+        "event_id": "EVT_003",
+        "date": "2025-10-02",
+        "title": "国庆美食之旅与社会事件记录",
+        "location": "城市户外 - 街头小吃摊位/公共场所/文创街区/糖水铺",
+        "photo_count": 13,
+        "description": "2025年10月2日至3日，国庆假期期间，【主角】在景德镇和九江进行旅行。记录了：在户外公共区域，Person_001情绪激动地展示江西省检验检疫报告（维权事件）；在街头“回头客鸡柳鸡排”摊位前排队，Person_002-Person_009等多人在场；在景德镇美食街拍摄炸鸡柳摊位，Person_003-Person_017等人围观；在景德镇户外与Person_001、Person_002分享零食，手持已咬过的酥饼；在商业街区品尝炸鸡，Person_018在旁；在景德镇夜市购物，手持国旗与史努比纸袋，Person_019（摊位主）在场，挑选发饰、珠串；在茶颜悦色取青花瓷主题茶饮，Person_001（店员）在服务。次日，在九江与Person_001一起手持余记港式糖水铺甜品，展示购买。",
+        "participants": [
+          "Person_001",
+          "Person_002",
+          "Person_003",
+          "Person_004",
+          "Person_005",
+          "Person_006",
+          "Person_007",
+          "Person_008",
+          "Person_009",
+          "Person_011",
+          "Person_012",
+          "Person_013",
+          "Person_014",
+          "Person_015",
+          "Person_016",
+          "Person_017",
+          "Person_018",
+          "Person_019"
+        ],
+        "narrative_synthesis": "",
+        "social_dynamics": []
+      }
+    ],
+    "trend_detail": {},
+    "co_appearing_persons": [],
+    "anomalies": [],
+    "evidence_refs": [
+      {
+        "source_type": "photo",
+        "source_id": "photo_032",
+        "signal": "2025年10月2日14:19，在景德镇户外晴朗天气下，【主角】在人流密集的市集或摊贩区持食物拍摄，视野前方为Person_018及其他路人。",
+        "why": "co_photo_for_Person_018"
+      },
+      {
+        "source_type": "event",
+        "source_id": "EVT_003",
+        "signal": "国庆美食之旅与社会事件记录",
+        "why": "shared_event_for_Person_018"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "photo_count",
+        "signal": "1",
+        "why": "relationship_frequency"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "monthly_frequency",
+        "signal": "1.0",
+        "why": "relationship_frequency"
+      }
+    ],
+    "block_reasons": [],
+    "retention_decision": "suppress",
+    "retention_reason": "single_photo_without_strong_signal",
+    "group_eligible": false,
+    "group_block_reason": "retention=suppress",
+    "group_weight": 0.0,
+    "relationship_result": {
+      "relationship_type": "acquaintance",
+      "status": "new",
+      "confidence": 0.25,
+      "reasoning": "关键事件 EVT_003；共现 1 张，覆盖 1 类场景，月均 1.0 次，判为 acquaintance。"
+    },
+    "relationship_reflection": {
+      "triggered": false,
+      "issues": [],
+      "action": "keep",
+      "source": "llm"
+    }
+  },
+  {
+    "person_id": "Person_019",
+    "person_kind": "real_person",
+    "memory_value": "candidate",
+    "photo_count": 1,
+    "time_span_days": 1,
+    "recent_gap_days": 159,
+    "monthly_frequency": 1.0,
+    "scene_profile": {
+      "scenes": [
+        "景德镇市某夜市市集"
+      ],
+      "private_scene_ratio": 0.0,
+      "dominant_scene_ratio": 1.0,
+      "with_user_only": true
+    },
+    "interaction_signals": [
+      "no_contact"
+    ],
+    "shared_events": [
+      {
+        "event_id": "EVT_003",
+        "date": "2025-10-02",
+        "title": "国庆美食之旅与社会事件记录",
+        "location": "城市户外 - 街头小吃摊位/公共场所/文创街区/糖水铺",
+        "photo_count": 13,
+        "description": "2025年10月2日至3日，国庆假期期间，【主角】在景德镇和九江进行旅行。记录了：在户外公共区域，Person_001情绪激动地展示江西省检验检疫报告（维权事件）；在街头“回头客鸡柳鸡排”摊位前排队，Person_002-Person_009等多人在场；在景德镇美食街拍摄炸鸡柳摊位，Person_003-Person_017等人围观；在景德镇户外与Person_001、Person_002分享零食，手持已咬过的酥饼；在商业街区品尝炸鸡，Person_018在旁；在景德镇夜市购物，手持国旗与史努比纸袋，Person_019（摊位主）在场，挑选发饰、珠串；在茶颜悦色取青花瓷主题茶饮，Person_001（店员）在服务。次日，在九江与Person_001一起手持余记港式糖水铺甜品，展示购买。",
+        "participants": [
+          "Person_001",
+          "Person_002",
+          "Person_003",
+          "Person_004",
+          "Person_005",
+          "Person_006",
+          "Person_007",
+          "Person_008",
+          "Person_009",
+          "Person_011",
+          "Person_012",
+          "Person_013",
+          "Person_014",
+          "Person_015",
+          "Person_016",
+          "Person_017",
+          "Person_018",
+          "Person_019"
+        ],
+        "narrative_synthesis": "",
+        "social_dynamics": []
+      }
+    ],
+    "trend_detail": {},
+    "co_appearing_persons": [],
+    "anomalies": [],
+    "evidence_refs": [
+      {
+        "source_type": "photo",
+        "source_id": "photo_036",
+        "signal": "2025年10月2日18:10，景德镇某夜市摊位，【主角】正手持一面小型五星红旗和一个印有蜡笔小新图案的白色塑料袋，正在挑选或展示饰品。",
+        "why": "co_photo_for_Person_019"
+      },
+      {
+        "source_type": "event",
+        "source_id": "EVT_003",
+        "signal": "国庆美食之旅与社会事件记录",
+        "why": "shared_event_for_Person_019"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "photo_count",
+        "signal": "1",
+        "why": "relationship_frequency"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "monthly_frequency",
+        "signal": "1.0",
+        "why": "relationship_frequency"
+      }
+    ],
+    "block_reasons": [],
+    "retention_decision": "suppress",
+    "retention_reason": "single_photo_without_strong_signal",
+    "group_eligible": false,
+    "group_block_reason": "retention=suppress",
+    "group_weight": 0.0,
+    "relationship_result": {
+      "relationship_type": "acquaintance",
+      "status": "new",
+      "confidence": 0.25,
+      "reasoning": "关键事件 EVT_003；共现 1 张，覆盖 1 类场景，月均 1.0 次，判为 acquaintance。"
+    },
+    "relationship_reflection": {
+      "triggered": false,
+      "issues": [],
+      "action": "keep",
+      "source": "llm"
+    }
+  },
+  {
+    "person_id": "Person_020",
+    "person_kind": "real_person",
+    "memory_value": "candidate",
+    "photo_count": 1,
+    "time_span_days": 1,
+    "recent_gap_days": 128,
+    "monthly_frequency": 1.0,
+    "scene_profile": {
+      "scenes": [
+        "安徽科技学院教室"
+      ],
+      "private_scene_ratio": 0.0,
+      "dominant_scene_ratio": 1.0,
+      "with_user_only": true
+    },
+    "interaction_signals": [
+      "no_contact"
+    ],
+    "shared_events": [
+      {
+        "event_id": "EVT_002",
+        "date": "2025-09-11",
+        "title": "工科专业学习与3D打印实践",
+        "location": "高校教室/实验室/办公室/私人工作室",
+        "photo_count": 27,
+        "description": "2025年9月至11月间，【主角】在高校教室、实验室及个人工作室等室内环境中，频繁接触机械工程、自动化控制、3D打印等专业内容。包括：拍摄学习通签到界面、信号与系统频谱分析课件、CAD建模实验报告、3D打印机切片软件界面、战斗机模型3D打印过程与成品、机床数控系统调试、PLC控制实验布线、机械设计课程内容、专利技术文档查阅、以及自动化实训台操作。Person_020（教师）在安徽科技学院讲授数控技术。",
+        "participants": [
+          "Person_020"
+        ],
+        "narrative_synthesis": "",
+        "social_dynamics": []
+      }
+    ],
+    "trend_detail": {},
+    "co_appearing_persons": [],
+    "anomalies": [],
+    "evidence_refs": [
+      {
+        "source_type": "photo",
+        "source_id": "photo_073",
+        "signal": "2025年11月3日11:30，于安徽科技学院教室内，【主角】正处于学生席位中向讲台视角拍摄，记录下Person_020在讲台上进行数控技术课程教学的场景。",
+        "why": "co_photo_for_Person_020"
+      },
+      {
+        "source_type": "event",
+        "source_id": "EVT_002",
+        "signal": "工科专业学习与3D打印实践",
+        "why": "shared_event_for_Person_020"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "photo_count",
+        "signal": "1",
+        "why": "relationship_frequency"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "monthly_frequency",
+        "signal": "1.0",
+        "why": "relationship_frequency"
+      }
+    ],
+    "block_reasons": [],
+    "retention_decision": "suppress",
+    "retention_reason": "single_photo_without_strong_signal",
+    "group_eligible": false,
+    "group_block_reason": "retention=suppress",
+    "group_weight": 0.0,
+    "relationship_result": {
+      "relationship_type": "classmate_colleague",
+      "status": "new",
+      "confidence": 0.6,
+      "reasoning": "关键事件 EVT_002；共现 1 张，覆盖 1 类场景，月均 1.0 次，判为 classmate_colleague。"
+    },
+    "relationship_reflection": {
+      "triggered": false,
+      "issues": [],
+      "action": "keep",
+      "source": "llm"
+    }
+  },
+  {
+    "person_id": "Person_021",
+    "person_kind": "real_person",
+    "memory_value": "candidate",
+    "photo_count": 1,
+    "time_span_days": 1,
+    "recent_gap_days": 18,
+    "monthly_frequency": 1.0,
+    "scene_profile": {
+      "scenes": [
+        "餐饮店/快餐店"
+      ],
+      "private_scene_ratio": 0.0,
+      "dominant_scene_ratio": 1.0,
+      "with_user_only": false
+    },
+    "interaction_signals": [
+      "no_contact"
+    ],
+    "shared_events": [
+      {
+        "event_id": "EVT_007",
+        "date": "2026-02-10",
+        "title": "职场发展与技能提升",
+        "location": "办公环境/快餐店/室内商业综合体/住所",
+        "photo_count": 8,
+        "description": "2026年2月中下旬，【主角】在室内环境下，围绕工作与日常消费展开活动。包括：拍摄排班管理表（包含多位员工姓名和职位，有手写修改痕迹）；在芜湖某商业空间摄录亮黄色冰淇淋两次；在办公室内储物间拍摄肯德基外送餐点和快递纸箱；在餐饮店拍摄印有《哪吒之魔童降世》角色图案的包装纸，并手持一次性手套，随后拍摄炸鸡块和烤鸡翅；在凌晨时分将剩余的红油泡椒类食物及外卖餐盒丢弃至垃圾桶；手持装有炸鸡块和蛋挞的快餐纸盒。最后，拍摄《考勤汇总表》，文档显示为2026年2月24日导出。",
+        "participants": [
+          "Person_021",
+          "Person_022"
+        ],
+        "narrative_synthesis": "",
+        "social_dynamics": []
+      }
+    ],
+    "trend_detail": {},
+    "co_appearing_persons": [],
+    "anomalies": [],
+    "evidence_refs": [
+      {
+        "source_type": "photo",
+        "source_id": "photo_111",
+        "signal": "2026-02-20 21:19，于室内用餐环境，【主角】正手持印有动画联名图案的食物包装纸进行拍摄，画面聚焦于包装上的角色形象。",
+        "why": "co_photo_for_Person_021"
+      },
+      {
+        "source_type": "event",
+        "source_id": "EVT_007",
+        "signal": "职场发展与技能提升",
+        "why": "shared_event_for_Person_021"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "photo_count",
+        "signal": "1",
+        "why": "relationship_frequency"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "monthly_frequency",
+        "signal": "1.0",
+        "why": "relationship_frequency"
+      }
+    ],
+    "block_reasons": [],
+    "retention_decision": "suppress",
+    "retention_reason": "single_photo_without_strong_signal",
+    "group_eligible": false,
+    "group_block_reason": "retention=suppress",
+    "group_weight": 0.0,
+    "relationship_result": {
+      "relationship_type": "acquaintance",
+      "status": "new",
+      "confidence": 0.25,
+      "reasoning": "关键事件 EVT_007；共现 1 张，覆盖 1 类场景，月均 1.0 次，判为 acquaintance。"
+    },
+    "relationship_reflection": {
+      "triggered": false,
+      "issues": [],
+      "action": "keep",
+      "source": "llm"
+    }
+  },
+  {
+    "person_id": "Person_022",
+    "person_kind": "real_person",
+    "memory_value": "candidate",
+    "photo_count": 1,
+    "time_span_days": 1,
+    "recent_gap_days": 18,
+    "monthly_frequency": 1.0,
+    "scene_profile": {
+      "scenes": [
+        "餐饮店/快餐店"
+      ],
+      "private_scene_ratio": 0.0,
+      "dominant_scene_ratio": 1.0,
+      "with_user_only": false
+    },
+    "interaction_signals": [
+      "no_contact"
+    ],
+    "shared_events": [
+      {
+        "event_id": "EVT_007",
+        "date": "2026-02-10",
+        "title": "职场发展与技能提升",
+        "location": "办公环境/快餐店/室内商业综合体/住所",
+        "photo_count": 8,
+        "description": "2026年2月中下旬，【主角】在室内环境下，围绕工作与日常消费展开活动。包括：拍摄排班管理表（包含多位员工姓名和职位，有手写修改痕迹）；在芜湖某商业空间摄录亮黄色冰淇淋两次；在办公室内储物间拍摄肯德基外送餐点和快递纸箱；在餐饮店拍摄印有《哪吒之魔童降世》角色图案的包装纸，并手持一次性手套，随后拍摄炸鸡块和烤鸡翅；在凌晨时分将剩余的红油泡椒类食物及外卖餐盒丢弃至垃圾桶；手持装有炸鸡块和蛋挞的快餐纸盒。最后，拍摄《考勤汇总表》，文档显示为2026年2月24日导出。",
+        "participants": [
+          "Person_021",
+          "Person_022"
+        ],
+        "narrative_synthesis": "",
+        "social_dynamics": []
+      }
+    ],
+    "trend_detail": {},
+    "co_appearing_persons": [],
+    "anomalies": [],
+    "evidence_refs": [
+      {
+        "source_type": "photo",
+        "source_id": "photo_111",
+        "signal": "2026-02-20 21:19，于室内用餐环境，【主角】正手持印有动画联名图案的食物包装纸进行拍摄，画面聚焦于包装上的角色形象。",
+        "why": "co_photo_for_Person_022"
+      },
+      {
+        "source_type": "event",
+        "source_id": "EVT_007",
+        "signal": "职场发展与技能提升",
+        "why": "shared_event_for_Person_022"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "photo_count",
+        "signal": "1",
+        "why": "relationship_frequency"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "monthly_frequency",
+        "signal": "1.0",
+        "why": "relationship_frequency"
+      }
+    ],
+    "block_reasons": [],
+    "retention_decision": "suppress",
+    "retention_reason": "single_photo_without_strong_signal",
+    "group_eligible": false,
+    "group_block_reason": "retention=suppress",
+    "group_weight": 0.0,
+    "relationship_result": {
+      "relationship_type": "acquaintance",
+      "status": "new",
+      "confidence": 0.25,
+      "reasoning": "关键事件 EVT_007；共现 1 张，覆盖 1 类场景，月均 1.0 次，判为 acquaintance。"
+    },
+    "relationship_reflection": {
+      "triggered": false,
+      "issues": [],
+      "action": "keep",
+      "source": "llm"
+    }
+  },
+  {
+    "person_id": "Person_023",
+    "person_kind": "real_person",
+    "memory_value": "candidate",
+    "photo_count": 2,
+    "time_span_days": 1,
+    "recent_gap_days": 0,
+    "monthly_frequency": 2.0,
+    "scene_profile": {
+      "scenes": [
+        "电梯轿厢内",
+        "商务大楼或公共设施电梯内"
+      ],
+      "private_scene_ratio": 0.0,
+      "dominant_scene_ratio": 0.5,
+      "with_user_only": false
+    },
+    "interaction_signals": [
+      "no_contact",
+      "no_contact"
+    ],
+    "shared_events": [
+      {
+        "event_id": "EVT_008",
+        "date": "2026-03-11",
+        "title": "专业学习、多元兴趣与社交生活",
+        "location": "工作室/实验室/教室/快递驿站/街头/数字界面",
+        "photo_count": 27,
+        "description": "2026年3月11日中午，【主角】在不同场景中进行了多项活动。包括：在工作室拍摄黄色3D打印容器模型、八卦太极挂件；在快递驿站拆快递；在工业自动化实验室记录装配生产线模型；查看支付宝“扫码领红包”页面；在电脑上进行MATLAB数据分析；拆开快递，内含水果和电子产品配件；拍摄红色马形陶瓷摆件和皮卡丘手办；查看3D打印机控制面板；拍摄损坏的USB数据线；学习机械设计教材。此外，在潮玩DIY工作室拍摄完成的Hello Kitty涂鸦玩偶，背景中Person_001（男性）坐在工位上；在移动设备上操作信息服务投诉平台，内容涉及TikTok账号实名认证纠纷；在教学楼记录CAD几何变换作业题目、安徽科技学院教务系统、课程表；分享支付宝红包活动结算信息；展示共青团安徽科技学院委员会颁发的聘书，被聘人是张威洋，职位是工业设计科技创新协会副会长；查看校园运动App；拍摄数控机床CNC加工参数表；手持麦当劳薯饼袋，袋内各放一只幼猫；在电梯内通过镜像拍摄Person_023及其自身（Person_001），Person_023头部略仰，Person_001（持手机）戴眼镜，穿AJ T恤；拍摄手机屏幕中“也鸟”提供的校园灰产服务清单；拍摄3D打印章鱼模型；拍摄重口味外卖；拍摄盒装“椒麻大杂烩”食品；手机微信账号封禁提示；在零售店手持苹果造型陶瓷碗；在街头观察哈啰共享电动车，背景有Person_001（女性）行走；在电脑上查看“马小学习平台”设备绑定教程。",
+        "participants": [
+          "Person_001",
+          "Person_023"
+        ],
+        "narrative_synthesis": "",
+        "social_dynamics": []
+      }
+    ],
+    "trend_detail": {},
+    "co_appearing_persons": [],
+    "anomalies": [],
+    "evidence_refs": [
+      {
+        "source_type": "photo",
+        "source_id": "photo_129",
+        "signal": "2026年3月11日12:44，【主角】在疑似电梯的密闭空间内，通过金属镜面反射拍摄了Person_023及其自身的前半身镜像。",
+        "why": "co_photo_for_Person_023"
+      },
+      {
+        "source_type": "photo",
+        "source_id": "photo_130",
+        "signal": "2026年3月11日12:44，【主角】在疑似电梯内部的金属反射镜面前，通过镜面反射拍摄了Person_023和他人的并肩影像，记录下短暂的移动间隙。",
+        "why": "co_photo_for_Person_023"
+      },
+      {
+        "source_type": "event",
+        "source_id": "EVT_008",
+        "signal": "专业学习、多元兴趣与社交生活",
+        "why": "shared_event_for_Person_023"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "photo_count",
+        "signal": "2",
+        "why": "relationship_frequency"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "monthly_frequency",
+        "signal": "2.0",
+        "why": "relationship_frequency"
+      }
+    ],
+    "block_reasons": [],
+    "retention_decision": "suppress",
+    "retention_reason": "low_confidence_low_signal_relationship",
+    "group_eligible": false,
+    "group_block_reason": "retention=suppress",
+    "group_weight": 0.0,
+    "relationship_result": {
+      "relationship_type": "acquaintance",
+      "status": "new",
+      "confidence": 0.25,
+      "reasoning": "关键事件 EVT_008；共现 2 张，覆盖 2 类场景，月均 2.0 次，判为 acquaintance。"
+    },
+    "relationship_reflection": {
+      "triggered": false,
+      "issues": [],
+      "action": "keep",
+      "source": "llm"
+    }
+  },
+  {
+    "person_id": "Person_024",
+    "person_kind": "real_person",
+    "memory_value": "candidate",
+    "photo_count": 1,
+    "time_span_days": 1,
+    "recent_gap_days": 0,
+    "monthly_frequency": 1.0,
+    "scene_profile": {
+      "scenes": [
+        "室内环境下使用手机"
+      ],
+      "private_scene_ratio": 0.0,
+      "dominant_scene_ratio": 1.0,
+      "with_user_only": true
+    },
+    "interaction_signals": [
+      "Person_024 displayed_in 移动端购物App界面",
+      "no_contact"
+    ],
+    "shared_events": [],
+    "trend_detail": {},
+    "co_appearing_persons": [],
+    "anomalies": [],
+    "evidence_refs": [
+      {
+        "source_type": "photo",
+        "source_id": "photo_128",
+        "signal": "2026-03-11 12:45，【主角】正在通过手机二手交易平台浏览与搜索“KFC衣服”相关的二手商品信息，画面记录了App的商品检索界面。",
+        "why": "co_photo_for_Person_024"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "photo_count",
+        "signal": "1",
+        "why": "relationship_frequency"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "monthly_frequency",
+        "signal": "1.0",
+        "why": "relationship_frequency"
+      }
+    ],
+    "block_reasons": [],
+    "retention_decision": "suppress",
+    "retention_reason": "screen_or_virtual_context",
+    "group_eligible": false,
+    "group_block_reason": "retention=suppress",
+    "group_weight": 0.0,
+    "relationship_result": {
+      "relationship_type": "acquaintance",
+      "status": "new",
+      "confidence": 0.2,
+      "reasoning": "共现 1 张，覆盖 1 类场景，月均 1.0 次，判为 acquaintance。"
+    },
+    "relationship_reflection": {
+      "triggered": false,
+      "issues": [],
+      "action": "keep",
+      "source": "llm"
+    }
+  }
+]

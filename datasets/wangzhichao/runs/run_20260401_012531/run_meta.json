@@ -1,0 +1,12 @@
+{
+  "run_id": "run_20260401_012531",
+  "user_name": "wangzhichao",
+  "album_id": "wangzhichao_run_20260401_012531",
+  "created_at": "2026-04-01T01:39:59.509478",
+  "date": "2026-04-01",
+  "profile_model": "deepseek/deepseek-chat-v3-0324",
+  "has_gt": true,
+  "total_events": 21,
+  "total_relationships": 4,
+  "final_primary_person_id": "Person_093"
+}

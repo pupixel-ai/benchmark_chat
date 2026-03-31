@@ -256,8 +256,9 @@ class UpstreamReflectionAgent:
             return self._difficult_case_result(packet, "downstream_backflow_degraded_gt_alignment")
         if comparison_grade in {"exact_match", "close_match"}:
             return self._failed_result("comparison_already_resolved", packet)
-        if comparison_grade == "partial_match":
-            return self._difficult_case_result(packet, "partial_match_requires_manual_confirmation")
+        # partial_match 不再硬拦截 — 交给 LLM 分析是否能改进
+        # if comparison_grade == "partial_match":
+        #     return self._difficult_case_result(packet, "partial_match_requires_manual_confirmation")
 
         heuristic = self._heuristic_result(packet)
         if self.llm_processor is None:
@@ -588,7 +589,7 @@ tool_rules 和 call_policies 在证据确实缺失时使用（格式见上方 JS
   - 关键线索是什么
   - 为什么判断是这一层问题
   - 为什么不是另外几个常见改面
-- 如果判断不稳定，输出 needs_review，并更偏 watch_only / difficult_case
+- 只有在以下情况才输出 needs_review：你完全无法区分两个以上同等可能的根因，或者你判断这个问题需要工程架构改动而非规则调整。大多数情况下你应该给出 ok + 你最有把握的方向，即使信心不是 100%
 
 严格禁止：
 - 禁止根据单个用户或单个字段的特殊情况做硬编码优化

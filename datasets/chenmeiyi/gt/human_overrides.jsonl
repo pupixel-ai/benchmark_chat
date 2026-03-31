@@ -1,0 +1,5 @@
+{"case_id": "rc_9b35d76de37e", "user_name": "chenmeiyi", "field_key": "long_term_facts.material.signature_items", "override_grade": "improved", "timestamp": "2026-03-31T02:55:57.900959"}
+{"case_id": "rc_6577f0803a04", "user_name": "chenmeiyi", "field_key": "long_term_expression.visual_creation_style", "override_grade": "close_match", "timestamp": "2026-03-31T02:55:57.903249"}
+{"case_id": "rc_1ccfe3cb81ca", "user_name": "chenmeiyi", "field_key": "long_term_expression.attitude_style", "override_grade": "partial_match", "timestamp": "2026-03-31T02:55:57.904651"}
+{"case_id": "rc_81052eea346a", "user_name": "chenmeiyi", "field_key": "long_term_facts.geography.location_anchors", "override_grade": "mismatch", "timestamp": "2026-03-31T02:55:57.905820"}
+{"case_id": "rc_c9be874b990e", "user_name": "chenmeiyi", "field_key": "long_term_facts.hobbies.interests", "override_grade": "improved", "timestamp": "2026-03-31T02:55:57.906970"}

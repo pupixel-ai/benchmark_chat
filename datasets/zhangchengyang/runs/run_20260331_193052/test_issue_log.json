@@ -1,0 +1,17 @@
+{
+  "summary": {
+    "issue_count": 1,
+    "high_risk_issue_count": 0
+  },
+  "issues": [
+    {
+      "code": "DOWNSTREAM_AUDIT_SKIPPED",
+      "severity": "medium",
+      "summary": "downstream audit 初始化失败，本次 run 使用了 skipped fallback 报告。",
+      "details": {
+        "error_type": "RuntimeError",
+        "error_message": "downstream_runtime_unhealthy:missing_required_files"
+      }
+    }
+  ]
+}

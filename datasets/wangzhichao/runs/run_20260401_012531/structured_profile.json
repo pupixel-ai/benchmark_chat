@@ -1,0 +1,1364 @@
+{
+  "long_term_facts": {
+    "identity": {
+      "name": {
+        "value": null,
+        "confidence": 0.0,
+        "evidence": {
+          "photo_ids": [
+            "photo_119",
+            "photo_090",
+            "photo_089",
+            "photo_078",
+            "photo_077"
+          ],
+          "event_ids": [],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 5,
+          "contradicting_ref_count": 3,
+          "constraint_notes": [
+            "ownership_signal=other_person"
+          ],
+          "summary": "profile_agent:long_term_facts.identity.name"
+        },
+        "reasoning": "long_term_facts.identity.name 在审查 photo_119、photo_090 后，当前证据仍不足以形成可审计结论，因此输出 null。"
+      },
+      "gender": {
+        "value": null,
+        "confidence": 0.0,
+        "evidence": {
+          "photo_ids": [
+            "photo_003",
+            "photo_119",
+            "photo_103",
+            "photo_116",
+            "photo_097"
+          ],
+          "event_ids": [],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 5,
+          "contradicting_ref_count": 2,
+          "constraint_notes": [
+            "subject_role=other_people_only"
+          ],
+          "summary": "profile_agent:long_term_facts.identity.gender"
+        },
+        "reasoning": "long_term_facts.identity.gender 在审查 photo_003、photo_119 后，当前证据仍不足以形成可审计结论，因此输出 null。"
+      },
+      "age_range": {
+        "value": "20-24",
+        "confidence": 0.7,
+        "evidence": {
+          "photo_ids": [
+            "photo_051",
+            "photo_090"
+          ],
+          "event_ids": [
+            "EVT_008"
+          ],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 3,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.identity.age_range"
+        },
+        "reasoning": "新疆师范大学2026届毕业生就业意向调查问卷（photo_051）及翻译2023-6班学生卡（photo_090）显示典型大学生年龄特征，但需注意这是基于教育阶段的间接推论 关键证据: EVT_008、photo_051、photo_090。"
+      },
+      "role": {
+        "value": "student",
+        "confidence": 0.8,
+        "evidence": {
+          "photo_ids": [
+            "photo_051",
+            "photo_090"
+          ],
+          "event_ids": [
+            "EVT_008",
+            "EVT_007"
+          ],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 4,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.identity.role"
+        },
+        "reasoning": "新疆师范大学2026届毕业生就业意向调查问卷（photo_051）及翻译2023-6班学生卡（photo_090）显示典型学生身份特征，且存在跨事件重复证据（EVT_008校园活动与EVT_007教育课程记录） 关键证据: EVT_008、EVT_007、photo_051、photo_090。"
+      },
+      "race": {
+        "value": null,
+        "confidence": 0.0,
+        "evidence": {
+          "photo_ids": [
+            "photo_051",
+            "photo_035",
+            "photo_050",
+            "photo_090",
+            "photo_092"
+          ],
+          "event_ids": [
+            "EVT_008",
+            "EVT_007",
+            "EVT_001"
+          ],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 8,
+          "contradicting_ref_count": 1,
+          "constraint_notes": [
+            "no_reliable_evidence"
+          ],
+          "summary": "profile_agent:long_term_facts.identity.race"
+        },
+        "reasoning": "long_term_facts.identity.race 在审查 EVT_008、EVT_007、photo_051、photo_035 后，当前证据仍不足以形成可审计结论，因此输出 null。"
+      },
+      "nationality": {
+        "value": "Chinese",
+        "confidence": 0.8,
+        "evidence": {
+          "photo_ids": [
+            "photo_070"
+          ],
+          "event_ids": [
+            "EVT_016"
+          ],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 2,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.identity.nationality"
+        },
+        "reasoning": "党建参观与红色教育事件（EVT_016）中的红色政治标语墙和习近平总书记考察河北的图文，以及乌鲁木齐某地标建筑处的拍摄（photo_070）中的地域文化元素，均指向中国国籍。 关键证据: EVT_016、photo_070。"
+      }
+    },
+    "social_identity": {
+      "education": {
+        "value": "新疆师范大学特殊教育专业本科",
+        "confidence": 0.7,
+        "evidence": {
+          "photo_ids": [
+            "photo_079",
+            "photo_075",
+            "photo_090",
+            "photo_051"
+          ],
+          "event_ids": [],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 4,
+          "contradicting_ref_count": 4,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.social_identity.education"
+        },
+        "reasoning": "教育教案编写（photo_079）和教研培训/教学工作记录（photo_075）中的特殊教育相关内容，以及新疆师范大学的学生卡（photo_090）和就业意向调查问卷（photo_051）均指向新疆师范大学的特殊教育专业本科在读。 关键证据: photo_079、photo_075。"
+      },
+      "career": {
+        "value": null,
+        "confidence": 0.0,
+        "evidence": {
+          "photo_ids": [],
+          "event_ids": [
+            "EVT_005",
+            "EVT_016",
+            "EVT_011",
+            "EVT_013",
+            "EVT_014",
+            "EVT_010"
+          ],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 6,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [
+            "缺乏职业相关证据"
+          ],
+          "summary": "profile_agent:long_term_facts.social_identity.career"
+        },
+        "reasoning": "long_term_facts.social_identity.career 在审查 EVT_005、EVT_016 后，当前证据仍不足以形成可审计结论，因此输出 null。"
+      },
+      "career_phase": {
+        "value": "undergraduate",
+        "confidence": 0.7,
+        "evidence": {
+          "photo_ids": [],
+          "event_ids": [
+            "EVT_005",
+            "EVT_016",
+            "EVT_011",
+            "EVT_013",
+            "EVT_014",
+            "EVT_010"
+          ],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 6,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.social_identity.career_phase"
+        },
+        "reasoning": "新疆师范大学2026届毕业生就业意向问卷（photo_051）及翻译2023-6班学生卡（photo_090）显示本科在读特征，且特殊教育课程记录（photo_079）符合本科阶段学习内容 关键证据: EVT_005、EVT_016。"
+      },
+      "professional_dedication": {
+        "value": "academic_with_social_balance",
+        "confidence": 0.7,
+        "evidence": {
+          "photo_ids": [],
+          "event_ids": [
+            "EVT_016",
+            "EVT_011"
+          ],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 2,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.social_identity.professional_dedication"
+        },
+        "reasoning": "新疆师范大学2026届毕业生就业意向问卷（photo_051）及特殊教育课程记录（photo_079）显示学业投入特征，同时党建参观（EVT_016）和校园活动（EVT_011）表明存在社交平衡 关键证据: EVT_016、EVT_011。"
+      },
+      "language_culture": {
+        "value": "chinese_mandarin_with_uyghur_cultural_elements",
+        "confidence": 0.8,
+        "evidence": {
+          "photo_ids": [
+            "photo_070",
+            "photo_092",
+            "photo_090"
+          ],
+          "event_ids": [],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 3,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.social_identity.language_culture"
+        },
+        "reasoning": "乌鲁木齐地标拍摄（photo_070）中的双语标识和党建文化墙（photo_092）的红色标语共同构成语言文化证据链，且与新疆师范大学学生身份（photo_090）相符 关键证据: photo_070、photo_092。"
+      },
+      "political_preference": {
+        "value": null,
+        "confidence": 0.0,
+        "evidence": {
+          "photo_ids": [],
+          "event_ids": [],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 0,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": ""
+        },
+        "reasoning": ""
+      }
+    },
+    "material": {
+      "asset_level": {
+        "value": "modest_assets",
+        "confidence": 0.7,
+        "evidence": {
+          "photo_ids": [
+            "photo_032",
+            "photo_033",
+            "photo_079"
+          ],
+          "event_ids": [],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 3,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.material.asset_level"
+        },
+        "reasoning": "证据显示主角消费以平价品牌为主（元气森林、农夫山泉、瑞幸咖啡），且使用WPS Office等基础办公软件，符合学生群体的资产水平。关键证据: photo_032、photo_033、photo_079 关键证据: photo_032、photo_033。"
+      },
+      "spending_style": {
+        "value": "practical_with_occasional_indulgence",
+        "confidence": 0.7,
+        "evidence": {
+          "photo_ids": [
+            "photo_027",
+            "photo_032"
+          ],
+          "event_ids": [],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 2,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.material.spending_style"
+        },
+        "reasoning": "消费记录显示日常以超市采购平价商品为主（photo_032），但存在瑞幸咖啡等轻奢消费（photo_027），符合学生群体兼顾实用与适度享受的消费特征。关键证据: photo_027、photo_032 关键证据: photo_027、photo_032。"
+      },
+      "brand_preference": {
+        "value": [
+          "HONOR"
+        ],
+        "confidence": 0.5249999999999999,
+        "evidence": {
+          "photo_ids": [
+            "photo_117",
+            "photo_116",
+            "photo_005"
+          ],
+          "event_ids": [],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 3,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.material.brand_preference"
+        },
+        "reasoning": "HONOR品牌在多个场景中被使用（剧场/礼堂舞台、华北地区城乡结合部、室内居家环境），且设备型号HONOR Magic5在照片中多次出现（photo_117、photo_116、photo_005），表明主角对该品牌有稳定偏好。 关键证据: photo_117、photo_116。"
+      },
+      "income_model": {
+        "value": "student_subsidy",
+        "confidence": 0.8,
+        "evidence": {
+          "photo_ids": [],
+          "event_ids": [
+            "EVT_011",
+            "EVT_014"
+          ],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 2,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.material.income_model"
+        },
+        "reasoning": "新疆师范大学学生身份（photo_090）和校园活动（EVT_011、EVT_014）表明主角主要经济来源为学生补贴，且无兼职证据。特殊教育课程记录（photo_079）进一步支持学生身份的经济模式。 关键证据: EVT_011、EVT_014。"
+      },
+      "signature_items": {
+        "value": [
+          "HONOR Magic5",
+          "WPS Office"
+        ],
+        "confidence": 0.7,
+        "evidence": {
+          "photo_ids": [
+            "photo_117",
+            "photo_116",
+            "photo_005",
+            "photo_079"
+          ],
+          "event_ids": [],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 4,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.material.signature_items"
+        },
+        "reasoning": "HONOR Magic5设备在多个场景中被使用（photo_117、photo_116、photo_005），且WPS Office在教案编写中被频繁使用（photo_079），显示稳定的使用偏好 关键证据: photo_117、photo_116。"
+      }
+    },
+    "geography": {
+      "location_anchors": {
+        "value": "新疆师范大学",
+        "confidence": 0.8,
+        "evidence": {
+          "photo_ids": [
+            "photo_050",
+            "photo_051"
+          ],
+          "event_ids": [
+            "EVT_005"
+          ],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 3,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.geography.location_anchors"
+        },
+        "reasoning": "新疆师范大学在多个事件和照片中被重复提及（EVT_005、photo_050、photo_051），且与主角的学生身份（已确认的identity.role字段）高度吻合。照片051显示主角在新疆师范大学教学楼128教室参与就业意向调查，构成直接证据 关键证据: EVT_005、photo_050、photo_051。"
+      },
+      "mobility_pattern": {
+        "value": "campus_centric",
+        "confidence": 0.7,
+        "evidence": {
+          "photo_ids": [],
+          "event_ids": [
+            "EVT_005",
+            "EVT_007"
+          ],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 2,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.geography.mobility_pattern"
+        },
+        "reasoning": "基于新疆师范大学作为主要活动地点（EVT_005、EVT_007）的证据，结合已确认的学生身份，显示主角的活动范围以校园为中心。虽然存在少量外出记录（如photo_027的火车站场景），但不足以构成主要移动模式 关键证据: EVT_005、EVT_007。"
+      },
+      "cross_border": {
+        "value": "domestic_only",
+        "confidence": 0.8,
+        "evidence": {
+          "photo_ids": [],
+          "event_ids": [
+            "EVT_005",
+            "EVT_007"
+          ],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 2,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.geography.cross_border"
+        },
+        "reasoning": "所有证据均指向国内活动，主要活动地点为新疆师范大学及相关校园场所（EVT_005、EVT_007），未发现任何跨境活动证据 关键证据: EVT_005、EVT_007。"
+      }
+    },
+    "time": {
+      "life_rhythm": {
+        "value": "flexible_schedule",
+        "confidence": 0.7,
+        "evidence": {
+          "photo_ids": [],
+          "event_ids": [
+            "EVT_021",
+            "EVT_016",
+            "EVT_019"
+          ],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 3,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.time.life_rhythm"
+        },
+        "reasoning": "活动时间分布显示不固定模式，包括午后数字化活动（EVT_021）、夜间党建活动（EVT_016）和傍晚居家学习（EVT_019），符合学生群体的灵活作息特征 关键证据: EVT_021、EVT_016。"
+      },
+      "event_cycles": {
+        "value": null,
+        "confidence": 0.0,
+        "evidence": {
+          "photo_ids": [],
+          "event_ids": [
+            "EVT_021",
+            "EVT_016",
+            "EVT_012",
+            "EVT_019",
+            "EVT_018"
+          ],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [
+            "event_count"
+          ],
+          "supporting_ref_count": 6,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [
+            "no_recurring_patterns"
+          ],
+          "summary": "profile_agent:long_term_facts.time.event_cycles"
+        },
+        "reasoning": "long_term_facts.time.event_cycles 在审查 EVT_021、EVT_016、event_count 后，当前证据仍不足以形成可审计结论，因此输出 null。"
+      },
+      "sleep_pattern": {
+        "value": "irregular",
+        "confidence": 0.55,
+        "evidence": {
+          "photo_ids": [],
+          "event_ids": [
+            "EVT_021",
+            "EVT_016",
+            "EVT_012",
+            "EVT_019",
+            "EVT_018"
+          ],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [
+            "event_count"
+          ],
+          "supporting_ref_count": 6,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.time.sleep_pattern"
+        },
+        "reasoning": "long_term_facts.time.sleep_pattern 主要依据 EVT_021、EVT_016、event_count 得到当前结论，且没有发现足以推翻该字段的反证。"
+      }
+    },
+    "relationships": {
+      "intimate_partner": {
+        "value": null,
+        "confidence": 0.0,
+        "evidence": {
+          "photo_ids": [],
+          "event_ids": [],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [
+            "event_count"
+          ],
+          "supporting_ref_count": 1,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.relationships.intimate_partner"
+        },
+        "reasoning": "long_term_facts.relationships.intimate_partner 在审查 event_count 后，当前证据仍不足以形成可审计结论，因此输出 null。"
+      },
+      "close_circle_size": {
+        "value": 1,
+        "confidence": 0.82,
+        "evidence": {
+          "photo_ids": [
+            "photo_005",
+            "photo_004",
+            "photo_026",
+            "photo_048",
+            "photo_049",
+            "photo_052",
+            "photo_060",
+            "photo_062",
+            "photo_063",
+            "photo_065",
+            "photo_081",
+            "photo_116",
+            "photo_105",
+            "photo_006",
+            "photo_118",
+            "photo_097",
+            "photo_098",
+            "photo_099",
+            "photo_103",
+            "photo_102"
+          ],
+          "event_ids": [
+            "EVT_001",
+            "EVT_019",
+            "EVT_004",
+            "EVT_007",
+            "EVT_008",
+            "EVT_011",
+            "EVT_017",
+            "EVT_015",
+            "EVT_010",
+            "EVT_018"
+          ],
+          "person_ids": [
+            "Person_001",
+            "Person_002",
+            "Person_003",
+            "Person_104"
+          ],
+          "group_ids": [],
+          "feature_names": [
+            "photo_count",
+            "monthly_frequency",
+            "relationship_type:friend",
+            "relationship_type:classmate_colleague",
+            "relationship_type:acquaintance",
+            "relationship_type:family",
+            "event_count"
+          ],
+          "supporting_ref_count": 5,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.relationships.close_circle_size"
+        },
+        "reasoning": "long_term_facts.relationships.close_circle_size 主要依据 EVT_001、EVT_019、photo_005、photo_004、Person_001、photo_count、monthly_frequency 得到当前结论，且没有发现足以推翻该字段的反证。"
+      },
+      "social_groups": {
+        "value": null,
+        "confidence": 0.0,
+        "evidence": {
+          "photo_ids": [],
+          "event_ids": [],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 0,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.relationships.social_groups"
+        },
+        "reasoning": "long_term_facts.relationships.social_groups 在审查 当前证据池 后，当前证据仍不足以形成可审计结论，因此输出 null。"
+      },
+      "pets": {
+        "value": null,
+        "confidence": 0.0,
+        "evidence": {
+          "photo_ids": [
+            "photo_093",
+            "photo_098",
+            "photo_079",
+            "photo_047"
+          ],
+          "event_ids": [
+            "EVT_021",
+            "EVT_019",
+            "EVT_018"
+          ],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 7,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [
+            "缺乏相关证据"
+          ],
+          "summary": "profile_agent:long_term_facts.relationships.pets"
+        },
+        "reasoning": "long_term_facts.relationships.pets 在审查 EVT_021、EVT_019、photo_093、photo_098 后，当前证据仍不足以形成可审计结论，因此输出 null。"
+      },
+      "parenting": {
+        "value": null,
+        "confidence": 0.0,
+        "evidence": {
+          "photo_ids": [
+            "photo_118",
+            "photo_097",
+            "photo_098",
+            "photo_099",
+            "photo_103",
+            "photo_102"
+          ],
+          "event_ids": [
+            "EVT_018"
+          ],
+          "person_ids": [
+            "Person_104"
+          ],
+          "group_ids": [],
+          "feature_names": [
+            "photo_count",
+            "monthly_frequency",
+            "relationship_type:family"
+          ],
+          "supporting_ref_count": 1,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [
+            "证据不足且缺乏家庭关系确认"
+          ],
+          "summary": "profile_agent:long_term_facts.relationships.parenting"
+        },
+        "reasoning": "long_term_facts.relationships.parenting 在审查 EVT_018、photo_118、photo_097、Person_104、photo_count、monthly_frequency 后，当前证据仍不足以形成可审计结论，因此输出 null。"
+      },
+      "living_situation": {
+        "value": null,
+        "confidence": 0.0,
+        "evidence": {
+          "photo_ids": [
+            "photo_005",
+            "photo_004",
+            "photo_026",
+            "photo_048",
+            "photo_049",
+            "photo_052",
+            "photo_060",
+            "photo_062",
+            "photo_063",
+            "photo_065",
+            "photo_081",
+            "photo_116",
+            "photo_105",
+            "photo_006"
+          ],
+          "event_ids": [
+            "EVT_021",
+            "EVT_019",
+            "EVT_018",
+            "EVT_001",
+            "EVT_004",
+            "EVT_007",
+            "EVT_008",
+            "EVT_011",
+            "EVT_017",
+            "EVT_015",
+            "EVT_010"
+          ],
+          "person_ids": [
+            "Person_001",
+            "Person_002"
+          ],
+          "group_ids": [],
+          "feature_names": [
+            "photo_count",
+            "monthly_frequency",
+            "relationship_type:friend",
+            "relationship_type:classmate_colleague"
+          ],
+          "supporting_ref_count": 5,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.relationships.living_situation"
+        },
+        "reasoning": "long_term_facts.relationships.living_situation 在审查 EVT_021、EVT_019、photo_005、photo_004、Person_001、photo_count、monthly_frequency 后，当前证据仍不足以形成可审计结论，因此输出 null。"
+      }
+    },
+    "hobbies": {
+      "interests": {
+        "value": [
+          "digital_living",
+          "self_reflection",
+          "travel"
+        ],
+        "confidence": 0.8,
+        "evidence": {
+          "photo_ids": [
+            "photo_070"
+          ],
+          "event_ids": [
+            "EVT_021"
+          ],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 2,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.hobbies.interests"
+        },
+        "reasoning": "EVT_021显示主角在数字化界面操作支付宝和微信，并有自我反思的长文创作；photo_070显示乌鲁木齐地标旅行打卡 关键证据: EVT_021、photo_070。"
+      },
+      "frequent_activities": {
+        "value": [
+          "digital_operations",
+          "political_education"
+        ],
+        "confidence": 0.7,
+        "evidence": {
+          "photo_ids": [],
+          "event_ids": [
+            "EVT_021",
+            "EVT_016"
+          ],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 2,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.hobbies.frequent_activities"
+        },
+        "reasoning": "EVT_021的数字化操作和EVT_016的党建活动重复出现，但缺少更具体的活动细节 关键证据: EVT_021、EVT_016。"
+      },
+      "solo_vs_social": {
+        "value": "mixed",
+        "confidence": 0.6,
+        "evidence": {
+          "photo_ids": [
+            "photo_005",
+            "photo_004",
+            "photo_026",
+            "photo_048",
+            "photo_049",
+            "photo_052",
+            "photo_060",
+            "photo_062",
+            "photo_063",
+            "photo_065",
+            "photo_081",
+            "photo_116",
+            "photo_105"
+          ],
+          "event_ids": [
+            "EVT_001",
+            "EVT_019",
+            "EVT_004",
+            "EVT_007",
+            "EVT_008",
+            "EVT_011",
+            "EVT_017",
+            "EVT_015",
+            "EVT_010"
+          ],
+          "person_ids": [
+            "Person_001"
+          ],
+          "group_ids": [],
+          "feature_names": [
+            "photo_count",
+            "monthly_frequency",
+            "relationship_type:friend"
+          ],
+          "supporting_ref_count": 1,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.hobbies.solo_vs_social"
+        },
+        "reasoning": "EVT_017显示独自游戏，但Person_001等关系人显示存在社交活动 关键证据: EVT_001、EVT_019、photo_005、photo_004、Person_001、photo_count、monthly_frequency。"
+      }
+    },
+    "physiology": {
+      "fitness_level": {
+        "value": null,
+        "confidence": 0.0,
+        "evidence": {
+          "photo_ids": [
+            "photo_017",
+            "photo_111",
+            "photo_108",
+            "photo_079"
+          ],
+          "event_ids": [
+            "EVT_007",
+            "EVT_015"
+          ],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 6,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [
+            "no direct evidence of physical activity patterns"
+          ],
+          "summary": "profile_agent:long_term_facts.physiology.fitness_level"
+        },
+        "reasoning": "long_term_facts.physiology.fitness_level 在审查 EVT_007、EVT_015、photo_017、photo_111 后，当前证据仍不足以形成可审计结论，因此输出 null。"
+      },
+      "health_conditions": {
+        "value": null,
+        "confidence": 0.0,
+        "evidence": {
+          "photo_ids": [],
+          "event_ids": [],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 0,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": ""
+        },
+        "reasoning": ""
+      },
+      "diet_mode": {
+        "value": "regular_chinese_cuisine",
+        "confidence": 0.7,
+        "evidence": {
+          "photo_ids": [
+            "photo_017"
+          ],
+          "event_ids": [],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 1,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.physiology.diet_mode"
+        },
+        "reasoning": "photo_017显示中式家常菜馆点餐行为，含典型北方菜品 关键证据: photo_017。"
+      }
+    }
+  },
+  "short_term_facts": {
+    "life_events": {
+      "value": "digital_living_with_self_reflection",
+      "confidence": 0.7,
+      "evidence": {
+        "photo_ids": [
+          "photo_005",
+          "photo_004",
+          "photo_006",
+          "photo_026",
+          "photo_048",
+          "photo_049",
+          "photo_060",
+          "photo_081",
+          "photo_105"
+        ],
+        "event_ids": [
+          "EVT_021",
+          "EVT_001",
+          "EVT_019",
+          "EVT_004",
+          "EVT_007",
+          "EVT_015",
+          "EVT_010"
+        ],
+        "person_ids": [
+          "Person_002"
+        ],
+        "group_ids": [],
+        "feature_names": [
+          "photo_count",
+          "monthly_frequency",
+          "relationship_type:classmate_colleague"
+        ],
+        "supporting_ref_count": 2,
+        "contradicting_ref_count": 0,
+        "constraint_notes": [],
+        "summary": "profile_agent:short_term_facts.life_events"
+      },
+      "reasoning": "EVT_021显示主角在数字界面操作支付宝和微信，并有自我反思的长文创作；EVT_019显示与朋友共同学习使用平板电脑，表明数字化生活模式的持续性。关键证据: EVT_021、EVT_019。 关键证据: EVT_021、EVT_001、photo_005、photo_004、Person_002、photo_count、monthly_frequency。"
+    },
+    "phase_change": {
+      "value": null,
+      "confidence": 0.0,
+      "evidence": {
+        "photo_ids": [],
+        "event_ids": [
+          "EVT_021",
+          "EVT_016",
+          "EVT_012",
+          "EVT_019",
+          "EVT_018"
+        ],
+        "person_ids": [],
+        "group_ids": [],
+        "feature_names": [
+          "event_count"
+        ],
+        "supporting_ref_count": 6,
+        "contradicting_ref_count": 0,
+        "constraint_notes": [
+          "no_significant_change"
+        ],
+        "summary": "profile_agent:short_term_facts.phase_change"
+      },
+      "reasoning": "short_term_facts.phase_change 在审查 EVT_021、EVT_016、event_count 后，当前证据仍不足以形成可审计结论，因此输出 null。"
+    },
+    "spending_shift": {
+      "value": "increased_beverage_spending",
+      "confidence": 0.6,
+      "evidence": {
+        "photo_ids": [
+          "photo_027",
+          "photo_032",
+          "photo_033"
+        ],
+        "event_ids": [],
+        "person_ids": [],
+        "group_ids": [],
+        "feature_names": [],
+        "supporting_ref_count": 3,
+        "contradicting_ref_count": 0,
+        "constraint_notes": [],
+        "summary": "profile_agent:short_term_facts.spending_shift"
+      },
+      "reasoning": "基于有限证据推测，近期出现瑞幸咖啡消费（photo_027）和批量饮料采购（photo_032、photo_033），但时间跨度不足难以确认长期趋势 关键证据: photo_027、photo_032。"
+    },
+    "current_displacement": {
+      "value": null,
+      "confidence": 0.0,
+      "evidence": {
+        "photo_ids": [],
+        "event_ids": [
+          "EVT_019",
+          "EVT_007",
+          "EVT_005",
+          "EVT_021",
+          "EVT_016"
+        ],
+        "person_ids": [],
+        "group_ids": [],
+        "feature_names": [],
+        "supporting_ref_count": 5,
+        "contradicting_ref_count": 0,
+        "constraint_notes": [
+          "no_recent_displacement_evidence"
+        ],
+        "summary": "profile_agent:short_term_facts.current_displacement"
+      },
+      "reasoning": "short_term_facts.current_displacement 在审查 EVT_019、EVT_007 后，当前证据仍不足以形成可审计结论，因此输出 null。"
+    },
+    "recent_habits": {
+      "value": "digital_living_with_self_reflection",
+      "confidence": 0.7,
+      "evidence": {
+        "photo_ids": [],
+        "event_ids": [
+          "EVT_021",
+          "EVT_019"
+        ],
+        "person_ids": [],
+        "group_ids": [],
+        "feature_names": [],
+        "supporting_ref_count": 2,
+        "contradicting_ref_count": 0,
+        "constraint_notes": [],
+        "summary": "profile_agent:short_term_facts.recent_habits"
+      },
+      "reasoning": "数字化生活模式在多个事件中重复出现（EVT_021的支付宝操作和鸿蒙OS群浏览、EVT_019的平板协作学习），且存在跨月份证据（2025-12至2026-03） 关键证据: EVT_021、EVT_019。"
+    },
+    "recent_interests": {
+      "value": "city_walk",
+      "confidence": 0.6,
+      "evidence": {
+        "photo_ids": [
+          "photo_108",
+          "photo_107"
+        ],
+        "event_ids": [],
+        "person_ids": [],
+        "group_ids": [],
+        "feature_names": [],
+        "supporting_ref_count": 2,
+        "contradicting_ref_count": 0,
+        "constraint_notes": [],
+        "summary": "profile_agent:short_term_facts.recent_interests"
+      },
+      "reasoning": "photo_108和photo_107中出现的'CITY WALK'标识及铁路旅行场景表明近期对城市漫步主题的关注，但证据主要来自单次活动（乌鲁木齐地标）。关键证据: photo_108、photo_107。 关键证据: photo_108、photo_107。"
+    },
+    "physiological_state": {
+      "value": null,
+      "confidence": 0.0,
+      "evidence": {
+        "photo_ids": [],
+        "event_ids": [],
+        "person_ids": [],
+        "group_ids": [],
+        "feature_names": [],
+        "supporting_ref_count": 0,
+        "contradicting_ref_count": 0,
+        "constraint_notes": [],
+        "summary": ""
+      },
+      "reasoning": ""
+    }
+  },
+  "long_term_expression": {
+    "personality_mbti": {
+      "value": null,
+      "confidence": 0.0,
+      "evidence": {
+        "photo_ids": [
+          "photo_005",
+          "photo_004",
+          "photo_006",
+          "photo_026",
+          "photo_048",
+          "photo_049",
+          "photo_060",
+          "photo_081",
+          "photo_105"
+        ],
+        "event_ids": [
+          "EVT_001",
+          "EVT_010",
+          "EVT_004",
+          "EVT_007",
+          "EVT_019",
+          "EVT_015"
+        ],
+        "person_ids": [
+          "Person_003",
+          "Person_002"
+        ],
+        "group_ids": [],
+        "feature_names": [
+          "photo_count",
+          "monthly_frequency",
+          "relationship_type:acquaintance",
+          "relationship_type:classmate_colleague"
+        ],
+        "supporting_ref_count": 2,
+        "contradicting_ref_count": 0,
+        "constraint_notes": [
+          "缺乏行为模式证据"
+        ],
+        "summary": "profile_agent:long_term_expression.personality_mbti"
+      },
+      "reasoning": "long_term_expression.personality_mbti 在审查 EVT_001、EVT_010、photo_005、photo_004、Person_003、photo_count、monthly_frequency 后，当前证据仍不足以形成可审计结论，因此输出 null。"
+    },
+    "morality": {
+      "value": "social_harmony_oriented",
+      "confidence": 0.65,
+      "evidence": {
+        "photo_ids": [
+          "photo_005",
+          "photo_004",
+          "photo_026",
+          "photo_048",
+          "photo_049",
+          "photo_052",
+          "photo_060",
+          "photo_062",
+          "photo_063",
+          "photo_065",
+          "photo_081",
+          "photo_116",
+          "photo_105"
+        ],
+        "event_ids": [
+          "EVT_016",
+          "EVT_001",
+          "EVT_019",
+          "EVT_004",
+          "EVT_007",
+          "EVT_008",
+          "EVT_011",
+          "EVT_017",
+          "EVT_015",
+          "EVT_010"
+        ],
+        "person_ids": [
+          "Person_001"
+        ],
+        "group_ids": [],
+        "feature_names": [
+          "photo_count",
+          "monthly_frequency",
+          "relationship_type:friend"
+        ],
+        "supporting_ref_count": 2,
+        "contradicting_ref_count": 0,
+        "constraint_notes": [],
+        "summary": "profile_agent:long_term_expression.morality"
+      },
+      "reasoning": "党建参观活动（EVT_016）和校园身份认同行为（EVT_011）显示对社会和谐的关注，但证据主要来自集体活动场景。关键证据: EVT_016（红色教育）、EVT_011（校园贴纸制作） 关键证据: EVT_016、EVT_001、photo_005、photo_004、Person_001、photo_count、monthly_frequency。"
+    },
+    "philosophy": {
+      "value": "academic_with_social_balance",
+      "confidence": 0.7,
+      "evidence": {
+        "photo_ids": [
+          "photo_005",
+          "photo_004",
+          "photo_026",
+          "photo_048",
+          "photo_049",
+          "photo_052",
+          "photo_060",
+          "photo_062",
+          "photo_063",
+          "photo_065",
+          "photo_081",
+          "photo_116",
+          "photo_105"
+        ],
+        "event_ids": [
+          "EVT_016",
+          "EVT_001",
+          "EVT_019",
+          "EVT_004",
+          "EVT_007",
+          "EVT_008",
+          "EVT_011",
+          "EVT_017",
+          "EVT_015",
+          "EVT_010"
+        ],
+        "person_ids": [
+          "Person_001"
+        ],
+        "group_ids": [],
+        "feature_names": [
+          "photo_count",
+          "monthly_frequency",
+          "relationship_type:friend"
+        ],
+        "supporting_ref_count": 2,
+        "contradicting_ref_count": 0,
+        "constraint_notes": [],
+        "summary": "profile_agent:long_term_expression.philosophy"
+      },
+      "reasoning": "基于新疆师范大学学生身份（photo_051）和校园活动（EVT_011）显示学业投入特征，同时党建参观（EVT_016）和校园活动（EVT_011）表明存在社交平衡。关键证据: EVT_016、EVT_011。 关键证据: EVT_016、EVT_001、photo_005、photo_004、Person_001、photo_count、monthly_frequency。"
+    },
+    "attitude_style": {
+      "value": "reflective_and_digital_native",
+      "confidence": 0.7,
+      "evidence": {
+        "photo_ids": [
+          "photo_003"
+        ],
+        "event_ids": [
+          "EVT_021"
+        ],
+        "person_ids": [],
+        "group_ids": [],
+        "feature_names": [],
+        "supporting_ref_count": 2,
+        "contradicting_ref_count": 0,
+        "constraint_notes": [],
+        "summary": "profile_agent:long_term_expression.attitude_style"
+      },
+      "reasoning": "EVT_021显示主角在数字界面操作支付宝和微信，并有自我反思的长文创作，结合photo_003中浏览鸿蒙OS相关群组的行为，表明数字化生活模式和反思性态度 关键证据: EVT_021、photo_003。"
+    },
+    "aesthetic_tendency": {
+      "value": "minimalist_with_digital_elements",
+      "confidence": 0.7,
+      "evidence": {
+        "photo_ids": [
+          "photo_110",
+          "photo_001",
+          "photo_070"
+        ],
+        "event_ids": [],
+        "person_ids": [],
+        "group_ids": [],
+        "feature_names": [],
+        "supporting_ref_count": 3,
+        "contradicting_ref_count": 0,
+        "constraint_notes": [],
+        "summary": "profile_agent:long_term_expression.aesthetic_tendency"
+      },
+      "reasoning": "photo_110的纯色背景人像拍摄和photo_001的数字化艺术创作显示对简约风格的偏好，结合乌鲁木齐地标拍摄（photo_070）中的地域文化元素 关键证据: photo_110、photo_001。"
+    },
+    "visual_creation_style": {
+      "value": "documentary_with_artistic_touches",
+      "confidence": 0.65,
+      "evidence": {
+        "photo_ids": [
+          "photo_070",
+          "photo_001"
+        ],
+        "event_ids": [
+          "EVT_006"
+        ],
+        "person_ids": [],
+        "group_ids": [],
+        "feature_names": [],
+        "supporting_ref_count": 3,
+        "contradicting_ref_count": 0,
+        "constraint_notes": [],
+        "summary": "profile_agent:long_term_expression.visual_creation_style"
+      },
+      "reasoning": "EVT_006的校园建筑摄影和photo_070的旅行打卡显示纪实倾向，而photo_001的虚拟场景创作显示艺术化处理倾向，但样本量有限 关键证据: EVT_006、photo_070、photo_001。"
+    }
+  },
+  "short_term_expression": {
+    "current_mood": {
+      "value": "contemplative",
+      "confidence": 0.7,
+      "evidence": {
+        "photo_ids": [
+          "photo_120",
+          "photo_112"
+        ],
+        "event_ids": [],
+        "person_ids": [],
+        "group_ids": [],
+        "feature_names": [],
+        "supporting_ref_count": 2,
+        "contradicting_ref_count": 0,
+        "constraint_notes": [],
+        "summary": "profile_agent:short_term_expression.current_mood"
+      },
+      "reasoning": "photo_120中发布的成长焦虑长文《夜不寐》和photo_112中Person_093的疲惫状态显示近期沉思情绪 关键证据: photo_120、photo_112。"
+    },
+    "mental_state": {
+      "value": "reflective",
+      "confidence": 0.7,
+      "evidence": {
+        "photo_ids": [],
+        "event_ids": [
+          "EVT_021"
+        ],
+        "person_ids": [],
+        "group_ids": [],
+        "feature_names": [],
+        "supporting_ref_count": 1,
+        "contradicting_ref_count": 0,
+        "constraint_notes": [],
+        "summary": "profile_agent:short_term_expression.mental_state"
+      },
+      "reasoning": "EVT_021显示主角在数字界面操作支付宝和微信，并有自我反思的长文创作《夜不寐》，表明近期处于反思状态。关键证据: EVT_021。 关键证据: EVT_021。"
+    },
+    "motivation_shift": {
+      "value": "from_academic_to_self_reflection",
+      "confidence": 0.6,
+      "evidence": {
+        "photo_ids": [],
+        "event_ids": [
+          "EVT_021"
+        ],
+        "person_ids": [],
+        "group_ids": [],
+        "feature_names": [],
+        "supporting_ref_count": 1,
+        "contradicting_ref_count": 0,
+        "constraint_notes": [],
+        "summary": "profile_agent:short_term_expression.motivation_shift"
+      },
+      "reasoning": "EVT_021显示从学术活动转向自我反思的长文创作，表明动机转变。关键证据: EVT_021。 关键证据: EVT_021。"
+    },
+    "stress_signal": {
+      "value": "moderate",
+      "confidence": 0.5,
+      "evidence": {
+        "photo_ids": [],
+        "event_ids": [
+          "EVT_021"
+        ],
+        "person_ids": [],
+        "group_ids": [],
+        "feature_names": [],
+        "supporting_ref_count": 1,
+        "contradicting_ref_count": 0,
+        "constraint_notes": [],
+        "summary": "profile_agent:short_term_expression.stress_signal"
+      },
+      "reasoning": "EVT_021中反思成长焦虑的长文《夜不寐》显示存在一定压力，但缺乏连续性证据。关键证据: EVT_021。 关键证据: EVT_021。"
+    },
+    "social_energy": {
+      "value": "moderate_social",
+      "confidence": 0.6,
+      "evidence": {
+        "photo_ids": [
+          "photo_005",
+          "photo_004",
+          "photo_026",
+          "photo_048",
+          "photo_049",
+          "photo_052",
+          "photo_060",
+          "photo_062",
+          "photo_063",
+          "photo_065",
+          "photo_081",
+          "photo_116",
+          "photo_105",
+          "photo_006"
+        ],
+        "event_ids": [
+          "EVT_001",
+          "EVT_019",
+          "EVT_004",
+          "EVT_007",
+          "EVT_008",
+          "EVT_011",
+          "EVT_017",
+          "EVT_015",
+          "EVT_010"
+        ],
+        "person_ids": [
+          "Person_001",
+          "Person_003"
+        ],
+        "group_ids": [],
+        "feature_names": [
+          "photo_count",
+          "monthly_frequency",
+          "relationship_type:friend",
+          "relationship_type:acquaintance"
+        ],
+        "supporting_ref_count": 2,
+        "contradicting_ref_count": 0,
+        "constraint_notes": [],
+        "summary": "profile_agent:short_term_expression.social_energy"
+      },
+      "reasoning": "Person_001作为friend的月均0.5次互动（EVT_001等）显示持续但非密集的社交活动，但近期证据有限 关键证据: EVT_001、EVT_019、photo_005、photo_004、Person_001、photo_count、monthly_frequency。"
+    }
+  }
+}

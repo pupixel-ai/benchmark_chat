@@ -5,7 +5,12 @@ __pycache__/
 *.pyc
 cache/
 output/
-datasets/
+# datasets 已加入版本控制，排除大文件
+datasets/*/runs/*/pre_audit_snapshot/
+datasets/*/runs/*/internal_artifacts.json
+datasets/*/runs/*/profile_llm_batch_debug.json
+datasets/*/runs/*/normalized_state_snapshot.json
+datasets/*/runs/*/mapping_debug.json
 runtime/models/*.task
 .DS_Store
 past-test/

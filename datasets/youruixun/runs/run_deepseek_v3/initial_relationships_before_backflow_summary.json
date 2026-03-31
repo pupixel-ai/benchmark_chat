@@ -1,0 +1,30 @@
+{
+  "captured_stage": "relationships",
+  "captured_at": "2026-03-30T19:21:14.848523",
+  "primary_person_id": "Person_001",
+  "total_dossiers": 80,
+  "total_relationships": 9,
+  "relationship_person_ids": [
+    "Person_002",
+    "Person_003",
+    "Person_004",
+    "Person_005",
+    "Person_006",
+    "Person_007",
+    "Person_012",
+    "Person_034",
+    "Person_035"
+  ],
+  "relationship_types": [
+    "friend",
+    "acquaintance",
+    "acquaintance",
+    "acquaintance",
+    "acquaintance",
+    "friend",
+    "romantic",
+    "close_friend",
+    "close_friend"
+  ],
+  "note": "关系阶段初次判定后立刻归档，记录早于任何 downstream backflow rerun。"
+}

@@ -1,0 +1,2244 @@
+[
+  {
+    "person_id": "Person_001",
+    "person_kind": "real_person",
+    "memory_value": "candidate",
+    "photo_count": 18,
+    "time_span_days": 97,
+    "recent_gap_days": 0,
+    "monthly_frequency": 5.6,
+    "scene_profile": {
+      "scenes": [
+        "户外公共空间或公园",
+        "手工艺术工作室或DIY手工吧",
+        "室内居住空间或工作室",
+        "室内家居空间",
+        "台球俱乐部/室内台球室",
+        "家庭起居室或储物间",
+        "个人卧室",
+        "移动设备屏幕内部（微信App）",
+        "室内阅读空间",
+        "室内，具有礼服拍摄背景或更衣室特征",
+        "移动设备屏幕内部（社交软件环境）",
+        "私人卧室",
+        "疑似摄影棚或特定风格主题馆",
+        "室内近景自拍区",
+        "《和平精英》游戏内海岛地图获胜领取奖励区域",
+        "《和平精英》游戏内-海岛地图结算界面",
+        "和平精英-雨林地图",
+        "私人住宅卧室"
+      ],
+      "private_scene_ratio": 0.28,
+      "dominant_scene_ratio": 0.06,
+      "with_user_only": false
+    },
+    "interaction_signals": [
+      "no_contact",
+      "no_contact",
+      "no_contact",
+      "no_contact",
+      "no_contact",
+      "no_contact",
+      "no_contact",
+      "no_contact",
+      "no_contact",
+      "no_contact",
+      "no_contact",
+      "no_contact",
+      "no_contact",
+      "no_contact",
+      "no_contact",
+      "no_contact",
+      "no_contact",
+      "sitting_close"
+    ],
+    "shared_events": [
+      {
+        "event_id": "EVT_001",
+        "date": "2025-12-12",
+        "title": "深夜玩雪合伴",
+        "location": "户外公共空间或公园",
+        "photo_count": 1,
+        "description": "暗夜雪地场景，地面有融化积雪，背景有金属护栏。Person_001手持心形黄色雪球夹，【主角】手持星形粉色雪球夹，两人都在制作雪球。画面为自拍视角，近距离持物对等状态。",
+        "participants": [
+          "Person_001",
+          "Person_002"
+        ],
+        "narrative_synthesis": "",
+        "social_dynamics": []
+      },
+      {
+        "event_id": "EVT_040",
+        "date": "2026-03-11",
+        "title": "音乐回顾与居家伴侣",
+        "location": "数字化社交媒体界面/私人住宅卧室/室内（桌面空间）",
+        "photo_count": 3,
+        "description": "照片一：手机屏幕，网易云音乐“2025年度音乐四格”报告，用户‘_小陈’，年度歌曲汪苏泷《跳楼机》，听歌9759分钟，显示使用8年。照片二：卧室双人床，Person_001（男性）侧卧休息，背对镜头，穿黑色运动卫衣。照片三：灰色磨砂桌面，摆放Dole果汁软糖（草莓/蓝莓味，含益生菌、叶黄素酯）和小橘干。画面包含截屏和俯拍。",
+        "participants": [
+          "Person_002",
+          "Person_001"
+        ],
+        "narrative_synthesis": "",
+        "social_dynamics": []
+      },
+      {
+        "event_id": "EVT_031",
+        "date": "2026-03-11",
+        "title": "文化熏陶与数字生活挑战",
+        "location": "北京天坛公园/虚拟数字空间/手机终端/数字化社交媒体终端/室内场所/移动设备屏幕内",
+        "photo_count": 10,
+        "description": "照片一：天坛祈年殿局部，前景有柏树枝叶。照片二：支付宝芝麻分集分活动页面，目标2026分，【主角】638分。照片三：抖音App界面，显示@糕冷猪佩琪的短视频。照片四：手机屏幕，豆包AI聊天界面，讨论网暴、信息泄露。照片五：豆包AI搜索微信自动退出问题。照片六：手机屏幕，美团外卖订单，收货人陈美伊，地址中山首府。照片七：手机屏幕，网易云音乐“2025年度音乐四格”，用户_小陈。照片八：和平精英游戏结算界面，小天使仙蒂qe夺冠。照片九：和平精英游戏虚拟场景，小天使仙蒂qe与摩天轮城堡。照片十：和平精英游戏颁奖仪式。画面为仰视、截屏、俯拍等多种视角。",
+        "participants": [
+          "Person_002",
+          "Person_015",
+          "Person_017",
+          "Person_019",
+          "Person_020",
+          "Person_001",
+          "Person_003"
+        ],
+        "narrative_synthesis": "",
+        "social_dynamics": []
+      },
+      {
+        "event_id": "EVT_032",
+        "date": "2026-03-11",
+        "title": "时尚穿搭与社交生活",
+        "location": "室内试衣间或卧室/移动设备屏幕内部/室内场所/私人卧室/移动设备屏幕内部",
+        "photo_count": 6,
+        "description": "照片一：Person_016（【主角】）在全身镜前自拍，穿黑白条纹高领针织衫、超短裙、黑长袜，手机屏幕有淘宝商品信息浮窗。照片二：微信聊天界面，Person_001头像戴Hello Kitty发箍，讨论隐私泄露问题。照片三：【主角】（Person_001）穿浅蓝色礼服裙和白色长手套，手持手机操作微信，背景砖石墙。照片四：手机屏幕，民宿预订App，小喜宅88民宿，显示陈美伊入住信息。照片五：手机屏幕，美团外卖订单，收货人陈美伊，地址中山首府。照片六：手机屏幕显示《甄嬛传》片段，有粉色蝴蝶结虚拟贴纸，状态栏显示BOSS直聘等App图标。画面多为自拍、截屏。",
+        "participants": [
+          "Person_002",
+          "Person_016",
+          "Person_001",
+          "Person_017"
+        ],
+        "narrative_synthesis": "",
+        "social_dynamics": []
+      },
+      {
+        "event_id": "EVT_038",
+        "date": "2026-03-11",
+        "title": "可爱表达与健康实况",
+        "location": "虚拟数字空间/插画场景/室内拍摄空间/居家或摄影棚/室内近景自拍区/数字屏幕/社交媒体界面/家庭住所或室内医疗护理区",
+        "photo_count": 5,
+        "description": "照片一：数字插画，卡通熊手持心形卡片，配爱意符号。照片二：Person_023穿萝莉风格服装，戴眼镜，手捧黑色卡通猫咪挂饰。照片三：【主角】（Person_001）戴眼镜，穿波点吊带，手持黑色Kitty挂件遮挡口鼻自拍。照片四：数字插画，Hello Kitty拿着披萨，水印“今天披萨了吗”。照片五：连花清瘟胶囊药盒特写。画面包含数字内容、近摄和自拍。",
+        "participants": [
+          "Person_002",
+          "Person_023",
+          "Person_001"
+        ],
+        "narrative_synthesis": "",
+        "social_dynamics": []
+      },
+      {
+        "event_id": "EVT_019",
+        "date": "2026-01-19",
+        "title": "忙碌生活中的精致与科技",
+        "location": "办公区域或居家环境中的餐桌/室内居住空间或工作室/美甲店或生活空间室内/室内办公或书桌区域",
+        "photo_count": 4,
+        "description": "照片一：木纹桌面，一个圆形铝箔餐盒内有烤肠、煎藕饼、鱼丸、西兰花等。照片二：Person_001手部特写，向上伸展，展示长尖锥形美甲，配色红与银。照片三：Person_001美甲特写，背景小红书水印。照片四：木纹桌面上，一个微型热敏打印纸卷。画面均为俯拍或特写。",
+        "participants": [
+          "Person_002",
+          "Person_001"
+        ],
+        "narrative_synthesis": "",
+        "social_dynamics": []
+      },
+      {
+        "event_id": "EVT_020",
+        "date": "2026-02-27",
+        "title": "居家休闲与生活琐事",
+        "location": "卧室或居家休息区域/室内家居空间",
+        "photo_count": 3,
+        "description": "照片一：卧室格纹床单上，一只金渐层长毛猫卧睡。照片二：【主角】双脚穿着Hello Kitty浅蓝色凉拖和黑色亮片阔腿裤。照片三：Person_001（【主角】）右手按压白色“万利达”电热水壶开关，水壶放在浅色瓷砖地面上，无名指戴有银色戒指。画面包含近摄和俯拍。",
+        "participants": [
+          "Person_002",
+          "Person_001"
+        ],
+        "narrative_synthesis": "",
+        "social_dynamics": []
+      },
+      {
+        "event_id": "EVT_023",
+        "date": "2026-03-11",
+        "title": "仪式感生活与居家自娱",
+        "location": "小型餐饮店或甜点店/室内礼品收纳区或桌面/个人卧室",
+        "photo_count": 3,
+        "description": "照片一：原木色餐桌上，一束精美装饰花束，带“Happy every day”标签与LED灯串。照片二：透明塑料袋内有深色物品和粉色干花束，角落露出卡通熊卡片。照片三：【主角】（Person_001）戴米菲兔眼罩、圣诞帽和口罩，穿着卡通印花睡衣，面部被虚化元素遮挡，躺在床上。画面为近摄或俯拍。",
+        "participants": [
+          "Person_002",
+          "Person_001"
+        ],
+        "narrative_synthesis": "",
+        "social_dynamics": []
+      },
+      {
+        "event_id": "EVT_036",
+        "date": "2026-03-11",
+        "title": "职业探索与时尚穿搭",
+        "location": "服装加工车间/私人卧室/疑似摄影棚或特定风格主题馆",
+        "photo_count": 3,
+        "description": "照片一：服装加工车间，Person_021身穿同款米色和黑色针织长裙，并排展示。照片二：【主角】（Person_001）在卧室镜前自拍，穿黑色长袖连衣裙、珍珠细腰带、白色毛绒护腿套，旁边有行李箱。照片三：手机微信聊天界面，与“时间的日记本”讨论试岗，背景是Person_001（穿蓝色礼服裙）的背影。画面包含中景和自拍。",
+        "participants": [
+          "Person_002",
+          "Person_021",
+          "Person_001"
+        ],
+        "narrative_synthesis": "",
+        "social_dynamics": []
+      },
+      {
+        "event_id": "EVT_007",
+        "date": "2025-12-05",
+        "title": "手工艺术创作体验",
+        "location": "手工艺术工作室或DIY手工吧",
+        "photo_count": 1,
+        "description": "手作工坊室内，桌上摆有调色盘。Person_001坐在桌子右侧进行手工制作，手肘撑在木桌上。图片显示【主角】右手托举着一份蓝色系纸艺花束，花束包装精美，标签写有'Happy every day - Best wishes for you!'。画面为记录成果的近摄视角。",
+        "participants": [
+          "Person_001",
+          "Person_002"
+        ],
+        "narrative_synthesis": "",
+        "social_dynamics": []
+      }
+    ],
+    "trend_detail": {
+      "first_half_freq": 1.9,
+      "second_half_freq": 9.4,
+      "direction": "up",
+      "change_ratio": 4.9
+    },
+    "co_appearing_persons": [],
+    "anomalies": [
+      {
+        "type": "frequency_drop",
+        "description": "Gap 37d vs avg 6d",
+        "date": "2026-01-19"
+      },
+      {
+        "type": "frequency_drop",
+        "description": "Gap 39d vs avg 6d",
+        "date": "2026-02-27"
+      },
+      {
+        "type": "new_companion",
+        "description": "Person_003 first appeared in shared photos",
+        "date": "2026-03-11"
+      },
+      {
+        "type": "new_scene",
+        "description": "First time at '疑似摄影棚或特定风格主题馆' together",
+        "date": "2026-03-11"
+      },
+      {
+        "type": "new_scene",
+        "description": "First time at '室内近景自拍区' together",
+        "date": "2026-03-11"
+      },
+      {
+        "type": "new_scene",
+        "description": "First time at '《和平精英》游戏内海岛地图获胜领取奖励区域' together",
+        "date": "2026-03-11"
+      },
+      {
+        "type": "new_scene",
+        "description": "First time at '《和平精英》游戏内-海岛地图结算界面' together",
+        "date": "2026-03-11"
+      },
+      {
+        "type": "new_scene",
+        "description": "First time at '和平精英-雨林地图' together",
+        "date": "2026-03-11"
+      },
+      {
+        "type": "new_scene",
+        "description": "First time at '私人住宅卧室' together",
+        "date": "2026-03-11"
+      }
+    ],
+    "evidence_refs": [
+      {
+        "source_type": "photo",
+        "source_id": "photo_044",
+        "signal": "2025年12月12日20:15，在室外雪地环境下，【主角】正与另一位人士共同手持心形与星形塑料雪球夹，正在进行玩雪活动。",
+        "why": "co_photo_for_Person_001"
+      },
+      {
+        "source_type": "photo",
+        "source_id": "photo_043",
+        "signal": "2025-12-05 11:25，在疑似手作工坊的室内空间，【主角】右手托举着一份手工制作的蓝色系纸艺花束，正在记录手作成果。",
+        "why": "co_photo_for_Person_001"
+      },
+      {
+        "source_type": "photo",
+        "source_id": "photo_089",
+        "signal": "2026-01-19 15:03，在一处光线平滑的室内环境中，【主角】正向上伸展右臂，展示其极长、带有尖锐美甲造型的手部。",
+        "why": "co_photo_for_Person_001"
+      },
+      {
+        "source_type": "photo",
+        "source_id": "photo_031",
+        "signal": "2026-02-27 20:32，在室内瓷砖地面环境，【主角】正用右手按压一台白色万利达电热水壶的顶部开关，正在进行烧水或检查热水壶的操作。",
+        "why": "co_photo_for_Person_001"
+      },
+      {
+        "source_type": "photo",
+        "source_id": "photo_034",
+        "signal": "2026年3月11日12:10，在台球厅室内，【主角】正持杆准备击球，画面覆盖了一层社交媒体的网络评论截图。",
+        "why": "co_photo_for_Person_001"
+      },
+      {
+        "source_type": "photo",
+        "source_id": "photo_007",
+        "signal": "2026年3月11日12:10，于室内某家庭空间中，【主角】正处于整理杂物或居家环境的状态，画面核心展示了一件放置在铺着印花桌布桌面上、带有透明可视窗的米白色帆布收纳箱。",
+        "why": "co_photo_for_Person_001"
+      },
+      {
+        "source_type": "photo",
+        "source_id": "photo_005",
+        "signal": "2026年3月11日12:10，在一处室内卧室场景中，【主角】正处于戴着眼罩休息的状态，画面呈现出一种居家且疲惫的氛围。",
+        "why": "co_photo_for_Person_001"
+      },
+      {
+        "source_type": "photo",
+        "source_id": "photo_115",
+        "signal": "2026-03-11 12:12，【主角】处于室内环境，正在使用手机查看微信聊天界面，核心事件为讨论个人隐私泄露后的应对措施。",
+        "why": "co_photo_for_Person_001"
+      },
+      {
+        "source_type": "photo",
+        "source_id": "photo_090",
+        "signal": "2026年3月11日12:12，于室内环境，【主角】正在阅读查尔斯·狄更斯的《双城记》，并展示其美甲与配饰细节。",
+        "why": "co_photo_for_Person_001"
+      },
+      {
+        "source_type": "photo",
+        "source_id": "photo_116",
+        "signal": "2026-03-11 12:12，【主角】正处于室内环境中，视角向下俯瞰自身穿着的浅蓝色礼服裙与白色绸缎手套，同时正在操作手机微信界面与“墙”进行涉及个人隐私的社交信息沟通。",
+        "why": "co_photo_for_Person_001"
+      },
+      {
+        "source_type": "photo",
+        "source_id": "photo_109",
+        "signal": "2026-03-11 12:13，【主角】正处于微信群聊界面，在中山首府社区业主群内输入“谁家有小猫送我”的文字内容，背景显示包含背景滤镜且人物衣着带有洛丽塔/演出服风格的照片。",
+        "why": "co_photo_for_Person_001"
+      },
+      {
+        "source_type": "photo",
+        "source_id": "photo_113",
+        "signal": "2026-03-11 12:13，【主角】在室内卧室的穿衣镜前进行自我造型记录，完成穿搭后正持手机拍摄镜像。",
+        "why": "co_photo_for_Person_001"
+      },
+      {
+        "source_type": "photo",
+        "source_id": "photo_111",
+        "signal": "2026-03-11 12:13，【主角】正在查看手机微信聊天界面，背景展示了一位身穿灰姑娘Cosplay礼服的女性背影，暗示其正在参与某招聘或演艺角色的工作场景。",
+        "why": "co_photo_for_Person_001"
+      },
+      {
+        "source_type": "photo",
+        "source_id": "photo_123",
+        "signal": "2026-03-11 12:13，在该室内环境中，【主角】正手持一个黑色Kitty造型毛绒挂件贴近面部进行自拍记录，展现出明显的个人风格偏好。",
+        "why": "co_photo_for_Person_001"
+      },
+      {
+        "source_type": "photo",
+        "source_id": "photo_130",
+        "signal": "2026-03-11 12:13，在《和平精英》数字化虚拟战场中，【主角】操控的角色在完成获胜挑战后，正高举金色平底锅奖杯进行定格展示。",
+        "why": "co_photo_for_Person_001"
+      },
+      {
+        "source_type": "photo",
+        "source_id": "photo_131",
+        "signal": "2026年3月11日12:13，【主角】在《和平精英》游戏虚拟战场中，以第三人称视角拍摄了队友高举金杯庆祝胜利的画面。",
+        "why": "co_photo_for_Person_001"
+      },
+      {
+        "source_type": "photo",
+        "source_id": "photo_132",
+        "signal": "2026-03-11 12:13，在《和平精英》游戏虚拟雨林地图场景中，【主角】以第一人称视角记录了小队三人获胜后的颁奖仪式状态。",
+        "why": "co_photo_for_Person_001"
+      },
+      {
+        "source_type": "photo",
+        "source_id": "photo_133",
+        "signal": "2026年3月11日12:13，一处室内卧室环境内，【主角】正处于休憩状态中，视角拍摄侧卧于床铺上的男性伴侣。",
+        "why": "co_photo_for_Person_001"
+      },
+      {
+        "source_type": "event",
+        "source_id": "EVT_001",
+        "signal": "深夜玩雪合伴",
+        "why": "shared_event_for_Person_001"
+      },
+      {
+        "source_type": "event",
+        "source_id": "EVT_040",
+        "signal": "音乐回顾与居家伴侣",
+        "why": "shared_event_for_Person_001"
+      },
+      {
+        "source_type": "event",
+        "source_id": "EVT_031",
+        "signal": "文化熏陶与数字生活挑战",
+        "why": "shared_event_for_Person_001"
+      },
+      {
+        "source_type": "event",
+        "source_id": "EVT_032",
+        "signal": "时尚穿搭与社交生活",
+        "why": "shared_event_for_Person_001"
+      },
+      {
+        "source_type": "event",
+        "source_id": "EVT_038",
+        "signal": "可爱表达与健康实况",
+        "why": "shared_event_for_Person_001"
+      },
+      {
+        "source_type": "event",
+        "source_id": "EVT_019",
+        "signal": "忙碌生活中的精致与科技",
+        "why": "shared_event_for_Person_001"
+      },
+      {
+        "source_type": "event",
+        "source_id": "EVT_020",
+        "signal": "居家休闲与生活琐事",
+        "why": "shared_event_for_Person_001"
+      },
+      {
+        "source_type": "event",
+        "source_id": "EVT_023",
+        "signal": "仪式感生活与居家自娱",
+        "why": "shared_event_for_Person_001"
+      },
+      {
+        "source_type": "event",
+        "source_id": "EVT_036",
+        "signal": "职业探索与时尚穿搭",
+        "why": "shared_event_for_Person_001"
+      },
+      {
+        "source_type": "event",
+        "source_id": "EVT_007",
+        "signal": "手工艺术创作体验",
+        "why": "shared_event_for_Person_001"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "photo_count",
+        "signal": "18",
+        "why": "relationship_frequency"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "monthly_frequency",
+        "signal": "5.6",
+        "why": "relationship_frequency"
+      }
+    ],
+    "block_reasons": [],
+    "retention_decision": "keep",
+    "retention_reason": "relationship_retained",
+    "group_eligible": false,
+    "group_block_reason": "low_confidence",
+    "group_weight": 0.0,
+    "relationship_result": {
+      "relationship_type": "friend",
+      "status": "stable",
+      "confidence": 0.7,
+      "reasoning": "关键事件 EVT_001, EVT_040, EVT_031；共现 18 张，覆盖 18 类场景，月均 5.6 次，判为 friend。"
+    },
+    "relationship_reflection": {
+      "triggered": false,
+      "issues": [],
+      "action": "keep",
+      "source": "llm"
+    }
+  },
+  {
+    "person_id": "Person_004",
+    "person_kind": "real_person",
+    "memory_value": "candidate",
+    "photo_count": 1,
+    "time_span_days": 1,
+    "recent_gap_days": 0,
+    "monthly_frequency": 1.0,
+    "scene_profile": {
+      "scenes": [
+        "室内某处白墙前"
+      ],
+      "private_scene_ratio": 0.0,
+      "dominant_scene_ratio": 1.0,
+      "with_user_only": true
+    },
+    "interaction_signals": [
+      "no_contact"
+    ],
+    "shared_events": [
+      {
+        "event_id": "EVT_025",
+        "date": "2026-03-11",
+        "title": "搞怪黑白自拍",
+        "location": "室内某处白墙前",
+        "photo_count": 1,
+        "description": "黑白滤镜处理，纯白色背景墙。Person_004戴红色毛绒圣诞帽，穿黑色T恤，颈部有纹身，表情搞怪，双唇轻抿。画面为近景特写。",
+        "participants": [
+          "Person_002",
+          "Person_004"
+        ],
+        "narrative_synthesis": "",
+        "social_dynamics": []
+      }
+    ],
+    "trend_detail": {},
+    "co_appearing_persons": [],
+    "anomalies": [],
+    "evidence_refs": [
+      {
+        "source_type": "photo",
+        "source_id": "photo_006",
+        "signal": "2026年3月11日12:10，在不明室内背景下，【主角】拍摄了Person_004佩戴圣诞帽的近景特写头像，记录其当下的顽皮情绪状态。",
+        "why": "co_photo_for_Person_004"
+      },
+      {
+        "source_type": "event",
+        "source_id": "EVT_025",
+        "signal": "搞怪黑白自拍",
+        "why": "shared_event_for_Person_004"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "photo_count",
+        "signal": "1",
+        "why": "relationship_frequency"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "monthly_frequency",
+        "signal": "1.0",
+        "why": "relationship_frequency"
+      }
+    ],
+    "block_reasons": [],
+    "retention_decision": "suppress",
+    "retention_reason": "single_photo_without_strong_signal",
+    "group_eligible": false,
+    "group_block_reason": "retention=suppress",
+    "group_weight": 0.0,
+    "relationship_result": {
+      "relationship_type": "acquaintance",
+      "status": "new",
+      "confidence": 0.2,
+      "reasoning": "关键事件 EVT_025；共现 1 张，覆盖 1 类场景，月均 1.0 次，判为 acquaintance。"
+    },
+    "relationship_reflection": {
+      "triggered": false,
+      "issues": [],
+      "action": "keep",
+      "source": "llm"
+    }
+  },
+  {
+    "person_id": "Person_005",
+    "person_kind": "real_person",
+    "memory_value": "candidate",
+    "photo_count": 2,
+    "time_span_days": 1,
+    "recent_gap_days": 0,
+    "monthly_frequency": 2.0,
+    "scene_profile": {
+      "scenes": [
+        "疑似横店影视城或宫廷式古建筑室内",
+        "影视基地或摄影棚内"
+      ],
+      "private_scene_ratio": 0.0,
+      "dominant_scene_ratio": 0.5,
+      "with_user_only": false
+    },
+    "interaction_signals": [
+      "no_contact",
+      "no_contact"
+    ],
+    "shared_events": [
+      {
+        "event_id": "EVT_026",
+        "date": "2026-03-11",
+        "title": "古风影像艺术创作",
+        "location": "疑似横店影视城或宫廷式古建筑室内/北京故宫博物院",
+        "photo_count": 2,
+        "description": "照片一：朱红色圆形立柱背景，Person_006和Person_005身着深红色宫廷礼服，佩戴凤冠头饰，表情庄重。照片二：故宫回廊，金黄色夕阳余晖下，Person_006身着清代风格红色礼服，佩戴点翠金饰发冠，表情凝重。画面为近景特写或中景。",
+        "participants": [
+          "Person_002",
+          "Person_006",
+          "Person_005"
+        ],
+        "narrative_synthesis": "",
+        "social_dynamics": []
+      }
+    ],
+    "trend_detail": {},
+    "co_appearing_persons": [
+      {
+        "person_id": "Person_006",
+        "co_count": 2,
+        "co_ratio": 1.0
+      }
+    ],
+    "anomalies": [],
+    "evidence_refs": [
+      {
+        "source_type": "photo",
+        "source_id": "photo_009",
+        "signal": "2026年3月11日12:11，【主角】在疑似仿古宫廷建筑的室内环境中，以近景视角抓拍了两位身着传统中式礼服女性的特写。",
+        "why": "co_photo_for_Person_005"
+      },
+      {
+        "source_type": "photo",
+        "source_id": "photo_100",
+        "signal": "2026-03-11 12:13，【主角】在疑似清宫剧模拟拍摄现场观察，两名身着红色清宫服饰的女性正处于拍摄构图中。",
+        "why": "co_photo_for_Person_005"
+      },
+      {
+        "source_type": "event",
+        "source_id": "EVT_026",
+        "signal": "古风影像艺术创作",
+        "why": "shared_event_for_Person_005"
+      },
+      {
+        "source_type": "person",
+        "source_id": "Person_006",
+        "signal": "co_ratio=1.0",
+        "why": "third_party_co_appearance"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "photo_count",
+        "signal": "2",
+        "why": "relationship_frequency"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "monthly_frequency",
+        "signal": "2.0",
+        "why": "relationship_frequency"
+      }
+    ],
+    "block_reasons": [],
+    "retention_decision": "suppress",
+    "retention_reason": "low_confidence_low_signal_relationship",
+    "group_eligible": false,
+    "group_block_reason": "retention=suppress",
+    "group_weight": 0.0,
+    "relationship_result": {
+      "relationship_type": "acquaintance",
+      "status": "new",
+      "confidence": 0.25,
+      "reasoning": "关键事件 EVT_026；共现 2 张，覆盖 2 类场景，月均 2.0 次，判为 acquaintance。"
+    },
+    "relationship_reflection": {
+      "triggered": false,
+      "issues": [],
+      "action": "keep",
+      "source": "llm"
+    }
+  },
+  {
+    "person_id": "Person_006",
+    "person_kind": "real_person",
+    "memory_value": "candidate",
+    "photo_count": 3,
+    "time_span_days": 1,
+    "recent_gap_days": 0,
+    "monthly_frequency": 3.0,
+    "scene_profile": {
+      "scenes": [
+        "疑似横店影视城或宫廷式古建筑室内",
+        "北京故宫博物院",
+        "影视基地或摄影棚内"
+      ],
+      "private_scene_ratio": 0.0,
+      "dominant_scene_ratio": 0.33,
+      "with_user_only": false
+    },
+    "interaction_signals": [
+      "no_contact",
+      "no_contact",
+      "no_contact"
+    ],
+    "shared_events": [
+      {
+        "event_id": "EVT_026",
+        "date": "2026-03-11",
+        "title": "古风影像艺术创作",
+        "location": "疑似横店影视城或宫廷式古建筑室内/北京故宫博物院",
+        "photo_count": 2,
+        "description": "照片一：朱红色圆形立柱背景，Person_006和Person_005身着深红色宫廷礼服，佩戴凤冠头饰，表情庄重。照片二：故宫回廊，金黄色夕阳余晖下，Person_006身着清代风格红色礼服，佩戴点翠金饰发冠，表情凝重。画面为近景特写或中景。",
+        "participants": [
+          "Person_002",
+          "Person_006",
+          "Person_005"
+        ],
+        "narrative_synthesis": "",
+        "social_dynamics": []
+      }
+    ],
+    "trend_detail": {},
+    "co_appearing_persons": [
+      {
+        "person_id": "Person_005",
+        "co_count": 2,
+        "co_ratio": 0.67
+      }
+    ],
+    "anomalies": [],
+    "evidence_refs": [
+      {
+        "source_type": "photo",
+        "source_id": "photo_009",
+        "signal": "2026年3月11日12:11，【主角】在疑似仿古宫廷建筑的室内环境中，以近景视角抓拍了两位身着传统中式礼服女性的特写。",
+        "why": "co_photo_for_Person_006"
+      },
+      {
+        "source_type": "photo",
+        "source_id": "photo_008",
+        "signal": "2026年3月11日12:11，【主角】在故宫博物院回廊内拍摄到Person_006身着清代风格红色礼服的特写，背景为金黄色夕阳余晖下的古建筑回廊。",
+        "why": "co_photo_for_Person_006"
+      },
+      {
+        "source_type": "photo",
+        "source_id": "photo_100",
+        "signal": "2026-03-11 12:13，【主角】在疑似清宫剧模拟拍摄现场观察，两名身着红色清宫服饰的女性正处于拍摄构图中。",
+        "why": "co_photo_for_Person_006"
+      },
+      {
+        "source_type": "event",
+        "source_id": "EVT_026",
+        "signal": "古风影像艺术创作",
+        "why": "shared_event_for_Person_006"
+      },
+      {
+        "source_type": "person",
+        "source_id": "Person_005",
+        "signal": "co_ratio=0.67",
+        "why": "third_party_co_appearance"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "photo_count",
+        "signal": "3",
+        "why": "relationship_frequency"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "monthly_frequency",
+        "signal": "3.0",
+        "why": "relationship_frequency"
+      }
+    ],
+    "block_reasons": [],
+    "retention_decision": "suppress",
+    "retention_reason": "low_confidence_low_signal_relationship",
+    "group_eligible": false,
+    "group_block_reason": "retention=suppress",
+    "group_weight": 0.0,
+    "relationship_result": {
+      "relationship_type": "acquaintance",
+      "status": "new",
+      "confidence": 0.25,
+      "reasoning": "关键事件 EVT_026；共现 3 张，覆盖 3 类场景，月均 3.0 次，判为 acquaintance。"
+    },
+    "relationship_reflection": {
+      "triggered": false,
+      "issues": [],
+      "action": "keep",
+      "source": "llm"
+    }
+  },
+  {
+    "person_id": "Person_007",
+    "person_kind": "real_person",
+    "memory_value": "candidate",
+    "photo_count": 1,
+    "time_span_days": 1,
+    "recent_gap_days": 0,
+    "monthly_frequency": 1.0,
+    "scene_profile": {
+      "scenes": [
+        "海边沙滩"
+      ],
+      "private_scene_ratio": 0.0,
+      "dominant_scene_ratio": 1.0,
+      "with_user_only": false
+    },
+    "interaction_signals": [
+      "no_contact"
+    ],
+    "shared_events": [
+      {
+        "event_id": "EVT_028",
+        "date": "2026-03-11",
+        "title": "海边旅拍与亲密伴侣",
+        "location": "海边沙滩/某处海滨海滩",
+        "photo_count": 2,
+        "description": "照片一：海边夕阳，Person_007穿米白色连衣裙和遮阳帽，Person_008（戴眼镜）手持单反相机，两人互动。照片二：海滩夕阳下，Person_010弯腰捡贝壳，Person_009坐礁石望海。画面为中远景。",
+        "participants": [
+          "Person_007",
+          "Person_008",
+          "Person_009",
+          "Person_010",
+          "Person_002"
+        ],
+        "narrative_synthesis": "",
+        "social_dynamics": []
+      }
+    ],
+    "trend_detail": {},
+    "co_appearing_persons": [],
+    "anomalies": [],
+    "evidence_refs": [
+      {
+        "source_type": "photo",
+        "source_id": "photo_017",
+        "signal": "2026年3月11日12:11，画面为海边日落时分，【主角】正处于拍摄位置，定格了Person_007在Person_008身边漫步或交流的瞬间。",
+        "why": "co_photo_for_Person_007"
+      },
+      {
+        "source_type": "event",
+        "source_id": "EVT_028",
+        "signal": "海边旅拍与亲密伴侣",
+        "why": "shared_event_for_Person_007"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "photo_count",
+        "signal": "1",
+        "why": "relationship_frequency"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "monthly_frequency",
+        "signal": "1.0",
+        "why": "relationship_frequency"
+      }
+    ],
+    "block_reasons": [],
+    "retention_decision": "suppress",
+    "retention_reason": "single_photo_without_strong_signal",
+    "group_eligible": false,
+    "group_block_reason": "retention=suppress",
+    "group_weight": 0.0,
+    "relationship_result": {
+      "relationship_type": "acquaintance",
+      "status": "new",
+      "confidence": 0.2,
+      "reasoning": "关键事件 EVT_028；共现 1 张，覆盖 1 类场景，月均 1.0 次，判为 acquaintance。"
+    },
+    "relationship_reflection": {
+      "triggered": false,
+      "issues": [],
+      "action": "keep",
+      "source": "llm"
+    }
+  },
+  {
+    "person_id": "Person_008",
+    "person_kind": "real_person",
+    "memory_value": "candidate",
+    "photo_count": 1,
+    "time_span_days": 1,
+    "recent_gap_days": 0,
+    "monthly_frequency": 1.0,
+    "scene_profile": {
+      "scenes": [
+        "海边沙滩"
+      ],
+      "private_scene_ratio": 0.0,
+      "dominant_scene_ratio": 1.0,
+      "with_user_only": false
+    },
+    "interaction_signals": [
+      "no_contact"
+    ],
+    "shared_events": [
+      {
+        "event_id": "EVT_028",
+        "date": "2026-03-11",
+        "title": "海边旅拍与亲密伴侣",
+        "location": "海边沙滩/某处海滨海滩",
+        "photo_count": 2,
+        "description": "照片一：海边夕阳，Person_007穿米白色连衣裙和遮阳帽，Person_008（戴眼镜）手持单反相机，两人互动。照片二：海滩夕阳下，Person_010弯腰捡贝壳，Person_009坐礁石望海。画面为中远景。",
+        "participants": [
+          "Person_007",
+          "Person_008",
+          "Person_009",
+          "Person_010",
+          "Person_002"
+        ],
+        "narrative_synthesis": "",
+        "social_dynamics": []
+      }
+    ],
+    "trend_detail": {},
+    "co_appearing_persons": [],
+    "anomalies": [],
+    "evidence_refs": [
+      {
+        "source_type": "photo",
+        "source_id": "photo_017",
+        "signal": "2026年3月11日12:11，画面为海边日落时分，【主角】正处于拍摄位置，定格了Person_007在Person_008身边漫步或交流的瞬间。",
+        "why": "co_photo_for_Person_008"
+      },
+      {
+        "source_type": "event",
+        "source_id": "EVT_028",
+        "signal": "海边旅拍与亲密伴侣",
+        "why": "shared_event_for_Person_008"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "photo_count",
+        "signal": "1",
+        "why": "relationship_frequency"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "monthly_frequency",
+        "signal": "1.0",
+        "why": "relationship_frequency"
+      }
+    ],
+    "block_reasons": [],
+    "retention_decision": "suppress",
+    "retention_reason": "single_photo_without_strong_signal",
+    "group_eligible": false,
+    "group_block_reason": "retention=suppress",
+    "group_weight": 0.0,
+    "relationship_result": {
+      "relationship_type": "acquaintance",
+      "status": "new",
+      "confidence": 0.3,
+      "reasoning": "关键事件 EVT_028；共现 1 张，覆盖 1 类场景，月均 1.0 次，判为 acquaintance。"
+    },
+    "relationship_reflection": {
+      "triggered": false,
+      "issues": [],
+      "action": "keep",
+      "source": "llm"
+    }
+  },
+  {
+    "person_id": "Person_009",
+    "person_kind": "real_person",
+    "memory_value": "candidate",
+    "photo_count": 1,
+    "time_span_days": 1,
+    "recent_gap_days": 0,
+    "monthly_frequency": 1.0,
+    "scene_profile": {
+      "scenes": [
+        "某处海滨海滩"
+      ],
+      "private_scene_ratio": 0.0,
+      "dominant_scene_ratio": 1.0,
+      "with_user_only": false
+    },
+    "interaction_signals": [
+      "no_contact"
+    ],
+    "shared_events": [
+      {
+        "event_id": "EVT_028",
+        "date": "2026-03-11",
+        "title": "海边旅拍与亲密伴侣",
+        "location": "海边沙滩/某处海滨海滩",
+        "photo_count": 2,
+        "description": "照片一：海边夕阳，Person_007穿米白色连衣裙和遮阳帽，Person_008（戴眼镜）手持单反相机，两人互动。照片二：海滩夕阳下，Person_010弯腰捡贝壳，Person_009坐礁石望海。画面为中远景。",
+        "participants": [
+          "Person_007",
+          "Person_008",
+          "Person_009",
+          "Person_010",
+          "Person_002"
+        ],
+        "narrative_synthesis": "",
+        "social_dynamics": []
+      }
+    ],
+    "trend_detail": {},
+    "co_appearing_persons": [],
+    "anomalies": [],
+    "evidence_refs": [
+      {
+        "source_type": "photo",
+        "source_id": "photo_018",
+        "signal": "2026年3月11日傍晚12:11，【主角】在海滩拍摄下Person_010正在低头拾取贝壳，而Person_009坐在旁边的岩石上远眺夕阳的场景。",
+        "why": "co_photo_for_Person_009"
+      },
+      {
+        "source_type": "event",
+        "source_id": "EVT_028",
+        "signal": "海边旅拍与亲密伴侣",
+        "why": "shared_event_for_Person_009"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "photo_count",
+        "signal": "1",
+        "why": "relationship_frequency"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "monthly_frequency",
+        "signal": "1.0",
+        "why": "relationship_frequency"
+      }
+    ],
+    "block_reasons": [],
+    "retention_decision": "suppress",
+    "retention_reason": "single_photo_without_strong_signal",
+    "group_eligible": false,
+    "group_block_reason": "retention=suppress",
+    "group_weight": 0.0,
+    "relationship_result": {
+      "relationship_type": "acquaintance",
+      "status": "new",
+      "confidence": 0.25,
+      "reasoning": "关键事件 EVT_028；共现 1 张，覆盖 1 类场景，月均 1.0 次，判为 acquaintance。"
+    },
+    "relationship_reflection": {
+      "triggered": false,
+      "issues": [],
+      "action": "keep",
+      "source": "llm"
+    }
+  },
+  {
+    "person_id": "Person_010",
+    "person_kind": "real_person",
+    "memory_value": "candidate",
+    "photo_count": 1,
+    "time_span_days": 1,
+    "recent_gap_days": 0,
+    "monthly_frequency": 1.0,
+    "scene_profile": {
+      "scenes": [
+        "某处海滨海滩"
+      ],
+      "private_scene_ratio": 0.0,
+      "dominant_scene_ratio": 1.0,
+      "with_user_only": false
+    },
+    "interaction_signals": [
+      "no_contact"
+    ],
+    "shared_events": [
+      {
+        "event_id": "EVT_028",
+        "date": "2026-03-11",
+        "title": "海边旅拍与亲密伴侣",
+        "location": "海边沙滩/某处海滨海滩",
+        "photo_count": 2,
+        "description": "照片一：海边夕阳，Person_007穿米白色连衣裙和遮阳帽，Person_008（戴眼镜）手持单反相机，两人互动。照片二：海滩夕阳下，Person_010弯腰捡贝壳，Person_009坐礁石望海。画面为中远景。",
+        "participants": [
+          "Person_007",
+          "Person_008",
+          "Person_009",
+          "Person_010",
+          "Person_002"
+        ],
+        "narrative_synthesis": "",
+        "social_dynamics": []
+      }
+    ],
+    "trend_detail": {},
+    "co_appearing_persons": [],
+    "anomalies": [],
+    "evidence_refs": [
+      {
+        "source_type": "photo",
+        "source_id": "photo_018",
+        "signal": "2026年3月11日傍晚12:11，【主角】在海滩拍摄下Person_010正在低头拾取贝壳，而Person_009坐在旁边的岩石上远眺夕阳的场景。",
+        "why": "co_photo_for_Person_010"
+      },
+      {
+        "source_type": "event",
+        "source_id": "EVT_028",
+        "signal": "海边旅拍与亲密伴侣",
+        "why": "shared_event_for_Person_010"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "photo_count",
+        "signal": "1",
+        "why": "relationship_frequency"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "monthly_frequency",
+        "signal": "1.0",
+        "why": "relationship_frequency"
+      }
+    ],
+    "block_reasons": [],
+    "retention_decision": "suppress",
+    "retention_reason": "single_photo_without_strong_signal",
+    "group_eligible": false,
+    "group_block_reason": "retention=suppress",
+    "group_weight": 0.0,
+    "relationship_result": {
+      "relationship_type": "acquaintance",
+      "status": "new",
+      "confidence": 0.25,
+      "reasoning": "关键事件 EVT_028；共现 1 张，覆盖 1 类场景，月均 1.0 次，判为 acquaintance。"
+    },
+    "relationship_reflection": {
+      "triggered": false,
+      "issues": [],
+      "action": "keep",
+      "source": "llm"
+    }
+  },
+  {
+    "person_id": "Person_011",
+    "person_kind": "real_person",
+    "memory_value": "candidate",
+    "photo_count": 1,
+    "time_span_days": 1,
+    "recent_gap_days": 0,
+    "monthly_frequency": 1.0,
+    "scene_profile": {
+      "scenes": [
+        "草原牧场景区"
+      ],
+      "private_scene_ratio": 0.0,
+      "dominant_scene_ratio": 1.0,
+      "with_user_only": false
+    },
+    "interaction_signals": [
+      "no_contact"
+    ],
+    "shared_events": [
+      {
+        "event_id": "EVT_029",
+        "date": "2026-03-11",
+        "title": "草原骑马体验",
+        "location": "草原牧场景区 (室外)",
+        "photo_count": 1,
+        "description": "草原景区，Person_011和Person_012骑着棕色马匹并排前行，都穿着专业骑马靴，表情轻松愉悦。背景是浅绿色草甸和湛蓝天空。画面为侧拍视角。",
+        "participants": [
+          "Person_011",
+          "Person_012",
+          "Person_002"
+        ],
+        "narrative_synthesis": "",
+        "social_dynamics": []
+      }
+    ],
+    "trend_detail": {},
+    "co_appearing_persons": [],
+    "anomalies": [],
+    "evidence_refs": [
+      {
+        "source_type": "photo",
+        "source_id": "photo_019",
+        "signal": "2026年3月11日12:11，在阳光明媚、光线柔和的草原景区，【主角】在骑马过程中侧拍了同行伙伴Person_011与Person_012在马背上并排前行的场景，整体处于户外休闲动态中。",
+        "why": "co_photo_for_Person_011"
+      },
+      {
+        "source_type": "event",
+        "source_id": "EVT_029",
+        "signal": "草原骑马体验",
+        "why": "shared_event_for_Person_011"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "photo_count",
+        "signal": "1",
+        "why": "relationship_frequency"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "monthly_frequency",
+        "signal": "1.0",
+        "why": "relationship_frequency"
+      }
+    ],
+    "block_reasons": [],
+    "retention_decision": "suppress",
+    "retention_reason": "single_photo_without_strong_signal",
+    "group_eligible": false,
+    "group_block_reason": "retention=suppress",
+    "group_weight": 0.0,
+    "relationship_result": {
+      "relationship_type": "acquaintance",
+      "status": "new",
+      "confidence": 0.25,
+      "reasoning": "关键事件 EVT_029；共现 1 张，覆盖 1 类场景，月均 1.0 次，判为 acquaintance。"
+    },
+    "relationship_reflection": {
+      "triggered": false,
+      "issues": [],
+      "action": "keep",
+      "source": "llm"
+    }
+  },
+  {
+    "person_id": "Person_012",
+    "person_kind": "real_person",
+    "memory_value": "candidate",
+    "photo_count": 1,
+    "time_span_days": 1,
+    "recent_gap_days": 0,
+    "monthly_frequency": 1.0,
+    "scene_profile": {
+      "scenes": [
+        "草原牧场景区"
+      ],
+      "private_scene_ratio": 0.0,
+      "dominant_scene_ratio": 1.0,
+      "with_user_only": false
+    },
+    "interaction_signals": [
+      "no_contact"
+    ],
+    "shared_events": [
+      {
+        "event_id": "EVT_029",
+        "date": "2026-03-11",
+        "title": "草原骑马体验",
+        "location": "草原牧场景区 (室外)",
+        "photo_count": 1,
+        "description": "草原景区，Person_011和Person_012骑着棕色马匹并排前行，都穿着专业骑马靴，表情轻松愉悦。背景是浅绿色草甸和湛蓝天空。画面为侧拍视角。",
+        "participants": [
+          "Person_011",
+          "Person_012",
+          "Person_002"
+        ],
+        "narrative_synthesis": "",
+        "social_dynamics": []
+      }
+    ],
+    "trend_detail": {},
+    "co_appearing_persons": [],
+    "anomalies": [],
+    "evidence_refs": [
+      {
+        "source_type": "photo",
+        "source_id": "photo_019",
+        "signal": "2026年3月11日12:11，在阳光明媚、光线柔和的草原景区，【主角】在骑马过程中侧拍了同行伙伴Person_011与Person_012在马背上并排前行的场景，整体处于户外休闲动态中。",
+        "why": "co_photo_for_Person_012"
+      },
+      {
+        "source_type": "event",
+        "source_id": "EVT_029",
+        "signal": "草原骑马体验",
+        "why": "shared_event_for_Person_012"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "photo_count",
+        "signal": "1",
+        "why": "relationship_frequency"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "monthly_frequency",
+        "signal": "1.0",
+        "why": "relationship_frequency"
+      }
+    ],
+    "block_reasons": [],
+    "retention_decision": "suppress",
+    "retention_reason": "single_photo_without_strong_signal",
+    "group_eligible": false,
+    "group_block_reason": "retention=suppress",
+    "group_weight": 0.0,
+    "relationship_result": {
+      "relationship_type": "acquaintance",
+      "status": "new",
+      "confidence": 0.2,
+      "reasoning": "关键事件 EVT_029；共现 1 张，覆盖 1 类场景，月均 1.0 次，判为 acquaintance。"
+    },
+    "relationship_reflection": {
+      "triggered": false,
+      "issues": [],
+      "action": "keep",
+      "source": "llm"
+    }
+  },
+  {
+    "person_id": "Person_013",
+    "person_kind": "real_person",
+    "memory_value": "candidate",
+    "photo_count": 1,
+    "time_span_days": 1,
+    "recent_gap_days": 0,
+    "monthly_frequency": 1.0,
+    "scene_profile": {
+      "scenes": [
+        "学校足球场或公共体育场"
+      ],
+      "private_scene_ratio": 0.0,
+      "dominant_scene_ratio": 1.0,
+      "with_user_only": true
+    },
+    "interaction_signals": [
+      "Person_013 踩在 足球",
+      "Person_013 站立于 人工草皮球场",
+      "no_contact"
+    ],
+    "shared_events": [],
+    "trend_detail": {},
+    "co_appearing_persons": [],
+    "anomalies": [],
+    "evidence_refs": [
+      {
+        "source_type": "photo",
+        "source_id": "photo_025",
+        "signal": "2026年3月11日深夜，【主角】在户外运动场拍摄了Person_013踩球站立的动作场景。",
+        "why": "co_photo_for_Person_013"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "photo_count",
+        "signal": "1",
+        "why": "relationship_frequency"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "monthly_frequency",
+        "signal": "1.0",
+        "why": "relationship_frequency"
+      }
+    ],
+    "block_reasons": [],
+    "retention_decision": "suppress",
+    "retention_reason": "single_photo_without_strong_signal",
+    "group_eligible": false,
+    "group_block_reason": "retention=suppress",
+    "group_weight": 0.0,
+    "relationship_result": {
+      "relationship_type": "acquaintance",
+      "status": "new",
+      "confidence": 0.2,
+      "reasoning": "共现 1 张，覆盖 1 类场景，月均 1.0 次，判为 acquaintance。"
+    },
+    "relationship_reflection": {
+      "triggered": false,
+      "issues": [],
+      "action": "keep",
+      "source": "llm"
+    }
+  },
+  {
+    "person_id": "Person_014",
+    "person_kind": "real_person",
+    "memory_value": "candidate",
+    "photo_count": 1,
+    "time_span_days": 1,
+    "recent_gap_days": 0,
+    "monthly_frequency": 1.0,
+    "scene_profile": {
+      "scenes": [
+        "学校标准田径场/体育场"
+      ],
+      "private_scene_ratio": 0.0,
+      "dominant_scene_ratio": 1.0,
+      "with_user_only": true
+    },
+    "interaction_signals": [
+      "Person_014 moving_on 塑胶跑道边缘的铺装地面",
+      "Person_014 standing_near 体育场中心绿茵场",
+      "no_contact"
+    ],
+    "shared_events": [],
+    "trend_detail": {},
+    "co_appearing_persons": [],
+    "anomalies": [],
+    "evidence_refs": [
+      {
+        "source_type": "photo",
+        "source_id": "photo_026",
+        "signal": "2026年3月11日22:11（基于夜间光照及环境推断），【主角】在户外学校标准体育场夜跑道拍摄，捕捉前方 Person_014 正在进行跳跃或迈步动作的瞬间。",
+        "why": "co_photo_for_Person_014"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "photo_count",
+        "signal": "1",
+        "why": "relationship_frequency"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "monthly_frequency",
+        "signal": "1.0",
+        "why": "relationship_frequency"
+      }
+    ],
+    "block_reasons": [],
+    "retention_decision": "suppress",
+    "retention_reason": "single_photo_without_strong_signal",
+    "group_eligible": false,
+    "group_block_reason": "retention=suppress",
+    "group_weight": 0.0,
+    "relationship_result": {
+      "relationship_type": "acquaintance",
+      "status": "new",
+      "confidence": 0.2,
+      "reasoning": "共现 1 张，覆盖 1 类场景，月均 1.0 次，判为 acquaintance。"
+    },
+    "relationship_reflection": {
+      "triggered": false,
+      "issues": [],
+      "action": "keep",
+      "source": "llm"
+    }
+  },
+  {
+    "person_id": "Person_015",
+    "person_kind": "real_person",
+    "memory_value": "candidate",
+    "photo_count": 1,
+    "time_span_days": 1,
+    "recent_gap_days": 0,
+    "monthly_frequency": 1.0,
+    "scene_profile": {
+      "scenes": [
+        "数字化社交媒体终端（抖音UI界面）"
+      ],
+      "private_scene_ratio": 0.0,
+      "dominant_scene_ratio": 1.0,
+      "with_user_only": true
+    },
+    "interaction_signals": [
+      "no_contact"
+    ],
+    "shared_events": [
+      {
+        "event_id": "EVT_031",
+        "date": "2026-03-11",
+        "title": "文化熏陶与数字生活挑战",
+        "location": "北京天坛公园/虚拟数字空间/手机终端/数字化社交媒体终端/室内场所/移动设备屏幕内",
+        "photo_count": 10,
+        "description": "照片一：天坛祈年殿局部，前景有柏树枝叶。照片二：支付宝芝麻分集分活动页面，目标2026分，【主角】638分。照片三：抖音App界面，显示@糕冷猪佩琪的短视频。照片四：手机屏幕，豆包AI聊天界面，讨论网暴、信息泄露。照片五：豆包AI搜索微信自动退出问题。照片六：手机屏幕，美团外卖订单，收货人陈美伊，地址中山首府。照片七：手机屏幕，网易云音乐“2025年度音乐四格”，用户_小陈。照片八：和平精英游戏结算界面，小天使仙蒂qe夺冠。照片九：和平精英游戏虚拟场景，小天使仙蒂qe与摩天轮城堡。照片十：和平精英游戏颁奖仪式。画面为仰视、截屏、俯拍等多种视角。",
+        "participants": [
+          "Person_002",
+          "Person_015",
+          "Person_017",
+          "Person_019",
+          "Person_020",
+          "Person_001",
+          "Person_003"
+        ],
+        "narrative_synthesis": "",
+        "social_dynamics": []
+      }
+    ],
+    "trend_detail": {},
+    "co_appearing_persons": [],
+    "anomalies": [],
+    "evidence_refs": [
+      {
+        "source_type": "photo",
+        "source_id": "photo_040",
+        "signal": "2026年3月11日12:11，【主角】正在浏览社交媒体界面，屏幕显示一段发布于2025年1月20日的短视频内容，画面主体为Person_015的个人影像。",
+        "why": "co_photo_for_Person_015"
+      },
+      {
+        "source_type": "event",
+        "source_id": "EVT_031",
+        "signal": "文化熏陶与数字生活挑战",
+        "why": "shared_event_for_Person_015"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "photo_count",
+        "signal": "1",
+        "why": "relationship_frequency"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "monthly_frequency",
+        "signal": "1.0",
+        "why": "relationship_frequency"
+      }
+    ],
+    "block_reasons": [],
+    "retention_decision": "suppress",
+    "retention_reason": "single_photo_without_strong_signal",
+    "group_eligible": false,
+    "group_block_reason": "retention=suppress",
+    "group_weight": 0.0,
+    "relationship_result": {
+      "relationship_type": "acquaintance",
+      "status": "new",
+      "confidence": 0.2,
+      "reasoning": "关键事件 EVT_031；共现 1 张，覆盖 1 类场景，月均 1.0 次，判为 acquaintance。"
+    },
+    "relationship_reflection": {
+      "triggered": false,
+      "issues": [],
+      "action": "keep",
+      "source": "llm"
+    }
+  },
+  {
+    "person_id": "Person_016",
+    "person_kind": "real_person",
+    "memory_value": "candidate",
+    "photo_count": 1,
+    "time_span_days": 1,
+    "recent_gap_days": 0,
+    "monthly_frequency": 1.0,
+    "scene_profile": {
+      "scenes": [
+        "室内试衣间或卧室"
+      ],
+      "private_scene_ratio": 1.0,
+      "dominant_scene_ratio": 1.0,
+      "with_user_only": true
+    },
+    "interaction_signals": [
+      "no_contact"
+    ],
+    "shared_events": [
+      {
+        "event_id": "EVT_032",
+        "date": "2026-03-11",
+        "title": "时尚穿搭与社交生活",
+        "location": "室内试衣间或卧室/移动设备屏幕内部/室内场所/私人卧室/移动设备屏幕内部",
+        "photo_count": 6,
+        "description": "照片一：Person_016（【主角】）在全身镜前自拍，穿黑白条纹高领针织衫、超短裙、黑长袜，手机屏幕有淘宝商品信息浮窗。照片二：微信聊天界面，Person_001头像戴Hello Kitty发箍，讨论隐私泄露问题。照片三：【主角】（Person_001）穿浅蓝色礼服裙和白色长手套，手持手机操作微信，背景砖石墙。照片四：手机屏幕，民宿预订App，小喜宅88民宿，显示陈美伊入住信息。照片五：手机屏幕，美团外卖订单，收货人陈美伊，地址中山首府。照片六：手机屏幕显示《甄嬛传》片段，有粉色蝴蝶结虚拟贴纸，状态栏显示BOSS直聘等App图标。画面多为自拍、截屏。",
+        "participants": [
+          "Person_002",
+          "Person_016",
+          "Person_001",
+          "Person_017"
+        ],
+        "narrative_synthesis": "",
+        "social_dynamics": []
+      }
+    ],
+    "trend_detail": {},
+    "co_appearing_persons": [],
+    "anomalies": [],
+    "evidence_refs": [
+      {
+        "source_type": "photo",
+        "source_id": "photo_038",
+        "signal": "2026-03-11 12:11，【主角】在室内面对全身镜进行穿搭记录，Person_001正在进行多套服装的自拍试穿展示。",
+        "why": "co_photo_for_Person_016"
+      },
+      {
+        "source_type": "event",
+        "source_id": "EVT_032",
+        "signal": "时尚穿搭与社交生活",
+        "why": "shared_event_for_Person_016"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "photo_count",
+        "signal": "1",
+        "why": "relationship_frequency"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "monthly_frequency",
+        "signal": "1.0",
+        "why": "relationship_frequency"
+      }
+    ],
+    "block_reasons": [],
+    "retention_decision": "suppress",
+    "retention_reason": "single_photo_without_strong_signal",
+    "group_eligible": false,
+    "group_block_reason": "retention=suppress",
+    "group_weight": 0.0,
+    "relationship_result": {
+      "relationship_type": "acquaintance",
+      "status": "new",
+      "confidence": 0.2,
+      "reasoning": "关键事件 EVT_032；共现 1 张，覆盖 1 类场景，月均 1.0 次，判为 acquaintance。"
+    },
+    "relationship_reflection": {
+      "triggered": false,
+      "issues": [],
+      "action": "keep",
+      "source": "llm"
+    }
+  },
+  {
+    "person_id": "Person_017",
+    "person_kind": "real_person",
+    "memory_value": "candidate",
+    "photo_count": 1,
+    "time_span_days": 1,
+    "recent_gap_days": 0,
+    "monthly_frequency": 1.0,
+    "scene_profile": {
+      "scenes": [
+        "室内场所（手机端）"
+      ],
+      "private_scene_ratio": 0.0,
+      "dominant_scene_ratio": 1.0,
+      "with_user_only": true
+    },
+    "interaction_signals": [
+      "no_contact"
+    ],
+    "shared_events": [
+      {
+        "event_id": "EVT_031",
+        "date": "2026-03-11",
+        "title": "文化熏陶与数字生活挑战",
+        "location": "北京天坛公园/虚拟数字空间/手机终端/数字化社交媒体终端/室内场所/移动设备屏幕内",
+        "photo_count": 10,
+        "description": "照片一：天坛祈年殿局部，前景有柏树枝叶。照片二：支付宝芝麻分集分活动页面，目标2026分，【主角】638分。照片三：抖音App界面，显示@糕冷猪佩琪的短视频。照片四：手机屏幕，豆包AI聊天界面，讨论网暴、信息泄露。照片五：豆包AI搜索微信自动退出问题。照片六：手机屏幕，美团外卖订单，收货人陈美伊，地址中山首府。照片七：手机屏幕，网易云音乐“2025年度音乐四格”，用户_小陈。照片八：和平精英游戏结算界面，小天使仙蒂qe夺冠。照片九：和平精英游戏虚拟场景，小天使仙蒂qe与摩天轮城堡。照片十：和平精英游戏颁奖仪式。画面为仰视、截屏、俯拍等多种视角。",
+        "participants": [
+          "Person_002",
+          "Person_015",
+          "Person_017",
+          "Person_019",
+          "Person_020",
+          "Person_001",
+          "Person_003"
+        ],
+        "narrative_synthesis": "",
+        "social_dynamics": []
+      },
+      {
+        "event_id": "EVT_032",
+        "date": "2026-03-11",
+        "title": "时尚穿搭与社交生活",
+        "location": "室内试衣间或卧室/移动设备屏幕内部/室内场所/私人卧室/移动设备屏幕内部",
+        "photo_count": 6,
+        "description": "照片一：Person_016（【主角】）在全身镜前自拍，穿黑白条纹高领针织衫、超短裙、黑长袜，手机屏幕有淘宝商品信息浮窗。照片二：微信聊天界面，Person_001头像戴Hello Kitty发箍，讨论隐私泄露问题。照片三：【主角】（Person_001）穿浅蓝色礼服裙和白色长手套，手持手机操作微信，背景砖石墙。照片四：手机屏幕，民宿预订App，小喜宅88民宿，显示陈美伊入住信息。照片五：手机屏幕，美团外卖订单，收货人陈美伊，地址中山首府。照片六：手机屏幕显示《甄嬛传》片段，有粉色蝴蝶结虚拟贴纸，状态栏显示BOSS直聘等App图标。画面多为自拍、截屏。",
+        "participants": [
+          "Person_002",
+          "Person_016",
+          "Person_001",
+          "Person_017"
+        ],
+        "narrative_synthesis": "",
+        "social_dynamics": []
+      }
+    ],
+    "trend_detail": {},
+    "co_appearing_persons": [],
+    "anomalies": [],
+    "evidence_refs": [
+      {
+        "source_type": "photo",
+        "source_id": "photo_098",
+        "signal": "2026-03-11 12:13，【主角】正在通过手机屏幕播放影视剧，画面内容为清宫题材剧集《甄嬛传》片段，主角正在观看荧幕内人物动态。",
+        "why": "co_photo_for_Person_017"
+      },
+      {
+        "source_type": "event",
+        "source_id": "EVT_031",
+        "signal": "文化熏陶与数字生活挑战",
+        "why": "shared_event_for_Person_017"
+      },
+      {
+        "source_type": "event",
+        "source_id": "EVT_032",
+        "signal": "时尚穿搭与社交生活",
+        "why": "shared_event_for_Person_017"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "photo_count",
+        "signal": "1",
+        "why": "relationship_frequency"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "monthly_frequency",
+        "signal": "1.0",
+        "why": "relationship_frequency"
+      }
+    ],
+    "block_reasons": [],
+    "retention_decision": "suppress",
+    "retention_reason": "single_photo_without_strong_signal",
+    "group_eligible": false,
+    "group_block_reason": "retention=suppress",
+    "group_weight": 0.0,
+    "relationship_result": {
+      "relationship_type": "acquaintance",
+      "status": "new",
+      "confidence": 0.25,
+      "reasoning": "关键事件 EVT_031, EVT_032；共现 1 张，覆盖 1 类场景，月均 1.0 次，判为 acquaintance。"
+    },
+    "relationship_reflection": {
+      "triggered": false,
+      "issues": [],
+      "action": "keep",
+      "source": "llm"
+    }
+  },
+  {
+    "person_id": "Person_018",
+    "person_kind": "real_person",
+    "memory_value": "candidate",
+    "photo_count": 1,
+    "time_span_days": 1,
+    "recent_gap_days": 0,
+    "monthly_frequency": 1.0,
+    "scene_profile": {
+      "scenes": [
+        "室内（通过设备UI无法确定具体场所）"
+      ],
+      "private_scene_ratio": 0.0,
+      "dominant_scene_ratio": 1.0,
+      "with_user_only": true
+    },
+    "interaction_signals": [
+      "Person_018 appearing_on 移动设备屏幕",
+      "no_contact"
+    ],
+    "shared_events": [],
+    "trend_detail": {},
+    "co_appearing_persons": [],
+    "anomalies": [],
+    "evidence_refs": [
+      {
+        "source_type": "photo",
+        "source_id": "photo_101",
+        "signal": "2026年3月11日12:13，【主角】正在通过移动设备录制或回放一部影视剧片段，画面聚焦于身着清宫服饰的女性角色。",
+        "why": "co_photo_for_Person_018"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "photo_count",
+        "signal": "1",
+        "why": "relationship_frequency"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "monthly_frequency",
+        "signal": "1.0",
+        "why": "relationship_frequency"
+      }
+    ],
+    "block_reasons": [],
+    "retention_decision": "suppress",
+    "retention_reason": "screen_or_virtual_context",
+    "group_eligible": false,
+    "group_block_reason": "retention=suppress",
+    "group_weight": 0.0,
+    "relationship_result": {
+      "relationship_type": "acquaintance",
+      "status": "new",
+      "confidence": 0.2,
+      "reasoning": "共现 1 张，覆盖 1 类场景，月均 1.0 次，判为 acquaintance。"
+    },
+    "relationship_reflection": {
+      "triggered": false,
+      "issues": [],
+      "action": "keep",
+      "source": "llm"
+    }
+  },
+  {
+    "person_id": "Person_019",
+    "person_kind": "real_person",
+    "memory_value": "candidate",
+    "photo_count": 1,
+    "time_span_days": 1,
+    "recent_gap_days": 0,
+    "monthly_frequency": 1.0,
+    "scene_profile": {
+      "scenes": [
+        "移动设备终端界面"
+      ],
+      "private_scene_ratio": 0.0,
+      "dominant_scene_ratio": 1.0,
+      "with_user_only": true
+    },
+    "interaction_signals": [
+      "no_contact"
+    ],
+    "shared_events": [
+      {
+        "event_id": "EVT_031",
+        "date": "2026-03-11",
+        "title": "文化熏陶与数字生活挑战",
+        "location": "北京天坛公园/虚拟数字空间/手机终端/数字化社交媒体终端/室内场所/移动设备屏幕内",
+        "photo_count": 10,
+        "description": "照片一：天坛祈年殿局部，前景有柏树枝叶。照片二：支付宝芝麻分集分活动页面，目标2026分，【主角】638分。照片三：抖音App界面，显示@糕冷猪佩琪的短视频。照片四：手机屏幕，豆包AI聊天界面，讨论网暴、信息泄露。照片五：豆包AI搜索微信自动退出问题。照片六：手机屏幕，美团外卖订单，收货人陈美伊，地址中山首府。照片七：手机屏幕，网易云音乐“2025年度音乐四格”，用户_小陈。照片八：和平精英游戏结算界面，小天使仙蒂qe夺冠。照片九：和平精英游戏虚拟场景，小天使仙蒂qe与摩天轮城堡。照片十：和平精英游戏颁奖仪式。画面为仰视、截屏、俯拍等多种视角。",
+        "participants": [
+          "Person_002",
+          "Person_015",
+          "Person_017",
+          "Person_019",
+          "Person_020",
+          "Person_001",
+          "Person_003"
+        ],
+        "narrative_synthesis": "",
+        "social_dynamics": []
+      }
+    ],
+    "trend_detail": {},
+    "co_appearing_persons": [],
+    "anomalies": [],
+    "evidence_refs": [
+      {
+        "source_type": "photo",
+        "source_id": "photo_102",
+        "signal": "2026-03-11 12:13，【主角】正处于手机终端操作界面，正在对手机屏幕中的影视剧片段进行截屏分享操作。",
+        "why": "co_photo_for_Person_019"
+      },
+      {
+        "source_type": "event",
+        "source_id": "EVT_031",
+        "signal": "文化熏陶与数字生活挑战",
+        "why": "shared_event_for_Person_019"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "photo_count",
+        "signal": "1",
+        "why": "relationship_frequency"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "monthly_frequency",
+        "signal": "1.0",
+        "why": "relationship_frequency"
+      }
+    ],
+    "block_reasons": [],
+    "retention_decision": "suppress",
+    "retention_reason": "single_photo_without_strong_signal",
+    "group_eligible": false,
+    "group_block_reason": "retention=suppress",
+    "group_weight": 0.0,
+    "relationship_result": {
+      "relationship_type": "acquaintance",
+      "status": "new",
+      "confidence": 0.25,
+      "reasoning": "关键事件 EVT_031；共现 1 张，覆盖 1 类场景，月均 1.0 次，判为 acquaintance。"
+    },
+    "relationship_reflection": {
+      "triggered": false,
+      "issues": [],
+      "action": "keep",
+      "source": "llm"
+    }
+  },
+  {
+    "person_id": "Person_020",
+    "person_kind": "real_person",
+    "memory_value": "candidate",
+    "photo_count": 2,
+    "time_span_days": 1,
+    "recent_gap_days": 0,
+    "monthly_frequency": 2.0,
+    "scene_profile": {
+      "scenes": [
+        "《和平精英》游戏内海岛地图结算画面",
+        "《和平精英》游戏内虚拟社交区域（冰雪嘉年华主题场景）"
+      ],
+      "private_scene_ratio": 0.0,
+      "dominant_scene_ratio": 0.5,
+      "with_user_only": true
+    },
+    "interaction_signals": [
+      "no_contact",
+      "no_contact"
+    ],
+    "shared_events": [
+      {
+        "event_id": "EVT_031",
+        "date": "2026-03-11",
+        "title": "文化熏陶与数字生活挑战",
+        "location": "北京天坛公园/虚拟数字空间/手机终端/数字化社交媒体终端/室内场所/移动设备屏幕内",
+        "photo_count": 10,
+        "description": "照片一：天坛祈年殿局部，前景有柏树枝叶。照片二：支付宝芝麻分集分活动页面，目标2026分，【主角】638分。照片三：抖音App界面，显示@糕冷猪佩琪的短视频。照片四：手机屏幕，豆包AI聊天界面，讨论网暴、信息泄露。照片五：豆包AI搜索微信自动退出问题。照片六：手机屏幕，美团外卖订单，收货人陈美伊，地址中山首府。照片七：手机屏幕，网易云音乐“2025年度音乐四格”，用户_小陈。照片八：和平精英游戏结算界面，小天使仙蒂qe夺冠。照片九：和平精英游戏虚拟场景，小天使仙蒂qe与摩天轮城堡。照片十：和平精英游戏颁奖仪式。画面为仰视、截屏、俯拍等多种视角。",
+        "participants": [
+          "Person_002",
+          "Person_015",
+          "Person_017",
+          "Person_019",
+          "Person_020",
+          "Person_001",
+          "Person_003"
+        ],
+        "narrative_synthesis": "",
+        "social_dynamics": []
+      }
+    ],
+    "trend_detail": {},
+    "co_appearing_persons": [],
+    "anomalies": [],
+    "evidence_refs": [
+      {
+        "source_type": "photo",
+        "source_id": "photo_110",
+        "signal": "2026年3月11日12:13，【主角】在《和平精英》游戏结算界面记录下Person_020夺冠后的庆祝瞬间。",
+        "why": "co_photo_for_Person_020"
+      },
+      {
+        "source_type": "photo",
+        "source_id": "photo_129",
+        "signal": "2026-03-11 12:13，【主角】在《和平精英》游戏虚拟场景中，记录了Person_020在雪地主题城堡前的留影画面。",
+        "why": "co_photo_for_Person_020"
+      },
+      {
+        "source_type": "event",
+        "source_id": "EVT_031",
+        "signal": "文化熏陶与数字生活挑战",
+        "why": "shared_event_for_Person_020"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "photo_count",
+        "signal": "2",
+        "why": "relationship_frequency"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "monthly_frequency",
+        "signal": "2.0",
+        "why": "relationship_frequency"
+      }
+    ],
+    "block_reasons": [],
+    "retention_decision": "suppress",
+    "retention_reason": "low_confidence_low_signal_relationship",
+    "group_eligible": false,
+    "group_block_reason": "retention=suppress",
+    "group_weight": 0.0,
+    "relationship_result": {
+      "relationship_type": "activity_buddy",
+      "status": "new",
+      "confidence": 0.4,
+      "reasoning": "关键事件 EVT_031；共现 2 张，覆盖 2 类场景，月均 2.0 次，判为 activity_buddy。"
+    },
+    "relationship_reflection": {
+      "triggered": false,
+      "issues": [],
+      "action": "keep",
+      "source": "llm"
+    }
+  },
+  {
+    "person_id": "Person_021",
+    "person_kind": "real_person",
+    "memory_value": "candidate",
+    "photo_count": 1,
+    "time_span_days": 1,
+    "recent_gap_days": 0,
+    "monthly_frequency": 1.0,
+    "scene_profile": {
+      "scenes": [
+        "服装加工车间"
+      ],
+      "private_scene_ratio": 0.0,
+      "dominant_scene_ratio": 1.0,
+      "with_user_only": true
+    },
+    "interaction_signals": [
+      "no_contact"
+    ],
+    "shared_events": [
+      {
+        "event_id": "EVT_036",
+        "date": "2026-03-11",
+        "title": "职业探索与时尚穿搭",
+        "location": "服装加工车间/私人卧室/疑似摄影棚或特定风格主题馆",
+        "photo_count": 3,
+        "description": "照片一：服装加工车间，Person_021身穿同款米色和黑色针织长裙，并排展示。照片二：【主角】（Person_001）在卧室镜前自拍，穿黑色长袖连衣裙、珍珠细腰带、白色毛绒护腿套，旁边有行李箱。照片三：手机微信聊天界面，与“时间的日记本”讨论试岗，背景是Person_001（穿蓝色礼服裙）的背影。画面包含中景和自拍。",
+        "participants": [
+          "Person_002",
+          "Person_021",
+          "Person_001"
+        ],
+        "narrative_synthesis": "",
+        "social_dynamics": []
+      }
+    ],
+    "trend_detail": {},
+    "co_appearing_persons": [],
+    "anomalies": [],
+    "evidence_refs": [
+      {
+        "source_type": "photo",
+        "source_id": "photo_112",
+        "signal": "2026年3月11日12:13时，【主角】在疑似服装生产加工车间环境中，通过拍摄呈现了同一名女性（Person_021）身着同款不同色系针织长裙的并排展示对比图，画面处于产品样衣试穿或展示流程中。",
+        "why": "co_photo_for_Person_021"
+      },
+      {
+        "source_type": "event",
+        "source_id": "EVT_036",
+        "signal": "职业探索与时尚穿搭",
+        "why": "shared_event_for_Person_021"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "photo_count",
+        "signal": "1",
+        "why": "relationship_frequency"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "monthly_frequency",
+        "signal": "1.0",
+        "why": "relationship_frequency"
+      }
+    ],
+    "block_reasons": [],
+    "retention_decision": "suppress",
+    "retention_reason": "single_photo_without_strong_signal",
+    "group_eligible": false,
+    "group_block_reason": "retention=suppress",
+    "group_weight": 0.0,
+    "relationship_result": {
+      "relationship_type": "acquaintance",
+      "status": "new",
+      "confidence": 0.2,
+      "reasoning": "关键事件 EVT_036；共现 1 张，覆盖 1 类场景，月均 1.0 次，判为 acquaintance。"
+    },
+    "relationship_reflection": {
+      "triggered": false,
+      "issues": [],
+      "action": "keep",
+      "source": "llm"
+    }
+  },
+  {
+    "person_id": "Person_022",
+    "person_kind": "real_person",
+    "memory_value": "candidate",
+    "photo_count": 1,
+    "time_span_days": 1,
+    "recent_gap_days": 0,
+    "monthly_frequency": 1.0,
+    "scene_profile": {
+      "scenes": [
+        "室内拍摄空间（可能是工作室或试衣间）"
+      ],
+      "private_scene_ratio": 0.0,
+      "dominant_scene_ratio": 1.0,
+      "with_user_only": true
+    },
+    "interaction_signals": [
+      "no_contact"
+    ],
+    "shared_events": [
+      {
+        "event_id": "EVT_037",
+        "date": "2026-03-11",
+        "title": "时尚与传统艺术品鉴",
+        "location": "室内拍摄空间/室内书房或展示空间/具有中式审美风格的室内空间",
+        "photo_count": 3,
+        "description": "照片一：Person_022身穿黑色蕾丝拼接裙，双手向两侧舒展，背景是极简主义墙面。照片二：红木桌面上平铺着蓝色丝绸织锦，图案有仙鹤、牡丹。照片三：案桌上摆放中式传统刺绣屏风，主题是青绿山水，背景有竹叶。画面包含中景和俯拍。",
+        "participants": [
+          "Person_002",
+          "Person_022"
+        ],
+        "narrative_synthesis": "",
+        "social_dynamics": []
+      }
+    ],
+    "trend_detail": {},
+    "co_appearing_persons": [],
+    "anomalies": [],
+    "evidence_refs": [
+      {
+        "source_type": "photo",
+        "source_id": "photo_114",
+        "signal": "2026年3月11日12:13，在一处光线柔和的室内环境中，【主角】拍摄了Person_022身着黑色蕾丝拼接裙进行肢体展示的动态瞬间。",
+        "why": "co_photo_for_Person_022"
+      },
+      {
+        "source_type": "event",
+        "source_id": "EVT_037",
+        "signal": "时尚与传统艺术品鉴",
+        "why": "shared_event_for_Person_022"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "photo_count",
+        "signal": "1",
+        "why": "relationship_frequency"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "monthly_frequency",
+        "signal": "1.0",
+        "why": "relationship_frequency"
+      }
+    ],
+    "block_reasons": [],
+    "retention_decision": "suppress",
+    "retention_reason": "single_photo_without_strong_signal",
+    "group_eligible": false,
+    "group_block_reason": "retention=suppress",
+    "group_weight": 0.0,
+    "relationship_result": {
+      "relationship_type": "acquaintance",
+      "status": "new",
+      "confidence": 0.2,
+      "reasoning": "关键事件 EVT_037；共现 1 张，覆盖 1 类场景，月均 1.0 次，判为 acquaintance。"
+    },
+    "relationship_reflection": {
+      "triggered": false,
+      "issues": [],
+      "action": "keep",
+      "source": "llm"
+    }
+  },
+  {
+    "person_id": "Person_023",
+    "person_kind": "real_person",
+    "memory_value": "candidate",
+    "photo_count": 1,
+    "time_span_days": 1,
+    "recent_gap_days": 0,
+    "monthly_frequency": 1.0,
+    "scene_profile": {
+      "scenes": [
+        "室内拍摄空间（居家或摄影棚）"
+      ],
+      "private_scene_ratio": 1.0,
+      "dominant_scene_ratio": 1.0,
+      "with_user_only": true
+    },
+    "interaction_signals": [
+      "no_contact"
+    ],
+    "shared_events": [
+      {
+        "event_id": "EVT_038",
+        "date": "2026-03-11",
+        "title": "可爱表达与健康实况",
+        "location": "虚拟数字空间/插画场景/室内拍摄空间/居家或摄影棚/室内近景自拍区/数字屏幕/社交媒体界面/家庭住所或室内医疗护理区",
+        "photo_count": 5,
+        "description": "照片一：数字插画，卡通熊手持心形卡片，配爱意符号。照片二：Person_023穿萝莉风格服装，戴眼镜，手捧黑色卡通猫咪挂饰。照片三：【主角】（Person_001）戴眼镜，穿波点吊带，手持黑色Kitty挂件遮挡口鼻自拍。照片四：数字插画，Hello Kitty拿着披萨，水印“今天披萨了吗”。照片五：连花清瘟胶囊药盒特写。画面包含数字内容、近摄和自拍。",
+        "participants": [
+          "Person_002",
+          "Person_023",
+          "Person_001"
+        ],
+        "narrative_synthesis": "",
+        "social_dynamics": []
+      }
+    ],
+    "trend_detail": {},
+    "co_appearing_persons": [],
+    "anomalies": [],
+    "evidence_refs": [
+      {
+        "source_type": "photo",
+        "source_id": "photo_122",
+        "signal": "2026年3月11日中午12:13，在一处光线明亮的室内空间中，【主角】正近距离拍摄Person_023手持黑色卡通猫咪挂饰的特写肖像，画面聚焦于人物面部特征与装饰风格。",
+        "why": "co_photo_for_Person_023"
+      },
+      {
+        "source_type": "event",
+        "source_id": "EVT_038",
+        "signal": "可爱表达与健康实况",
+        "why": "shared_event_for_Person_023"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "photo_count",
+        "signal": "1",
+        "why": "relationship_frequency"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "monthly_frequency",
+        "signal": "1.0",
+        "why": "relationship_frequency"
+      }
+    ],
+    "block_reasons": [],
+    "retention_decision": "suppress",
+    "retention_reason": "single_photo_without_strong_signal",
+    "group_eligible": false,
+    "group_block_reason": "retention=suppress",
+    "group_weight": 0.0,
+    "relationship_result": {
+      "relationship_type": "acquaintance",
+      "status": "new",
+      "confidence": 0.25,
+      "reasoning": "关键事件 EVT_038；共现 1 张，覆盖 1 类场景，月均 1.0 次，判为 acquaintance。"
+    },
+    "relationship_reflection": {
+      "triggered": false,
+      "issues": [],
+      "action": "keep",
+      "source": "llm"
+    }
+  },
+  {
+    "person_id": "Person_024",
+    "person_kind": "real_person",
+    "memory_value": "candidate",
+    "photo_count": 1,
+    "time_span_days": 1,
+    "recent_gap_days": 0,
+    "monthly_frequency": 1.0,
+    "scene_profile": {
+      "scenes": [
+        "数字化社交媒体界面（网易云音乐App）"
+      ],
+      "private_scene_ratio": 0.0,
+      "dominant_scene_ratio": 1.0,
+      "with_user_only": true
+    },
+    "interaction_signals": [
+      "Person_024 作为视觉元素嵌入 2025年度音乐四格报告",
+      "no_contact"
+    ],
+    "shared_events": [],
+    "trend_detail": {},
+    "co_appearing_persons": [],
+    "anomalies": [],
+    "evidence_refs": [
+      {
+        "source_type": "photo",
+        "source_id": "photo_128",
+        "signal": "2026年3月11日12:13，【主角】正在通过手机查看并截屏其个人网易云音乐“2025年度音乐四格”报告界面。",
+        "why": "co_photo_for_Person_024"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "photo_count",
+        "signal": "1",
+        "why": "relationship_frequency"
+      },
+      {
+        "source_type": "feature",
+        "source_id": "monthly_frequency",
+        "signal": "1.0",
+        "why": "relationship_frequency"
+      }
+    ],
+    "block_reasons": [],
+    "retention_decision": "suppress",
+    "retention_reason": "screen_or_virtual_context",
+    "group_eligible": false,
+    "group_block_reason": "retention=suppress",
+    "group_weight": 0.0,
+    "relationship_result": {
+      "relationship_type": "acquaintance",
+      "status": "new",
+      "confidence": 0.2,
+      "reasoning": "共现 1 张，覆盖 1 类场景，月均 1.0 次，判为 acquaintance。"
+    },
+    "relationship_reflection": {
+      "triggered": false,
+      "issues": [],
+      "action": "keep",
+      "source": "llm"
+    }
+  }
+]

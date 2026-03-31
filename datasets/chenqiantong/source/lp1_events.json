@@ -1,0 +1,4776 @@
+{
+  "metadata": {
+    "generated_at": "2026-03-19T13:00:16.972739",
+    "version": "2.0",
+    "total_events": 90,
+    "total_relationships": 4,
+    "models": {
+      "vlm": "gemini-2.5-flash",
+      "llm": "gemini-2.5-flash",
+      "face": "InsightFace/buffalo_l"
+    }
+  },
+  "events": [
+    {
+      "event_id": "EVT_001",
+      "date": "2025-09-11",
+      "time_range": "15:18 - 15:18",
+      "duration": "",
+      "title": "记录秋季荷塘",
+      "type": "其他",
+      "participants": [],
+      "location": "都市户外",
+      "description": "大面积密集生长的荷叶群，颜色从深绿色、黄绿色至黄褐色自然过渡，部分荷叶表面附着细微水珠，水面在荷叶间隙处呈深黑色。光线均匀，无明显阴影，暗示为阴天或柔和的散射光条件。画面中未检测到任何人类活动痕迹或人工建筑结构。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "观察力敏锐",
+          "热爱自然",
+          "独处倾向"
+        ],
+        "aesthetic": [
+          "偏爱自然风光",
+          "注重细节纹理",
+          "对色彩过渡敏感"
+        ],
+        "socioeconomic": []
+      }
+    },
+    {
+      "event_id": "EVT_002",
+      "date": "2025-09-17",
+      "time_range": "18:54 - 18:54",
+      "duration": "",
+      "title": "记录学院招新面试",
+      "type": "其他",
+      "participants": [
+        "Person_001",
+        "Person_002",
+        "Person_003",
+        "Person_004",
+        "Person_005",
+        "Person_007",
+        "Invisible Photographer (User: Person_006)"
+      ],
+      "location": "职业办公/学习场所",
+      "description": "室内教室或会议室，米白色墙壁，模块化吊顶，浅蓝色塑胶地板。正面有两块大尺寸显示屏，显示“招新面试”和“传播与艺术学院团委”字样及日期2025-09-17。三位学生（Person_001, Person_002, Person_003）面向观众席站立，另有学生（Person_004, Person_005, Person_007）操作笔记本电脑。画面视角为他拍，用户（Person_006）不在画面中但为拍摄者，存在隐形成员。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "参与社团活动",
+          "关注集体事务",
+          "记录欲"
+        ],
+        "aesthetic": [
+          "照片构图有序"
+        ],
+        "socioeconomic": [
+          "学生身份"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_003",
+      "date": "2025-09-19",
+      "time_range": "22:42 - 22:42",
+      "duration": "",
+      "title": "夜访宠物店",
+      "type": "其他",
+      "participants": [
+        "User (Person_006)"
+      ],
+      "location": "商业消费",
+      "description": "室内宠物店，【主角】从略高的视角观察并拍摄一个蓝色金属笼中的两只白色长毛猫，其中一只异瞳猫正凝视镜头。背景模糊，呈现暖黄色调或昏暗光线。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "爱宠倾向",
+          "好奇心",
+          "独自活动"
+        ],
+        "aesthetic": [],
+        "socioeconomic": []
+      }
+    },
+    {
+      "event_id": "EVT_004",
+      "date": "2025-09-20",
+      "time_range": "20:55 - 20:56",
+      "duration": "",
+      "title": "雨后城市夜景通勤",
+      "type": "其他",
+      "participants": [
+        "User (Person_006)"
+      ],
+      "location": "都市户外",
+      "description": "雨后湿滑的城市高架桥下方多车道街道旁，驻足于一排黄色共享单车（哈啰、美团）旁，观察并捕捉高速行驶的黄色跑车和白色轿车在湿漉路面上的动态。高架桥柱及底部覆盖茂密深绿色攀援植物。多盏暖黄色光路灯悬挂于高架桥底部，光线反射在湿滑柏油路面上。部分照片显示哈啰共享电动车停放。",
+      "photo_count": 5,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "观察力敏锐",
+          "善于捕捉瞬间",
+          "独处倾向",
+          "记录欲"
+        ],
+        "aesthetic": [
+          "偏爱城市景观",
+          "对光影敏感",
+          "喜爱纪实摄影"
+        ],
+        "socioeconomic": [
+          "城市居民",
+          "可能使用共享出行工具"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_005",
+      "date": "2025-09-24",
+      "time_range": "10:28 - 10:28",
+      "duration": "",
+      "title": "公园漫步友人特写",
+      "type": "其他",
+      "participants": [
+        "Person_004",
+        "Invisible Photographer (User: Person_006)"
+      ],
+      "location": "都市户外",
+      "description": "郁郁葱葱的户外公园小径，Person_004在树荫下沿铺设路面行走并低头专注操作手机。Person_004佩戴方形黑框眼镜，穿深灰色T恤，左手腕佩戴黑色数字显示腕表。阳光透过树木冠层洒落，形成斑驳树影。视角为他拍，用户（Person_006）为隐形拍摄者。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "喜爱户外活动",
+          "重视社交互动",
+          "记录朋友日常",
+          "分享欲"
+        ],
+        "aesthetic": [
+          "捕捉自然光影"
+        ],
+        "socioeconomic": []
+      }
+    },
+    {
+      "event_id": "EVT_006",
+      "date": "2025-09-25",
+      "time_range": "08:51 - 08:51",
+      "duration": "",
+      "title": "光绘摄影实验",
+      "type": "其他",
+      "participants": [
+        "Person_005",
+        "User (Person_006)"
+      ],
+      "location": "艺术创作/学习场所",
+      "description": "室内工作室或多功能室，白色墙壁，深色木纹地板。Person_005（女性，20-25岁）手持光绘工具，在镜头前配合拍摄，形成U形光轨。Person_005佩戴圆形金属框眼镜，下牙弓可见正畸托槽，面带愉快笑容直视镜头。背景有大型投影幕布播放彩色抽象图案和摄影灯架。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "对艺术创作有热情",
+          "实验精神",
+          "积极社交"
+        ],
+        "aesthetic": [
+          "追求独特视觉效果",
+          "对光影艺术感兴趣"
+        ],
+        "socioeconomic": []
+      }
+    },
+    {
+      "event_id": "EVT_007",
+      "date": "2025-09-25",
+      "time_range": "13:03 - 13:04",
+      "duration": "",
+      "title": "个人形象特写自拍",
+      "type": "其他",
+      "participants": [
+        "User (Person_006)"
+      ],
+      "location": "私密居家",
+      "description": "【主角】（Person_006）在室内个人空间进行面部特写自拍。她佩戴薰衣草灰色或紫灰色美瞳，睫毛纤长浓密，唇部涂有蜜桃色高光唇釉。颈部佩戴施华洛世奇黑天鹅造型或其他黑色多面切割吊坠的金色细链项链。身着黑色紧密针织高领衫，绿色衣物上印有黄色弧形图案。背景模糊，可见书架或置物架。",
+      "photo_count": 3,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "注重个人形象",
+          "自我展示欲",
+          "记录欲",
+          "独处倾向"
+        ],
+        "aesthetic": [
+          "精致妆容",
+          "时尚饰品偏好",
+          "偏爱特写构图"
+        ],
+        "socioeconomic": [
+          "中高档消费倾向 (Swarovski)",
+          "注重生活品质"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_008",
+      "date": "2025-09-29",
+      "time_range": "18:04 - 18:04",
+      "duration": "",
+      "title": "查询包裹物流状态",
+      "type": "其他",
+      "participants": [
+        "User (Person_006)"
+      ],
+      "location": "私密居家/职业办公",
+      "description": "【主角】单手握持智能手机，屏幕清晰显示圆通速递包裹YT8799598238162的详细信息，状态为“待出库·滞留1天”（红色字体）。界面还显示包裹日志、收件人信息、虚拟号入库及出库操作选项。手机包裹透明TPU保护壳。背景均一深黑色。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "事务性强",
+          "注重效率",
+          "独立处理问题"
+        ],
+        "aesthetic": [],
+        "socioeconomic": [
+          "经常进行线上购物",
+          "有物流管理需求"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_009",
+      "date": "2025-09-30",
+      "time_range": "20:21 - 20:21",
+      "duration": "",
+      "title": "夜拍科创中心",
+      "type": "其他",
+      "participants": [
+        "User (Person_006)"
+      ],
+      "location": "职业办公/公共街区",
+      "description": "漆黑夜空下的科创中心大楼外部广场，仰视主入口。建筑立面由深色条纹预制板和反光玻璃窗组成，入口上方有红色LED发光字“科创中心”招牌。广场地面铺设浅灰色与深灰色相间地砖，设有绿化带种植阔叶植物和玫瑰花。建筑内部透出冷白色灯光。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "独处倾向",
+          "观察力",
+          "记录欲"
+        ],
+        "aesthetic": [
+          "欣赏现代建筑",
+          "捕捉城市夜景"
+        ],
+        "socioeconomic": [
+          "可能与科技或创新领域相关（工作/学习）"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_010",
+      "date": "2025-09-30",
+      "time_range": "20:24 - 20:24",
+      "duration": "",
+      "title": "超市购物记录",
+      "type": "其他",
+      "participants": [
+        "User (Person_006)"
+      ],
+      "location": "商业消费",
+      "description": "室内商业空间，红色无纺布购物袋放置于灰色方格地砖上，袋中装有味都居鸡仔饼和另一盒橙色包装的休闲食品，背景区域可见百事可乐商品。画面左上角可见一只白色休闲运动鞋和一截薄荷绿色布料（裤装或裙装）。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "日常消费",
+          "独处倾向"
+        ],
+        "aesthetic": [],
+        "socioeconomic": [
+          "偏好休闲零食"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_011",
+      "date": "2025-09-30",
+      "time_range": "22:24 - 22:24",
+      "duration": "",
+      "title": "夜间人脸识别通行",
+      "type": "其他",
+      "participants": [
+        "User (Person_006)"
+      ],
+      "location": "公共/工作场所",
+      "description": "夜间户外建筑入口处，【主角】（Person_006）的脸部影像正在通过一台面部识别设备进行认证，屏幕显示姓名“陈芋彤”，识别时间“22:24:03”，提示语“欢迎光临，请通行”。设备本身为黑色边框的矩形显示屏，固定在银色拉丝不锈钢圆柱形支架上。背景昏暗，可见球状路灯和红棕色墙体。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "注重安全/科技",
+          "夜间活动"
+        ],
+        "aesthetic": [],
+        "socioeconomic": [
+          "可能居住或工作于需要门禁认证的场所",
+          "具有“陈芋彤”身份"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_012",
+      "date": "2025-10-04",
+      "time_range": "19:52 - 21:56",
+      "duration": "",
+      "title": "朋友生日聚会",
+      "type": "其他",
+      "participants": [
+        "User (Person_006)",
+        "Person_007",
+        "Person_008",
+        "Person_009",
+        "Person_010",
+        "Invisible Photographer"
+      ],
+      "location": "餐饮场所/休闲娱乐/都市户外",
+      "description": "在室内商业空间（咖啡馆/餐厅）和室外草坪/花园区域。用户（Person_006）与Person_007、Person_008、Person_009、Person_010共同庆祝。Person_006与Person_007紧密自拍，表情愉悦；Person_006为生日蛋糕点燃蜡烛并手持蛋糕自拍，蛋糕上饰有“Happy Birthday”字样、卡通动物和“miLan米兰西饼”品牌信息；Person_008手持戒指特写；Person_009展示皇冠钻戒。晚间有户外自拍，背景有绿色植被和建筑。Person_006穿着黄色衬衫/T恤、黑色珠串项链，Person_007红色T恤，Person_008红色上衣。部分照片为他拍。",
+      "photo_count": 11,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "重视朋友情谊",
+          "乐于社交",
+          "热爱生活",
+          "积极庆祝",
+          "自拍欲强"
+        ],
+        "aesthetic": [
+          "注重仪式感",
+          "喜爱个性化服饰（如Out the Blue T恤）",
+          "对饰品有偏好"
+        ],
+        "socioeconomic": [
+          "中档消费 (米兰西饼)",
+          "享受休闲生活"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_013",
+      "date": "2025-10-05",
+      "time_range": "17:52 - 17:52",
+      "duration": "",
+      "title": "记录婴儿午睡",
+      "type": "其他",
+      "participants": [
+        "Person_001 (Baby)",
+        "User (Person_006)"
+      ],
+      "location": "私密居家",
+      "description": "室内空间，【主角】从极近距离拍摄一位熟睡中的婴儿（Person_001，3-9个月）。婴儿头部佩戴奶油色针织发带，身体穿着浅蜜桃粉色针织开衫，衣物表面有竖向罗纹与小型镂空图案，右肩有立体花朵装饰。背景模糊为深蓝色布料。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "有爱心",
+          "温柔",
+          "关注家庭生活",
+          "记录欲"
+        ],
+        "aesthetic": [
+          "偏爱柔和色调",
+          "注重细节"
+        ],
+        "socioeconomic": [
+          "有育儿责任"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_014",
+      "date": "2025-10-09",
+      "time_range": "10:23 - 10:23",
+      "duration": "",
+      "title": "自然微距摄影",
+      "type": "其他",
+      "participants": [
+        "User (Person_006)"
+      ],
+      "location": "都市户外",
+      "description": "室外园景中，特写一朵表面覆盖密集水珠的浅粉色花朵。花瓣外缘乳白色，向中心渐变为浅粉色。背景为高度模糊的细长绿色草本植物和深色土壤。画面右上方花瓣上附着一条棕色细长昆虫状物体。光线为散射自然光。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "观察力敏锐",
+          "专注",
+          "独处倾向",
+          "热爱自然",
+          "对微观细节有兴趣"
+        ],
+        "aesthetic": [
+          "偏爱自然美",
+          "注重色彩和纹理"
+        ],
+        "socioeconomic": []
+      }
+    },
+    {
+      "event_id": "EVT_015",
+      "date": "2025-10-16",
+      "time_range": "09:48 - 09:50",
+      "duration": "",
+      "title": "咖啡馆朋友合影",
+      "type": "其他",
+      "participants": [
+        "User (Person_006)",
+        "Person_011",
+        "Invisible Photographer (possibly self-timer or another friend)"
+      ],
+      "location": "餐饮场所/休闲娱乐",
+      "description": "室内咖啡馆，【主角】（Person_006）与Person_011紧密站立合影。Person_006穿酒红色T恤、做旧浅灰色牛仔夹克，佩戴细银色海豚吊坠项链；Person_011穿浅灰色细罗纹针织长袖上衣。两人面带微笑。背景是模糊的白色手写字体玻璃表面和红棕色砖墙。另一张照片显示Person_006独自站立，视线平静地注视镜头外某处，牛仔外套和红色T恤。环境光线柔和，有景深虚化效果。",
+      "photo_count": 2,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "乐于社交",
+          "重视朋友情谊",
+          "分享欲",
+          "善于捕捉瞬间"
+        ],
+        "aesthetic": [
+          "休闲穿搭风格",
+          "喜爱创意摄影（利用玻璃反光）"
+        ],
+        "socioeconomic": [
+          "享受休闲消费"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_016",
+      "date": "2025-10-20",
+      "time_range": "12:30 - 12:30",
+      "duration": "",
+      "title": "电影宣传单页审阅",
+      "type": "其他",
+      "participants": [
+        "User (Person_006)"
+      ],
+      "location": "私密居家/职业办公",
+      "description": "室内环境，【主角】（Person_006）右手拇指按住一张电影宣传单页的左上角，食指和中指从下方支撑。单页主标题为繁体中文“合家有戲”，副标题英文“A Film by WEI SHI...”，上映日期“10月25日 全球献映”。单页设计背景为放射状彩色线条与六位风格各异的人物肖像。背景为纯白色平面。用户右手涂有深勃艮第红色高光泽指甲油。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "关注电影文化",
+          "有信息记录习惯",
+          "独立思考"
+        ],
+        "aesthetic": [
+          "个人时尚品味（指甲油颜色）"
+        ],
+        "socioeconomic": []
+      }
+    },
+    {
+      "event_id": "EVT_017",
+      "date": "2025-10-23",
+      "time_range": "11:31 - 11:31",
+      "duration": "",
+      "title": "办公/学习间隙肖像",
+      "type": "其他",
+      "participants": [
+        "User (Person_006)",
+        "Invisible Photographer"
+      ],
+      "location": "职业办公/学习场所",
+      "description": "室内办公或学习环境，【主角】（Person_006）双臂交叉于胸前，仰头直视上方镜头。她佩戴深棕色玳瑁纹全框眼镜，身穿芥末黄色绗缝羽绒服和灰色粗针织圆领毛衣，戴细银色项链。背景为浅蓝色桌面或隔板，可见白色柜体边缘。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "随和",
+          "开放",
+          "工作/学习状态放松"
+        ],
+        "aesthetic": [
+          "注重眼镜搭配",
+          "喜爱休闲舒适穿搭（羽绒服）"
+        ],
+        "socioeconomic": [
+          "学生/职场人士"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_018",
+      "date": "2025-10-24",
+      "time_range": "18:18 - 18:18",
+      "duration": "",
+      "title": "室内公共空间自拍",
+      "type": "其他",
+      "participants": [
+        "User (Person_006)"
+      ],
+      "location": "餐饮场所/休闲娱乐",
+      "description": "室内公共空间，【主角】（Person_006）持设备进行近距离自拍，镜头直视前方。她身穿深灰色抓绒连帽卫衣和深灰色粗纺外套，右肩至胸前可见一条金色的环扣链条。背景模糊，显示多个暖色调非聚焦光源。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "自我展示欲",
+          "记录欲",
+          "独处倾向"
+        ],
+        "aesthetic": [
+          "休闲保暖穿搭",
+          "注重饰品搭配"
+        ],
+        "socioeconomic": []
+      }
+    },
+    {
+      "event_id": "EVT_019",
+      "date": "2025-10-24",
+      "time_range": "19:59 - 19:59",
+      "duration": "",
+      "title": "日式料理晚餐",
+      "type": "其他",
+      "participants": [
+        "User (Person_006)",
+        "Invisible Companion"
+      ],
+      "location": "餐饮场所",
+      "description": "日式餐厅室内，【主角】正准备享用一顿包含牛肉饭、寿司、沙拉及其他小吃的丰盛晚餐。木质桌面摆放牛肉饭碗、沙拉盘、木质寿司盒（内含四份寿司）、黑色小碗（盛毛豆）、灰蓝色三角小碗（盛明太子状配料）。背景米黄色墙面张贴有深色日文书法海报（如“林”、“一滴”、“世界上也有名的日本酒”）。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "乐于社交",
+          "分享欲",
+          "享受美食"
+        ],
+        "aesthetic": [
+          "对日式料理有兴趣",
+          "注重美食摆盘"
+        ],
+        "socioeconomic": [
+          "中高档消费倾向 (日式料理)",
+          "享受生活"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_020",
+      "date": "2025-10-26",
+      "time_range": "14:34 - 15:08",
+      "duration": "",
+      "title": "教室小憩与友人嬉闹",
+      "type": "其他",
+      "participants": [
+        "Person_018",
+        "Person_019",
+        "Unnamed_Student_A",
+        "Unnamed_Student_B",
+        "User (Person_006)",
+        "Invisible Photographer"
+      ],
+      "location": "学习场所",
+      "description": "室内教室或学习空间，【主角】以近距离低视角拍摄了Person_018，其头部枕于浅蓝色桌面，双眼紧闭，左臂微抬，处于休息或熟睡状态。Person_018佩戴黑色细框金属眼镜，穿灰色麻花纹理卫衣和白色针织臂套。背景可见多名同学。另一张照片中，Person_019面带灿烂笑容直视镜头，吹出半透明口香糖气泡，她戴奶白色头巾、芥末黄羽绒夹克，手持智能手机。白色墙壁，浅蓝色学习桌。",
+      "photo_count": 2,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "关注校园生活",
+          "乐于社交",
+          "记录欲",
+          "对朋友观察入微"
+        ],
+        "aesthetic": [
+          "捕捉生动瞬间"
+        ],
+        "socioeconomic": [
+          "学生身份"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_021",
+      "date": "2025-10-26",
+      "time_range": "17:34 - 17:34",
+      "duration": "",
+      "title": "街边幼猫奇遇",
+      "type": "其他",
+      "participants": [
+        "User (Person_006)"
+      ],
+      "location": "都市户外",
+      "description": "户外绿化带旁，【主角】观察并拍摄一只黑白相间的幼猫，它正半隐藏于茂密的草丛深处。幼猫警觉地望向镜头，体型幼小。背景模糊的橙红色墙面。光线为均匀的自然散射光，符合黄昏前的特点。",
+      "photo_count": 2,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "爱心",
+          "观察力敏锐",
+          "独处倾向",
+          "热爱动物",
+          "记录欲"
+        ],
+        "aesthetic": [
+          "捕捉自然生灵"
+        ],
+        "socioeconomic": []
+      }
+    },
+    {
+      "event_id": "EVT_022",
+      "date": "2025-10-30",
+      "time_range": "09:40 - 09:46",
+      "duration": "",
+      "title": "农贸市场市井百态",
+      "type": "其他",
+      "participants": [
+        "Person_020",
+        "Person_021",
+        "Person_022",
+        "Person_023",
+        "Person_024",
+        "Person_027",
+        "Person_026",
+        "User (Person_006)"
+      ],
+      "location": "商业消费",
+      "description": "室内农贸市场，【主角】拍摄了男性摊主Person_020佩戴黄色橡胶手套，专注地用菜刀切割生肉块，其外套有“Jack Wolfskin”Logo。另一男性摊主Person_022（约45-55岁，穿条纹毛衣）坐在水果摊位后抽烟休息，摊位摆放花生、香蕉、梨等，并有微信/支付宝支付牌。女性摊主Person_027（约25-35岁）手持金属夹在冷藏展示柜前操作，围裙上印有“海底捞调味料”Logo。女性摊主Person_026（约50-65岁）正在称重火锅底料，背景是“桥头火锅底料”招牌。另有女性摊主Person_021在肉铺背景中忙碌。市场内光线均匀，背景可见悬挂的生肉、甘蔗杆和模糊的证书/执照。",
+      "photo_count": 6,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "好奇心",
+          "观察力",
+          "记录欲",
+          "关注市井生活"
+        ],
+        "aesthetic": [],
+        "socioeconomic": [
+          "日常采购者",
+          "关注本地生活",
+          "可能喜爱火锅食材"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_023",
+      "date": "2025-10-30",
+      "time_range": "09:42 - 09:42",
+      "duration": "",
+      "title": "集市购物/整理",
+      "type": "其他",
+      "participants": [
+        "Person_025",
+        "User (Person_006)"
+      ],
+      "location": "商业消费",
+      "description": "室内集市或小商品店，【主角】记录Person_025（女性，50-65岁）专注地在琳琅满目的货架前挑选或整理商品。Person_025穿着深橄榄绿开衫、黑色卫衣和休闲裤，佩戴米色腰包和红白条纹腕带。货架上堆放着粉/绿色绒面居家服、蓝色PUMA帽子、袜子包装盒、深色手套等商品。光线昏暗。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "观察力",
+          "记录欲",
+          "关注日常消费"
+        ],
+        "aesthetic": [],
+        "socioeconomic": [
+          "日常购物者",
+          "可能为家庭采购"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_024",
+      "date": "2025-10-30",
+      "time_range": "09:42 - 09:42",
+      "duration": "",
+      "title": "记录小型犬",
+      "type": "其他",
+      "participants": [
+        "User (Person_006)"
+      ],
+      "location": "都市户外",
+      "description": "室外水泥地面上，【主角】从上方俯视并拍摄一只毛色为红棕色、头部有显著毛发纹理的小型犬，该犬正低头注视着地面。幼犬颈部佩戴黑色织物项圈。地面磨损，有龟裂纹和枯黄植物碎屑。自然日光照明。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "爱心",
+          "观察力敏锐",
+          "独处倾向",
+          "热爱动物",
+          "记录欲"
+        ],
+        "aesthetic": [],
+        "socioeconomic": []
+      }
+    },
+    {
+      "event_id": "EVT_025",
+      "date": "2025-11-08",
+      "time_range": "17:00 - 17:00",
+      "duration": "",
+      "title": "与爱猫的户外自拍",
+      "type": "其他",
+      "participants": [
+        "User (Person_006)",
+        "Grey Long-haired Cat"
+      ],
+      "location": "都市户外",
+      "description": "户外休闲区，【主角】（Person_006）怀抱一只灰色长毛猫，面带温柔微笑进行自拍。猫咪身体被紧密环抱并贴靠在【主角】胸前。Person_006穿着亮黄色羽绒服，领口有“gabbro”品牌标志。背景模糊，可见绿色植物和远处圆形光斑。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "爱心",
+          "热爱动物",
+          "享受生活",
+          "自拍欲"
+        ],
+        "aesthetic": [
+          "休闲保暖穿搭"
+        ],
+        "socioeconomic": []
+      }
+    },
+    {
+      "event_id": "EVT_026",
+      "date": "2025-11-09",
+      "time_range": "13:07 - 13:07",
+      "duration": "",
+      "title": "饮品店日常工作",
+      "type": "其他",
+      "participants": [
+        "Person_028",
+        "Unlabeled_Person_001",
+        "User (Person_006)"
+      ],
+      "location": "商业消费",
+      "description": "中式风格饮品店柜台后，【主角】拍摄Person_028（男性，25-35岁）专注于调制饮品或处理前台事务。Person_028穿深靛蓝色连帽卫衣。操作台上摆放着L'OCCITANE品牌洗手液、剪刀和蓝色擦拭布。背景有高悬的灯箱式菜单板（显示价格¥28, ¥58, ¥32）和堆叠的碗。右下方可见“VNN Beautiful Life”垃圾桶。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "观察力",
+          "记录欲",
+          "关注商业细节"
+        ],
+        "aesthetic": [],
+        "socioeconomic": [
+          "日常消费者",
+          "可能注重生活品质 (欧舒丹品牌)"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_027",
+      "date": "2025-11-09",
+      "time_range": "13:16 - 13:16",
+      "duration": "",
+      "title": "火焰砂锅特色料理",
+      "type": "其他",
+      "participants": [
+        "Person_001 (Adult Companion)",
+        "User (Person_006)"
+      ],
+      "location": "餐饮场所",
+      "description": "室内餐厅用餐区，【主角】拍摄一口正在明火加热并持续沸腾冒焰的砂锅料理。砂锅内乳白色汤汁沸腾，伴有明亮橘黄色火焰从锅沿上方腾起。光滑的浅棕色木质桌面摆放白色卡式炉、粗陶砂锅、透明玻璃杯（内含深红棕色液体）和白色电子设备（可能为呼叫器）。Person_001（成年人，双手）坐在餐桌旁。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "享受美食",
+          "追求新奇体验",
+          "乐于社交"
+        ],
+        "aesthetic": [
+          "注重用餐氛围",
+          "捕捉美食视觉效果"
+        ],
+        "socioeconomic": [
+          "注重生活情趣",
+          "可能消费特色餐饮"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_028",
+      "date": "2025-11-29",
+      "time_range": "17:32 - 22:00",
+      "duration": "",
+      "title": "农产品产销对接会签到",
+      "type": "其他",
+      "participants": [
+        "User (Person_006)"
+      ],
+      "location": "职业办公/公共会议场所",
+      "description": "彭州市云锦国际大厦室内活动签到处。【主角】（Person_006）身着黑色长款西装外套，内搭白色衬衫，系蓝白相间几何图案丝质领结，佩戴黑色细皮带配金色扣。背景为巨型浅蓝色调“中国农民丰收节2025”等主题活动展板，右侧有“THE YUNJIN HOTEL year-end party”宣传板。红色提花桌布上放置文件、钢笔和手机。照片水印信息有“彭州市·云锦国际大厦”、“今日水印相机真实可验防伪”，以及不同的拍摄时间（17:32和22:00）。",
+      "photo_count": 3,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "职业化",
+          "责任感",
+          "积极参与行业活动",
+          "注重个人形象"
+        ],
+        "aesthetic": [
+          "专业正式穿搭",
+          "注重细节（领结、皮带）"
+        ],
+        "socioeconomic": [
+          "职业人士",
+          "可能从事会展、农业、传媒相关工作",
+          "具有一定社会地位"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_029",
+      "date": "2025-12-19",
+      "time_range": "22:24 - 23:46",
+      "duration": "",
+      "title": "城市夜间时尚街拍与聚会",
+      "type": "其他",
+      "participants": [
+        "User (Person_006)",
+        "Person_029",
+        "Person_030",
+        "Person_031",
+        "Invisible Photographer"
+      ],
+      "location": "都市户外/餐饮场所/休闲娱乐",
+      "description": "夜晚城市河畔的户外步道和室内装饰典雅的酒吧/餐厅。用户（Person_006）身着黑色亮面羽绒背心、米白色镂空针织衫和迷彩裤，戴黑色珠串项链、十字架吊坠和银色戒指，在路灯与河岸灯火背景中进行肖像拍摄。部分照片有拍立得相纸效果。在室内酒吧，Person_006（穿着类似）与Person_029、Person_030、Person_031社交，背景有黄铜水晶吊灯和古典雕花立柱。Person_029侧身而坐，手持黑色条状物体。",
+      "photo_count": 9,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "乐于社交",
+          "自信",
+          "善于表达",
+          "记录欲强",
+          "享受夜生活"
+        ],
+        "aesthetic": [
+          "时尚穿搭（镂空毛衣、迷彩裤、十字架吊坠）",
+          "喜爱拍立得复古风格",
+          "注重氛围感",
+          "对城市夜景敏感"
+        ],
+        "socioeconomic": [
+          "中高档消费倾向 (酒吧)",
+          "注重生活品质"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_030",
+      "date": "2025-12-25",
+      "time_range": "22:30 - 19:18",
+      "duration": "",
+      "title": "圣诞节友人聚会",
+      "type": "其他",
+      "participants": [
+        "User (Person_006)",
+        "Person_032",
+        "Person_033",
+        "Person_001 (Adult Hand Companion)"
+      ],
+      "location": "都市户外/私密居家/摄影棚",
+      "description": "圣诞节夜晚，在城市户外砖墙背景和室内空间。【主角】（Person_006）与Person_032、Person_033紧密并肩合影，表情活泼、搞怪（大笑、惊讶、O型嘴）。三人衣着厚重（毛绒外套、针织帽），Person_032戴有“WINTER”字样针织帽。Person_006也进行个人自拍，佩戴黑色天鹅吊坠项链和米白色毛绒渔夫帽。照片风格多有复古颗粒感或拍立得边框。另有一张照片显示Person_006与“Person_001 (成年手)”近距离互动，后者手触摸Person_006外套上的红色皇冠徽章，Person_006面带羞涩笑容。",
+      "photo_count": 7,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "乐于社交",
+          "活泼开朗",
+          "重视朋友情谊",
+          "喜欢搞怪",
+          "自拍欲强",
+          "注重仪式感"
+        ],
+        "aesthetic": [
+          "喜爱冬季穿搭（毛绒、针织）",
+          "偏爱复古滤镜",
+          "注重饰品搭配 (天鹅吊坠)"
+        ],
+        "socioeconomic": [
+          "享受节日氛围",
+          "中高档消费倾向 (Swarovski)"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_031",
+      "date": "2025-12-31",
+      "time_range": "22:11 - 23:50",
+      "duration": "",
+      "title": "跨年夜城市漫步与自拍",
+      "type": "其他",
+      "participants": [
+        "User (Person_006)",
+        "Person_034",
+        "Person_035",
+        "Person_036",
+        "Person_037",
+        "Person_038",
+        "Person_039",
+        "Person_040"
+      ],
+      "location": "都市户外/餐饮场所",
+      "description": "成都太古里/IFS商业区室外街头、鸡尾酒吧内部、城市夜间街头及锦江沿岸。【主角】（Person_006）仰拍银泰中心主体建筑上亮起的红色像素化灯光图案，前景是熙攘的夜间人群，可见金色串灯和粉色心形充气气球。在酒吧拍摄调酒师Person_040专注调配饮品。User在街头自拍，面带浅笑，背景是模糊的城市灯光。在锦江沿岸俯瞰被暖黄色和冷蓝色灯光装饰的河道夜景，河面反射灯光。Person_040光头，戴银色耳饰和多层金属项链，右手食指和无名指佩戴金属戒指。",
+      "photo_count": 4,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "享受节日氛围",
+          "乐于社交（酒吧）",
+          "独处观察（街景）",
+          "记录欲",
+          "关注城市风貌"
+        ],
+        "aesthetic": [
+          "欣赏城市灯光艺术",
+          "偏爱夜景摄影",
+          "注重氛围感"
+        ],
+        "socioeconomic": [
+          "城市消费者",
+          "享受中高档休闲娱乐 (鸡尾酒吧)"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_032",
+      "date": "2026-01-01",
+      "time_range": "00:07 - 00:07",
+      "duration": "",
+      "title": "新年日式小酌",
+      "type": "其他",
+      "participants": [
+        "Person_033",
+        "Person_011",
+        "User (Person_006)"
+      ],
+      "location": "餐饮场所/休闲娱乐",
+      "description": "日式风格餐厅或酒吧室内，【主角】通过第一人称视角拍摄。Person_033（女性，长发，戴浅灰色手提包）查看玫瑰金iPhone屏幕；Person_011（女性，长发）手持米色手机似在拍摄。桌上摆放两瓶HATA KOGYO RAMUNE草莓味弹珠汽水和一瓶梅见青梅酒。背景为日式屏风（巨浪、仙鹤梅花图案）和木质圆柱。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "乐于社交",
+          "享受休闲生活",
+          "分享欲"
+        ],
+        "aesthetic": [
+          "对日式文化有兴趣",
+          "喜爱特色饮品"
+        ],
+        "socioeconomic": [
+          "中档消费倾向",
+          "注重生活情趣"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_033",
+      "date": "2026-01-02",
+      "time_range": "19:30 - 19:31",
+      "duration": "",
+      "title": "数码产品与柯南联名礼盒开箱",
+      "type": "其他",
+      "participants": [
+        "User (Person_006)"
+      ],
+      "location": "私密居家/商品展示区",
+      "description": "室内桌面环境，【主角】拍摄深蓝色智能手机（屏幕未点亮、侧面有按键）、部分折叠的蓝色智能手机（铰链为银灰色金属）、步步高品牌词典笔（背面有铭牌信息）。还俯视拍摄了一套部分开启的《名侦探柯南》主题联名手机礼盒，展示其精巧包装和内部物件，包括印有柯南卡通形象的礼盒盖和红色立体蝴蝶结造型。桌面为浅米色/淡黄色木纹或纹理表面。",
+      "photo_count": 8,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "对数码科技有兴趣",
+          "注重产品细节",
+          "记录欲强",
+          "收藏爱好",
+          "独处倾向"
+        ],
+        "aesthetic": [
+          "偏好动漫IP联名款",
+          "欣赏产品包装设计"
+        ],
+        "socioeconomic": [
+          "有能力消费电子产品和联名限定款",
+          "可能为学生或科技爱好者"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_034",
+      "date": "2026-01-03",
+      "time_range": "19:18 - 19:18",
+      "duration": "",
+      "title": "西式简餐晚餐",
+      "type": "其他",
+      "participants": [
+        "User (Person_006)",
+        "Invisible Companion"
+      ],
+      "location": "餐饮场所",
+      "description": "室内餐饮空间，【主角】俯视拍摄一张已部分食用的意面（含虾仁或肉类）和奶油玉米粒。桌面为深棕色木纹，摆放纯白色椭圆形深盘、哑光黑色铸铁风格小型平底锅（放置在软木隔热垫上）、橙色陶瓷马克杯、空白色圆形餐盘、银色不锈钢餐勺和印有文字“不退”的纸质菜单。光线为暖色调顶光。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "享受美食",
+          "注重用餐体验",
+          "乐于社交"
+        ],
+        "aesthetic": [
+          "偏爱西式简餐",
+          "注重餐具搭配"
+        ],
+        "socioeconomic": [
+          "享受休闲餐饮"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_035",
+      "date": "2026-01-07",
+      "time_range": "20:43 - 22:32",
+      "duration": "",
+      "title": "儿童玩闹特写",
+      "type": "其他",
+      "participants": [
+        "Person_041 (Child)",
+        "User (Person_006)",
+        "Adult Companion (Hands, potentially user's or another family member)"
+      ],
+      "location": "都市户外/私密居家",
+      "description": "室外街道/停车场和室内空间。【主角】近距离拍摄Person_041（儿童，约5-12岁）。Person_041因强光源（闪光灯）眯眼咧嘴、故作鬼脸，右手持蓝色瓶盖透明塑料瓶。在室内，Person_041面部被两只成年人手挤压鼻尖和拉扯耳朵（成年人右手戴银色戒指），做出玩闹表情。Person_041穿红黑拼色羽绒夹克，有“BOSIDENG”Logo，另一件黑色羽绒服有“X”或“V”形Logo。背景为模糊的夜间城市光晕或米白色瓷砖墙面。Person_042在VLM描述中与Person_041描述高度一致，推断为同一儿童。",
+      "photo_count": 4,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "活泼开朗",
+          "爱心",
+          "幽默感",
+          "重视家庭互动",
+          "记录欲"
+        ],
+        "aesthetic": [
+          "捕捉生动瞬间"
+        ],
+        "socioeconomic": [
+          "有育儿责任或亲近儿童"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_036",
+      "date": "2026-01-09",
+      "time_range": "22:30 - 22:30",
+      "duration": "",
+      "title": "儿童开怀大笑特写",
+      "type": "其他",
+      "participants": [
+        "Person_041 (Child)",
+        "User (Person_006)"
+      ],
+      "location": "私密居家",
+      "description": "室内家庭空间，【主角】近距离仰拍Person_041（儿童，8-12岁）对着镜头发出开怀笑声。Person_041右上侧切牙缺失，穿深蓝色卫衣（左胸有浅色“R”形Logo）。背景为白色瓷砖墙面（悬挂黑色电线）、灰色毛绒毯子（有凸起纹理）和黑色拖鞋。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "爱心",
+          "幽默感",
+          "重视家庭互动",
+          "记录欲"
+        ],
+        "aesthetic": [
+          "捕捉生动瞬间",
+          "喜爱居家温馨氛围"
+        ],
+        "socioeconomic": [
+          "有育儿责任或亲近儿童"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_037",
+      "date": "2026-01-09",
+      "time_range": "15:21 - 15:21",
+      "duration": "",
+      "title": "KTV休闲聚会",
+      "type": "其他",
+      "participants": [
+        "Person_001 (Adult Companion)",
+        "User (Person_006)"
+      ],
+      "location": "休闲娱乐",
+      "description": "KTV包厢，光线昏暗，充满青蓝色和暖黄色氛围光。【主角】低角度拍摄坐在对面的友人（Person_001，成人双腿）。Person_001穿深色宽松长裤、白色棉袜和米色绒面平底鞋。白色大理石纹路饰面桌面摆放两只透明玻璃杯、黑色圆柱形烟灰缸（有“百事可乐”Logo）。背景墙悬挂平板电视，屏幕播放内容。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "乐于社交",
+          "享受娱乐活动",
+          "放松"
+        ],
+        "aesthetic": [
+          "注重氛围感",
+          "喜爱特色娱乐场所"
+        ],
+        "socioeconomic": [
+          "享受休闲消费"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_038",
+      "date": "2026-01-12",
+      "time_range": "20:46 - 20:46",
+      "duration": "",
+      "title": "儿童平衡游戏与零食",
+      "type": "其他",
+      "participants": [
+        "Person_041 (Child)",
+        "User (Person_006)"
+      ],
+      "location": "私密居家",
+      "description": "室内住宅客厅，【主角】近距离拍摄Person_041（儿童，10-14岁）。Person_041头顶平衡一个红色纸袋，双手持已部分拆封的威化巧克力棒零食，眼神望向镜头，笑容狡黠。Person_041穿黑色夹克（有白色箭头Logo，青蓝色部分有“ADNA”字样）。背景为米色提花沙发、白色墙壁、绿色盆栽和多种玩具、书本。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "活泼开朗",
+          "幽默感",
+          "爱心",
+          "重视家庭互动",
+          "记录欲"
+        ],
+        "aesthetic": [],
+        "socioeconomic": [
+          "有育儿责任或亲近儿童",
+          "家庭生活丰富"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_039",
+      "date": "2026-01-15",
+      "time_range": "08:22 - 08:22",
+      "duration": "",
+      "title": "记录可爱幼犬",
+      "type": "其他",
+      "participants": [
+        "User (Person_006)"
+      ],
+      "location": "都市户外",
+      "description": "室外水泥地面上，【主角】从俯视角度拍摄一只深色幼犬。幼犬短毛纯黑，耳朵下垂，颈部佩戴黑色织物项圈，正面站立并注视镜头。地面磨损有龟裂纹，可见枯黄色植物碎屑。自然日光照明。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "爱心",
+          "观察力",
+          "记录欲",
+          "热爱动物",
+          "独处倾向"
+        ],
+        "aesthetic": [],
+        "socioeconomic": []
+      }
+    },
+    {
+      "event_id": "EVT_040",
+      "date": "2026-01-24",
+      "time_range": "21:54 - 21:54",
+      "duration": "",
+      "title": "居家儿童肖像",
+      "type": "其他",
+      "participants": [
+        "Person_041 (Child)",
+        "User (Person_006)"
+      ],
+      "location": "私密居家",
+      "description": "室内住宅环境中，【主角】近距离拍摄Person_041（儿童，8-12岁）的特写肖像。Person_041面部表情平静，眼神专注，穿黑色哑光羽绒背心和深灰色T恤。背景为白色漆面墙壁、深红色柜子（上置玻璃储物罐）和绿色布质手提袋（疑似宜家Frakta）。画面右下角可见【主角】手持白色电风扇，无名指佩戴镶嵌圆形透明宝石的银色戒指。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "爱心",
+          "重视家庭关系",
+          "记录欲",
+          "关注细节"
+        ],
+        "aesthetic": [
+          "佩戴饰品（戒指）"
+        ],
+        "socioeconomic": [
+          "有育儿责任或亲近儿童",
+          "注重居家生活品质（宜家购物袋暗示）"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_041",
+      "date": "2026-01-25",
+      "time_range": "11:51 - 11:51",
+      "duration": "",
+      "title": "朋友吹泡泡糖特写",
+      "type": "其他",
+      "participants": [
+        "Person_043",
+        "User (Person_006)"
+      ],
+      "location": "商业消费/休闲娱乐",
+      "description": "室内商业空间，【主角】近距离拍摄Person_043（女性，25-35岁）吹出半透明白色口香糖气泡的瞬间。Person_043佩戴棕色圆框眼镜，穿灰白粗棒针毛衣、黑色光泽羽绒服，戴银色坠饰项链。背景为反射性玻璃表面，反射出颠倒的蓝色立体字样“HOUSE HAU SHE”。光线明亮。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "活泼开朗",
+          "幽默感",
+          "乐于社交",
+          "记录欲",
+          "关注生活趣味"
+        ],
+        "aesthetic": [
+          "注重眼镜搭配",
+          "喜爱休闲保暖穿搭"
+        ],
+        "socioeconomic": [
+          "享受休闲消费"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_042",
+      "date": "2026-01-25",
+      "time_range": "19:44 - 19:44",
+      "duration": "",
+      "title": "平板电脑工作/学习特写",
+      "type": "其他",
+      "participants": [
+        "Unnamed Adult (VLM calls Person_001 in photo_043)",
+        "User (Person_006)"
+      ],
+      "location": "学习/办公场所",
+      "description": "室内，【主角】近距离观察一人专注地使用银色触控笔在平板电脑上进行中文文档编辑。平板屏幕显示中文表格界面（课题、名称、日期、描述、单位、负责人、甘肃某公司等）。人物穿着黑色长袖上衣，左手托腮，右手持银白色数位笔，佩戴黑色多功能电子手表（疑似卡西欧G-Shock）。平板电脑配浅米色保护套，底部有扬声器开孔。背景模糊，有暖黄色环境光。",
+      "photo_count": 2,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "观察力",
+          "记录欲",
+          "关注他人工作/学习状态",
+          "可能对数码产品有兴趣"
+        ],
+        "aesthetic": [
+          "佩戴运动手表",
+          "喜爱简约风格"
+        ],
+        "socioeconomic": [
+          "学生/职场人士",
+          "注重学习/工作效率"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_043",
+      "date": "2026-01-28",
+      "time_range": "21:39 - 21:39",
+      "duration": "",
+      "title": "亲密亲子合照",
+      "type": "其他",
+      "participants": [
+        "Person_001 (Child)",
+        "User (Person_006)"
+      ],
+      "location": "私密居家",
+      "description": "室内环境，【主角】以非常近的距离与一名儿童（Person_001，8-12岁）亲密互动，并以第一视角拍摄特写照片。儿童头部略微后仰，目光微垂，右脸颊鼻翼旁有一颗痣。用户左手轻柔托住儿童右侧脸颊及耳后区域，无名指佩戴光滑银色素圈戒指，戴圆形细边金属框眼镜。用户穿着米白色长绒面料衣物。背景模糊。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "爱心",
+          "温柔",
+          "重视家庭关系",
+          "记录欲"
+        ],
+        "aesthetic": [
+          "佩戴饰品（戒指、眼镜）"
+        ],
+        "socioeconomic": [
+          "有育儿责任或亲近儿童",
+          "注重居家生活"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_044",
+      "date": "2026-01-29",
+      "time_range": "21:25 - 21:25",
+      "duration": "",
+      "title": "居家温馨自拍",
+      "type": "其他",
+      "participants": [
+        "User (Person_006)",
+        "Person_041 (Child)",
+        "Person_002 (Adult Companion, in background of photo_046)"
+      ],
+      "location": "私密居家",
+      "description": "室内住宅空间，【主角】（Person_006）与儿童Person_041紧密依偎，面对镜头进行自拍。两人盖着米白色长绒毛毯。Person_006戴圆形金属细框眼镜，穿浅粉色连帽卫衣。Person_041穿深灰色无袖羽绒马甲、灰色长袖上衣，右脸颊有痣，做出V字手势。背景可见木质书架、红色书籍、绿色盆栽、窗户和模糊的空调。",
+      "photo_count": 2,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "爱心",
+          "重视家庭关系",
+          "乐于分享",
+          "自拍欲强"
+        ],
+        "aesthetic": [
+          "居家休闲穿搭",
+          "喜爱温馨氛围"
+        ],
+        "socioeconomic": [
+          "有育儿责任或亲近儿童",
+          "注重家庭生活"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_045",
+      "date": "2026-02-07",
+      "time_range": "10:36 - 10:36",
+      "duration": "",
+      "title": "银行柜台业务办理",
+      "type": "其他",
+      "participants": [
+        "Person_044",
+        "User (Person_006)"
+      ],
+      "location": "职业办公/公共服务场所",
+      "description": "室内商业/服务空间，疑似银行服务柜台。【主角】近距离拍摄Person_044（女性，35-45岁，工作人员）。Person_044身穿黑色中长款大衣，内搭白色高领打底衫，系蓝白粉印花丝质方巾，用蓝色发夹固定头发。她手持包含二维码的黑色文件夹，或站立于白色服务柜台后方，旁边有“中国银行”、“中国银联”QR码立牌、“DELI 得力”签字笔和“老花镜”提示牌。背景为浅米色墙面和白色立式空调。",
+      "photo_count": 2,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "关注金融事务",
+          "注重细节",
+          "记录欲"
+        ],
+        "aesthetic": [
+          "欣赏职业装扮"
+        ],
+        "socioeconomic": [
+          "金融活动参与者",
+          "可能具备一定经济管理能力"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_046",
+      "date": "2026-02-07",
+      "time_range": "20:37 - 20:37",
+      "duration": "",
+      "title": "线上浏览教育科技产品",
+      "type": "其他",
+      "participants": [
+        "User (Person_006)"
+      ],
+      "location": "私密居家/商业消费",
+      "description": "手机屏幕显示抖音商城App内学而思官方旗舰店的经典学习机产品页面。页面展示产品详情（“8+128G”）、价格（¥3299）、政府补贴及促销礼品。首席产品推荐官沈腾（Person_045）竖起拇指，面带自信笑容。屏幕顶部状态栏显示8:37、5G网络、27%电量。商品状态为“已抢光”。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "关注教育科技",
+          "线上购物倾向",
+          "注重产品性价比",
+          "信息获取能力"
+        ],
+        "aesthetic": [],
+        "socioeconomic": [
+          "有教育投资倾向",
+          "中高档消费能力 (¥3299学习机)",
+          "对明星代言有一定关注"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_047",
+      "date": "2026-02-12",
+      "time_range": "11:18 - 11:18",
+      "duration": "",
+      "title": "社交媒体发型分享",
+      "type": "其他",
+      "participants": [
+        "User (Person_006)",
+        "Person_046",
+        "Unidentified_Person_001"
+      ],
+      "location": "私密居家/信息消费",
+      "description": "手机屏幕显示社交媒体平台界面。帖子由“山中宝429”发布，标题“最近超喜欢的照片 #张耀”。图片中Person_046（男性，18-25岁）穿着纯白色理发围布，直视镜头，背景模糊可见理发店置物架和绿色植物。背景中另一人穿蓝白条纹T恤，佩戴Gucci品牌金色双G型扣环皮带。评论区有用户留言“球球证件照的图”。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "关注时尚潮流",
+          "活跃于社交媒体",
+          "追星/关注公众人物",
+          "信息获取"
+        ],
+        "aesthetic": [
+          "对发型造型有兴趣",
+          "对奢侈品牌有识别度"
+        ],
+        "socioeconomic": [
+          "时尚消费者"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_048",
+      "date": "2026-02-15",
+      "time_range": "19:39 - 19:39",
+      "duration": "",
+      "title": "户外燃放仙女棒",
+      "type": "其他",
+      "participants": [
+        "Person_001 (Adult Companion)",
+        "User (Person_006)"
+      ],
+      "location": "都市户外",
+      "description": "户外漆黑环境中，【主角】近距离拍摄Person_001（成人，侧对拍摄者，手持仙女棒）。仙女棒燃放产生明亮暖白色火花，照亮Person_001部分侧影和深橘红色绒毛感外套。背景为模糊的圆形光斑（远处城市灯光）。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "热爱生活",
+          "注重仪式感",
+          "乐于社交",
+          "记录欲"
+        ],
+        "aesthetic": [
+          "捕捉光影效果",
+          "偏爱温馨氛围"
+        ],
+        "socioeconomic": []
+      }
+    },
+    {
+      "event_id": "EVT_049",
+      "date": "2026-02-22",
+      "time_range": "20:11 - 20:11",
+      "duration": "",
+      "title": "线上浏览潮流板鞋",
+      "type": "其他",
+      "participants": [
+        "User (Person_006)"
+      ],
+      "location": "私密居家/商业消费",
+      "description": "智能手机屏幕显示得物电商App中一双阿迪达斯Originals Superstar 2黑白配色板鞋的商品详情页。页面展示商品图片、价格（¥561）、发售信息、名人推荐（宋雨琦、张集骏等）和物流（“春节正常发货”）。屏幕顶部状态栏显示8:11、5G网络、44%电量。商品评论数量和最近购买记录可见。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "关注潮流时尚",
+          "线上购物倾向",
+          "注重产品评价",
+          "信息获取能力"
+        ],
+        "aesthetic": [
+          "喜爱运动休闲风格",
+          "对品牌有偏好"
+        ],
+        "socioeconomic": [
+          "潮流消费者",
+          "中档消费能力"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_050",
+      "date": "2026-02-25",
+      "time_range": "13:37 - 13:37",
+      "duration": "",
+      "title": "线上购物饰品",
+      "type": "其他",
+      "participants": [
+        "User (Person_006)"
+      ],
+      "location": "私密居家/商业消费",
+      "description": "手机屏幕显示抖音商城App AJIDOU阿吉豆品牌项链商品详情页。商品为“人鱼之泪”金黄色细链项链，带两颗圆形透明宝石坠饰。页面显示券后价¥71，有平台券和新人优惠。顶部弹窗提示“！** 1小时前下单成功！”。购物车图标显示数量37。屏幕顶部状态栏显示1:37、5G网络、38%电量。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "线上购物倾向",
+          "关注时尚饰品",
+          "注重性价比",
+          "频繁购物"
+        ],
+        "aesthetic": [
+          "偏爱简约款项链",
+          "注重饰品搭配"
+        ],
+        "socioeconomic": [
+          "中低档消费倾向 (阿吉豆)",
+          "享受线上购物优惠"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_051",
+      "date": "2026-02-25",
+      "time_range": "13:11 - 13:11",
+      "duration": "",
+      "title": "浏览投资理财App",
+      "type": "其他",
+      "participants": [
+        "User (Person_006)"
+      ],
+      "location": "私密居家/信息消费",
+      "description": "智能手机屏幕显示投资理财App中的“新客尊享”福利界面。页面展示金自来28天期理财产品（6.00%年化收益）、移动端Level-2和智能交易VIP等免费体验服务，但多项服务显示“暂时不可领取”。屏幕底部有“推荐、股票、基金、玩转APP、小百科”导航栏。屏幕顶部状态栏显示1:11、小米Logo、5G网络、47%电量。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "关注个人财富管理",
+          "积极探索投资机会",
+          "谨慎决策",
+          "信息获取能力"
+        ],
+        "aesthetic": [],
+        "socioeconomic": [
+          "有理财意识",
+          "可能具备一定投资经验或意愿"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_052",
+      "date": "2026-02-26",
+      "time_range": "17:20 - 17:20",
+      "duration": "",
+      "title": "朋友复古时尚穿搭拍摄",
+      "type": "其他",
+      "participants": [
+        "Person_047",
+        "User (Person_006)"
+      ],
+      "location": "商业消费",
+      "description": "室内零售店铺，【主角】为Person_047（女性，20-25岁）拍摄半身照。Person_047穿磨损橄榄绿棒球帽、白色皇家马德里长袖足球衫（Adidas Logo, Fly Emirates赞助商Logo）、浅蓝色宽松破洞牛仔裤、黑色双排铆钉皮带。肩挎黑色帆布单肩包（带白色雏菊图案），戴银色环状耳饰。背景为白墙、木地板、黑色轨道射灯和大量衣物商品。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "关注时尚潮流",
+          "乐于社交",
+          "记录欲",
+          "支持朋友表达自我"
+        ],
+        "aesthetic": [
+          "喜爱美式复古风格",
+          "对运动品牌和奢侈品牌有识别度",
+          "注重穿搭细节"
+        ],
+        "socioeconomic": [
+          "时尚消费者",
+          "享受购物体验"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_053",
+      "date": "2026-02-26",
+      "time_range": "17:31 - 17:31",
+      "duration": "",
+      "title": "电梯镜面穿搭自拍",
+      "type": "其他",
+      "participants": [
+        "Person_048",
+        "User (Person_006)"
+      ],
+      "location": "公共场所/交通",
+      "description": "室内电梯内，【主角】通过相机镜头拍摄Person_048对着镜面用手机进行穿搭自拍。Person_048（女性，20-30岁）戴黑色圆形框架眼镜，右耳戴银色耳环，左手无名指戴银色宽戒指，指甲涂黑色。她穿天蓝色做旧宽松连帽卫衣，内搭白色T恤，下身卡其灰色工装裤，手机壳为豹纹图案。电梯镜面墙壁，楼层指示屏显示“18”和“个er”。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "关注时尚",
+          "自拍欲",
+          "日常记录",
+          "善于表达"
+        ],
+        "aesthetic": [
+          "休闲穿搭风格",
+          "喜爱个性化配件（豹纹手机壳）"
+        ],
+        "socioeconomic": [
+          "注重生活品质"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_054",
+      "date": "2026-02-26",
+      "time_range": "22:06 - 22:06",
+      "duration": "",
+      "title": "社交媒体穿搭分享",
+      "type": "其他",
+      "participants": [
+        "User (Person_006)",
+        "Person_049"
+      ],
+      "location": "私密居家/信息消费",
+      "description": "手机屏幕显示社交媒体动态。图片中Person_049（女性，20-29岁）在光线充足的室内，面对一面镜子进行对镜自拍，展示其白底红字条纹卫衣（镜像文字“nrdobneV duloeer”）、褪色宽腿工装牛仔裤和黑色单肩包（挂有相机造型饰物）的韩系穿搭。背景为白砖墙和黑色置物架，置物架上摆放复古台灯、盆栽。用户名为“Butterxue”，标签“#韩系穿搭”、“#慵懒感穿搭”。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "关注时尚潮流",
+          "活跃于社交媒体",
+          "信息获取",
+          "记录欲"
+        ],
+        "aesthetic": [
+          "喜爱韩系穿搭",
+          "注重个人风格表达"
+        ],
+        "socioeconomic": [
+          "时尚消费者"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_055",
+      "date": "2026-02-27",
+      "time_range": "13:27 - 13:27",
+      "duration": "",
+      "title": "线上浏览MCM包包评价",
+      "type": "其他",
+      "participants": [
+        "User (Person_006)"
+      ],
+      "location": "私密居家/商业消费",
+      "description": "移动设备屏幕显示电商平台商品评价详情页面。内容为用户“铅铜卡券”对MCM品牌Visetos图案米棕色波士顿包的图文好评（“好看、性价比高、物超所值，和正品没啥区别，还会回购！”）。页面显示评价发布时间2026-02-27 13:26:56，地点中国四川省。底部有“夸夸Ta”按钮。屏幕顶部状态栏显示1:27、5G网络、62%电量。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "线上购物倾向",
+          "关注奢侈品牌",
+          "注重性价比",
+          "信息获取能力 (阅读评价)"
+        ],
+        "aesthetic": [
+          "对品牌包包有兴趣",
+          "追求时尚品味"
+        ],
+        "socioeconomic": [
+          "奢侈品消费者/潜在消费者",
+          "注重生活品质",
+          "可能涉及高仿或代购商品"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_056",
+      "date": "2026-02-28",
+      "time_range": "21:19 - 21:19",
+      "duration": "",
+      "title": "浏览短剧/影视App历史",
+      "type": "其他",
+      "participants": [
+        "User (Person_006)"
+      ],
+      "location": "私密居家/信息消费",
+      "description": "移动设备屏幕显示视频/短剧应用程序的“历史”界面。屏幕顶部状态栏显示9:19、飞行模式、5G网络、70%电量。页面包含“历史”、“追剧”、“点赞”、“作品”导航标签，以及“短剧”、“影视”、“听书”等分类。展示多个影视剧缩略图（如《她杀》、《她在深渊尽头》、《春运回家路之绝地反杀》）。“福利”标签有“签到”提示。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "喜爱影视娱乐",
+          "碎片化时间利用",
+          "信息获取",
+          "独处倾向"
+        ],
+        "aesthetic": [
+          "对多种题材（悬疑、喜剧、爱情）有兴趣"
+        ],
+        "socioeconomic": [
+          "数字内容消费者"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_057",
+      "date": "2026-03-10",
+      "time_range": "15:26 - 15:26",
+      "duration": "",
+      "title": "AI记忆架构设计展示",
+      "type": "其他",
+      "participants": [
+        "User (Person_006)"
+      ],
+      "location": "职业办公/学习场所",
+      "description": "深色背景的数字显示界面，展示一份名为《MEMORY ARCHITECTURE》的系统设计图，副标题为“Layered · Self-Growing · Queryable”。图表以紫红色、深紫色、青色和绿色渐变区块描绘了L0 META（元规则）、L1 INDEX（Insight 索引）、L2 FACTS（事实库）和L3 SOPs（操作手册 & 工具）四个层级，并详细列出事实库的16个知识领域和操作手册的14个SOPs及8个Utils文件。底部统计数据为“31 记忆文件, 4 层级, 16 知识领域, ∞ 持续生长”。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "逻辑性强",
+          "系统性思考",
+          "创新精神",
+          "学习能力强",
+          "专注",
+          "自驱力强"
+        ],
+        "aesthetic": [
+          "偏好结构化、视觉化的信息展示"
+        ],
+        "socioeconomic": [
+          "软件工程师/研究员/AI领域专业人士",
+          "高智力工作者",
+          "注重效率与自动化"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_058",
+      "date": "2026-03-11",
+      "time_range": "14:16 - 14:16",
+      "duration": "",
+      "title": "户外风动肖像",
+      "type": "其他",
+      "participants": [
+        "User (Person_006)"
+      ],
+      "location": "都市户外",
+      "description": "明媚无云的室外，【主角】（Person_006）头部微仰，目光向上凝视天空，长发随强风向左侧及上方飘动。她穿浅卡其色或灰绿色拉链立领外套，唇部涂高光唇釉。背景为蔚蓝色天空。照片右下角有“豆包AI生成”水印。",
+      "photo_count": 2,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "享受自然",
+          "独处倾向",
+          "自拍欲",
+          "表达欲"
+        ],
+        "aesthetic": [
+          "清新自然风格",
+          "捕捉风与光影",
+          "注重发型与妆容"
+        ],
+        "socioeconomic": []
+      }
+    },
+    {
+      "event_id": "EVT_059",
+      "date": "2026-03-11",
+      "time_range": "14:16 - 14:16",
+      "duration": "",
+      "title": "水润情绪特写",
+      "type": "其他",
+      "participants": [
+        "User (Person_006)"
+      ],
+      "location": "摄影棚/艺术空间",
+      "description": "光线极度昏暗、背景模糊（深蓝色调或纯黑）的室内环境。【主角】（Person_006）仰视上方镜头，脸部及头发覆盖细密水珠，面部在冷调光线下泛着细密光泽。她戴深色美瞳，眼妆精致，唇部涂光泽感唇釉。穿着冷灰色或浅灰色连帽拉链夹克，表面有水珠。部分照片眼下有泪滴状水珠，背景有绿色反光。照片右下角有“豆包AI生成”水印。",
+      "photo_count": 5,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "表达欲",
+          "注重形象塑造",
+          "独处专注"
+        ],
+        "aesthetic": [
+          "追求艺术化视觉效果",
+          "偏爱冷色调光影",
+          "情绪表达丰富"
+        ],
+        "socioeconomic": [
+          "可能参与专业摄影或艺术创作"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_060",
+      "date": "2026-03-11",
+      "time_range": "14:19 - 14:19",
+      "duration": "",
+      "title": "友人私密肖像",
+      "type": "其他",
+      "participants": [
+        "Person_064",
+        "User (Person_006)"
+      ],
+      "location": "私密居家",
+      "description": "室内私人空间，【主角】近距离拍摄Person_064（女性，20-25岁）的半身肖像。Person_064穿浅灰色开襟上衣，戴纤细银色项链，左手食指轻触下唇，目光直视镜头。背景为浅灰色水泥质感墙面，随意贴有多张小型纸质照片或明信片（黑白或旧照片风格）。光线柔和均匀，整体色调偏冷。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "重视朋友情谊",
+          "记录朋友日常",
+          "关注细节"
+        ],
+        "aesthetic": [
+          "欣赏简约风格",
+          "对老照片有兴趣"
+        ],
+        "socioeconomic": []
+      }
+    },
+    {
+      "event_id": "EVT_061",
+      "date": "2026-03-11",
+      "time_range": "14:19 - 14:19",
+      "duration": "",
+      "title": "海边日落剪影",
+      "type": "其他",
+      "participants": [
+        "Person_065",
+        "Second Person (Unlabeled)",
+        "User (Person_006)"
+      ],
+      "location": "都市户外",
+      "description": "日落时分的开阔海域或大型湖泊，【主角】拍摄Person_065与另一位人物并肩坐在低矮平台上的剪影。夕阳橙红与浅黄色光芒渲染云层，平静的水面反射落日余晖。远方可见深色山脉轮廓。前景为深色低矮平台或船舷结构。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "享受自然",
+          "浪漫",
+          "乐于社交",
+          "记录欲"
+        ],
+        "aesthetic": [
+          "欣赏日落美景",
+          "偏爱剪影构图",
+          "注重氛围感"
+        ],
+        "socioeconomic": [
+          "享受休闲度假"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_062",
+      "date": "2026-03-11",
+      "time_range": "14:20 - 14:20",
+      "duration": "",
+      "title": "教室朋友合影",
+      "type": "其他",
+      "participants": [
+        "User (Person_006)",
+        "Person_094",
+        "Person_033"
+      ],
+      "location": "学习场所",
+      "description": "室内阶梯教室，【主角】（Person_006，坐于课桌后，双手捧脸，目光下垂，戴黑框眼镜，穿浅灰色卫衣）与站在中央过道的Person_094和坐在右侧课桌后的Person_033一同合影。Person_094（女性，20-25岁）穿黑T恤（印有“life is better when you daydream”）、横条纹长裙，戴黑框眼镜，面带微带笑意直视镜头。Person_033（女性，20-25岁）穿酒红色针织毛衣，戴眼镜。课桌上可见白色边框智能手机和Canon相机包。VLM显示时间为“星期日 20:57:30”，但EXIF为“2026-03-11T14:20:06”。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "乐于社交",
+          "重视朋友情谊",
+          "记录校园生活"
+        ],
+        "aesthetic": [
+          "休闲穿搭风格",
+          "喜爱摄影（Canon相机包）"
+        ],
+        "socioeconomic": [
+          "学生身份"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_063",
+      "date": "2026-03-11",
+      "time_range": "14:20 - 14:20",
+      "duration": "",
+      "title": "时尚穿搭多场景展示",
+      "type": "其他",
+      "participants": [
+        "User (Person_006)",
+        "Person_002 (Environment Figure)",
+        "Person_095 (Environment Figure)"
+      ],
+      "location": "商业消费/艺术展览/时尚摄影棚",
+      "description": "在室内购物中心服饰店、展览馆、浅色木纹背景墙前及具有工业复古风格的咖啡馆镜面空间。【主角】（Person_006）进行穿搭展示与肖像拍摄。服饰包括：白色Nike棒球帽、灰色粗针织V领毛衣（系白色缎面蝴蝶结）、浅蓝色宽腿破洞牛仔裤、银色金属感运动鞋。或水洗旧感浅蓝色重磅牛仔夹克、酒红色U领细罗纹上衣、浅米色长裤。在展览馆，她双手轻扶白色展台边缘，背景为背光展示板（建筑平面图和英文）。在咖啡馆镜前自拍，右手上扬轻触头部。背景有人物Person_002（男性，购物袋）和Person_095（女性）。",
+      "photo_count": 4,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "关注时尚",
+          "自拍/被拍欲强",
+          "善于表达",
+          "记录欲",
+          "喜爱购物"
+        ],
+        "aesthetic": [
+          "多变的穿搭风格（休闲、复古、时尚）",
+          "对品牌有偏好 (Nike)",
+          "注重搭配",
+          "欣赏建筑艺术"
+        ],
+        "socioeconomic": [
+          "时尚消费者",
+          "注重个人品味"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_064",
+      "date": "2026-03-11",
+      "time_range": "14:20 - 14:20",
+      "duration": "",
+      "title": "室内角落蜷缩",
+      "type": "其他",
+      "participants": [
+        "Person_001 (Adult Companion)",
+        "User (Person_006)"
+      ],
+      "location": "私密居家/功能性房间",
+      "description": "光线昏暗的室内墙角，【主角】拍摄Person_001（成年人，戴深色细框圆形眼镜，穿黑色连帽卫衣、米白色马甲和米色阔腿裤，脚穿白色厚底运动鞋）蹲伏在地，双手捂住头部侧面，头埋膝间，身体向内紧缩，依靠于墙角。背景为白色墙面和浅灰色地砖。单一光源从左上方斜向照射，形成清晰阴影。Person_001左手腕可见红色划痕。",
+      "photo_count": 2,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "同理心",
+          "观察力敏锐",
+          "记录欲",
+          "关注他人情绪"
+        ],
+        "aesthetic": [
+          "捕捉情绪化瞬间",
+          "偏好纪实风格"
+        ],
+        "socioeconomic": []
+      }
+    },
+    {
+      "event_id": "EVT_065",
+      "date": "2026-03-11",
+      "time_range": "14:20 - 14:20",
+      "duration": "",
+      "title": "朋友高角度特写",
+      "type": "其他",
+      "participants": [
+        "Person_033",
+        "User (Person_006)"
+      ],
+      "location": "公共场所/摄影棚",
+      "description": "光线充足的室内空间，【主角】以俯视高角度拍摄Person_033（女性，20-25岁）的特写肖像。Person_033穿黑色内搭衫、米白色与黑色拼接保暖背心，直视上方镜头，面部表情自然放松。背景为白色墙壁，顶部有强烈定向光源在墙壁上投射阴影。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "乐于社交",
+          "记录朋友日常",
+          "关注细节"
+        ],
+        "aesthetic": [
+          "注重光影构图",
+          "偏爱人物特写"
+        ],
+        "socioeconomic": []
+      }
+    },
+    {
+      "event_id": "EVT_066",
+      "date": "2026-03-11",
+      "time_range": "14:20 - 14:20",
+      "duration": "",
+      "title": "友人眺望窗外艺术与城景",
+      "type": "其他",
+      "participants": [
+        "Person_001 (Adult Friend)",
+        "Person_002 (Adult Friend)",
+        "Person_003 (Adult Friend)",
+        "User (Person_006)"
+      ],
+      "location": "公共文化场所",
+      "description": "具有弧形木质天花板的室内公共空间，【主角】从背后拍摄三位女性友人（Person_001穿牛仔外套，Person_002穿灰色T恤和破洞牛仔短裤，Person_003穿淡粉色卫衣，背黑色双肩包）面向大型落地窗，共同眺望窗外景观。窗外可见两座白色抽象人物雕塑（站立和奔跑姿态）、高层现代建筑、湿润地面和稀疏的黄色树叶。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "乐于社交",
+          "热爱旅行/观光",
+          "分享欲",
+          "关注艺术与建筑"
+        ],
+        "aesthetic": [
+          "欣赏现代艺术",
+          "对城市景观敏感",
+          "休闲穿搭风格"
+        ],
+        "socioeconomic": [
+          "享受文化活动",
+          "注重生活体验"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_067",
+      "date": "2026-03-11",
+      "time_range": "14:20 - 14:20",
+      "duration": "",
+      "title": "朋友嬉戏互动",
+      "type": "其他",
+      "participants": [
+        "Person_091",
+        "Person_092",
+        "User (Person_006)"
+      ],
+      "location": "公共场所/休闲娱乐",
+      "description": "室内混凝土灰色台阶区域，【主角】近距离仰拍。Person_092（女性，20-25岁）从Person_091（女性，20-25岁）后方环抱并双手遮挡其面部。Person_091面部泛红，表情开心，左手腕有红色划痕。Person_091穿米白色菱格纹背心、黑色T恤和浅蓝色牛仔裤。Person_092穿白色宽松外套，左手腕佩戴红色细绳手链。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "活泼开朗",
+          "幽默感",
+          "乐于社交",
+          "重视朋友情谊",
+          "记录欲"
+        ],
+        "aesthetic": [],
+        "socioeconomic": []
+      }
+    },
+    {
+      "event_id": "EVT_068",
+      "date": "2026-03-11",
+      "time_range": "14:20 - 14:20",
+      "duration": "",
+      "title": "友人玄关镜面自拍",
+      "type": "其他",
+      "participants": [
+        "Person_093",
+        "User (Person_006)"
+      ],
+      "location": "私密居家/公共场所",
+      "description": "室内玄关区域，【主角】捕捉Person_093（女性，20-25岁）对着全身镜用手机进行自拍。Person_093面带微笑，穿米白色短款蓬松羽绒服、深灰色直筒阔腿牛仔裤，右肩挎浅灰色托特包。背景有深棕色实木门（挂有白色毛绒卡通挂件）、黑色储物柜、黑白条纹地垫和浅棕色卡通地垫。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "关注时尚",
+          "自拍欲",
+          "日常记录",
+          "善于表达"
+        ],
+        "aesthetic": [
+          "休闲保暖穿搭风格",
+          "注重搭配",
+          "喜爱卡通元素"
+        ],
+        "socioeconomic": [
+          "注重生活品质"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_069",
+      "date": "2026-03-11",
+      "time_range": "14:20 - 14:20",
+      "duration": "",
+      "title": "地铁站友人反拍",
+      "type": "其他",
+      "participants": [
+        "Person_096",
+        "User (Person_006)"
+      ],
+      "location": "公共交通",
+      "description": "室内地铁站台，【主角】通过玻璃反射拍摄Person_096（青年男性，戴黑色口罩，穿红白撞色拼接棒球夹克，胸前有“OGGY”及“AMMO”字样徽章，背灰色双肩包）。Person_096左手持深色智能手机（背面三摄模组）屏幕面向【主角】镜头。背景为白色瓷砖墙面、地铁线路图、蓝色数字显示屏（显示“3008”）和地铁屏蔽门。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "活泼开朗",
+          "幽默感",
+          "乐于社交",
+          "日常记录",
+          "关注潮流服饰"
+        ],
+        "aesthetic": [
+          "喜爱街头潮流风格",
+          "对卡通/徽章图案有偏好"
+        ],
+        "socioeconomic": [
+          "城市居民",
+          "使用公共交通"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_070",
+      "date": "2026-03-11",
+      "time_range": "14:20 - 14:20",
+      "duration": "",
+      "title": "咖啡馆休闲肖像",
+      "type": "其他",
+      "participants": [
+        "User (Person_006)",
+        "Invisible Photographer"
+      ],
+      "location": "餐饮场所/休闲娱乐",
+      "description": "室内咖啡馆或精品店，【主角】（Person_006）坐在木质高脚桌前，上身略微倾斜，面带柔和微笑直视镜头。她穿浅水洗色重磅丹宁布牛仔夹克、酒红色纯棉圆领T恤，戴细链金色项链。桌上放置一束粉橙色人造玫瑰花和木质画框（水彩玫瑰画）。背景为红砖墙壁和窗户（有手绘文字“London”、“Bag”、“Muse”）。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "享受休闲时光",
+          "乐于社交",
+          "自信",
+          "表达欲"
+        ],
+        "aesthetic": [
+          "休闲时尚穿搭",
+          "喜爱花卉与艺术品",
+          "对英伦文化有兴趣 (London, Muse)"
+        ],
+        "socioeconomic": [
+          "享受休闲消费"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_071",
+      "date": "2026-03-11",
+      "time_range": "14:20 - 14:20",
+      "duration": "",
+      "title": "品尝樱桃特写",
+      "type": "其他",
+      "participants": [
+        "User (Person_006)",
+        "Invisible Photographer"
+      ],
+      "location": "餐饮场所/休闲娱乐",
+      "description": "昏暗的室内空间，【主角】（Person_006）用右手拇指和食指夹持一颗红色樱桃，送至唇边，动作显示正在品尝。她穿白色薄纱透视长袖上衣，内搭浅蓝色比基尼上衣，下身浅蓝色系带短裤，佩戴淡蓝色花朵发饰。背景为浅色墙面，上方安装一盏向上发光的暖色调壁灯。木质结构在左侧。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "享受生活",
+          "乐于社交",
+          "注重体验",
+          "表达欲"
+        ],
+        "aesthetic": [
+          "性感休闲穿搭",
+          "注重妆容与发饰",
+          "捕捉生活情趣"
+        ],
+        "socioeconomic": [
+          "享受休闲消费"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_072",
+      "date": "2026-03-11",
+      "time_range": "14:20 - 14:21",
+      "duration": "",
+      "title": "夜间城市滨水搞怪",
+      "type": "其他",
+      "participants": [
+        "User (Person_006)",
+        "Invisible Photographer"
+      ],
+      "location": "都市户外",
+      "description": "夜间城市滨水步道或户外广场。【主角】（Person_006）双手做出弯曲的爪状姿态，面带愉悦的笑容直视镜头。她穿米黄色V领套头短袖上衣（左侧有卡通兔子头像“My Blue”，右侧有卡通猫咪头像“OurBlue”，下方手写体“Outthe”），戴黑色珠串项链。或穿灰白色夹花粗线针织毛衣，外穿米色仿狐狸毛皮草马甲，白色高腰直筒裤。或黑色亮面羽绒服，右肩带印有白色“BRAVE”字样，左袖有圆形黑色臂章。背景为混凝土步道、白色金属护栏、高杆暖白色方形街灯、黑暗水体及远景城市建筑群灯火通明。天色深蓝带红光晕。",
+      "photo_count": 5,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "活泼开朗",
+          "幽默感",
+          "乐于社交",
+          "自拍/被拍欲",
+          "记录欲",
+          "享受夜生活"
+        ],
+        "aesthetic": [
+          "喜爱卡通图案",
+          "休闲时尚穿搭",
+          "注重饰品搭配",
+          "对城市夜景敏感"
+        ],
+        "socioeconomic": [
+          "城市居民",
+          "享受户外休闲"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_073",
+      "date": "2026-03-11",
+      "time_range": "14:20 - 14:20",
+      "duration": "",
+      "title": "高山经幡自拍",
+      "type": "其他",
+      "participants": [
+        "User (Person_006)"
+      ],
+      "location": "户外旅游",
+      "description": "户外山地草坡，【主角】（Person_006）手持相机自拍，面带柔和微笑。她戴黑色矩形墨镜（戴在头顶），穿浅灰蓝色尼龙连帽防风外套，内搭粉白小格纹棉质衬衫。背景有绿色连绵山脉、远方云雾、稀疏草地和随风飘扬的多色彩经幡。光线明亮。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "热爱旅行",
+          "户外探索",
+          "自拍欲",
+          "记录欲",
+          "关注人文景观"
+        ],
+        "aesthetic": [
+          "休闲户外穿搭",
+          "欣赏自然风光",
+          "对民族文化有兴趣",
+          "注重摄影设备"
+        ],
+        "socioeconomic": [
+          "旅行消费者",
+          "中高档消费倾向 (DJI相机)"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_074",
+      "date": "2026-03-11",
+      "time_range": "14:20 - 14:20",
+      "duration": "",
+      "title": "浴室镜面趣味自拍",
+      "type": "其他",
+      "participants": [
+        "Person_063",
+        "User (Person_006)"
+      ],
+      "location": "私密居家/酒店",
+      "description": "光线充足的室内浴室，【主角】通过镜面反射拍摄Person_063（女性，20-25岁）。Person_063高举右臂，面带微笑直视镜头。她穿白色薄纱长袖上衣，内搭浅蓝色比基尼上衣，短发梳成高丸子头，前额齐刘海。背景有木质门板、白色陶瓷马桶（反射在镜中）和镜面边缘的亮蓝色光带。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "活泼开朗",
+          "乐于社交",
+          "自拍欲",
+          "日常记录",
+          "善于表达"
+        ],
+        "aesthetic": [
+          "性感休闲穿搭",
+          "注重妆容与发型",
+          "喜爱镜面摄影"
+        ],
+        "socioeconomic": []
+      }
+    },
+    {
+      "event_id": "EVT_075",
+      "date": "2026-03-11",
+      "time_range": "14:20 - 14:20",
+      "duration": "",
+      "title": "夜店/酒吧社交聚会",
+      "type": "其他",
+      "participants": [
+        "User (Person_006)",
+        "Person_002 (Adult Companion)",
+        "Person_097",
+        "Person_098",
+        "Person_099",
+        "Person_102",
+        "Person_103"
+      ],
+      "location": "休闲娱乐",
+      "description": "光线昏暗、充满霓虹灯光的室内酒吧、夜店或主题餐饮场所。【主角】（Person_006）身着灰色粗针织毛线帽、浅灰色/浅灰紫色圆领长袖上衣，佩戴黑色十字架吊坠项链。她或端坐直视镜头，或侧身抬头凝视右上方，或向上微仰望向右侧。背景可见模糊人影、暖橘色条状灯光、绿色和黄色霓虹灯招牌（如“TEETHGOLD CLUB”、“will survive”或“happily”字样）、多层水晶吊灯和古典柱子。她与Person_002、Person_097、Person_098、Person_099、Person_103等朋友/同伴社交。",
+      "photo_count": 6,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "乐于社交",
+          "享受夜生活",
+          "自信",
+          "表达欲",
+          "记录欲"
+        ],
+        "aesthetic": [
+          "喜爱氛围感强的场所",
+          "对霓虹灯光敏感",
+          "时尚休闲穿搭",
+          "注重饰品搭配 (十字架吊坠)"
+        ],
+        "socioeconomic": [
+          "享受中高档休闲娱乐",
+          "注重生活情趣"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_076",
+      "date": "2026-03-11",
+      "time_range": "14:20 - 14:20",
+      "duration": "",
+      "title": "先锋盛典颁奖礼合影",
+      "type": "其他",
+      "participants": [
+        "User (Person_006)",
+        "Person_070",
+        "Person_072",
+        "Person_081",
+        "Person_078",
+        "Person_100",
+        "Person_101",
+        "Invisible Photographer"
+      ],
+      "location": "职业办公/学习场所/大型活动",
+      "description": "大型室内活动舞台前区域，【主角】（Person_006）与多位女性友人或同事并排合影。Person_006面带笑容，比出V字手势，戴圆形金属框眼镜，穿黑色亮面羽绒服，戴细链银色项链。Person_070比赞，穿薄荷绿色羽绒服；Person_072比赞，穿黑色亮面羽绒服；Person_078戴大框眼镜，穿棒球帽；Person_081、Person_100、Person_101也入镜。背景是明亮的蓝色调LED大屏幕，显示“第20届 先锋盛典 优秀学生表彰育人成果展示 四川传媒”等字样。",
+      "photo_count": 2,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "集体荣誉感",
+          "乐于社交",
+          "积极参与活动",
+          "庆祝成功",
+          "分享欲"
+        ],
+        "aesthetic": [
+          "喜爱休闲保暖穿搭"
+        ],
+        "socioeconomic": [
+          "学生/职场人士",
+          "关注成就与荣誉",
+          "可能与传媒行业相关"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_077",
+      "date": "2026-03-11",
+      "time_range": "14:21 - 14:21",
+      "duration": "",
+      "title": "海边沙滩刻字",
+      "type": "其他",
+      "participants": [
+        "User (Person_006)"
+      ],
+      "location": "都市户外",
+      "description": "阳光直射的沙滩边缘，【主角】拍摄一个细小海浪冲刷湿润沙滩上刻画的字母‘GC’的瞬间。浅棕黄色细沙，湿润且紧实。白色泡沫状海浪正缓慢覆盖字迹。沙滩上可见约10厘米长的细直拖痕。海浪与沙滩交界线呈S形。画面下方五分之一区域被明亮白色模糊区域占据。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "观察力敏锐",
+          "专注",
+          "独处倾向",
+          "热爱自然",
+          "记录欲"
+        ],
+        "aesthetic": [
+          "捕捉自然动态",
+          "偏爱简洁构图"
+        ],
+        "socioeconomic": []
+      }
+    },
+    {
+      "event_id": "EVT_078",
+      "date": "2026-03-11",
+      "time_range": "14:21 - 14:21",
+      "duration": "",
+      "title": "夜市街头小吃",
+      "type": "其他",
+      "participants": [
+        "Person_105",
+        "User (Person_006)"
+      ],
+      "location": "商业消费/都市户外",
+      "description": "夜幕降临、霓虹灯光映照的街头小吃夜市中，【主角】捕捉Person_105（女性，18-24岁）手持装有食物的透明塑料袋及木筷（夹有白色纸巾），面向镜头、准备品尝街头小吃的瞬间。Person_105扎双马尾辫，穿JK制服风格服装（黑白衬衫、格纹百褶短裙、蝴蝶结领结），挎深棕色单肩包。背景可见“街头小吃”、“泡菜卷”、“交大必吃港式叉烧肉”、“我住超市”、“电竞”等招牌。地面湿润反光。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "享受美食",
+          "乐于社交",
+          "记录欲",
+          "关注街头文化"
+        ],
+        "aesthetic": [
+          "喜爱街头小吃",
+          "对JK制服风格有兴趣",
+          "注重穿搭细节"
+        ],
+        "socioeconomic": [
+          "日常消费者",
+          "享受休闲生活",
+          "可能对二次元文化有兴趣"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_079",
+      "date": "2026-03-11",
+      "time_range": "14:21 - 14:21",
+      "duration": "",
+      "title": "热带海滩友人肖像",
+      "type": "其他",
+      "participants": [
+        "Person_011",
+        "User (Person_006)"
+      ],
+      "location": "户外旅游",
+      "description": "热带海滩，天气晴朗，光线充足。【主角】为Person_011（女性，20-30岁）拍摄肖像。Person_011戴宽檐编织草帽（饰有蓝色花朵），穿浅蓝色细针织开衫（半透视，露出中段腹部）、蓝白格纹抹胸式短款上衣、浅蓝色水洗做旧牛仔短裤（有破洞细节），系蓝白格纹细长丝巾。她双手扶着草帽边缘，直视镜头，面带微笑。背景有细沙沙滩、高大棕榈树和远处模糊的棕榈树林。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "热爱旅行",
+          "享受度假",
+          "乐于社交",
+          "记录欲"
+        ],
+        "aesthetic": [
+          "时尚休闲穿搭",
+          "喜爱沙滩度假风格",
+          "注重饰品搭配",
+          "对自然光线敏感"
+        ],
+        "socioeconomic": [
+          "享受休闲度假"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_080",
+      "date": "2026-03-11",
+      "time_range": "14:20 - 14:20",
+      "duration": "",
+      "title": "主题造型摄影",
+      "type": "其他",
+      "participants": [
+        "Person_104",
+        "User (Person_006)"
+      ],
+      "location": "艺术创作/摄影棚",
+      "description": "室内空间，【主角】以强烈的蓝紫色调灯光，拍摄Person_104（男性，青少年晚期至二十多岁）的近距离半侧脸肖像。Person_104头发有蓝紫色挑染，左脸颊颧骨下方有水平红色仿血迹划痕，嘴角有红色液滴状仿血迹。他佩戴粗犷银色古巴链项链，穿黑色圆领T恤（胸前下方印有金色反转文字“ЯΞΓΞB”）。背景为暖白色墙壁，有黑白抽象挂画和暖黄色点缀灯光。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "创意",
+          "大胆",
+          "乐于尝试",
+          "对艺术创作有热情",
+          "记录欲"
+        ],
+        "aesthetic": [
+          "喜爱特殊妆容与造型",
+          "追求独特视觉效果",
+          "对光影艺术有兴趣",
+          "喜爱街头时尚/暗黑风格"
+        ],
+        "socioeconomic": [
+          "可能参与艺术/时尚活动"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_081",
+      "date": "2026-03-11",
+      "time_range": "14:20 - 14:20",
+      "duration": "",
+      "title": "友人正式礼服肖像",
+      "type": "其他",
+      "participants": [
+        "Person_011",
+        "User (Person_006)"
+      ],
+      "location": "公共/正式场合",
+      "description": "室内环境，【主角】以正面视角，在柔和光线下拍摄Person_011（女性，20-29岁）的半身肖像。Person_011发型挽起，脸颊有淡粉色腮红，穿白色缎面质感礼服（领口有蓝色装饰条纹，左胸下方绣有蓝色卷草纹花卉图案），外搭米白色毛绒披肩（系白色缎面丝带蝴蝶结）。背景左侧为深色高反光表面，右侧为浅色墙壁。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "重视朋友形象",
+          "记录欲",
+          "关注正式场合"
+        ],
+        "aesthetic": [
+          "欣赏端庄正式穿搭",
+          "注重细节（刺绣、蝴蝶结）"
+        ],
+        "socioeconomic": [
+          "可能参与正式社交活动或晚宴"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_082",
+      "date": "2026-03-11",
+      "time_range": "14:20 - 14:20",
+      "duration": "",
+      "title": "朋友地图自拍",
+      "type": "其他",
+      "participants": [
+        "User (Person_006)",
+        "Person_033"
+      ],
+      "location": "室内/室外",
+      "description": "光线昏暗、背景模糊的室内或室外场景中，【主角】（Person_006）与Person_033（女性，20-25岁）脸部紧密靠近，【主角】手持智能手机进行自拍，屏幕显示地图应用界面（可见中文地名及路线信息）。两人皆面带微笑，Person_033戴米色绒毛渔夫帽，穿米白色绗缝羽绒夹克。Person_006穿米色羊羔绒外套。背景可见远处暖黄色光源点。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "乐于社交",
+          "活泼开朗",
+          "重视朋友情谊",
+          "自拍欲强",
+          "方向感良好/善用导航"
+        ],
+        "aesthetic": [
+          "喜爱冬季穿搭（毛绒、羽绒）",
+          "注重妆容"
+        ],
+        "socioeconomic": []
+      }
+    },
+    {
+      "event_id": "EVT_083",
+      "date": "2026-03-11",
+      "time_range": "14:35 - 14:35",
+      "duration": "",
+      "title": "友人比心自拍",
+      "type": "其他",
+      "participants": [
+        "User (Person_006)",
+        "Person_033"
+      ],
+      "location": "私密居家/公共休闲",
+      "description": "光线明亮的室内环境，【主角】（Person_006）与Person_033（女性，20-25岁）紧密并排，微笑着各自伸出靠近镜头的手作出“心形”手势，共同完成自拍。Person_006戴深棕色粗边圆形框架眼镜，穿黑色绗缝羽绒夹克，右手无名指戴银色镶钻戒指。Person_033戴金色细框圆形框架眼镜，穿黑色细罗纹针织衫，内搭深棕色连帽卫衣（胸前有白色字母“B B.”和“IB2”）。背景为白色天花板、长条形荧光灯具和深蓝色厚重窗帘。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "活泼开朗",
+          "乐于社交",
+          "重视朋友情谊",
+          "自拍欲强",
+          "表达爱意"
+        ],
+        "aesthetic": [
+          "喜爱手势互动",
+          "注重眼镜搭配"
+        ],
+        "socioeconomic": []
+      }
+    },
+    {
+      "event_id": "EVT_084",
+      "date": "2026-03-11",
+      "time_range": "14:35 - 14:35",
+      "duration": "",
+      "title": "热辣火锅聚餐",
+      "type": "其他",
+      "participants": [
+        "User (Person_006)",
+        "Invisible Companions"
+      ],
+      "location": "餐饮场所",
+      "description": "室内火锅店，【主角】俯视拍摄一锅沸腾的红油麻辣火锅，汤底浮有大量干辣椒和辣椒碎。黑色纹理餐桌上摆放米色陶瓷小碗（盛有红色液体蘸料，碗底有“龙”字）、金属勺和米色陶瓷小杯（盛有棕色液体饮品）。背景可见木质竹节椅。用户腿部穿着迷彩印花长裤。餐桌中央嵌入矩形金属火锅加热槽，多个白色陶瓷餐碗可见橙红色食物残渣和竹制筷子。背景有模糊人影。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "享受美食",
+          "乐于社交",
+          "分享欲",
+          "注重用餐体验"
+        ],
+        "aesthetic": [
+          "喜爱川味火锅",
+          "休闲穿搭（迷彩裤）"
+        ],
+        "socioeconomic": [
+          "日常消费者",
+          "享受休闲生活"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_085",
+      "date": "2026-03-11",
+      "time_range": "14:35 - 14:35",
+      "duration": "",
+      "title": "办公室/公共空间自拍",
+      "type": "其他",
+      "participants": [
+        "User (Person_006)"
+      ],
+      "location": "职业办公/公共休闲",
+      "description": "光线充足的室内空间，【主角】（Person_006）面对镜头进行自拍，脸上带着微启的闭口笑容。她戴深色边框眼镜，右侧鼻翼佩戴银色鼻钉，左手无名指戴镶嵌多颗细小透明刻面宝石的银色调戒指。穿浅蓝色羊羔绒或抓绒连帽拉链外套。背景可见白色四叶吊扇和白色球形监控摄像头。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "自信",
+          "自我展示欲",
+          "日常记录",
+          "注重个人风格"
+        ],
+        "aesthetic": [
+          "喜爱休闲舒适穿搭",
+          "佩戴个性化饰品（鼻钉、戒指）",
+          "注重眼镜搭配"
+        ],
+        "socioeconomic": [
+          "学生/职场人士"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_086",
+      "date": "2026-03-11",
+      "time_range": "14:35 - 14:35",
+      "duration": "",
+      "title": "沉浸式娱乐场所光影记录",
+      "type": "其他",
+      "participants": [
+        "Person_106",
+        "User (Person_006)"
+      ],
+      "location": "休闲娱乐",
+      "description": "黑暗室内娱乐场所，【主角】拍摄前方一位背对光墙的Person_106（成年男性）。Person_106身着深色上衣，肩部或上背部有数个浅色五角星图案。一面墙壁被紫色和黄色几何方块动态灯光投影覆盖，天花板有多条红色线性灯光和悬挂式投影仪。前景右侧有大片模糊的深色物体。顶部可见圆形监控摄像头。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "享受娱乐活动",
+          "好奇心",
+          "记录欲",
+          "关注视觉体验"
+        ],
+        "aesthetic": [
+          "喜爱灯光艺术",
+          "追求沉浸式体验",
+          "对几何图案敏感"
+        ],
+        "socioeconomic": [
+          "享受休闲娱乐"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_087",
+      "date": "2026-03-11",
+      "time_range": "14:35 - 14:35",
+      "duration": "",
+      "title": "共享充电宝归还",
+      "type": "其他",
+      "participants": [
+        "User (Person_006)"
+      ],
+      "location": "公共场所",
+      "description": "米白色共享充电宝租借机前，【主角】拍摄其正在尝试归还或确认充电宝订单。租借机顶部有发光的二维码屏幕，多个充电宝插槽（含2个深灰色和1个浅灰色充电宝），蓝色LED指示灯。底部显示美团App界面，包含文字“美团”、“归还”、“看看订单是否结束”、“扫码租借 | 插入即还”。机器品牌为EM，有“Nasdaq Listed”字样。光线为左上方斜射暖黄色人造光源。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "注重效率",
+          "善用共享服务",
+          "关注订单状态",
+          "日常事务处理"
+        ],
+        "aesthetic": [],
+        "socioeconomic": [
+          "城市居民",
+          "共享经济用户",
+          "注重实用性"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_088",
+      "date": "2026-03-11",
+      "time_range": "14:35 - 14:35",
+      "duration": "",
+      "title": "户外比心自拍",
+      "type": "其他",
+      "participants": [
+        "User (Person_006)"
+      ],
+      "location": "都市户外",
+      "description": "明亮且背景为木质板条结构的室外或半室外场景中，【主角】（Person_006）手持设备进行自拍，右手拇指与食指交叉比划出爱心手势，面带微笑地直视镜头。她戴棕色圆形金属边框近视眼镜，右手无名指戴银色镶钻戒指，穿墨绿色立领夹克，内搭米白色羊羔绒套头衫。背景上方可见横向木质板条屋檐，中部为白色或浅灰色区域。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "活泼开朗",
+          "表达爱意",
+          "自拍欲",
+          "日常记录",
+          "善于表达"
+        ],
+        "aesthetic": [
+          "喜爱手势互动",
+          "休闲舒适穿搭",
+          "注重眼镜搭配",
+          "佩戴饰品（戒指）"
+        ],
+        "socioeconomic": []
+      }
+    },
+    {
+      "event_id": "EVT_089",
+      "date": "2026-03-11",
+      "time_range": "14:35 - 14:35",
+      "duration": "",
+      "title": "火锅聚餐第一人称",
+      "type": "其他",
+      "participants": [
+        "User (Person_006)",
+        "Invisible Companions"
+      ],
+      "location": "餐饮场所",
+      "description": "室内火锅餐厅，【主角】从第一人称视角拍摄餐桌。浅色微粒状复合材料餐桌台面，嵌入式矩形金属火锅加热槽。桌面可见多个白色竖纹陶瓷餐碗（部分有橙红色食物残渣）、白色陶瓷勺、竹制筷子（横跨碗上）。一个碗中盛有大量红色辣椒油蘸料。用户腿部穿着迷彩印花长裤。背景模糊可见其他用餐者轮廓。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "享受美食",
+          "乐于社交",
+          "分享欲",
+          "注重用餐体验"
+        ],
+        "aesthetic": [
+          "喜爱川味火锅",
+          "休闲穿搭（迷彩裤）"
+        ],
+        "socioeconomic": [
+          "日常消费者",
+          "享受休闲生活"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_090",
+      "date": "2026-03-11",
+      "time_range": "14:35 - 14:35",
+      "duration": "",
+      "title": "小学数学作业批改/学习",
+      "type": "其他",
+      "participants": [
+        "User (Person_006)"
+      ],
+      "location": "学习场所/私密居家",
+      "description": "室内米色或深色桌面，【主角】俯视拍摄一本小学数学练习册。页面为《小学数学4年级上册 配人教版》，显示口算题、脱式计算和应用题，有黑色手写答案、红色批改叉号与修正，以及绿色对号。部分题目涉及『南京市』、『春节』等。练习册右侧边缘可见淡紫色侧面，或有熊猫图标和QR码。",
+      "photo_count": 3,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "耐心",
+          "专注",
+          "责任感",
+          "学习能力",
+          "注重教育"
+        ],
+        "aesthetic": [
+          "整洁有序（作业本）"
+        ],
+        "socioeconomic": [
+          "可能为家长/老师/辅导员",
+          "关注教育"
+        ]
+      }
+    }
+  ],
+  "relationships": [
+    {
+      "person_id": "Person_011",
+      "relationship_type": "close_friend",
+      "intimacy_score": 0.144,
+      "status": "growing",
+      "confidence": 0.9,
+      "reason": "Person_006 and Person_011 show a solid, intensifying friendship. The co-occurrence frequency has dramatically increased recently (x6.2), and they've diversified their shared experiences to include not just casual outings (cafes, restaurants) but also formal event attendance, professional photo shoots, and even a tropical beach vacation – all recent developments. While the overall intimacy score is low (0.144) and weekend frequency is noted as low, these could reflect their personal style or the specific moments captured, rather than a lack of bond. Person_006 actively photographs Person_011, indicating care and interest in their friend's image and experiences. The trend and the expansion into new, significant settings strongly suggest a deepening relationship, making 'close_friend' a good fit, with 'growing' status being undeniable.",
+      "shared_events": [
+        {
+          "event_id": "EVT_015",
+          "date": "2025-10-16",
+          "narrative": "用户（Person_006）在室内咖啡馆与朋友Person_011紧密合影，穿着休闲牛仔夹克，面带柔和微笑，暗示这是一次轻松愉快的休闲聚会，并利用店内玻璃装饰进行了创意自拍。"
+        },
+        {
+          "event_id": "EVT_081",
+          "date": "2026-03-11",
+          "narrative": "用户在室内环境中，以正面视角拍摄身着白色缎面礼服与米白色毛绒披肩的朋友Person_011的半身肖像，展现其端庄、正式的形象，可能是在参加重要晚宴或活动前的留影，体现用户对朋友形象的关注与记录。"
+        },
+        {
+          "event_id": "EVT_032",
+          "date": "2026-01-01",
+          "narrative": "用户在新年第一天的室内日式餐厅或酒吧，以第一人称视角拍摄朋友Person_033和Person_011查看手机及拍摄的场景，桌面摆放日式饮品和酒，捕捉了轻松愉快的社交聚会。"
+        },
+        {
+          "event_id": "EVT_079",
+          "date": "2026-03-11",
+          "narrative": "用户在热带海滩上，天气晴朗，光线充足，为朋友Person_011拍摄肖像照片，Person_011以站姿面对镜头，双手扶着草帽边缘，身穿浅蓝色细针织开衫和做旧牛仔短裤，展现其与朋友的度假时光和时尚休闲风格。"
+        }
+      ],
+      "evidence": {
+        "photo_count": 7,
+        "time_span": "147天",
+        "time_span_days": 147,
+        "scenes": [
+          "室内咖啡馆或休闲餐饮空间",
+          "日式风格餐厅、居酒屋或特色咖啡馆/酒吧",
+          "户外咖啡馆或花园餐厅的露台区域",
+          "专业摄影棚",
+          "专业摄影棚或临时搭建的证件照拍摄区",
+          "室内，可能为酒店走廊、活动会场入口、摄影棚或具备大型玻璃窗的现代建筑内部。",
+          "热带沙滩"
+        ],
+        "interaction_behavior": [
+          "共同合影",
+          "被拍摄者/朋友",
+          "共同聚会/被拍摄"
+        ],
+        "weekend_frequency": "低",
+        "with_user_only": false,
+        "sample_scenes": [
+          {
+            "timestamp": "2025-10-16T09:48:05",
+            "scene": "室内咖啡馆或休闲餐饮空间",
+            "summary": "2025年10月16日09:48，在GPS经度104.0194、纬度30.7120的室内咖啡馆或休闲餐饮空间内，【主角】正与一位朋友紧密站立，脸部微侧并呈现柔和微笑，共同面对镜头留影。",
+            "activity": "休闲聚会",
+            "social_context": "和朋友"
+          },
+          {
+            "timestamp": "2026-01-01T00:07:31",
+            "scene": "日式风格餐厅、居酒屋或特色咖啡馆/酒吧",
+            "summary": "2026年1月1日00:07，在一家装饰有日式屏风的室内场所内，【主角】正通过第一人称视角拍摄一张照片，画面中两位年轻女性围坐于木质桌前，Person_033正查看手机屏幕，而Person_011则手持手机似在进行拍摄或录像，桌上摆放着日式饮品和酒。",
+            "activity": "社交聚会，休闲用餐或小酌",
+            "social_context": "和朋友"
+          },
+          {
+            "timestamp": "2026-03-11T14:20:05",
+            "scene": "户外咖啡馆或花园餐厅的露台区域",
+            "summary": "在2026年3月11日14:20的午后，【主角】在一处绿植环绕、自然光充足的户外咖啡馆或餐厅内，以平视视角拍摄了一张Person_011坐在餐桌前，双臂交叠，直视镜头的半身特写。",
+            "activity": "休闲会面或用餐",
+            "social_context": "和朋友"
+          },
+          {
+            "timestamp": "2026-03-11T14:20:06",
+            "scene": "专业摄影棚",
+            "summary": "2026年3月11日14:20，在一个光线均匀、背景为浅灰色的专业摄影棚内，【主角】正以平视角度拍摄Person_011的半身肖像照，Person_011呈30度侧卧姿态，左手轻托下巴，直视镜头。",
+            "activity": "肖像摄影拍摄",
+            "social_context": "工作/专业合作"
+          },
+          {
+            "timestamp": "2026-03-11T14:20:06",
+            "scene": "专业摄影棚或临时搭建的证件照拍摄区",
+            "summary": "在2026年3月11日14:20，在一个具有平整白色背景的未知室内摄影棚内，【主角】正对Person_011进行证件照或官方肖像的拍摄。",
+            "activity": "证件照拍摄或官方肖像摄影",
+            "social_context": "个人为特定目的进行的正式肖像记录"
+          }
+        ],
+        "contact_types": [
+          "standing_near",
+          "no_contact",
+          "no_contact",
+          "no_contact",
+          "no_contact",
+          "no_contact",
+          "no_contact"
+        ],
+        "rela_events": [
+          {
+            "event_id": "EVT_015",
+            "date": "2025-10-16",
+            "title": "咖啡馆朋友合影",
+            "location": "餐饮场所/休闲娱乐",
+            "photo_count": 2,
+            "description": "室内咖啡馆，【主角】（Person_006）与Person_011紧密站立合影。Person_006穿酒红色T恤、做旧浅灰色牛仔夹克，佩戴细银色海豚吊坠项链；Person_011穿浅灰色细罗纹针织长袖上衣。两人面带微笑。背景是模糊的白色手写字体玻璃表面和红棕色砖墙。另一张照片显示Person_006独自站立，视线平静地注视镜头外某处，牛仔外套和红色T恤。环境光线柔和，有景深虚化效果。",
+            "participants": [
+              "User (Person_006)",
+              "Person_011",
+              "Invisible Photographer (possibly self-timer or another friend)"
+            ],
+            "narrative_synthesis": "用户（Person_006）在室内咖啡馆与朋友Person_011紧密合影，穿着休闲牛仔夹克，面带柔和微笑，暗示这是一次轻松愉快的休闲聚会，并利用店内玻璃装饰进行了创意自拍。",
+            "social_dynamics": [
+              {
+                "target_id": "Person_011",
+                "interaction_type": "共同合影",
+                "social_clue": "与【主角】背靠背，身体距离极近，共同面对镜头，友好自信微笑",
+                "relation_hypothesis": "朋友",
+                "confidence": 0.95
+              }
+            ]
+          },
+          {
+            "event_id": "EVT_081",
+            "date": "2026-03-11",
+            "title": "友人正式礼服肖像",
+            "location": "公共/正式场合",
+            "photo_count": 1,
+            "description": "室内环境，【主角】以正面视角，在柔和光线下拍摄Person_011（女性，20-29岁）的半身肖像。Person_011发型挽起，脸颊有淡粉色腮红，穿白色缎面质感礼服（领口有蓝色装饰条纹，左胸下方绣有蓝色卷草纹花卉图案），外搭米白色毛绒披肩（系白色缎面丝带蝴蝶结）。背景左侧为深色高反光表面，右侧为浅色墙壁。",
+            "participants": [
+              "Person_011",
+              "User (Person_006)"
+            ],
+            "narrative_synthesis": "用户在室内环境中，以正面视角拍摄身着白色缎面礼服与米白色毛绒披肩的朋友Person_011的半身肖像，展现其端庄、正式的形象，可能是在参加重要晚宴或活动前的留影，体现用户对朋友形象的关注与记录。",
+            "social_dynamics": [
+              {
+                "target_id": "Person_011",
+                "interaction_type": "被拍摄者/朋友",
+                "social_clue": "姿态端庄，眼神专注直视镜头，展现正式形象，与拍摄者有协作关系",
+                "relation_hypothesis": "朋友",
+                "confidence": 0.95
+              }
+            ]
+          },
+          {
+            "event_id": "EVT_032",
+            "date": "2026-01-01",
+            "title": "新年日式小酌",
+            "location": "餐饮场所/休闲娱乐",
+            "photo_count": 1,
+            "description": "日式风格餐厅或酒吧室内，【主角】通过第一人称视角拍摄。Person_033（女性，长发，戴浅灰色手提包）查看玫瑰金iPhone屏幕；Person_011（女性，长发）手持米色手机似在拍摄。桌上摆放两瓶HATA KOGYO RAMUNE草莓味弹珠汽水和一瓶梅见青梅酒。背景为日式屏风（巨浪、仙鹤梅花图案）和木质圆柱。",
+            "participants": [
+              "Person_033",
+              "Person_011",
+              "User (Person_006)"
+            ],
+            "narrative_synthesis": "用户在新年第一天的室内日式餐厅或酒吧，以第一人称视角拍摄朋友Person_033和Person_011查看手机及拍摄的场景，桌面摆放日式饮品和酒，捕捉了轻松愉快的社交聚会。",
+            "social_dynamics": [
+              {
+                "target_id": "Person_033",
+                "interaction_type": "共同聚会",
+                "social_clue": "坐在同一桌，专注于手机，与拍摄者共享社交空间",
+                "relation_hypothesis": "朋友",
+                "confidence": 0.95
+              },
+              {
+                "target_id": "Person_011",
+                "interaction_type": "共同聚会/被拍摄",
+                "social_clue": "坐在同一桌，手持手机似在拍摄，与拍摄者共享社交空间",
+                "relation_hypothesis": "朋友",
+                "confidence": 0.95
+              }
+            ]
+          },
+          {
+            "event_id": "EVT_079",
+            "date": "2026-03-11",
+            "title": "热带海滩友人肖像",
+            "location": "户外旅游",
+            "photo_count": 1,
+            "description": "热带海滩，天气晴朗，光线充足。【主角】为Person_011（女性，20-30岁）拍摄肖像。Person_011戴宽檐编织草帽（饰有蓝色花朵），穿浅蓝色细针织开衫（半透视，露出中段腹部）、蓝白格纹抹胸式短款上衣、浅蓝色水洗做旧牛仔短裤（有破洞细节），系蓝白格纹细长丝巾。她双手扶着草帽边缘，直视镜头，面带微笑。背景有细沙沙滩、高大棕榈树和远处模糊的棕榈树林。",
+            "participants": [
+              "Person_011",
+              "User (Person_006)"
+            ],
+            "narrative_synthesis": "用户在热带海滩上，天气晴朗，光线充足，为朋友Person_011拍摄肖像照片，Person_011以站姿面对镜头，双手扶着草帽边缘，身穿浅蓝色细针织开衫和做旧牛仔短裤，展现其与朋友的度假时光和时尚休闲风格。",
+            "social_dynamics": [
+              {
+                "target_id": "Person_011",
+                "interaction_type": "被拍摄者/朋友",
+                "social_clue": "面对镜头摆拍，面带微笑，姿态轻松，与拍摄者共享度假体验",
+                "relation_hypothesis": "朋友",
+                "confidence": 0.95
+              }
+            ]
+          }
+        ],
+        "monthly_frequency": 1.4,
+        "trend_detail": {
+          "first_half_freq": 0.4,
+          "second_half_freq": 2.5,
+          "direction": "up",
+          "change_ratio": 6.2
+        },
+        "co_appearing_persons": [],
+        "anomalies": [
+          {
+            "type": "new_scene",
+            "description": "First time at '专业摄影棚或临时搭建的证件照拍摄区' together",
+            "date": "2026-03-11"
+          },
+          {
+            "type": "new_scene",
+            "description": "First time at '室内，可能为酒店走廊、活动会场入口、摄影棚或具备大型玻璃窗的现代建筑内部。' together",
+            "date": "2026-03-11"
+          },
+          {
+            "type": "new_scene",
+            "description": "First time at '热带沙滩' together",
+            "date": "2026-03-11"
+          }
+        ]
+      }
+    },
+    {
+      "person_id": "Person_018",
+      "relationship_type": "classmate_colleague",
+      "intimacy_score": 0.08,
+      "status": "new",
+      "confidence": 0.95,
+      "reason": "The individual is explicitly identified as 'classmate Person_018' in the event narrative, which is the strongest piece of evidence. All interactions occur in an academic setting ('教室或自习室'), further supporting this classification. The intimacy score is very low (0.080), and the interaction involves '被他拍' (being photographed by Person_006) in a relaxed, group setting, all consistent with a casual peer relationship. There is only one recorded interaction on 2025-10-26, and the trend data is 'insufficient'. This lack of historical data makes 'new' the most appropriate status, indicating that this is either a recently observed interaction or an isolated event where a long-term pattern cannot yet be established.",
+      "shared_events": [
+        {
+          "event_id": "EVT_020",
+          "date": "2025-10-26",
+          "narrative": "用户在室内教室或学习空间，以近距离低视角记录同学Person_018疲惫小憩的瞬间，同时拍到Person_019对镜头的灿烂笑容，展现出对校园生活与朋友日常的关注与记录。"
+        }
+      ],
+      "evidence": {
+        "photo_count": 1,
+        "time_span": "1天",
+        "time_span_days": 1,
+        "scenes": [
+          "教室或自习室"
+        ],
+        "interaction_behavior": [
+          "被他拍"
+        ],
+        "weekend_frequency": "高",
+        "with_user_only": false,
+        "sample_scenes": [
+          {
+            "timestamp": "2025-10-26T14:34:22",
+            "scene": "教室或自习室",
+            "summary": "在2025年10月26日14时34分，位于GPS坐标30.8246, 103.9844的室内教室或学习空间内，【主角】以近距离低视角拍摄了Person_018，其头部枕于一张浅蓝色桌面，双眼紧闭，左臂微抬，处于休息或熟睡状态，背景可见多名同学。",
+            "activity": "休息",
+            "social_context": "和朋友/同学"
+          }
+        ],
+        "contact_types": [
+          "no_contact"
+        ],
+        "rela_events": [
+          {
+            "event_id": "EVT_020",
+            "date": "2025-10-26",
+            "title": "教室小憩与友人嬉闹",
+            "location": "学习场所",
+            "photo_count": 2,
+            "description": "室内教室或学习空间，【主角】以近距离低视角拍摄了Person_018，其头部枕于浅蓝色桌面，双眼紧闭，左臂微抬，处于休息或熟睡状态。Person_018佩戴黑色细框金属眼镜，穿灰色麻花纹理卫衣和白色针织臂套。背景可见多名同学。另一张照片中，Person_019面带灿烂笑容直视镜头，吹出半透明口香糖气泡，她戴奶白色头巾、芥末黄羽绒夹克，手持智能手机。白色墙壁，浅蓝色学习桌。",
+            "participants": [
+              "Person_018",
+              "Person_019",
+              "Unnamed_Student_A",
+              "Unnamed_Student_B",
+              "User (Person_006)",
+              "Invisible Photographer"
+            ],
+            "narrative_synthesis": "用户在室内教室或学习空间，以近距离低视角记录同学Person_018疲惫小憩的瞬间，同时拍到Person_019对镜头的灿烂笑容，展现出对校园生活与朋友日常的关注与记录。",
+            "social_dynamics": [
+              {
+                "target_id": "Person_018",
+                "interaction_type": "被他拍",
+                "social_clue": "近距离拍摄，姿态放松（熟睡），处于集体环境中",
+                "relation_hypothesis": "同学",
+                "confidence": 0.9
+              },
+              {
+                "target_id": "Person_019",
+                "interaction_type": "被他拍/社交互动",
+                "social_clue": "极近距离拍摄，面带灿烂笑容直视镜头，积极配合",
+                "relation_hypothesis": "朋友/同学",
+                "confidence": 0.95
+              },
+              {
+                "target_id": "Unnamed_Student_A",
+                "interaction_type": "环境人物",
+                "social_clue": "社交距离，背对拍摄者，专注于自身活动",
+                "relation_hypothesis": "同学",
+                "confidence": 0.7
+              },
+              {
+                "target_id": "Unnamed_Student_B",
+                "interaction_type": "环境人物",
+                "social_clue": "公共距离，背对镜头，无互动",
+                "relation_hypothesis": "同学",
+                "confidence": 0.6
+              },
+              {
+                "target_id": "Invisible Photographer (User for photo_022; Person_006 for photo_074)",
+                "interaction_type": "他拍摄影师",
+                "social_clue": "作为记录者捕捉同学动态，与同学关系亲密",
+                "relation_hypothesis": "同学",
+                "confidence": 0.9
+              }
+            ]
+          }
+        ],
+        "monthly_frequency": 1.0,
+        "trend_detail": {},
+        "co_appearing_persons": [],
+        "anomalies": []
+      }
+    },
+    {
+      "person_id": "Person_033",
+      "relationship_type": "close_friend",
+      "intimacy_score": 0.179,
+      "status": "stable",
+      "confidence": 0.8,
+      "reason": "Person_033 is a solid close friend of Person_006. While the overall intimacy score is relatively low (0.179), the detailed event narratives paint a picture of significant closeness: they take multiple close-up selfies with 'faces close,' 'heads tightly adjacent,' and even 'making heart gestures.' Person_033 is comfortable enough to be photographed in a relaxed close-up portrait. They engage in diverse activities, from Christmas and New Year gatherings in restaurants and outdoor areas to shared moments in a university classroom, suggesting a multi-faceted friendship potentially rooted in an academic setting but extending into social life. The frequency of 2.8 photos/month is medium, fitting for a close friend. Although there was a 69-day gap, the trend is reported as 'flat' with a slight increase in the second half, indicating a stable relationship pattern overall.",
+      "shared_events": [
+        {
+          "event_id": "EVT_030",
+          "date": "2025-12-25",
+          "narrative": "用户（Person_006）在圣诞节夜晚与两位女性朋友（Person_032、Person_033）进行亲密社交聚会，在室内外不同场景拍摄多张活泼搞怪或温馨的合影与自拍，记录节日的喜悦与友情。"
+        },
+        {
+          "event_id": "EVT_083",
+          "date": "2026-03-11",
+          "narrative": "用户（Person_006）与朋友Person_033在光线明亮的室内环境中，微笑着各自伸出靠近镜头的手作出“心形”手势，共同完成一张近距离自拍，记录了朋友间的亲密时刻和愉快的互动。"
+        },
+        {
+          "event_id": "EVT_032",
+          "date": "2026-01-01",
+          "narrative": "用户在新年第一天的室内日式餐厅或酒吧，以第一人称视角拍摄朋友Person_033和Person_011查看手机及拍摄的场景，桌面摆放日式饮品和酒，捕捉了轻松愉快的社交聚会。"
+        },
+        {
+          "event_id": "EVT_062",
+          "date": "2026-03-11",
+          "narrative": "用户在室内阶梯教室与朋友Person_094、Person_033合影，记录课间或课程结束后的轻松时光，朋友T恤上印有“life is better when you daydream”字样，并可见Canon相机包，展现用户与朋友的校园社交。"
+        },
+        {
+          "event_id": "EVT_065",
+          "date": "2026-03-11",
+          "narrative": "用户在室内公共空间，从俯视高角度拍摄朋友Person_033的特写肖像，Person_033直视镜头，面部表情自然放松，背景为白色墙壁，展现用户与朋友间轻松的互动与对人物特写的捕捉能力。"
+        },
+        {
+          "event_id": "EVT_082",
+          "date": "2026-03-11",
+          "narrative": "用户（Person_006）与朋友Person_033脸部紧密靠近，她手持白色边框透明手机壳的智能手机进行自拍，屏幕显示地图应用，两人皆面带微笑，记录了轻松愉快的社交瞬间，可能在查看导航或寻找目的地。"
+        }
+      ],
+      "evidence": {
+        "photo_count": 7,
+        "time_span": "76天",
+        "time_span_days": 76,
+        "scenes": [
+          "城市户外区域，可能是一条街巷或建筑物外墙旁。",
+          "无法具体识别，可能为室内休闲场所的墙壁区域或走廊。",
+          "日式风格餐厅、居酒屋或特色咖啡馆/酒吧",
+          "一个光线充足的室内空间，无具体可识别的地点标志",
+          "大学或学校阶梯教室",
+          "无法精确识别具体地点，根据模糊背景判断可能为户外夜晚，但EXIF时间指示为白天，因此更可能为采光较差的室内环境或非常阴暗的户外区域。",
+          "未知"
+        ],
+        "interaction_behavior": [
+          "共同合影/社交",
+          "共同自拍/社交",
+          "共同聚会",
+          "共同合影",
+          "被拍摄者"
+        ],
+        "weekend_frequency": "低",
+        "with_user_only": false,
+        "sample_scenes": [
+          {
+            "timestamp": "2025-12-25T22:30:30",
+            "scene": "城市户外区域，可能是一条街巷或建筑物外墙旁。",
+            "summary": "2025年12月25日22:30，在疑似城市户外砖墙背景前，【主角】与两位女性朋友紧密并肩，面带愉悦的笑容，共同留下一张合影。",
+            "activity": "朋友聚会，合影留念",
+            "social_context": "和朋友"
+          },
+          {
+            "timestamp": "2025-12-25T22:30:43",
+            "scene": "无法具体识别，可能为室内休闲场所的墙壁区域或走廊。",
+            "summary": "2025年12月25日22点30分，在具有黄褐色砖墙背景的室内空间，【主角】与两位女性友人（Person_032、Person_033）共同进行自拍，【主角】面对镜头，右手抬起呈“爪”状手势，嘴巴微张，表情活泼，三位人物紧密排列在画面中。",
+            "activity": "朋友聚会中的自拍合影",
+            "social_context": "和朋友"
+          },
+          {
+            "timestamp": "2026-01-01T00:07:31",
+            "scene": "日式风格餐厅、居酒屋或特色咖啡馆/酒吧",
+            "summary": "2026年1月1日00:07，在一家装饰有日式屏风的室内场所内，【主角】正通过第一人称视角拍摄一张照片，画面中两位年轻女性围坐于木质桌前，Person_033正查看手机屏幕，而Person_011则手持手机似在进行拍摄或录像，桌上摆放着日式饮品和酒。",
+            "activity": "社交聚会，休闲用餐或小酌",
+            "social_context": "和朋友"
+          },
+          {
+            "timestamp": "2026-03-11T14:20:12",
+            "scene": "一个光线充足的室内空间，无具体可识别的地点标志",
+            "summary": "2026年3月11日14:20，在一个光线充足且背景为白色墙壁的室内空间，【主角】正以俯视高角度拍摄Person_033的特写肖像，Person_033的视线向上与【主角】的镜头进行直接对视。",
+            "activity": "人像拍摄",
+            "social_context": "和朋友"
+          },
+          {
+            "timestamp": "2026-03-11T14:20:16",
+            "scene": "大学或学校阶梯教室",
+            "summary": "2026年3月11日14:20，在一个室内阶梯教室中，【主角】坐于第一排课桌后，双手捧脸，目光下垂，与站在中央过道上的Person_094和坐在右侧课桌后的Person_033一同进行合影拍摄。",
+            "activity": "合影留念",
+            "social_context": "和朋友"
+          }
+        ],
+        "contact_types": [
+          "standing_near",
+          "standing_near",
+          "no_contact",
+          "no_contact",
+          "no_contact",
+          "selfie_together",
+          "selfie_together"
+        ],
+        "rela_events": [
+          {
+            "event_id": "EVT_030",
+            "date": "2025-12-25",
+            "title": "圣诞节友人聚会",
+            "location": "都市户外/私密居家/摄影棚",
+            "photo_count": 7,
+            "description": "圣诞节夜晚，在城市户外砖墙背景和室内空间。【主角】（Person_006）与Person_032、Person_033紧密并肩合影，表情活泼、搞怪（大笑、惊讶、O型嘴）。三人衣着厚重（毛绒外套、针织帽），Person_032戴有“WINTER”字样针织帽。Person_006也进行个人自拍，佩戴黑色天鹅吊坠项链和米白色毛绒渔夫帽。照片风格多有复古颗粒感或拍立得边框。另有一张照片显示Person_006与“Person_001 (成年手)”近距离互动，后者手触摸Person_006外套上的红色皇冠徽章，Person_006面带羞涩笑容。",
+            "participants": [
+              "User (Person_006)",
+              "Person_032",
+              "Person_033",
+              "Person_001 (Adult Hand Companion)"
+            ],
+            "narrative_synthesis": "用户（Person_006）在圣诞节夜晚与两位女性朋友（Person_032、Person_033）进行亲密社交聚会，在室内外不同场景拍摄多张活泼搞怪或温馨的合影与自拍，记录节日的喜悦与友情。",
+            "social_dynamics": [
+              {
+                "target_id": "Person_032",
+                "interaction_type": "共同合影/社交",
+                "social_clue": "紧密并肩，活泼表情，共同入镜",
+                "relation_hypothesis": "朋友",
+                "confidence": 0.95
+              },
+              {
+                "target_id": "Person_033",
+                "interaction_type": "共同合影/社交",
+                "social_clue": "紧密并肩，活泼搞怪表情，共同入镜",
+                "relation_hypothesis": "朋友",
+                "confidence": 0.95
+              },
+              {
+                "target_id": "Person_001 (Adult Hand Companion)",
+                "interaction_type": "亲密互动",
+                "social_clue": "近距离触摸用户衣物上的徽章，用户面带羞涩笑容",
+                "relation_hypothesis": "亲密朋友/伴侣",
+                "confidence": 0.9
+              }
+            ]
+          },
+          {
+            "event_id": "EVT_083",
+            "date": "2026-03-11",
+            "title": "友人比心自拍",
+            "location": "私密居家/公共休闲",
+            "photo_count": 1,
+            "description": "光线明亮的室内环境，【主角】（Person_006）与Person_033（女性，20-25岁）紧密并排，微笑着各自伸出靠近镜头的手作出“心形”手势，共同完成自拍。Person_006戴深棕色粗边圆形框架眼镜，穿黑色绗缝羽绒夹克，右手无名指戴银色镶钻戒指。Person_033戴金色细框圆形框架眼镜，穿黑色细罗纹针织衫，内搭深棕色连帽卫衣（胸前有白色字母“B B.”和“IB2”）。背景为白色天花板、长条形荧光灯具和深蓝色厚重窗帘。",
+            "participants": [
+              "User (Person_006)",
+              "Person_033"
+            ],
+            "narrative_synthesis": "用户（Person_006）与朋友Person_033在光线明亮的室内环境中，微笑着各自伸出靠近镜头的手作出“心形”手势，共同完成一张近距离自拍，记录了朋友间的亲密时刻和愉快的互动。",
+            "social_dynamics": [
+              {
+                "target_id": "Person_033",
+                "interaction_type": "共同自拍/社交",
+                "social_clue": "头部紧密相邻，肩部并拢，共同面向镜头摆拍，作出心形手势，表情愉快",
+                "relation_hypothesis": "朋友",
+                "confidence": 0.98
+              }
+            ]
+          },
+          {
+            "event_id": "EVT_032",
+            "date": "2026-01-01",
+            "title": "新年日式小酌",
+            "location": "餐饮场所/休闲娱乐",
+            "photo_count": 1,
+            "description": "日式风格餐厅或酒吧室内，【主角】通过第一人称视角拍摄。Person_033（女性，长发，戴浅灰色手提包）查看玫瑰金iPhone屏幕；Person_011（女性，长发）手持米色手机似在拍摄。桌上摆放两瓶HATA KOGYO RAMUNE草莓味弹珠汽水和一瓶梅见青梅酒。背景为日式屏风（巨浪、仙鹤梅花图案）和木质圆柱。",
+            "participants": [
+              "Person_033",
+              "Person_011",
+              "User (Person_006)"
+            ],
+            "narrative_synthesis": "用户在新年第一天的室内日式餐厅或酒吧，以第一人称视角拍摄朋友Person_033和Person_011查看手机及拍摄的场景，桌面摆放日式饮品和酒，捕捉了轻松愉快的社交聚会。",
+            "social_dynamics": [
+              {
+                "target_id": "Person_033",
+                "interaction_type": "共同聚会",
+                "social_clue": "坐在同一桌，专注于手机，与拍摄者共享社交空间",
+                "relation_hypothesis": "朋友",
+                "confidence": 0.95
+              },
+              {
+                "target_id": "Person_011",
+                "interaction_type": "共同聚会/被拍摄",
+                "social_clue": "坐在同一桌，手持手机似在拍摄，与拍摄者共享社交空间",
+                "relation_hypothesis": "朋友",
+                "confidence": 0.95
+              }
+            ]
+          },
+          {
+            "event_id": "EVT_062",
+            "date": "2026-03-11",
+            "title": "教室朋友合影",
+            "location": "学习场所",
+            "photo_count": 1,
+            "description": "室内阶梯教室，【主角】（Person_006，坐于课桌后，双手捧脸，目光下垂，戴黑框眼镜，穿浅灰色卫衣）与站在中央过道的Person_094和坐在右侧课桌后的Person_033一同合影。Person_094（女性，20-25岁）穿黑T恤（印有“life is better when you daydream”）、横条纹长裙，戴黑框眼镜，面带微带笑意直视镜头。Person_033（女性，20-25岁）穿酒红色针织毛衣，戴眼镜。课桌上可见白色边框智能手机和Canon相机包。VLM显示时间为“星期日 20:57:30”，但EXIF为“2026-03-11T14:20:06”。",
+            "participants": [
+              "User (Person_006)",
+              "Person_094",
+              "Person_033"
+            ],
+            "narrative_synthesis": "用户在室内阶梯教室与朋友Person_094、Person_033合影，记录课间或课程结束后的轻松时光，朋友T恤上印有“life is better when you daydream”字样，并可见Canon相机包，展现用户与朋友的校园社交。",
+            "social_dynamics": [
+              {
+                "target_id": "Person_094",
+                "interaction_type": "共同合影",
+                "social_clue": "站在中央过道，正对镜头，与用户和Person_033形成合影",
+                "relation_hypothesis": "朋友/同学",
+                "confidence": 0.95
+              },
+              {
+                "target_id": "Person_033",
+                "interaction_type": "共同合影",
+                "social_clue": "坐在右侧课桌后，与用户和Person_094形成合影",
+                "relation_hypothesis": "朋友/同学",
+                "confidence": 0.95
+              }
+            ]
+          },
+          {
+            "event_id": "EVT_065",
+            "date": "2026-03-11",
+            "title": "朋友高角度特写",
+            "location": "公共场所/摄影棚",
+            "photo_count": 1,
+            "description": "光线充足的室内空间，【主角】以俯视高角度拍摄Person_033（女性，20-25岁）的特写肖像。Person_033穿黑色内搭衫、米白色与黑色拼接保暖背心，直视上方镜头，面部表情自然放松。背景为白色墙壁，顶部有强烈定向光源在墙壁上投射阴影。",
+            "participants": [
+              "Person_033",
+              "User (Person_006)"
+            ],
+            "narrative_synthesis": "用户在室内公共空间，从俯视高角度拍摄朋友Person_033的特写肖像，Person_033直视镜头，面部表情自然放松，背景为白色墙壁，展现用户与朋友间轻松的互动与对人物特写的捕捉能力。",
+            "social_dynamics": [
+              {
+                "target_id": "Person_033",
+                "interaction_type": "被拍摄者",
+                "social_clue": "近距离特写，眼神与镜头直接对视，表情放松",
+                "relation_hypothesis": "朋友",
+                "confidence": 0.95
+              }
+            ]
+          },
+          {
+            "event_id": "EVT_082",
+            "date": "2026-03-11",
+            "title": "朋友地图自拍",
+            "location": "室内/室外",
+            "photo_count": 1,
+            "description": "光线昏暗、背景模糊的室内或室外场景中，【主角】（Person_006）与Person_033（女性，20-25岁）脸部紧密靠近，【主角】手持智能手机进行自拍，屏幕显示地图应用界面（可见中文地名及路线信息）。两人皆面带微笑，Person_033戴米色绒毛渔夫帽，穿米白色绗缝羽绒夹克。Person_006穿米色羊羔绒外套。背景可见远处暖黄色光源点。",
+            "participants": [
+              "User (Person_006)",
+              "Person_033"
+            ],
+            "narrative_synthesis": "用户（Person_006）与朋友Person_033脸部紧密靠近，她手持白色边框透明手机壳的智能手机进行自拍，屏幕显示地图应用，两人皆面带微笑，记录了轻松愉快的社交瞬间，可能在查看导航或寻找目的地。",
+            "social_dynamics": [
+              {
+                "target_id": "Person_033",
+                "interaction_type": "共同自拍/社交",
+                "social_clue": "脸部紧密靠近，共同看向镜头，面带微笑，共享手机屏幕信息",
+                "relation_hypothesis": "朋友",
+                "confidence": 0.95
+              }
+            ]
+          }
+        ],
+        "monthly_frequency": 2.8,
+        "trend_detail": {
+          "first_half_freq": 2.4,
+          "second_half_freq": 3.2,
+          "direction": "flat",
+          "change_ratio": 1.3
+        },
+        "co_appearing_persons": [
+          {
+            "person_id": "Person_032",
+            "co_count": 2,
+            "co_ratio": 0.29
+          }
+        ],
+        "anomalies": [
+          {
+            "type": "frequency_drop",
+            "description": "Gap 69d vs avg 12d",
+            "date": "2026-03-11"
+          },
+          {
+            "type": "new_companion",
+            "description": "Person_094 first appeared in shared photos",
+            "date": "2026-03-11"
+          },
+          {
+            "type": "new_scene",
+            "description": "First time at '大学或学校阶梯教室' together",
+            "date": "2026-03-11"
+          },
+          {
+            "type": "new_scene",
+            "description": "First time at '无法精确识别具体地点，根据模糊背景判断可能为户外夜晚，但EXIF时间指示为白天，因此更可能为采光较差的室内环境或非常阴暗的户外区域。' together",
+            "date": "2026-03-11"
+          },
+          {
+            "type": "new_scene",
+            "description": "First time at '未知' together",
+            "date": "2026-03-11"
+          }
+        ]
+      }
+    },
+    {
+      "person_id": "Person_041",
+      "relationship_type": "family",
+      "intimacy_score": 0.175,
+      "status": "fading",
+      "confidence": 0.9,
+      "reason": "Person_041 and Person_006 share numerous photos (8 in 23 days) predominantly taken in various residential indoor spaces, including a specific home in Mianyang, Sichuan. This strong presence in domestic settings suggests a deeply integrated relationship, possibly living together. Interactions like 'sitting_close' and 'selfie_together' indicate comfort and closeness, while the very low intimacy score (0.175) confirms a platonic bond, fitting for family members. The 'low' weekend frequency further supports the idea of daily co-presence, as interactions aren't limited to specific leisure days. Although the trend is labeled 'flat', the provided multiplier (first half: 13.6/mo → second half: 8.2/mo, ×0.6) indicates a significant 40% drop in photo frequency over this short period, suggesting the relationship's visible activity is 'fading'.",
+      "shared_events": [],
+      "evidence": {
+        "photo_count": 8,
+        "time_span": "23天",
+        "time_span_days": 23,
+        "scenes": [
+          "户外街道或停车场",
+          "户外公共区域，可能为街边或广场",
+          "室内走廊或通道区域",
+          "家庭室内空间，可能是卧室或起居室",
+          "四川绵阳市某住宅的客厅或休闲区",
+          "住宅室内空间，可能为客厅或书房一角",
+          "家庭客厅或卧室",
+          "住宅室内空间，可能为客厅或书房"
+        ],
+        "interaction_behavior": [
+          "Person_041 holding 蓝色瓶盖透明塑料瓶",
+          "Person_041 reacting_to 画面左上方强光源",
+          "Person_041 facing camera",
+          "Person_041 located_at foreground",
+          "Person_041 wearing 红黑拼色羽绒夹克",
+          "Person_041 standing_in_front_of 米色墙壁",
+          "Person_041 wearing 深蓝色卫衣",
+          "Person_041 sitting_near 灰色凹凸纹理毯子",
+          "灰色凹凸纹理毯子 placed_near Person_041",
+          "Person_041 looking_at 【主角】",
+          "Person_041 sitting_on 沙发",
+          "Person_041 holding 零食",
+          "Person_041 wearing 黑色哑光尼龙羽绒背心",
+          "Person_041 wearing 深灰色圆领T恤",
+          "白色电风扇 placed_near Person_041",
+          "Person_006 sitting_near Person_041",
+          "Person_041 sitting_near Person_006",
+          "米白色长绒毛毯 partially_covering Person_041",
+          "Person_006 posing_with Person_041",
+          "Person_041 making V字手势"
+        ],
+        "weekend_frequency": "低",
+        "with_user_only": false,
+        "sample_scenes": [
+          {
+            "timestamp": "2026-01-07T20:43:14",
+            "scene": "户外街道或停车场",
+            "summary": "于2026年1月7日20时43分，【主角】在北纬31.0861度、东经105.0777度的室外街道或停车区域，使用相机近距离捕捉了Person_041因强光源照射而眯眼、咧嘴的玩闹瞬间，画面中心聚焦于其面部表情。",
+            "activity": "休闲摄影",
+            "social_context": "和家人或亲近的朋友"
+          },
+          {
+            "timestamp": "2026-01-07T20:43:16",
+            "scene": "户外公共区域，可能为街边或广场",
+            "summary": "2026年1月7日20时43分，【主角】在北纬31.0861度、东经105.0777度的室外夜间环境中，以极近距离仰拍视角，捕捉了Person_041正对着镜头做出一个搞怪、闭眼伸舌的特写瞬间。",
+            "activity": "休闲摄影，人物特写",
+            "social_context": "和朋友或家人"
+          },
+          {
+            "timestamp": "2026-01-07T22:32:36",
+            "scene": "室内走廊或通道区域",
+            "summary": "2026年1月7日22时32分，在一个未具名的室内走廊区域，【主角】正以正面特写视角拍摄Person_041的肖像，捕捉其直视镜头的瞬间。",
+            "activity": "人物肖像拍摄",
+            "social_context": "和家人或朋友"
+          },
+          {
+            "timestamp": "2026-01-09T22:30:40",
+            "scene": "家庭室内空间，可能是卧室或起居室",
+            "summary": "2026年1月9日22:30，在GPS坐标31.0857, 105.0776附近的室内空间，【主角】以近距离仰拍视角捕捉了Person_041对着镜头发出开怀笑声的瞬间。",
+            "activity": "居家休闲",
+            "social_context": "和家人"
+          },
+          {
+            "timestamp": "2026-01-12T20:46:43",
+            "scene": "四川绵阳市某住宅的客厅或休闲区",
+            "summary": "在2026年1月12日20:46，【主角】在四川绵阳市的一处室内住宅空间，以近距离视角拍摄了Person_041，此刻Person_041正将一个红色纸袋平衡放置于头部，并双手持握着一个已部分拆封的零食，同时眼神直接望向镜头，呈现出一种 playful 的互动瞬间。",
+            "activity": "家庭休闲与亲子互动",
+            "social_context": "和家人"
+          }
+        ],
+        "contact_types": [
+          "no_contact",
+          "no_contact",
+          "no_contact",
+          "no_contact",
+          "no_contact",
+          "no_contact",
+          "sitting_close",
+          "selfie_together"
+        ],
+        "rela_events": [],
+        "monthly_frequency": 8.0,
+        "trend_detail": {
+          "first_half_freq": 13.6,
+          "second_half_freq": 8.2,
+          "direction": "flat",
+          "change_ratio": 0.6
+        },
+        "co_appearing_persons": [],
+        "anomalies": [
+          {
+            "type": "frequency_drop",
+            "description": "Gap 12d vs avg 3d",
+            "date": "2026-01-24"
+          },
+          {
+            "type": "new_companion",
+            "description": "Person_002 first appeared in shared photos",
+            "date": "2026-01-29"
+          },
+          {
+            "type": "new_scene",
+            "description": "First time at '住宅室内空间，可能为客厅或书房一角' together",
+            "date": "2026-01-24"
+          },
+          {
+            "type": "new_scene",
+            "description": "First time at '家庭客厅或卧室' together",
+            "date": "2026-01-29"
+          },
+          {
+            "type": "new_scene",
+            "description": "First time at '住宅室内空间，可能为客厅或书房' together",
+            "date": "2026-01-29"
+          }
+        ]
+      }
+    }
+  ],
+  "face_db": {
+    "Person_001": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2025-09-17T18:54:19",
+      "last_seen": "2025-09-17T18:54:19",
+      "avg_confidence": 0.8732626438140869
+    },
+    "Person_002": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2025-09-17T18:54:19",
+      "last_seen": "2025-09-17T18:54:19",
+      "avg_confidence": 0.8290327191352844
+    },
+    "Person_003": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2025-09-17T18:54:19",
+      "last_seen": "2025-09-17T18:54:19",
+      "avg_confidence": 0.7824242115020752
+    },
+    "Person_004": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2025-09-24T10:28:35",
+      "last_seen": "2025-09-24T10:28:35",
+      "avg_confidence": 0.8213367462158203
+    },
+    "Person_005": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2025-09-25T08:51:43",
+      "last_seen": "2025-09-25T08:51:43",
+      "avg_confidence": 0.8771451711654663
+    },
+    "Person_006": {
+      "name": "Primary",
+      "photo_count": 72,
+      "first_seen": "2025-09-25T13:03:22",
+      "last_seen": "2026-03-11T14:35:11",
+      "avg_confidence": 0.811154323319594
+    },
+    "Person_007": {
+      "name": "Person",
+      "photo_count": 2,
+      "first_seen": "2025-10-04T19:52:33",
+      "last_seen": "2025-10-04T20:04:38",
+      "avg_confidence": 0.837819367647171
+    },
+    "Person_008": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2025-10-04T20:00:27",
+      "last_seen": "2025-10-04T20:00:27",
+      "avg_confidence": 0.7544000148773193
+    },
+    "Person_009": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2025-10-04T20:02:48",
+      "last_seen": "2025-10-04T20:02:48",
+      "avg_confidence": 0.8188000917434692
+    },
+    "Person_010": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2025-10-04T20:02:48",
+      "last_seen": "2025-10-04T20:02:48",
+      "avg_confidence": 0.6981008052825928
+    },
+    "Person_011": {
+      "name": "Person",
+      "photo_count": 7,
+      "first_seen": "2025-10-16T09:48:05",
+      "last_seen": "2026-03-11T14:21:01",
+      "avg_confidence": 0.8519730993679592
+    },
+    "Person_012": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2025-10-20T12:30:34",
+      "last_seen": "2025-10-20T12:30:34",
+      "avg_confidence": 0.9057291746139526
+    },
+    "Person_013": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2025-10-20T12:30:34",
+      "last_seen": "2025-10-20T12:30:34",
+      "avg_confidence": 0.8651556968688965
+    },
+    "Person_014": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2025-10-20T12:30:34",
+      "last_seen": "2025-10-20T12:30:34",
+      "avg_confidence": 0.8417953252792358
+    },
+    "Person_015": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2025-10-20T12:30:34",
+      "last_seen": "2025-10-20T12:30:34",
+      "avg_confidence": 0.7714176177978516
+    },
+    "Person_016": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2025-10-20T12:30:34",
+      "last_seen": "2025-10-20T12:30:34",
+      "avg_confidence": 0.7647945284843445
+    },
+    "Person_017": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2025-10-20T12:30:34",
+      "last_seen": "2025-10-20T12:30:34",
+      "avg_confidence": 0.656908392906189
+    },
+    "Person_018": {
+      "name": "Person",
+      "photo_count": 2,
+      "first_seen": "2025-10-26T14:34:22",
+      "last_seen": "2026-03-11T14:20:06",
+      "avg_confidence": 0.6427930990854899
+    },
+    "Person_019": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2025-10-26T15:08:55",
+      "last_seen": "2025-10-26T15:08:55",
+      "avg_confidence": 0.7980958223342896
+    },
+    "Person_020": {
+      "name": "Person",
+      "photo_count": 2,
+      "first_seen": "2025-10-30T09:40:29",
+      "last_seen": "2025-10-30T09:40:39",
+      "avg_confidence": 0.8086554706096649
+    },
+    "Person_021": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2025-10-30T09:40:29",
+      "last_seen": "2025-10-30T09:40:29",
+      "avg_confidence": 0.6566639542579651
+    },
+    "Person_022": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2025-10-30T09:41:03",
+      "last_seen": "2025-10-30T09:41:03",
+      "avg_confidence": 0.8471493124961853
+    },
+    "Person_023": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2025-10-30T09:41:03",
+      "last_seen": "2025-10-30T09:41:03",
+      "avg_confidence": 0.8152077198028564
+    },
+    "Person_024": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2025-10-30T09:41:03",
+      "last_seen": "2025-10-30T09:41:03",
+      "avg_confidence": 0.769394040107727
+    },
+    "Person_025": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2025-10-30T09:42:09",
+      "last_seen": "2025-10-30T09:42:09",
+      "avg_confidence": 0.6443372964859009
+    },
+    "Person_026": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2025-10-30T09:43:39",
+      "last_seen": "2025-10-30T09:43:39",
+      "avg_confidence": 0.7067965269088745
+    },
+    "Person_027": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2025-10-30T09:44:04",
+      "last_seen": "2025-10-30T09:44:04",
+      "avg_confidence": 0.8230734467506409
+    },
+    "Person_028": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2025-11-09T13:07:28",
+      "last_seen": "2025-11-09T13:07:28",
+      "avg_confidence": 0.6607900857925415
+    },
+    "Person_029": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2025-12-19T23:46:22",
+      "last_seen": "2025-12-19T23:46:22",
+      "avg_confidence": 0.731743574142456
+    },
+    "Person_030": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2025-12-19T23:46:22",
+      "last_seen": "2025-12-19T23:46:22",
+      "avg_confidence": 0.6578409671783447
+    },
+    "Person_031": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2025-12-19T23:46:22",
+      "last_seen": "2025-12-19T23:46:22",
+      "avg_confidence": 0.6546095013618469
+    },
+    "Person_032": {
+      "name": "Person",
+      "photo_count": 2,
+      "first_seen": "2025-12-25T22:30:30",
+      "last_seen": "2025-12-25T22:30:43",
+      "avg_confidence": 0.806428849697113
+    },
+    "Person_033": {
+      "name": "Person",
+      "photo_count": 7,
+      "first_seen": "2025-12-25T22:30:30",
+      "last_seen": "2026-03-11T14:35:07",
+      "avg_confidence": 0.8435190830911908
+    },
+    "Person_034": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2025-12-31T22:11:50",
+      "last_seen": "2025-12-31T22:11:50",
+      "avg_confidence": 0.8235869407653809
+    },
+    "Person_035": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2025-12-31T22:11:50",
+      "last_seen": "2025-12-31T22:11:50",
+      "avg_confidence": 0.8003960847854614
+    },
+    "Person_036": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2025-12-31T22:11:50",
+      "last_seen": "2025-12-31T22:11:50",
+      "avg_confidence": 0.7756869792938232
+    },
+    "Person_037": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2025-12-31T22:11:50",
+      "last_seen": "2025-12-31T22:11:50",
+      "avg_confidence": 0.7620041370391846
+    },
+    "Person_038": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2025-12-31T22:11:50",
+      "last_seen": "2025-12-31T22:11:50",
+      "avg_confidence": 0.7576802968978882
+    },
+    "Person_039": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2025-12-31T22:11:50",
+      "last_seen": "2025-12-31T22:11:50",
+      "avg_confidence": 0.713933527469635
+    },
+    "Person_040": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2025-12-31T22:56:40",
+      "last_seen": "2025-12-31T22:56:40",
+      "avg_confidence": 0.6907652616500854
+    },
+    "Person_041": {
+      "name": "Person",
+      "photo_count": 8,
+      "first_seen": "2026-01-07T20:43:14",
+      "last_seen": "2026-01-29T21:25:26",
+      "avg_confidence": 0.7903579920530319
+    },
+    "Person_042": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-01-07T22:21:07",
+      "last_seen": "2026-01-07T22:21:07",
+      "avg_confidence": 0.8767286539077759
+    },
+    "Person_043": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-01-25T11:51:59",
+      "last_seen": "2026-01-25T11:51:59",
+      "avg_confidence": 0.6942835450172424
+    },
+    "Person_044": {
+      "name": "Person",
+      "photo_count": 2,
+      "first_seen": "2026-02-07T10:36:40",
+      "last_seen": "2026-02-07T10:36:48",
+      "avg_confidence": 0.7547982931137085
+    },
+    "Person_045": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-02-07T20:37:01",
+      "last_seen": "2026-02-07T20:37:01",
+      "avg_confidence": 0.8936523795127869
+    },
+    "Person_046": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-02-12T11:18:50",
+      "last_seen": "2026-02-12T11:18:50",
+      "avg_confidence": 0.8755266666412354
+    },
+    "Person_047": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-02-26T17:20:44",
+      "last_seen": "2026-02-26T17:20:44",
+      "avg_confidence": 0.8735272288322449
+    },
+    "Person_048": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-02-26T17:31:57",
+      "last_seen": "2026-02-26T17:31:57",
+      "avg_confidence": 0.8751199245452881
+    },
+    "Person_049": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-02-26T22:06:40",
+      "last_seen": "2026-02-26T22:06:40",
+      "avg_confidence": 0.7765091061592102
+    },
+    "Person_050": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-02-28T21:19:05",
+      "last_seen": "2026-02-28T21:19:05",
+      "avg_confidence": 0.8918651938438416
+    },
+    "Person_051": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-02-28T21:19:05",
+      "last_seen": "2026-02-28T21:19:05",
+      "avg_confidence": 0.876137375831604
+    },
+    "Person_052": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-02-28T21:19:05",
+      "last_seen": "2026-02-28T21:19:05",
+      "avg_confidence": 0.870628833770752
+    },
+    "Person_053": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-02-28T21:19:05",
+      "last_seen": "2026-02-28T21:19:05",
+      "avg_confidence": 0.8536045551300049
+    },
+    "Person_054": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-02-28T21:19:05",
+      "last_seen": "2026-02-28T21:19:05",
+      "avg_confidence": 0.8454412221908569
+    },
+    "Person_055": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-02-28T21:19:05",
+      "last_seen": "2026-02-28T21:19:05",
+      "avg_confidence": 0.8433685898780823
+    },
+    "Person_056": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-02-28T21:19:05",
+      "last_seen": "2026-02-28T21:19:05",
+      "avg_confidence": 0.8252516984939575
+    },
+    "Person_057": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-02-28T21:19:05",
+      "last_seen": "2026-02-28T21:19:05",
+      "avg_confidence": 0.8107272386550903
+    },
+    "Person_058": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-02-28T21:19:05",
+      "last_seen": "2026-02-28T21:19:05",
+      "avg_confidence": 0.7845988273620605
+    },
+    "Person_059": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-02-28T21:19:05",
+      "last_seen": "2026-02-28T21:19:05",
+      "avg_confidence": 0.7585650682449341
+    },
+    "Person_060": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-02-28T21:19:05",
+      "last_seen": "2026-02-28T21:19:05",
+      "avg_confidence": 0.7237740755081177
+    },
+    "Person_061": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:16:42",
+      "last_seen": "2026-03-11T14:16:42",
+      "avg_confidence": 0.8775303363800049
+    },
+    "Person_062": {
+      "name": "Person",
+      "photo_count": 5,
+      "first_seen": "2026-03-11T14:16:44",
+      "last_seen": "2026-03-11T14:16:49",
+      "avg_confidence": 0.8310161113739014
+    },
+    "Person_063": {
+      "name": "Person",
+      "photo_count": 2,
+      "first_seen": "2026-03-11T14:16:47",
+      "last_seen": "2026-03-11T14:20:22",
+      "avg_confidence": 0.7942211031913757
+    },
+    "Person_064": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:19:06",
+      "last_seen": "2026-03-11T14:19:06",
+      "avg_confidence": 0.8293462991714478
+    },
+    "Person_065": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:19:22",
+      "last_seen": "2026-03-11T14:19:22",
+      "avg_confidence": 0.6096301674842834
+    },
+    "Person_066": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:20:06",
+      "last_seen": "2026-03-11T14:20:06",
+      "avg_confidence": 0.8656905889511108
+    },
+    "Person_067": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:20:06",
+      "last_seen": "2026-03-11T14:20:06",
+      "avg_confidence": 0.7811758518218994
+    },
+    "Person_068": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:20:06",
+      "last_seen": "2026-03-11T14:20:06",
+      "avg_confidence": 0.9180989861488342
+    },
+    "Person_069": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:20:06",
+      "last_seen": "2026-03-11T14:20:06",
+      "avg_confidence": 0.9170065522193909
+    },
+    "Person_070": {
+      "name": "Person",
+      "photo_count": 3,
+      "first_seen": "2026-03-11T14:20:06",
+      "last_seen": "2026-03-11T14:20:32",
+      "avg_confidence": 0.9050228397051493
+    },
+    "Person_071": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:20:06",
+      "last_seen": "2026-03-11T14:20:06",
+      "avg_confidence": 0.8978493213653564
+    },
+    "Person_072": {
+      "name": "Person",
+      "photo_count": 3,
+      "first_seen": "2026-03-11T14:20:06",
+      "last_seen": "2026-03-11T14:20:32",
+      "avg_confidence": 0.9021541476249695
+    },
+    "Person_073": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:20:06",
+      "last_seen": "2026-03-11T14:20:06",
+      "avg_confidence": 0.8904801607131958
+    },
+    "Person_074": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:20:06",
+      "last_seen": "2026-03-11T14:20:06",
+      "avg_confidence": 0.8883327841758728
+    },
+    "Person_075": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:20:06",
+      "last_seen": "2026-03-11T14:20:06",
+      "avg_confidence": 0.8838381767272949
+    },
+    "Person_076": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:20:06",
+      "last_seen": "2026-03-11T14:20:06",
+      "avg_confidence": 0.8802741169929504
+    },
+    "Person_077": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:20:06",
+      "last_seen": "2026-03-11T14:20:06",
+      "avg_confidence": 0.8771844506263733
+    },
+    "Person_078": {
+      "name": "Person",
+      "photo_count": 3,
+      "first_seen": "2026-03-11T14:20:06",
+      "last_seen": "2026-03-11T14:20:32",
+      "avg_confidence": 0.8773158589998881
+    },
+    "Person_079": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:20:06",
+      "last_seen": "2026-03-11T14:20:06",
+      "avg_confidence": 0.8681496381759644
+    },
+    "Person_080": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:20:06",
+      "last_seen": "2026-03-11T14:20:06",
+      "avg_confidence": 0.8659569025039673
+    },
+    "Person_081": {
+      "name": "Person",
+      "photo_count": 3,
+      "first_seen": "2026-03-11T14:20:06",
+      "last_seen": "2026-03-11T14:20:32",
+      "avg_confidence": 0.8688668012619019
+    },
+    "Person_082": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:20:06",
+      "last_seen": "2026-03-11T14:20:06",
+      "avg_confidence": 0.8510724306106567
+    },
+    "Person_083": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:20:06",
+      "last_seen": "2026-03-11T14:20:06",
+      "avg_confidence": 0.8400627374649048
+    },
+    "Person_084": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:20:06",
+      "last_seen": "2026-03-11T14:20:06",
+      "avg_confidence": 0.8371939063072205
+    },
+    "Person_085": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:20:06",
+      "last_seen": "2026-03-11T14:20:06",
+      "avg_confidence": 0.836609423160553
+    },
+    "Person_086": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:20:06",
+      "last_seen": "2026-03-11T14:20:06",
+      "avg_confidence": 0.8363397717475891
+    },
+    "Person_087": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:20:06",
+      "last_seen": "2026-03-11T14:20:06",
+      "avg_confidence": 0.8256003856658936
+    },
+    "Person_088": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:20:06",
+      "last_seen": "2026-03-11T14:20:06",
+      "avg_confidence": 0.8163337707519531
+    },
+    "Person_089": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:20:06",
+      "last_seen": "2026-03-11T14:20:06",
+      "avg_confidence": 0.8061876893043518
+    },
+    "Person_090": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:20:06",
+      "last_seen": "2026-03-11T14:20:06",
+      "avg_confidence": 0.7521682977676392
+    },
+    "Person_091": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:20:13",
+      "last_seen": "2026-03-11T14:20:13",
+      "avg_confidence": 0.7159159779548645
+    },
+    "Person_092": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:20:13",
+      "last_seen": "2026-03-11T14:20:13",
+      "avg_confidence": 0.6966878175735474
+    },
+    "Person_093": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:20:14",
+      "last_seen": "2026-03-11T14:20:14",
+      "avg_confidence": 0.8699430227279663
+    },
+    "Person_094": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:20:16",
+      "last_seen": "2026-03-11T14:20:16",
+      "avg_confidence": 0.8417925238609314
+    },
+    "Person_095": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:20:17",
+      "last_seen": "2026-03-11T14:20:17",
+      "avg_confidence": 0.7403996586799622
+    },
+    "Person_096": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:20:17",
+      "last_seen": "2026-03-11T14:20:17",
+      "avg_confidence": 0.7935681343078613
+    },
+    "Person_097": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:20:27",
+      "last_seen": "2026-03-11T14:20:27",
+      "avg_confidence": 0.8166619539260864
+    },
+    "Person_098": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:20:27",
+      "last_seen": "2026-03-11T14:20:27",
+      "avg_confidence": 0.7452017068862915
+    },
+    "Person_099": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:20:27",
+      "last_seen": "2026-03-11T14:20:27",
+      "avg_confidence": 0.6562458872795105
+    },
+    "Person_100": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:20:32",
+      "last_seen": "2026-03-11T14:20:32",
+      "avg_confidence": 0.8625251054763794
+    },
+    "Person_101": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:20:32",
+      "last_seen": "2026-03-11T14:20:32",
+      "avg_confidence": 0.6530174016952515
+    },
+    "Person_102": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:20:33",
+      "last_seen": "2026-03-11T14:20:33",
+      "avg_confidence": 0.791722297668457
+    },
+    "Person_103": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:20:37",
+      "last_seen": "2026-03-11T14:20:37",
+      "avg_confidence": 0.8023355603218079
+    },
+    "Person_104": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:20:57",
+      "last_seen": "2026-03-11T14:20:57",
+      "avg_confidence": 0.7190217971801758
+    },
+    "Person_105": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:21:03",
+      "last_seen": "2026-03-11T14:21:03",
+      "avg_confidence": 0.8811166286468506
+    },
+    "Person_106": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:35:08",
+      "last_seen": "2026-03-11T14:35:08",
+      "avg_confidence": 0.7125226259231567
+    }
+  }
+}
