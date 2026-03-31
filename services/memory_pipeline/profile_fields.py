@@ -53,13 +53,13 @@ def _default_time_reasoning_steps(field_key: str, time_layer_rule: str) -> List[
     ]
 
 
-def _default_counter_evidence_checks(field_key: str, hard_blocks: List[str], null_preferred_when: List[str]) -> List[str]:
+def _default_counter_evidence_checks(field_key: str, hard_blocks: List[str], weak_evidence_caution: List[str]) -> List[str]:
     checks = [
         "检查是否存在与草案相反的证据没有被引用",
         "检查是否把单次事件、短期噪声或同框他人线索过度外推成主角标签",
     ]
     checks.extend(hard_blocks[:2])
-    checks.extend(null_preferred_when[:2])
+    checks.extend(weak_evidence_caution[:2])
     return checks
 
 
@@ -373,7 +373,7 @@ def _spec(
     hard_blocks: List[str] | None = None,
     owner_checks: List[str] | None = None,
     time_layer_rule: str = "flexible",
-    null_preferred_when: List[str] | None = None,
+    weak_evidence_caution: List[str] | None = None,
     reflection_questions: List[str] | None = None,
     reflection_rounds: int = 1,
     requires_social_media: bool = False,
@@ -382,7 +382,7 @@ def _spec(
     overrides = FIELD_COT_OVERRIDES.get(field_key, {})
     resolved_owner_checks = owner_checks or []
     resolved_hard_blocks = hard_blocks or []
-    resolved_null_preferred = null_preferred_when or []
+    resolved_null_preferred = weak_evidence_caution or []
     return FieldSpec(
         field_key=field_key,
         risk_level=risk_level,
@@ -396,7 +396,7 @@ def _spec(
         hard_blocks=resolved_hard_blocks,
         owner_checks=resolved_owner_checks,
         time_layer_rule=time_layer_rule,
-        null_preferred_when=resolved_null_preferred,
+        weak_evidence_caution=resolved_null_preferred,
         reflection_questions=reflection_questions or [],
         reflection_rounds=reflection_rounds,
         requires_social_media=requires_social_media,
@@ -712,15 +712,15 @@ def _llm_field_value(bundle: FieldBundle, context: Dict[str, Any], llm_processor
 {_format_list_for_prompt(bundle.field_spec.time_reasoning_steps)}
 反证检查:
 {_format_list_for_prompt(bundle.field_spec.counter_evidence_checks)}
-优先输出 null 的情况:
-{_format_list_for_prompt(bundle.field_spec.null_preferred_when or ["证据不足时宁可输出 null"])}
+以下情况证据较弱，需要更谨慎地判断（不是直接输出 null，而是需要更充分的证据支撑）:
+{_format_list_for_prompt(bundle.field_spec.weak_evidence_caution or ["证据不足时需要更多证据才能下结论"])}
 反思问题: {bundle.field_spec.reflection_questions}
 允许证据:
 {bundle.allowed_refs}
 {resolved_facts_clause}
 
 请严格按上面的字段级COT在内部逐步判断，但不要输出推理过程。
-若主体归属不清、时间层级不清、或反证更强，直接输出 null。
+若主体归属不清、时间层级不清、或反证更强，需要更充分的证据支撑才能输出结论。当确实没有任何证据时才输出 null。
 
 请只输出 JSON:
 {{

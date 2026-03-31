@@ -96,7 +96,7 @@ ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "").strip()
 CRITIC_PROVIDER = os.getenv("CRITIC_PROVIDER", "anthropic").strip().lower()
 CRITIC_MODEL = os.getenv("CRITIC_MODEL", "claude-sonnet-4-6").strip()
 PROFILE_LLM_PROVIDER = os.getenv("PROFILE_LLM_PROVIDER", "").strip().lower()
-PROFILE_LLM_MODEL = os.getenv("PROFILE_LLM_MODEL", "google/gemini-3.1-flash-lite-preview").strip() or "google/gemini-3.1-flash-lite-preview"
+PROFILE_LLM_MODEL = os.getenv("PROFILE_LLM_MODEL", "deepseek/deepseek-chat-v3-0324").strip() or "deepseek/deepseek-chat-v3-0324"
 REFLECTION_AGENT_PROVIDER = os.getenv("REFLECTION_AGENT_PROVIDER", "openrouter").strip().lower() or "openrouter"
 REFLECTION_AGENT_OPENROUTER_API_KEY = os.getenv("REFLECTION_AGENT_OPENROUTER_API_KEY", "").strip() or OPENROUTER_API_KEY
 REFLECTION_AGENT_MODEL = os.getenv("REFLECTION_AGENT_MODEL", "").strip()
@@ -122,7 +122,7 @@ FEISHU_DIFFICULT_CASE_RECEIVE_ID_TYPE = os.getenv("FEISHU_DIFFICULT_CASE_RECEIVE
 REVIEW_BASE_URL = os.getenv("REVIEW_BASE_URL", "http://localhost:8080").strip() or "http://localhost:8080"
 
 VLM_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
-LLM_MODEL = "gemini-2.5-flash"
+LLM_MODEL = os.getenv("LLM_MODEL", "deepseek/deepseek-chat-v3-0324")
 
 # ─── 人脸识别（InsightFace + FAISS） ─────────────────────────────
 FACE_RECOGNITION_SRC_PATH = os.getenv(
@@ -277,3 +277,52 @@ PRIVATE_SCENE_TYPES = {
 EVENT_TYPES = [
     "社交", "工作", "休闲", "用餐", "运动", "旅行", "购物", "学习", "其他"
 ]
+
+# ─── 后端服务配置 ────────────────────────────────────────────
+BACKEND_HOST = os.getenv("BACKEND_HOST", "127.0.0.1").strip() or "127.0.0.1"
+BACKEND_PORT = int(os.getenv("BACKEND_PORT", "8000"))
+BACKEND_RELOAD = os.getenv("BACKEND_RELOAD", "false").lower() == "true"
+DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{os.path.join(RUNTIME_DIR, 'local_preview.db')}").strip()
+SQL_ECHO = os.getenv("SQL_ECHO", "false").lower() == "true"
+FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "http://localhost:5180").strip() or "http://localhost:5180"
+CORS_ALLOW_ORIGINS = tuple(
+    o.strip() for o in os.getenv("CORS_ALLOW_ORIGINS", FRONTEND_ORIGIN).split(",") if o.strip()
+)
+ALLOW_SELF_REGISTRATION = os.getenv("ALLOW_SELF_REGISTRATION", "true").lower() == "true"
+HIGH_SECURITY_MODE = os.getenv("HIGH_SECURITY_MODE", "false").lower() == "true"
+APP_ROLE = os.getenv("APP_ROLE", "control-plane").strip() or "control-plane"
+ASSET_URL_PREFIX = os.getenv("ASSET_URL_PREFIX", "").strip()
+AUTH_SESSION_COOKIE_NAME = os.getenv("AUTH_SESSION_COOKIE_NAME", "session_token").strip() or "session_token"
+AUTH_SESSION_DAYS = int(os.getenv("AUTH_SESSION_DAYS", "30"))
+COOKIE_SECURE = os.getenv("COOKIE_SECURE", "false").lower() == "true"
+WORKER_BOOT_TIMEOUT_SECONDS = int(os.getenv("WORKER_BOOT_TIMEOUT_SECONDS", "300"))
+WORKER_INTERNAL_PORT = int(os.getenv("WORKER_INTERNAL_PORT", "9000"))
+WORKER_SHARED_TOKEN = os.getenv("WORKER_SHARED_TOKEN", "").strip()
+
+# ─── 对象存储（S3 兼容） ──────────────────────────────────────
+OBJECT_STORAGE_ACCESS_KEY_ID = os.getenv("OBJECT_STORAGE_ACCESS_KEY_ID", "").strip()
+OBJECT_STORAGE_SECRET_ACCESS_KEY = os.getenv("OBJECT_STORAGE_SECRET_ACCESS_KEY", "").strip()
+OBJECT_STORAGE_ENDPOINT = os.getenv("OBJECT_STORAGE_ENDPOINT", "").strip()
+OBJECT_STORAGE_REGION = os.getenv("OBJECT_STORAGE_REGION", "").strip()
+OBJECT_STORAGE_BUCKET = os.getenv("OBJECT_STORAGE_BUCKET", "").strip()
+OBJECT_STORAGE_PREFIX = os.getenv("OBJECT_STORAGE_PREFIX", "").strip()
+OBJECT_STORAGE_ADDRESSING_STYLE = os.getenv("OBJECT_STORAGE_ADDRESSING_STYLE", "auto").strip() or "auto"
+
+# ─── AWS / Worker ────────────────────────────────────────────
+AWS_REGION = os.getenv("AWS_REGION", "us-east-1").strip() or "us-east-1"
+BEDROCK_REGION = os.getenv("BEDROCK_REGION", AWS_REGION).strip() or AWS_REGION
+BEDROCK_REQUEST_TIMEOUT_SECONDS = int(os.getenv("BEDROCK_REQUEST_TIMEOUT_SECONDS", "60"))
+RESULT_TTL_HOURS = int(os.getenv("RESULT_TTL_HOURS", "72"))
+WORKER_ORCHESTRATION_ENABLED = os.getenv("WORKER_ORCHESTRATION_ENABLED", "false").lower() == "true"
+WORKER_AMI_ID = os.getenv("WORKER_AMI_ID", "").strip()
+WORKER_INSTANCE_TYPE = os.getenv("WORKER_INSTANCE_TYPE", "g4dn.xlarge").strip()
+WORKER_IAM_INSTANCE_PROFILE = os.getenv("WORKER_IAM_INSTANCE_PROFILE", "").strip()
+WORKER_SECURITY_GROUP_ID = os.getenv("WORKER_SECURITY_GROUP_ID", "").strip()
+WORKER_SUBNET_IDS = os.getenv("WORKER_SUBNET_IDS", "").strip()
+WORKER_INSTANCE_NAME_PREFIX = os.getenv("WORKER_INSTANCE_NAME_PREFIX", "me-worker").strip()
+WORKER_LAUNCH_TEMPLATE_ID = os.getenv("WORKER_LAUNCH_TEMPLATE_ID", "").strip()
+WORKER_LAUNCH_TEMPLATE_VERSION = os.getenv("WORKER_LAUNCH_TEMPLATE_VERSION", "").strip()
+
+def normalize_task_version(version: str | None) -> str:
+    v = (version or "").strip()
+    return v if v in AVAILABLE_TASK_VERSIONS else DEFAULT_TASK_VERSION

@@ -117,11 +117,12 @@ class FieldSpec:
     hard_blocks: List[str]
     owner_checks: List[str]
     time_layer_rule: str
-    null_preferred_when: List[str]
+    weak_evidence_caution: List[str]
     reflection_questions: List[str]
     reflection_rounds: int
     requires_social_media: bool = False
     requires_protagonist_face: bool = False
+    cot_hint: str = ""
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)

@@ -1,14 +1,117 @@
 {
   "long_term_facts.social_identity.education": {
-    "null_preferred_when": [
+    "weak_evidence_caution": [
       "证据仅来自单事件窗口时输出 null",
       "主体归属不清时输出 null"
     ]
   },
   "long_term_facts.material.brand_preference": {
-    "null_preferred_when": [
+    "weak_evidence_caution": [
       "品牌线索仅出现在单次曝光时输出 null",
       "品牌线索集中在 venue context 时输出 null"
+    ]
+  },
+  "short_term_facts.recent_interests": {
+    "weak_evidence_caution": [
+      "当兴趣证据仅来自单次活动且无其他佐证时"
+    ],
+    "cot_hint": "近期兴趣应体现持续或重复的行为模式，单次活动需结合其他证据判断是否为长期兴趣。特别注意：同一天内的多种不同活动通常不能直接视为兴趣。"
+  },
+  "long_term_facts.geography.location_anchors": {
+    "weak_evidence_caution": [
+      "地点缺乏地理标识特征",
+      "地点仅为普通室内场景"
+    ]
+  },
+  "long_term_facts.relationships.parenting": {
+    "weak_evidence_caution": [
+      "仅存在宠物养育证据",
+      "未发现与人类儿童互动的直接证据"
+    ]
+  },
+  "short_term_facts.current_displacement": {
+    "weak_evidence_caution": [
+      "无任何地理位置变化证据",
+      "所有活动均在同一建筑物内"
+    ]
+  },
+  "short_term_expression.motivation_shift": {
+    "weak_evidence_caution": [
+      "仅存在普通社交活动而无明确关系投入证据"
+    ]
+  },
+  "long_term_expression.philosophy": {
+    "weak_evidence_caution": [
+      "仅存在社交频率证据但缺乏个人独处行为或价值观表达",
+      "所有证据都集中在短期社交互动场景"
+    ]
+  },
+  "short_term_expression.current_mood": {
+    "weak_evidence_caution": [
+      "情绪证据来源单一且不充分",
+      "不同情绪证据之间存在时间或情境上的明显间隔",
+      "无法确认情绪状态的主导性"
+    ]
+  },
+  "long_term_expression.aesthetic_tendency": {
+    "weak_evidence_caution": [
+      "仅凭展览场地特征推断",
+      "艺术创作主题与个人偏好无直接关联"
+    ]
+  },
+  "long_term_expression.attitude_style": {
+    "weak_evidence_caution": [
+      "仅凭艺术活动或产品偏好无法确定态度风格",
+      "证据仅显示审美偏好而非行为态度"
+    ],
+    "cot_hint": "态度风格应综合长期行为模式判断，艺术活动仅反映审美偏好而非态度特征。需区分'参与艺术活动'和'日常态度风格'的差异。"
+  },
+  "long_term_expression.morality": {
+    "weak_evidence_caution": [
+      "仅存在社交活动频率证据",
+      "缺乏利他/诚信/公平等道德相关行为证据"
+    ]
+  },
+  "long_term_facts.physiology.fitness_level": {
+    "weak_evidence_caution": [
+      "仅存在饮食相关证据",
+      "无运动/锻炼/体能活动类事件"
+    ]
+  },
+  "short_term_facts.recent_habits": {
+    "cot_hint": "判断习惯需满足以下至少一项：1)连续3天以上重复行为 2)有明确规律性（如每日固定时间）3)当事人主动表达的持续性行为。偶发行为应归类到具体事件而非习惯。",
+    "weak_evidence_caution": [
+      "所有行为均为单次发生且无规律性"
+    ]
+  },
+  "short_term_facts.spending_shift": {
+    "cot_hint": "判断短期消费变化时，需要明确对比近期和之前的消费行为证据。如果没有足够的时间跨度对比证据，应该说明‘基于有限证据推测’而非直接断言变化趋势。",
+    "weak_evidence_caution": [
+      "缺乏消费金额或频率的对比数据"
+    ]
+  },
+  "long_term_facts.material.asset_level": {
+    "cot_hint": "资产水平应基于直接经济证据（如房产、收入证明等），消费品牌/芝麻分等间接证据需谨慎使用。Hello Kitty等IP周边属于个人偏好，不能单独作为资产判断依据。"
+  },
+  "long_term_facts.material.spending_style": {
+    "cot_hint": "消费风格的判断应基于明确的消费行为和偏好证据，避免从单一物品推断整体风格。只有当多个独立证据一致指向某种消费风格时，才进行归纳。"
+  },
+  "long_term_facts.material.income_model": {
+    "cot_hint": "学生身份和经济来源是两个独立维度。当发现兼职证据时，应单独标记为'part_time_income'而非与学生身份合并。"
+  },
+  "long_term_facts.social_identity.professional_dedication": {
+    "cot_hint": "该字段特指职业场景的专业投入程度，学生学业活动应归类为'academic_focus'；只有当出现实习、兼职等职业行为时才能判断为职业投入"
+  },
+  "long_term_facts.time.sleep_pattern": {
+    "cot_hint": "仅当存在直接反映作息时间的照片（如深夜活动记录、闹钟设置）、聊天记录提及具体作息时间、或连续时间戳显示固定模式时，才判断睡眠模式。购物、社交软件使用等间接行为不能作为判断依据。"
+  },
+  "long_term_facts.identity.age_range": {
+    "cot_hint": "当判断年龄范围时，需明确区分直接证据（如身份证、出生日期）和间接推论（如学生身份）。对于学生身份推论，应注明这是典型范围而非确定值。"
+  },
+  "long_term_facts.geography.mobility_pattern": {
+    "cot_hint": "判断长期移动模式时应关注：1) 主要活动地点是否长期固定 2) 短期旅行是否属于临时性活动 3) 不同时间段的活动地点分布特征。不要仅凭短期旅行活动就判断为大学生模式。",
+    "weak_evidence_caution": [
+      "当证据仅显示短期旅行活动时"
     ]
   }
 }

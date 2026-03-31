@@ -472,6 +472,10 @@ class UpstreamReflectionAgent:
 - 你必须假设自己不知道 GT 的具体值，思考"如果没有 GT，系统应该从哪些证据中发现正确的规律"。
 - 你的提案必须是通用规则改进，不能针对让系统输出某个特定值。
 - 如果系统输出和 GT 都是对的（比如都是 null），不要强行提修改建议。
+- 如果 grade 是 missing_gt（GT 没有标注值但系统有输出），这是召回场景。此时你应该评估"系统输出的值是否有证据支撑且合理"。如果合理，就建议保留当前输出，提案方向是"确认系统发现的新信号有价值"。只有系统输出明显不合理时才建议修改。
+- 不要倾向于让系统输出空值来回避问题。weak_evidence_caution 是"以下场景证据较弱需要谨慎判断"的提示，不是"遇到就输出空值"的开关。大多数情况下你应该用 cot_hint 或 tool_rules 来改进推理质量，而不是添加谨慎条件。
+- 反思时优先发散思考：先思考"证据里还有没有被系统忽略的线索"，再思考"推理逻辑是否合理"，最后才考虑"是否需要收敛条件"。
+- 提案的 rule_patch 应该帮助系统找到更多证据或改进推理方式，而不是通过收紧 null 条件来回避错误。
 
 你要优先回答的问题：
 1. 系统的推理链路（COT）哪里走偏了？是证据不够，还是证据够了但归纳逻辑有问题？
@@ -570,34 +574,36 @@ class UpstreamReflectionAgent:
     “fix_surface”: “{' | '.join(allowed_fix_surfaces)}”,
     “change_summary_zh”: “用人话说想改什么策略。”,
     “rule_patch”: {{
-      “field_spec_overrides”: {{
-        “字段key”: {{
-          “null_preferred_when”: [“条件1”, “条件2”]
-        }}
-      }},
       “tool_rules”: {{
         “字段key”: {{
-          “max_refs_per_source”: 20
+          “max_refs_per_source”: 20,
+          “required_evidence_types”: [“event”, “vlm_observations”]
         }}
       }},
       “call_policies”: {{
         “字段key”: {{
           “append_allowed_sources”: [“event”, “vlm_observations”, “relationship”]
         }}
+      }},
+      “field_spec_overrides”: {{
+        “字段key”: {{
+          “cot_hint”: “对该字段的判断提示，帮助 LLM 更准确地归纳”,
+          “weak_evidence_caution”: [“以下情况证据较弱需要谨慎判断，不是要求输出空值”]
+        }}
       }}
     }}
   }}
 }}
 
-rule_patch 要求：
-- rule_patch 是你的具体修改方案，会被直接合并到规则文件中，必须是可执行的 JSON
-- rule_patch 里只写你需要改的部分，不需要改的留空对象 {{}}
-- field_spec_overrides: 修改字段的判断口径（什么时候输出 null、怎么理解这个字段）
-- tool_rules: 修改证据召回规则（max_refs_per_source 等）
-- call_policies: 修改数据来源调用策略（append_allowed_sources 等）
-- 如果 fix_surface 是 field_cot，重点写 field_spec_overrides（判断口径的修改）
-- 如果 fix_surface 是 tool_rule，重点写 tool_rules
-- 如果 fix_surface 是 call_policy，重点写 call_policies
+rule_patch 要求（按优先级排序，优先用前面的手段）：
+1. **tool_rules**（最优先）: 改进证据召回 — 让系统找到更多/更准确的证据
+   - max_refs_per_source: 增大证据数量（如从 10 改到 20）
+   - required_evidence_types: 要求必须包含哪些类型的证据
+2. **call_policies**: 改进数据来源 — 让系统从更多渠道获取证据
+   - append_allowed_sources: 新增数据来源（event、vlm_observations、relationship）
+3. **field_spec_overrides**（最后手段）: 改进判断口径
+   - cot_hint: 给 LLM 的判断提示（优先用这个，帮助 LLM 理解字段的正确含义）
+   - weak_evidence_caution: 标注”证据较弱需要谨慎判断”的场景，不是要求输出空值
 - 具体的条件描述用自然语言中文写，不要写代码
 
 输出要求：
@@ -617,8 +623,10 @@ rule_patch 要求：
 严格禁止：
 - 禁止根据单个用户或单个字段的特殊情况做硬编码优化
 - 规则修改必须是通用的，适用于所有用户
-- 不要在 null_preferred_when 里写具体的人名、地名、品牌名
+- 不要在 weak_evidence_caution 里写具体的人名、地名、品牌名
 - 不要在 rule_patch 里引用具体的 photo_id、EVT_id、Person_id
+
+{"如果 case card 中包含 human_reviewer_note，这是上一轮审批者的修订意见，你必须认真考虑这个反馈，在本轮反思中回应它。但不要把它当作固定规则，只作为本轮的参考方向。" if packet.get("human_reviewer_note") else ""}
 
 这是当前 case card：
 {json.dumps(compact_packet, ensure_ascii=False)}"""
@@ -643,14 +651,14 @@ rule_patch 要求：
     “fix_surface”: “{' | '.join(allowed_fix_surfaces)}”,
     “change_summary_zh”: “用人话说想改什么策略”,
     “rule_patch”: {{
-      “field_spec_overrides”: {{}},
       “tool_rules”: {{}},
-      “call_policies”: {{}}
+      “call_policies”: {{}},
+      “field_spec_overrides”: {{}}
     }}
   }}
 }}
 
-rule_patch 只写需要改的部分，格式同上一轮说明。禁止根据单个用户/字段做硬编码优化，规则必须通用。
+rule_patch 优先用 tool_rules（改证据召回）和 call_policies（改数据来源），最后才考虑 field_spec_overrides。weak_evidence_caution 是"谨慎判断"提示，不是"输出空值"的开关。禁止根据单个用户/字段做硬编码优化。
 
 仍然要求：
 - 所有解释性文字必须是简体中文
@@ -1314,7 +1322,7 @@ def _build_overlay_bundle(*, fix_surface: str, field_key: str, patch_intent: Dic
             "field_spec_overrides": dict(patch_intent.get("field_spec_overrides") or {
                 field_key: {
                     "cot_steps": list(patch_intent.get("cot_steps") or []),
-                    "null_preferred_when": list(patch_intent.get("null_preferred_when") or []),
+                    "weak_evidence_caution": list(patch_intent.get("weak_evidence_caution") or []),
                     "counter_evidence_checks": list(patch_intent.get("counter_evidence_checks") or []),
                 }
             }),
@@ -1474,6 +1482,8 @@ def _build_compact_prompt_packet(packet: Dict[str, Any]) -> Dict[str, Any]:
             "history_experiments": _compact_history_items(packet.get("history_experiments")),
             "history_outcomes": _compact_history_items(packet.get("history_outcomes")),
         },
+        # 人工审批备注（临时注入，本轮用完即弃）
+        **({"human_reviewer_note": packet["human_reviewer_note"]} if packet.get("human_reviewer_note") else {}),
     }
 
 

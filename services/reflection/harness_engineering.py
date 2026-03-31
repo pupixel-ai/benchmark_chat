@@ -27,7 +27,7 @@ from .harness_types import (
     HarnessEngineeringReport,
     MissingCapability,
 )
-from .difficult_case_taxonomy import detect_diseases, DifficultDisease
+from .difficult_case_extraction import extract_difficult_cases_from_critics
 from .engineering_critic import EngineeringCritic
 
 
@@ -52,40 +52,65 @@ def run_harness_engineering(
     if not resolved_users:
         return HarnessEngineeringReport(summary={"error": "no_users_found"})
 
-    # 1. Load all users' case_facts
+    # 1. Load all users' data sources
     all_case_facts: List[Dict[str, Any]] = []
+    gt_by_user: Dict[str, List[Dict[str, Any]]] = {}
+    proposals_by_user: Dict[str, List[Dict[str, Any]]] = {}
+    states_by_user: Dict[str, Dict[str, Any]] = {}
+
     for user in resolved_users:
         facts = _load_case_facts(root, user)
         for f in facts:
             f["user_name"] = user
         all_case_facts.extend(facts)
+        gt_by_user[user] = _load_gt_comparisons(root, user)
+        proposals_by_user[user] = _load_all_proposals(root, user)
+        states_by_user[user] = _load_field_loop_state(root, user)
 
-    if not all_case_facts:
+    actions = _load_proposal_actions(root)
+    actions_by_id: Dict[str, Dict[str, Any]] = {}
+    for a in actions:
+        pid = a.get("proposal_id", "")
+        if pid:
+            actions_by_id[pid] = a  # last action wins
+
+    # Load human grade overrides (fallback for cases not yet synced to files)
+    overrides = _load_gt_grade_overrides(root)
+
+    # If no case_facts AND no gt_comparisons, nothing to analyze
+    has_gt = any(len(v) > 0 for v in gt_by_user.values())
+    if not all_case_facts and not has_gt:
         return HarnessEngineeringReport(
             total_users=len(resolved_users),
-            summary={"error": "no_case_facts"},
+            summary={"error": "no_data"},
         )
 
-    # 2. Cross-user clustering
-    patterns = build_cross_user_patterns(all_case_facts, total_users=len(resolved_users))
+    # 2. Cross-user clustering (GT-grounded, human-override-aware)
+    patterns = build_cross_user_patterns(
+        all_case_facts,
+        total_users=len(resolved_users),
+        gt_by_user=gt_by_user,
+        proposals_by_user=proposals_by_user,
+        states_by_user=states_by_user,
+        actions_by_id=actions_by_id,
+        grade_overrides=overrides,
+    )
 
     # 3. Missing capability detection (rule-based)
     rule_assets = _load_rule_assets_safe(root)
     missing = detect_missing_capabilities(patterns, rule_assets)
 
-    # 4. Detect diseases (named difficult case taxonomy)
-    diseases = detect_diseases(
-        patterns=[p.to_dict() for p in patterns],
-        missing_capabilities=[m.to_dict() for m in missing],
-        all_case_facts=all_case_facts,
-        total_users=len(resolved_users),
-    )
-
-    # 5. Run EngineeringCritic on top patterns (O(M) LLM calls)
+    # 4. Run EngineeringCritic on top patterns (O(M) LLM calls) — BEFORE difficult case extraction
     critic_reports = _run_critic_on_patterns(
         patterns=patterns,
         total_users=len(resolved_users),
         rule_assets=rule_assets,
+    )
+
+    # 5. Extract difficult cases from Critic results (LLM signal-driven, replaces old detect_diseases)
+    difficult_cases = extract_difficult_cases_from_critics(
+        critic_reports=critic_reports,
+        patterns=patterns,
     )
 
     # 6. Build report
@@ -95,10 +120,10 @@ def run_harness_engineering(
         cross_user_patterns=patterns,
         critic_reports=critic_reports,
         missing_capabilities=missing,
-        summary=_build_summary(patterns, missing, resolved_users, diseases),
+        summary=_build_summary(patterns, missing, resolved_users, difficult_cases=None),
     )
 
-    report.summary["diseases"] = [d.to_dict() for d in diseases]
+    report.summary["difficult_cases"] = difficult_cases
 
     # 6. Persist
     output_path = root / REFLECTION_DIR / "harness_engineering_report.json"
@@ -201,82 +226,214 @@ def build_cross_user_patterns(
     all_case_facts: List[Dict[str, Any]],
     *,
     total_users: int,
+    gt_by_user: Dict[str, List[Dict[str, Any]]] | None = None,
+    proposals_by_user: Dict[str, List[Dict[str, Any]]] | None = None,
+    states_by_user: Dict[str, Dict[str, Any]] | None = None,
+    actions_by_id: Dict[str, Dict[str, Any]] | None = None,
+    grade_overrides: Dict[str, str] | None = None,
 ) -> List[CrossUserPattern]:
-    """Cluster case_facts across users by (dimension, failure_mode, root_cause)."""
+    """Cluster across users by field_key. GT-grounded: uses gt_comparisons as
+    primary data source, case_facts as supplementary enrichment.
+    Human grade overrides take precedence over automatic grades."""
 
-    # Classify entity_type into lanes: protagonist / relationship / profile
-    groups: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+    gt_by_user = gt_by_user or {}
+    proposals_by_user = proposals_by_user or {}
+    states_by_user = states_by_user or {}
+    actions_by_id = actions_by_id or {}
+    grade_overrides = grade_overrides or {}
+
+    # ── Phase A: Build gt_index from gt_comparisons (primary) ──
+    # Apply human overrides: gt_grade_overrides.json takes precedence
+    gt_index: Dict[str, Dict[str, Dict[str, Any]]] = defaultdict(dict)
+    for user, comps in gt_by_user.items():
+        for rec in comps:
+            fk = rec.get("field_key", "")
+            if not fk or not fk.startswith(("long_term_", "short_term_")):
+                continue
+            cr = dict(rec.get("comparison_result") or {})
+            case_id = rec.get("case_id", "")
+            override_key = f"{case_id}_{user}"
+            if override_key in grade_overrides:
+                cr["original_grade"] = cr.get("grade", "")
+                cr["grade"] = grade_overrides[override_key]
+                cr["human_override"] = True
+            rec = {**rec, "comparison_result": cr}
+            gt_index[fk][user] = rec
+
+    # ── Phase B: Build case_facts index for enrichment ──
+    cf_index: Dict[str, Dict[str, Dict[str, Any]]] = defaultdict(dict)
     for case in all_case_facts:
-        dimension = str(case.get("dimension") or "").strip()
-        if not dimension:
-            continue
-        lane = _classify_lane(case)
-        if not lane or lane != "profile":
-            continue
-        key = f"{lane}|" + _pattern_key(case)
-        if "|ok|" in key or "|unknown|" in key:
-            continue
-        groups[key].append(case)
+        dim = str(case.get("dimension") or "").strip()
+        user = str(case.get("user_name") or "").strip()
+        if dim and user:
+            cf_index[dim][user] = case
 
+    # ── Phase C: Build proposals index by field_key ──
+    proposals_by_field: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+    for user, props in proposals_by_user.items():
+        for p in props:
+            fk = p.get("field_key", "")
+            if fk:
+                proposals_by_field[fk].append(p)
+
+    # ── Phase D: Cluster by field_key, collect bad-grade users ──
+    _BAD_GRADES = {"mismatch", "missing_prediction", "partial_match"}
     patterns: List[CrossUserPattern] = []
-    for key, cases in groups.items():
-        parts = key.split("|")
-        # key format: lane|dimension|failure_mode|root_cause
-        lane = parts[0] if len(parts) > 0 else "profile"
-        dimension = parts[1] if len(parts) > 1 else ""
-        failure_mode = parts[2] if len(parts) > 2 else ""
-        root_cause = parts[3] if len(parts) > 3 else ""
 
-        users_in_pattern = list(set(str(c.get("user_name", "")) for c in cases))
-        per_user: Dict[str, List[Dict]] = defaultdict(list)
-        for c in cases:
-            per_user[str(c.get("user_name", ""))].append(c)
+    for field_key, user_comps in gt_index.items():
+        bad_users: Dict[str, Dict[str, Any]] = {}
+        all_users_for_field: List[str] = []
+        for user, rec in user_comps.items():
+            cr = rec.get("comparison_result") or {}
+            grade = cr.get("grade", "")
+            all_users_for_field.append(user)
+            if grade in _BAD_GRADES:
+                bad_users[user] = cr
 
-        # Consistency: do all users have the same root_cause for this dimension?
-        root_causes_per_user = [
-            str(c.get("root_cause_family", ""))
-            for c in cases if str(c.get("root_cause_family", ""))
-        ]
-        rc_counter = Counter(root_causes_per_user)
-        top_rc, top_count = rc_counter.most_common(1)[0] if rc_counter else ("", 0)
-        consistency = top_count / len(root_causes_per_user) if root_causes_per_user else 0.0
+        if not bad_users:
+            continue
 
-        all_rcs = list(set(root_causes_per_user))
+        # Derive dominant failure_mode from grades
+        grade_counter = Counter(cr.get("grade", "") for cr in bad_users.values())
+        dominant_grade = grade_counter.most_common(1)[0][0] if grade_counter else ""
+
+        failure_mode = _grade_to_failure_mode(dominant_grade, bad_users)
+
+        # Get root_cause from case_facts if available
+        root_causes: List[str] = []
+        per_user_examples: Dict[str, List[Dict]] = defaultdict(list)
+        for user in bad_users:
+            cf = cf_index.get(field_key, {}).get(user)
+            if cf:
+                rc = str(cf.get("root_cause_family") or "").strip()
+                if rc and rc != "unknown":
+                    root_causes.append(rc)
+                per_user_examples[user].append(cf)
+
+        rc_counter = Counter(root_causes)
+        dominant_rc = rc_counter.most_common(1)[0][0] if rc_counter else "field_reasoning"
+        consistency = (rc_counter.most_common(1)[0][1] / len(root_causes)) if root_causes else 0.0
+
         all_fix_surfaces = list(set(
-            str(c.get("tool_usage_summary", {}).get("recommended_fix_surface", ""))
-            for c in cases if str(c.get("tool_usage_summary", {}).get("recommended_fix_surface", ""))
+            str(cf_index.get(field_key, {}).get(u, {}).get("tool_usage_summary", {}).get("recommended_fix_surface", ""))
+            for u in bad_users
+            if str(cf_index.get(field_key, {}).get(u, {}).get("tool_usage_summary", {}).get("recommended_fix_surface", ""))
         ))
 
         confidences = [
-            float(c.get("fix_surface_confidence") or 0)
-            for c in cases if c.get("fix_surface_confidence")
+            float(cf_index.get(field_key, {}).get(u, {}).get("fix_surface_confidence") or 0)
+            for u in bad_users
+            if cf_index.get(field_key, {}).get(u, {}).get("fix_surface_confidence")
         ]
 
+        key = f"profile|{field_key}|{failure_mode}|{dominant_rc}"
         pattern_id = hashlib.sha256(key.encode()).hexdigest()[:12]
 
-        lane_quality = _aggregate_lane_quality(cases, lane)
+        # ── Enrichment: GT comparisons ──
+        gt_comps_enriched: Dict[str, Dict[str, Any]] = {}
+        pre_loop_grades: Dict[str, str] = {}
+        for user, cr in bad_users.items():
+            gt_comps_enriched[user] = {
+                "grade": cr.get("grade", ""),
+                "score": cr.get("score", 0),
+                "output_value": cr.get("output_value"),
+                "gt_value": cr.get("gt_value"),
+                "human_override": cr.get("human_override", False),
+            }
+            pre_loop_grades[user] = cr.get("grade", "")
 
+        # ── Enrichment: proposals ──
+        field_proposals = proposals_by_field.get(field_key, [])
+        proposal_history: List[Dict[str, Any]] = []
+        approved_count = 0
+        for p in field_proposals:
+            pid = p.get("proposal_id", "")
+            action = actions_by_id.get(pid, {})
+            status = action.get("action", p.get("status", "proposal_only"))
+            proposal_history.append({
+                "proposal_id": pid,
+                "user_name": p.get("user_name", ""),
+                "title": p.get("title", ""),
+                "root_cause_family": p.get("root_cause_family", ""),
+                "confidence": p.get("confidence", 0),
+                "status": status,
+                "patch_preview": p.get("patch_preview"),
+            })
+            if status == "approve":
+                approved_count += 1
+
+        # ── Enrichment: evolution state ──
+        evo_state: Dict[str, Dict[str, Any]] = {}
+        for user in bad_users:
+            state = (states_by_user.get(user) or {}).get("fields", {}).get(field_key)
+            if state:
+                evo_state[user] = {
+                    "cycle_count": state.get("cycle_count", 0),
+                    "last_grade": state.get("last_grade", ""),
+                    "last_status": state.get("last_status", ""),
+                    "score_trend": state.get("score_trend", ""),
+                }
+
+        n_bad = len(bad_users)
         patterns.append(CrossUserPattern(
             pattern_id=f"xup_{pattern_id}",
-            lane=lane,
-            dimension=dimension,
+            lane="profile",
+            dimension=field_key,
             failure_mode=failure_mode,
-            root_cause_family=root_cause,
-            affected_users=sorted(users_in_pattern),
-            user_coverage=len(users_in_pattern) / total_users if total_users > 0 else 0.0,
-            total_case_count=len(cases),
-            per_user_examples=dict(per_user),
+            root_cause_family=dominant_rc,
+            affected_users=sorted(bad_users.keys()),
+            user_coverage=n_bad / total_users if total_users > 0 else 0.0,
+            total_case_count=n_bad,
+            per_user_examples=dict(per_user_examples),
             cross_user_consistency=round(consistency, 3),
-            root_cause_candidates=all_rcs,
+            root_cause_candidates=list(set(root_causes)) or [dominant_rc],
             fix_surface_candidates=all_fix_surfaces,
             avg_confidence=round(sum(confidences) / len(confidences), 3) if confidences else 0.0,
-            avg_lane_quality=lane_quality,
-            summary=f"{dimension} 在 {len(users_in_pattern)}/{total_users} 个用户中出现 {failure_mode}，主要根因 {root_cause}",
+            avg_lane_quality={},
+            summary=_build_pattern_summary(field_key, n_bad, total_users, failure_mode, dominant_rc, approved_count),
+            gt_comparisons=gt_comps_enriched,
+            pre_loop_grades=pre_loop_grades,
+            proposal_history=proposal_history,
+            approval_count=approved_count,
+            evolution_state=evo_state,
         ))
 
     # Sort by user_coverage desc, then total_case_count desc
     patterns.sort(key=lambda p: (-p.user_coverage, -p.total_case_count))
     return patterns
+
+
+def _grade_to_failure_mode(
+    dominant_grade: str,
+    bad_users: Dict[str, Dict[str, Any]],
+) -> str:
+    """Derive failure_mode from GT comparison grades."""
+    if dominant_grade == "missing_prediction":
+        return "missing_signal"
+    if dominant_grade == "partial_match":
+        return "partial_coverage"
+    if dominant_grade == "mismatch":
+        # Check if output is empty → missing_signal, or GT empty → overclaim
+        empty_out = sum(1 for cr in bad_users.values() if _is_empty(cr.get("output_value")))
+        if empty_out > len(bad_users) / 2:
+            return "missing_signal"
+        empty_gt = sum(1 for cr in bad_users.values() if _is_empty(cr.get("gt_value")))
+        if empty_gt > len(bad_users) / 2:
+            return "overclaim"
+        return "wrong_value"
+    return "unknown"
+
+
+def _build_pattern_summary(
+    field_key: str, n_bad: int, total: int,
+    failure_mode: str, root_cause: str, approved_count: int,
+) -> str:
+    parts = [f"{field_key} 在 {n_bad}/{total} 个用户中出现 {failure_mode}"]
+    if root_cause and root_cause != "watch_only":
+        parts.append(f"主要根因 {root_cause}")
+    if approved_count > 0:
+        parts.append(f"已批准 {approved_count} 个修复方案")
+    return "，".join(parts)
 
 
 # ────────────────────────────────────────────────────────────────────
@@ -422,6 +579,79 @@ def _load_case_facts(root: Path, user_name: str) -> List[Dict[str, Any]]:
     return records
 
 
+def _load_gt_comparisons(root: Path, user_name: str) -> List[Dict[str, Any]]:
+    path = root / REFLECTION_DIR / f"gt_comparisons_{user_name}.jsonl"
+    if not path.exists():
+        return []
+    records = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line:
+            try:
+                records.append(json.loads(line))
+            except json.JSONDecodeError:
+                pass
+    return records
+
+
+def _load_all_proposals(root: Path, user_name: str) -> List[Dict[str, Any]]:
+    """Load all evolution proposals across all cycles for a user."""
+    proposals_dir = root / EVOLUTION_DIR / "proposals" / user_name
+    if not proposals_dir.exists():
+        return []
+    all_proposals: List[Dict[str, Any]] = []
+    seen_ids: set = set()
+    for f in sorted(proposals_dir.glob("*.json")):
+        try:
+            data = json.loads(f.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            continue
+        items = data if isinstance(data, list) else [data]
+        for p in items:
+            pid = p.get("proposal_id", "")
+            if pid and pid not in seen_ids:
+                seen_ids.add(pid)
+                p.setdefault("user_name", user_name)
+                all_proposals.append(p)
+    return all_proposals
+
+
+def _load_field_loop_state(root: Path, user_name: str) -> Dict[str, Any]:
+    path = root / EVOLUTION_DIR / "field_loop_state" / f"{user_name}.json"
+    if not path.exists():
+        return {}
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+
+def _load_gt_grade_overrides(root: Path) -> Dict[str, str]:
+    """Load human grade overrides: {case_id}_{user_name} → grade."""
+    path = root / REFLECTION_DIR / "gt_grade_overrides.json"
+    if not path.exists():
+        return {}
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+
+def _load_proposal_actions(root: Path) -> List[Dict[str, Any]]:
+    path = root / EVOLUTION_DIR / "proposal_actions.jsonl"
+    if not path.exists():
+        return []
+    records = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line:
+            try:
+                records.append(json.loads(line))
+            except json.JSONDecodeError:
+                pass
+    return records
+
+
 def _load_rule_assets_safe(root: Path) -> Dict[str, Any]:
     assets: Dict[str, Any] = {}
     for name in ("call_policies", "tool_rules", "field_spec_overrides"):
@@ -450,29 +680,187 @@ def _build_summary(
     patterns: List[CrossUserPattern],
     missing: List[MissingCapability],
     users: List[str],
-    diseases: List[DifficultDisease] | None = None,
+    difficult_cases: List[Dict[str, Any]] | None = None,
 ) -> Dict[str, Any]:
     multi_user = [p for p in patterns if len(p.affected_users) > 1]
     by_lane: Dict[str, int] = {}
     for p in patterns:
         by_lane[p.lane] = by_lane.get(p.lane, 0) + 1
-    disease_by_lane: Dict[str, int] = {}
-    for d in (diseases or []):
-        disease_by_lane[d.lane] = disease_by_lane.get(d.lane, 0) + 1
+    dc_by_type: Dict[str, int] = {}
+    for dc in (difficult_cases or []):
+        dt = dc.get("difficulty_type", "unknown")
+        dc_by_type[dt] = dc_by_type.get(dt, 0) + 1
     return {
         "total_users": len(users),
         "total_patterns": len(patterns),
         "multi_user_patterns": len(multi_user),
         "single_user_patterns": len(patterns) - len(multi_user),
         "missing_capabilities_count": len(missing),
-        "total_diseases": len(diseases or []),
-        "diseases_by_lane": disease_by_lane,
+        "total_difficult_cases": len(difficult_cases or []),
+        "difficult_cases_by_type": dc_by_type,
         "by_lane": by_lane,
         "top_affected_dimensions": [
             {"dimension": p.dimension, "lane": p.lane, "user_coverage": p.user_coverage, "case_count": p.total_case_count}
             for p in patterns[:10]
         ],
     }
+
+
+# ────────────────────────────────────────────────────────────────────
+# Field × User grid (GT-first, no pipeline dependency)
+# ────────────────────────────────────────────────────────────────────
+
+
+def build_field_cross_user_grid(
+    *,
+    project_root: str,
+    field_spec_order: List[str] | None = None,
+) -> Dict[str, Any]:
+    """Build a field × user grid from GT files directly.
+
+    Works for ALL users that have GT annotations, even those without
+    pipeline runs. Returns {users, fields, cells, domain_accuracy}.
+    Human grade overrides are applied.
+    """
+    root = Path(project_root)
+    datasets_dir = root / "datasets"
+
+    # Load human overrides
+    overrides = _load_gt_grade_overrides(root)
+
+    # Discover users with GT
+    users: List[str] = []
+    gt_values_by_user: Dict[str, Dict[str, str]] = {}
+    if datasets_dir.exists():
+        for d in sorted(datasets_dir.iterdir()):
+            if not d.is_dir():
+                continue
+            gt_path = d / "gt" / "profile_field_gt.jsonl"
+            if not gt_path.exists():
+                continue
+            user = d.name
+            users.append(user)
+            gt_vals: Dict[str, str] = {}
+            for line in gt_path.read_text(encoding="utf-8").splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    rec = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                fk = rec.get("field_key", "")
+                # Only profile fields (skip relationship Person_* etc.)
+                if fk and fk.startswith(("long_term_", "short_term_")):
+                    gt_vals[fk] = str(rec.get("gt_value", ""))
+            gt_values_by_user[user] = gt_vals
+
+    if not users:
+        return {"users": [], "fields": [], "cells": [], "domain_accuracy": []}
+
+    # Load gt_comparisons (with human overrides applied)
+    comp_index: Dict[str, Dict[str, Dict[str, Any]]] = defaultdict(dict)
+    for user in users:
+        for rec in _load_gt_comparisons(root, user):
+            fk = rec.get("field_key", "")
+            if not fk:
+                continue
+            cr = dict(rec.get("comparison_result") or {})
+            # Apply override
+            case_id = rec.get("case_id", "")
+            override_key = f"{case_id}_{user}"
+            if override_key in overrides:
+                cr["original_grade"] = cr.get("grade", "")
+                cr["grade"] = overrides[override_key]
+                cr["human_override"] = True
+            comp_index[fk][user] = cr
+
+    # Load field_loop_state
+    state_index: Dict[str, Dict[str, Dict[str, Any]]] = {}
+    for user in users:
+        state = _load_field_loop_state(root, user)
+        if state:
+            state_index[user] = state.get("fields", {})
+
+    # Load proposal counts
+    proposal_counts: Dict[str, Dict[str, int]] = defaultdict(lambda: defaultdict(int))
+    for user in users:
+        for p in _load_all_proposals(root, user):
+            fk = p.get("field_key", "")
+            if fk:
+                proposal_counts[user][fk] += 1
+
+    # Build fields list
+    all_fields: set = set()
+    for gt_vals in gt_values_by_user.values():
+        all_fields.update(gt_vals.keys())
+    if field_spec_order:
+        all_fields.update(field_spec_order)
+    ordered_fields = sorted(all_fields, key=lambda f: (
+        field_spec_order.index(f) if field_spec_order and f in field_spec_order else 999,
+        f,
+    ))
+
+    # Build cells
+    _GOOD = {"exact_match", "close_match", "improved"}
+    cells: List[Dict[str, Any]] = []
+    # Accumulate per-field accuracy across users
+    field_stats: Dict[str, Dict[str, int]] = defaultdict(lambda: {"total": 0, "good": 0, "bad": 0, "pending": 0})
+    for fk in ordered_fields:
+        for user in users:
+            gt_val = gt_values_by_user.get(user, {}).get(fk)
+            comp = comp_index.get(fk, {}).get(user)
+            state = (state_index.get(user) or {}).get(fk)
+            pcnt = proposal_counts.get(user, {}).get(fk, 0)
+
+            grade = comp.get("grade", "") if comp else ""
+            human_override = comp.get("human_override", False) if comp else False
+
+            cell: Dict[str, Any] = {
+                "field_key": fk,
+                "user_name": user,
+                "has_gt": gt_val is not None,
+                "gt_value": gt_val,
+                "output_value": comp.get("output_value") if comp else None,
+                "grade": grade,
+                "score": comp.get("score", 0) if comp else 0,
+                "human_override": human_override,
+                "proposal_count": pcnt,
+                "evolution_status": state.get("last_status", "") if state else "",
+                "cycle_count": state.get("cycle_count", 0) if state else 0,
+            }
+            cells.append(cell)
+
+            # Per-field accuracy accumulation
+            if gt_val is not None and grade:
+                field_stats[fk]["total"] += 1
+                if grade in _GOOD:
+                    field_stats[fk]["good"] += 1
+                else:
+                    field_stats[fk]["bad"] += 1
+            elif gt_val is not None:
+                field_stats[fk]["pending"] += 1
+
+    # Build per-field accuracy table
+    field_accuracy: List[Dict[str, Any]] = []
+    for fk in ordered_fields:
+        s = field_stats.get(fk)
+        if not s:
+            continue
+        total = s["total"]
+        good = s["good"]
+        accuracy = round(good / total, 3) if total > 0 else 0.0
+        field_accuracy.append({
+            "field_key": fk,
+            "total": total,
+            "good": good,
+            "bad": s["bad"],
+            "pending": s["pending"],
+            "accuracy": accuracy,
+        })
+    field_accuracy.sort(key=lambda d: (d["accuracy"], d["field_key"]))
+
+    return {"users": users, "fields": ordered_fields, "cells": cells, "field_accuracy": field_accuracy}
 
 
 # ────────────────────────────────────────────────────────────────────

@@ -30,9 +30,8 @@ from .profile_agent_adapter import (
 from .types import RelationshipDossier
 
 DEFAULT_PROFILE_AGENT_MODEL_CANDIDATES = (
-    "google/gemini-3.1-flash-lite-preview",
-    "google/gemini-2.0-flash-exp:free",
-    "meta-llama/llama-3.3-70b-instruct:free",
+    "deepseek/deepseek-chat-v3-0324",
+    "qwen/qwen-2.5-72b-instruct",
 )
 
 

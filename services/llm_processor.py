@@ -11,6 +11,7 @@ from config import (
     GEMINI_API_KEY, LLM_MODEL, MIN_PHOTO_COUNT, MIN_TIME_SPAN_DAYS, MIN_SCENE_VARIETY,
     GOOGLE_GEMINI_BASE_URL, INTIMACY_WEIGHT_FREQUENCY, INTIMACY_WEIGHT_INTERACTION,
     INTIMACY_WEIGHT_SCENE_DIVERSITY, INTERACTION_SCORES, PRIVATE_SCENE_TYPES,
+    OPENROUTER_API_KEY, OPENROUTER_BASE_URL,
 )
 from utils import calculate_distance, time_overlap, is_weekend
 
@@ -30,25 +31,30 @@ from services.consistency_checker import build_consistency_report
 
 
 class LLMProcessor:
-    """LLM处理器 - 使用 HTTP 请求调用代理服务"""
+    """LLM处理器 - 通过 OpenRouter API 调用"""
+
+    # OpenRouter 上的 Gemini 模型映射
+    OPENROUTER_MODEL_MAP = {
+        "gemini-2.5-flash": "google/gemini-2.5-flash-preview",
+        "gemini-2.0-flash": "google/gemini-2.0-flash-001",
+    }
 
     def __init__(self, primary_person_id: str = None):
-        self.model = LLM_MODEL
         self.primary_person_id = primary_person_id
 
-        if not GEMINI_API_KEY:
-            raise ValueError("未配置 GEMINI_API_KEY")
-        if not GOOGLE_GEMINI_BASE_URL:
-            raise ValueError("未配置 GOOGLE_GEMINI_BASE_URL")
+        api_key = OPENROUTER_API_KEY
+        if not api_key:
+            raise ValueError("未配置 OPENROUTER_API_KEY")
 
-        self.api_key = GEMINI_API_KEY
-        self.base_url = GOOGLE_GEMINI_BASE_URL
+        self.api_key = api_key
+        self.base_url = (OPENROUTER_BASE_URL or "https://openrouter.ai/api/v1").rstrip("/")
+        self.model = self.OPENROUTER_MODEL_MAP.get(LLM_MODEL, LLM_MODEL)
         self.headers = {
-            "x-api-key": self.api_key,
-            "Content-Type": "application/json"
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
         }
 
-        print(f"[LLM] 使用 HTTP 请求方式")
+        print(f"[LLM] 使用 OpenRouter API")
         print(f"[LLM] BaseURL: {self.base_url}")
         print(f"[LLM] 模型: {self.model}")
 
@@ -1784,92 +1790,65 @@ Output Format (严格执行以下JSON格式):
 请按上述 JSON Schema 输出结果，不要输出额外说明。"""
 
     def _call_llm_via_official_api(self, prompt: str, response_mime_type: str = None, model_override: str = None) -> dict:
-        """通过 HTTP 请求调用代理服务的 Gemini API
+        """通过 OpenRouter chat/completions API 调用 LLM
 
         Args:
             prompt: 提示词
             response_mime_type: 强制返回格式（如 "application/json"）
-            model_override: 覆盖默认模型（如事件提取用 gemini-2.0-flash）
+            model_override: 覆盖默认模型
         """
         self._require_requests()
         model = model_override or self.model
+        if model in self.OPENROUTER_MODEL_MAP:
+            model = self.OPENROUTER_MODEL_MAP[model]
 
-        # 构建请求体
         payload = {
-            "contents": [
-                {
-                    "role": "user",
-                    "parts": [
-                        {"text": prompt}
-                    ]
-                }
-            ]
+            "model": model,
+            "messages": [{"role": "user", "content": prompt}],
         }
+        if response_mime_type == "application/json":
+            payload["response_format"] = {"type": "json_object"}
 
-        # 强制 JSON 输出
-        if response_mime_type:
-            payload["generationConfig"] = {
-                "responseMimeType": response_mime_type
-            }
-
-        # 构建请求 URL
-        url = f"{self.base_url}/{model}:generateContent"
+        url = f"{self.base_url}/chat/completions"
         max_retries = 3
-        timeout = 300  # LLM处理也增加到300秒
+        timeout = 300
 
         for attempt in range(max_retries):
             try:
-                response = requests.post(
-                    url,
-                    json=payload,
-                    headers=self.headers,
-                    timeout=timeout
-                )
+                response = requests.post(url, json=payload, headers=self.headers, timeout=timeout)
 
                 if response.status_code == 200:
-                    response_data = response.json()
+                    data = response.json()
+                    text = (data.get("choices") or [{}])[0].get("message", {}).get("content", "")
+                    if not text:
+                        return None
+                    try:
+                        return json.loads(text)
+                    except json.JSONDecodeError:
+                        json_match = re.search(r'```json\s*\n(.*?)\n\s*```', text, re.DOTALL)
+                        if json_match:
+                            try:
+                                return json.loads(json_match.group(1))
+                            except json.JSONDecodeError:
+                                pass
+                        return {"text": text}
 
-                    # 提取文本内容
-                    if "candidates" in response_data and len(response_data["candidates"]) > 0:
-                        candidate = response_data["candidates"][0]
-                        if "content" in candidate and "parts" in candidate["content"]:
-                            for part in candidate["content"]["parts"]:
-                                if "text" in part:
-                                    try:
-                                        # 尝试解析为 JSON
-                                        result = json.loads(part["text"])
-                                        return result
-                                    except json.JSONDecodeError:
-                                        # 如果是 Markdown JSON，尝试提取
-                                        text = part["text"]
-                                        import re
-                                        json_match = re.search(r'```json\n(.*?)\n```', text, re.DOTALL)
-                                        if json_match:
-                                            json_str = json_match.group(1)
-                                            try:
-                                                result = json.loads(json_str)
-                                                return result
-                                            except:
-                                                pass
-                                        # 返回原始文本
-                                        return {"text": text}
-
-                    return None
+                elif response.status_code == 429:
+                    wait_time = 2 ** attempt
+                    print(f"      [LLM 429] 等待 {wait_time}s 后重试...", flush=True)
+                    time.sleep(wait_time)
+                    continue
                 else:
-                    error_msg = f"代理 API 返回状态码 {response.status_code}"
-                    if response.text:
-                        try:
-                            error_data = response.json()
-                            if isinstance(error_data, dict) and "error" in error_data:
-                                error_msg += f": {error_data['error']}"
-                        except:
-                            error_msg += f": {response.text[:200]}"
+                    error_msg = f"OpenRouter API {response.status_code}"
+                    try:
+                        error_msg += f": {response.json().get('error', response.text[:200])}"
+                    except Exception:
+                        error_msg += f": {response.text[:200]}"
                     raise Exception(error_msg)
 
             except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
-                # 超时或连接错误，进行重试
                 if attempt < max_retries - 1:
-                    wait_time = 2 ** attempt  # 指数退避：2s, 4s
+                    wait_time = 2 ** attempt
                     print(f"      [LLM重试 {attempt + 1}/{max_retries}] 等待 {wait_time}s 后重试...", flush=True)
                     time.sleep(wait_time)
                     continue
@@ -1877,63 +1856,27 @@ Output Format (严格执行以下JSON格式):
                     raise Exception(f"LLM调用重试{max_retries}次仍失败: {e}")
 
     def _call_profile_via_official_api(self, prompt: str) -> str:
-        """通过 HTTP 请求调用代理服务生成用户画像"""
+        """通过 OpenRouter chat/completions API 生成用户画像"""
         self._require_requests()
-        # 构建请求体
+
         payload = {
-            "contents": [
-                {
-                    "role": "user",
-                    "parts": [
-                        {"text": prompt}
-                    ]
-                }
-            ]
+            "model": self.model,
+            "messages": [{"role": "user", "content": prompt}],
         }
 
-        # 构建请求 URL
-        url = f"{self.base_url}/{self.model}:generateContent"
-        timeout = 300  # 增加到300秒
+        url = f"{self.base_url}/chat/completions"
+        timeout = 300
 
-        response = requests.post(
-            url,
-            json=payload,
-            headers=self.headers,
-            timeout=timeout
-        )
+        response = requests.post(url, json=payload, headers=self.headers, timeout=timeout)
 
         if response.status_code == 200:
-            response_data = response.json()
-
-            # 提取文本内容
-            if "candidates" in response_data and len(response_data["candidates"]) > 0:
-                candidate = response_data["candidates"][0]
-
-                # 检查是否有content字段
-                if "content" in candidate:
-                    content = candidate["content"]
-
-                    # 处理标准格式（parts中有text）
-                    if "parts" in content:
-                        for part in content["parts"]:
-                            if "text" in part:
-                                return part["text"]
-
-                    # 处理思维链格式（只有role，no parts）
-                    # 如果没有text，尝试从thinking字段提取
-                    if "thinking" in content:
-                        # 思维链模式，返回思维链内容作为报告
-                        return f"# 用户全维画像分析报告\n\n## 思维过程\n\n{content.get('thinking', '分析中...')}"
-
-            # 如果都没有找到，返回错误消息
-            return ""
+            data = response.json()
+            text = (data.get("choices") or [{}])[0].get("message", {}).get("content", "")
+            return text or ""
         else:
-            error_msg = f"代理 API 返回状态码 {response.status_code}"
-            if response.text:
-                try:
-                    error_data = response.json()
-                    if isinstance(error_data, dict) and "error" in error_data:
-                        error_msg += f": {error_data['error']}"
-                except:
+            error_msg = f"OpenRouter API {response.status_code}"
+            try:
+                error_msg += f": {response.json().get('error', response.text[:200])}"
+            except:
                     error_msg += f": {response.text[:200]}"
             raise Exception(error_msg)

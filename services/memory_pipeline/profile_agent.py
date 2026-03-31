@@ -776,6 +776,7 @@ High Weight Signals:
 {_format_list_for_prompt(spec.strong_evidence)}
 COT Steps:
 {_format_list_for_prompt(spec.cot_steps)}
+{f"Important Hint: {spec.cot_hint}" if spec.cot_hint else ""}
 Owner Resolution:
 {_format_list_for_prompt(spec.owner_resolution_steps)}
 Time Reasoning:

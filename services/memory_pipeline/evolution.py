@@ -21,6 +21,7 @@ REFLECTION_RELATIVE_DIR = Path("memory") / "reflection"
 FOCUS_FIELD_COUNT_DEFAULT = 3
 FIELD_LOOP_NO_SIGNAL_STREAK_THRESHOLD_DEFAULT = 2
 FIELD_LOOP_THROTTLE_COOLDOWN_ROUNDS_DEFAULT = 2
+FIELD_LOOP_EXHAUSTION_CYCLE_THRESHOLD_DEFAULT = 4
 
 _GRADE_PRIORITY = {
     "mismatch": 100.0,
@@ -210,22 +211,35 @@ def persist_memory_run_trace(
     normalized_payload["date"] = normalized_payload.get("date") or _derive_date(str(normalized_payload["generated_at"]))
     normalized_payload["user_name"] = str(normalized_payload.get("user_name") or "default")
 
+    # default=str: 防止 Path 等不可序列化对象导致静默失败
     trace_json_path = output_path / "memory_pipeline_run_trace.json"
     trace_json_path.write_text(
-        json.dumps(normalized_payload, ensure_ascii=False, indent=2),
+        json.dumps(normalized_payload, ensure_ascii=False, indent=2, default=str),
         encoding="utf-8",
     )
 
-    ledger_dir = root_path / EVOLUTION_RELATIVE_DIR / "traces" / normalized_payload["user_name"]
+    # 版本化 ledger: {date}_c{N}.jsonl（与 field_cycles 版本号策略一致）
+    user_name = normalized_payload["user_name"]
+    date_str = normalized_payload["date"]
+    ledger_dir = root_path / EVOLUTION_RELATIVE_DIR / "traces" / user_name
     ledger_dir.mkdir(parents=True, exist_ok=True)
-    ledger_path = ledger_dir / f"{normalized_payload['date']}.jsonl"
+    existing = sorted(ledger_dir.glob(f"{date_str}_c*.jsonl"))
+    next_version = len(existing) + 1
+    versioned_path = ledger_dir / f"{date_str}_c{next_version}.jsonl"
+
+    line = json.dumps(normalized_payload, ensure_ascii=False, default=str) + "\n"
+    # 写版本化 ledger
+    versioned_path.write_text(line, encoding="utf-8")
+    # 同时 append 到按日汇总 ledger（evolve 读这个）
+    ledger_path = ledger_dir / f"{date_str}.jsonl"
     with ledger_path.open("a", encoding="utf-8") as fh:
-        fh.write(json.dumps(normalized_payload, ensure_ascii=False) + "\n")
+        fh.write(line)
 
     return {
         "trace_id": str(normalized_payload.get("trace_id") or ""),
         "trace_json_path": str(trace_json_path),
         "trace_ledger_path": str(ledger_path),
+        "trace_versioned_path": str(versioned_path),
     }
 
 
@@ -314,11 +328,19 @@ def run_memory_nightly_evaluation(
         "field_loop_summary": field_loop_payload.get("summary", {}),
     }
 
-    report_path = reports_dir / f"{date_str}.json"
-    insights_path = insights_dir / f"{date_str}.json"
-    proposals_path = proposals_dir / f"{date_str}.json"
-    focus_path = focus_dir / f"{date_str}.json"
-    field_cycles_path = field_cycles_dir / f"{date_str}.json"
+    # 文件名加版本号（全局递增），防止同一天多轮覆盖
+    existing_versions = sorted(proposals_dir.glob(f"{date_str}_c*.json")) if proposals_dir.exists() else []
+    next_version = len(existing_versions) + 1
+    version_suffix = f"{date_str}_c{next_version}"
+    report_path = reports_dir / f"{version_suffix}.json"
+    insights_path = insights_dir / f"{version_suffix}.json"
+    proposals_path = proposals_dir / f"{version_suffix}.json"
+    focus_path = focus_dir / f"{version_suffix}.json"
+    field_cycles_path = field_cycles_dir / f"{version_suffix}.json"
+    # 同时保留一份 {date}.json 作为最新版本（前端读取用）
+    latest_report_path = reports_dir / f"{date_str}.json"
+    latest_proposals_path = proposals_dir / f"{date_str}.json"
+    latest_field_cycles_path = field_cycles_dir / f"{date_str}.json"
     report_path.write_text(json.dumps(report_payload, ensure_ascii=False, indent=2), encoding="utf-8")
     insights_path.write_text(json.dumps(insights, ensure_ascii=False, indent=2), encoding="utf-8")
     proposals_path.write_text(json.dumps(proposals, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -329,6 +351,23 @@ def run_memory_nightly_evaluation(
     field_cycles_path.write_text(
         json.dumps(field_loop_payload.get("field_cycles", []), ensure_ascii=False, indent=2),
         encoding="utf-8",
+    )
+    # 写 latest 版本（前端 API 读取用）— 直接覆盖，反映当前轮次的最新状态
+    latest_report_path.write_text(json.dumps(report_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    latest_proposals_path.write_text(json.dumps(proposals, ensure_ascii=False, indent=2), encoding="utf-8")
+    latest_field_cycles_path.write_text(
+        json.dumps(field_loop_payload.get("field_cycles", []), ensure_ascii=False, indent=2), encoding="utf-8",
+    )
+
+    # 收敛检测：如果所有活跃字段都已暂停或达标，生成复盘
+    _recap_state_path = Path(project_root) / EVOLUTION_RELATIVE_DIR / "field_loop_state" / f"{user_name}.json"
+    persisted_state = json.loads(_recap_state_path.read_text(encoding="utf-8")) if _recap_state_path.exists() else {}
+    converged = _check_and_generate_recap(
+        project_root=project_root,
+        user_name=user_name,
+        date_str=date_str,
+        state_payload=persisted_state,
+        field_cycles_all=field_loop_payload.get("field_cycles", []),
     )
 
     return {
@@ -341,7 +380,103 @@ def run_memory_nightly_evaluation(
         "total_insights": len(insights),
         "total_proposals": len(proposals),
         "total_focus_fields": len(field_loop_payload.get("focus_fields", [])),
+        "converged": converged,
     }
+
+
+def _check_and_generate_recap(
+    *,
+    project_root: str,
+    user_name: str,
+    date_str: str,
+    state_payload: Dict[str, Any],
+    field_cycles_all: List[Dict[str, Any]],
+) -> bool:
+    """检测用户是否收敛，如果收敛则生成复盘报告。"""
+    fields = state_payload.get("fields") or {}
+    _ACTIVE = {"needs_next_cycle", "new_rule_candidate", "new_insight_found", "initial_snapshot"}
+    active_fields = [
+        fk for fk, fs in fields.items()
+        if fs.get("last_status") in _ACTIVE and fs.get("cycle_count", 0) > 0
+    ]
+    if active_fields:
+        return False
+
+    # 所有字段收敛 → 生成复盘
+    recap_dir = Path(project_root) / EVOLUTION_RELATIVE_DIR / "recaps" / user_name
+    recap_dir.mkdir(parents=True, exist_ok=True)
+    recap_path = recap_dir / f"{date_str}.json"
+
+    # 收集所有历史轮次的字段数据
+    cycles_dir = Path(project_root) / EVOLUTION_RELATIVE_DIR / "field_cycles" / user_name
+    all_history: Dict[str, List[Dict[str, Any]]] = {}
+    if cycles_dir.exists():
+        for f in sorted(cycles_dir.glob("*.json")):
+            data = json.loads(f.read_text(encoding="utf-8")) if f.exists() else []
+            if not isinstance(data, list):
+                continue
+            for c in data:
+                fk = c.get("field_key", "")
+                if fk not in all_history:
+                    all_history[fk] = []
+                all_history[fk].append(c)
+
+    # 收集审批历史
+    approvals: List[Dict[str, Any]] = []
+    approval_path = Path(project_root) / EVOLUTION_RELATIVE_DIR / "approval_history" / user_name / "approvals.jsonl"
+    if approval_path.exists():
+        for line in approval_path.read_text(encoding="utf-8").splitlines():
+            if line.strip():
+                try:
+                    approvals.append(json.loads(line))
+                except json.JSONDecodeError:
+                    pass
+
+    # 构建复盘
+    max_cycle = max((fs.get("cycle_count", 0) for fs in fields.values()), default=0)
+    reflected_fields = [fk for fk, fs in fields.items() if fs.get("cycle_count", 0) > 0]
+    approved_fields = list(set(a.get("field_key", "") for a in approvals if a.get("field_key")))
+
+    field_recaps = []
+    for fk in reflected_fields:
+        fs = fields.get(fk, {})
+        history = all_history.get(fk, [])
+        field_recaps.append({
+            "field_key": fk,
+            "total_cycles": fs.get("cycle_count", 0),
+            "final_status": fs.get("last_status", ""),
+            "final_grade": fs.get("last_grade", ""),
+            "score_history": fs.get("issue_score_history", []),
+            "score_trend": fs.get("score_trend", ""),
+            "was_approved": fk in approved_fields,
+            "cycle_history": [
+                {
+                    "cycle_index": c.get("cycle_index"),
+                    "grade": c.get("grade"),
+                    "failure_mode": c.get("failure_mode"),
+                    "cycle_status": c.get("cycle_status"),
+                    "judgment_summary_zh": c.get("judgment_summary_zh", ""),
+                    "proposed_reasoning_direction": c.get("proposed_reasoning_direction", ""),
+                }
+                for c in history
+            ],
+        })
+
+    recap = {
+        "user_name": user_name,
+        "date": date_str,
+        "converged": True,
+        "total_rounds": max_cycle,
+        "total_reflected_fields": len(reflected_fields),
+        "total_approved_fields": len(approved_fields),
+        "approved_fields": approved_fields,
+        "field_recaps": field_recaps,
+        "generated_at": datetime.now().isoformat(),
+    }
+
+    recap_path.write_text(json.dumps(recap, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(f"  [recap] 用户 {user_name} 已收敛，复盘已生成: {recap_path}")
+    return True
 
 
 def run_memory_nightly_user_set_evaluation(
@@ -629,13 +764,13 @@ def _build_nightly_proposals(
                     "patch_preview": {
                         "field_spec_overrides": {
                             "long_term_facts.social_identity.education": {
-                                "null_preferred_when": [
+                                "weak_evidence_caution": [
                                     "证据仅来自单事件窗口时输出 null",
                                     "主体归属不清时输出 null",
                                 ]
                             },
                             "long_term_facts.material.brand_preference": {
-                                "null_preferred_when": [
+                                "weak_evidence_caution": [
                                     "品牌线索仅出现在单次曝光时输出 null",
                                     "品牌线索集中在 venue context 时输出 null",
                                 ]
@@ -773,6 +908,7 @@ def _try_reflect_field(
     field_key: str,
     case_facts_by_field: Dict[str, Dict[str, Any]],
     project_root: str,
+    reviewer_note: str = "",
 ) -> Dict[str, Any] | None:
     """Attempt LLM reflection on a field. Returns reflect result or None on failure."""
     cf = case_facts_by_field.get(field_key)
@@ -785,6 +921,9 @@ def _try_reflect_field(
         from services.reflection.upstream_agent import BadcasePacketAssembler
         assembler = BadcasePacketAssembler(project_root=project_root)
         packet = assembler.assemble(cf)
+        # 临时注入审批备注（用完即弃，不写入任何持久化文件）
+        if reviewer_note:
+            packet["human_reviewer_note"] = reviewer_note
         result = agent.reflect(packet)
         if result.get("status") == "failed":
             return None
@@ -792,6 +931,45 @@ def _try_reflect_field(
     except Exception as exc:
         print(f"  [reflect] {field_key} failed: {exc}")
         return None
+
+
+def _load_reviewer_notes(project_root: str, user_name: str) -> Dict[str, str]:
+    """Load the latest reviewer_note per field_key from proposal_actions.jsonl.
+
+    Returns {field_key: note}. Only the most recent note per field is kept.
+    These are ephemeral — injected into reflect() for one round then discarded.
+    """
+    actions_path = Path(project_root) / REFLECTION_RELATIVE_DIR / "proposal_actions.jsonl"
+    if not actions_path.exists():
+        return {}
+    notes: Dict[str, str] = {}
+    for line in actions_path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        try:
+            record = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        note = str(record.get("reviewer_note") or "").strip()
+        if not note:
+            continue
+        # 从 proposal_id 提取 field_key（需要查 proposals 文件）
+        pid = record.get("proposal_id", "")
+        # 也检查 approval_history 里的 field_key
+        # 简单方案：遍历该用户的 proposals 找 field_key
+        for subdir in (Path(project_root) / EVOLUTION_RELATIVE_DIR / "proposals" / user_name).glob("*.json"):
+            try:
+                proposals = json.loads(subdir.read_text(encoding="utf-8"))
+                if not isinstance(proposals, list):
+                    continue
+                for p in proposals:
+                    if p.get("proposal_id", "").startswith(pid[:30]) or pid.startswith(p.get("proposal_id", "")[:30]):
+                        fk = p.get("field_key", "")
+                        if fk:
+                            notes[fk] = note
+            except Exception:
+                continue
+    return notes
 
 
 def _load_vlm_summaries(*, project_root: str, user_name: str) -> Dict[str, str]:
@@ -884,6 +1062,9 @@ def _run_gt_field_loop(
     # Load case_facts for reflect() — indexed by field_key
     case_facts_by_field = _load_case_facts_by_field(project_root, user_name)
 
+    # Load reviewer notes — ephemeral, injected into reflect then discarded
+    reviewer_notes = _load_reviewer_notes(project_root, user_name)
+
     field_cycles, field_insights, field_proposals, next_state = _build_gt_field_cycles(
         date_str=date_str,
         user_name=user_name,
@@ -897,6 +1078,7 @@ def _run_gt_field_loop(
         event_summaries=event_summaries,
         case_facts_by_field=case_facts_by_field,
         project_root=project_root,
+        reviewer_notes=reviewer_notes,
     )
     # 补全非焦点字段的状态（让热力图能看到所有 GT 对比过的字段）
     all_fields_in_state = next_state.get("fields") or {}
@@ -926,6 +1108,20 @@ def _run_gt_field_loop(
             "last_updated": datetime.now().isoformat(),
         }
     next_state["fields"] = all_fields_in_state
+
+    # 耗尽字段检测（基于多轮 Reflect Agent LLM 信号累积）— 必须在 persist state 之前，
+    # 以便 exhausted 标记写入 field_loop_state，让下轮 focus selection 能过滤掉
+    exhausted = _persist_exhausted_candidates(
+        project_root=project_root,
+        user_name=user_name,
+        field_state=next_state,
+        policy=policy,
+    )
+    for c in (exhausted or []):
+        fk = c.get("field_key", "")
+        if fk and fk in next_state.get("fields", {}):
+            next_state["fields"][fk]["exhausted"] = True
+            next_state["fields"][fk]["exhaustion_reason"] = c.get("exhaustion_reason", "")
 
     _persist_field_loop_state(path=state_path, state_payload=next_state)
 
@@ -1040,9 +1236,21 @@ def _select_focus_fields_by_gt(
         entry["latest_score"] = score
         entry["severity"] = severity
 
+    # 已匹配的字段不进入焦点
+    _SKIP_GRADES = {"exact_match", "close_match", "improved"}
+
     focus_candidates: List[Dict[str, Any]] = []
     for field_key, entry in scored_by_field.items():
         if int(entry["badcase_count"]) <= 0:
+            continue
+        if entry.get("latest_grade") in _SKIP_GRADES:
+            continue
+        # 人工标记已修正的字段不再进入焦点
+        saved = per_field_state.get(field_key) or {}
+        if saved.get("human_resolved"):
+            continue
+        # 耗尽字段不再进入焦点（LLM 反复判定无法改善）
+        if saved.get("exhausted"):
             continue
         candidate = dict(entry)
         candidate["issue_score"] = round(float(candidate["issue_score"]), 3)
@@ -1162,6 +1370,7 @@ def _build_gt_field_cycles(
     event_summaries: Dict[str, str] | None = None,
     case_facts_by_field: Dict[str, Dict[str, Any]] | None = None,
     project_root: str = "",
+    reviewer_notes: Dict[str, str] | None = None,
 ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]], List[Dict[str, Any]], Dict[str, Any]]:
     gt_by_field = {
         str(item.get("field_key") or "").strip(): dict(item)
@@ -1273,8 +1482,10 @@ def _build_gt_field_cycles(
         no_new_signal_streak = 0 if new_signal_found else previous_streak + 1
 
         # ── LLM 反思（唯一的提案来源）──
+        field_reviewer_note = (reviewer_notes or {}).get(field_key, "")
         reflect_result = _try_reflect_field(
             field_key, case_facts_by_field or {}, project_root,
+            reviewer_note=field_reviewer_note,
         )
         cf = (case_facts_by_field or {}).get(field_key, {})
         original_reasoning = str((cf.get("decision_trace") or {}).get("reasoning") or "")
@@ -1368,6 +1579,9 @@ def _build_gt_field_cycles(
             "key_evidence_zh": (reflect_result or {}).get("key_evidence_zh", []),
             "root_cause_family": (reflect_result or {}).get("root_cause_family", failure_mode),
             "why_this_surface_zh": (reflect_result or {}).get("why_this_surface_zh", ""),
+            # reflect 原始信号（用于疑难杂症耗尽判定）
+            "reflect_status": (reflect_result or {}).get("status", ""),
+            "reflect_confidence": _safe_float((reflect_result or {}).get("confidence"), default=0.0),
         }
         cycles.append(cycle_entry)
         insights.append(
@@ -1384,9 +1598,11 @@ def _build_gt_field_cycles(
         )
         # 提案：仅在 reflect 成功时生成
         if has_valid_proposal:
+            # missing_gt = 系统有输出但 GT 没标注 → 如果人类认可，这是召回提升
+            improvement_type = "recall" if grade == "missing_gt" else "precision"
             proposals.append(
                 {
-                    "proposal_id": f"proposal_{date_str.replace('-', '')}_{index:03d}_{_slug_field(field_key)}",
+                    "proposal_id": f"proposal_{date_str.replace('-', '')}_c{cycle_index}_{uuid.uuid4().hex[:6]}_{_slug_field(field_key)}",
                     "date": date_str,
                     "user_name": user_name,
                     "status": "proposal_only",
@@ -1401,6 +1617,7 @@ def _build_gt_field_cycles(
                     "why_this_surface_zh": reflect_result.get("why_this_surface_zh", ""),
                     "root_cause_family": reflect_result.get("root_cause_family", ""),
                     "confidence": reflect_result.get("confidence", 0),
+                    "improvement_type": improvement_type,
                     "patch_preview": patch_preview,
                     "approval_required": True,
                 }
@@ -1514,6 +1731,10 @@ def _resolve_field_loop_policy() -> Dict[str, int]:
         "throttle_cooldown_rounds": _read_positive_int_env(
             "FIELD_LOOP_THROTTLE_COOLDOWN_ROUNDS",
             default=FIELD_LOOP_THROTTLE_COOLDOWN_ROUNDS_DEFAULT,
+        ),
+        "exhaustion_cycle_threshold": _read_positive_int_env(
+            "FIELD_LOOP_EXHAUSTION_CYCLE_THRESHOLD",
+            default=FIELD_LOOP_EXHAUSTION_CYCLE_THRESHOLD_DEFAULT,
         ),
     }
 
@@ -1670,3 +1891,175 @@ def _classify_score_trend(history: List[float]) -> str:
     if slope > 2.0:
         return "rising"
     return "stable"
+
+
+# ── Exhausted field detection (LLM signal-driven) ──
+
+
+def _collect_field_cycle_history(
+    project_root: str, user_name: str, field_key: str,
+) -> List[Dict[str, Any]]:
+    """Collect all historical cycle entries for a specific field from field_cycles archives."""
+    cycles_dir = Path(project_root) / EVOLUTION_RELATIVE_DIR / "field_cycles" / user_name
+    if not cycles_dir.exists():
+        return []
+    entries: List[Dict[str, Any]] = []
+    for f in sorted(cycles_dir.glob("*.json")):
+        try:
+            data = json.loads(f.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            continue
+        if not isinstance(data, list):
+            continue
+        for c in data:
+            if c.get("field_key") == field_key:
+                entries.append(c)
+    return entries
+
+
+def _is_field_exhausted(
+    *,
+    field_state: Dict[str, Any],
+    cycle_history: List[Dict[str, Any]],
+    policy: Dict[str, int],
+) -> str | None:
+    """Check if a field has exhausted all improvement avenues based on LLM signals.
+
+    Returns the exhaustion_reason string if exhausted, None otherwise.
+    """
+    cycle_count = int(field_state.get("cycle_count") or 0)
+    last_grade = str(field_state.get("last_grade") or "")
+    threshold = int(policy.get("exhaustion_cycle_threshold") or FIELD_LOOP_EXHAUSTION_CYCLE_THRESHOLD_DEFAULT)
+
+    # 基础门槛：轮次不够不算耗尽
+    if cycle_count < threshold:
+        return None
+
+    # 评级已达标或 GT 缺失不算耗尽
+    if last_grade in _RESOLVED_GRADES or last_grade == "missing_gt":
+        return None
+
+    # 需要有历史 cycle 数据才能做 LLM 信号判定
+    if not cycle_history:
+        return None
+
+    # 从历史 cycle 中提取 LLM 信号
+    root_causes = [str(c.get("root_cause_family") or "") for c in cycle_history if c.get("root_cause_family")]
+    reflect_statuses = [str(c.get("reflect_status") or "") for c in cycle_history if c.get("reflect_status")]
+    confidences = [
+        _safe_float(c.get("reflect_confidence"), default=-1.0)
+        for c in cycle_history
+        if c.get("reflect_confidence") is not None
+    ]
+    confidences = [c for c in confidences if c >= 0.0]
+
+    total_cycles_with_rc = len(root_causes)
+    total_cycles_with_status = len(reflect_statuses)
+
+    # LLM 信号条件（三选一）
+    # 1. 反复 watch_only：LLM 多次判定"无法归因"
+    watch_only_count = sum(1 for rc in root_causes if rc == "watch_only")
+    if total_cycles_with_rc >= 2 and watch_only_count / total_cycles_with_rc >= 0.5:
+        return "watch_only_dominant"
+
+    # 2. 反复 needs_review：LLM 多次判定"不适合自动改策略"
+    needs_review_count = sum(1 for s in reflect_statuses if s == "needs_review")
+    if needs_review_count >= 2:
+        return "needs_review_repeated"
+
+    # 3. 低 confidence 累积：LLM 反复对自己的判断没信心
+    if len(confidences) >= 2 and sum(confidences) / len(confidences) < 0.4:
+        return "low_confidence_persistent"
+
+    return None
+
+
+def _persist_exhausted_candidates(
+    *,
+    project_root: str,
+    user_name: str,
+    field_state: Dict[str, Any],
+    policy: Dict[str, int],
+) -> List[Dict[str, Any]]:
+    """Detect and persist fields that have exhausted all improvement avenues.
+
+    Checks ALL fields (not just current focus), writes to exhausted_fields/{user}.json.
+    Returns the list of exhausted candidates.
+    """
+    fields = field_state.get("fields") or {}
+    candidates: List[Dict[str, Any]] = []
+
+    for fk, fs in fields.items():
+        # 快速跳过：轮次不够或已达标
+        cycle_count = int(fs.get("cycle_count") or 0)
+        if cycle_count < int(policy.get("exhaustion_cycle_threshold") or FIELD_LOOP_EXHAUSTION_CYCLE_THRESHOLD_DEFAULT):
+            continue
+        last_grade = str(fs.get("last_grade") or "")
+        if last_grade in _RESOLVED_GRADES or last_grade == "missing_gt":
+            continue
+
+        # 加载该字段的历史 cycle 数据
+        cycle_history = _collect_field_cycle_history(project_root, user_name, fk)
+
+        reason = _is_field_exhausted(field_state=fs, cycle_history=cycle_history, policy=policy)
+        if reason is None:
+            continue
+
+        # 从历史 cycle 中提取分类信息
+        root_causes = [str(c.get("root_cause_family") or "") for c in cycle_history if c.get("root_cause_family")]
+        confidences = [
+            _safe_float(c.get("reflect_confidence"), default=-1.0)
+            for c in cycle_history
+            if c.get("reflect_confidence") is not None
+        ]
+        confidences = [c for c in confidences if c >= 0.0]
+        statuses = [str(c.get("reflect_status") or "") for c in cycle_history if c.get("reflect_status")]
+
+        # 最后一轮有效的 reflect 信息
+        last_cycle = cycle_history[-1] if cycle_history else {}
+
+        # 统计最高频 root_cause
+        rc_counter: Dict[str, int] = {}
+        for rc in root_causes:
+            rc_counter[rc] = rc_counter.get(rc, 0) + 1
+        dominant_root_cause = max(rc_counter, key=rc_counter.get) if rc_counter else ""
+
+        # 统计最高频 fix_surface
+        surfaces = [str(c.get("patch_preview", {}).get("fix_surface") or "") for c in cycle_history]
+        surfaces = [s for s in surfaces if s]
+        sf_counter: Dict[str, int] = {}
+        for sf in surfaces:
+            sf_counter[sf] = sf_counter.get(sf, 0) + 1
+        dominant_fix_surface = max(sf_counter, key=sf_counter.get) if sf_counter else ""
+
+        candidates.append({
+            "field_key": fk,
+            "user_name": user_name,
+            "cycle_count": cycle_count,
+            "last_grade": last_grade,
+            # 分类信息（来自 Reflect Agent 累积判断）
+            "exhaustion_reason": reason,
+            "dominant_root_cause": dominant_root_cause,
+            "dominant_fix_surface": dominant_fix_surface,
+            "last_judgment_zh": str(last_cycle.get("judgment_summary_zh") or ""),
+            "key_evidence_zh": list(last_cycle.get("key_evidence_zh") or []),
+            "why_stuck_zh": str(last_cycle.get("why_this_surface_zh") or ""),
+            # 轨迹摘要
+            "confidence_history": confidences,
+            "root_cause_history": root_causes,
+            "status_history": statuses,
+            "score_trend": str(fs.get("score_trend") or ""),
+            "exhausted_at": datetime.now().isoformat(),
+        })
+
+    # 持久化（全量覆写）
+    output_dir = Path(project_root) / EVOLUTION_RELATIVE_DIR / "exhausted_fields"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = output_dir / f"{user_name}.json"
+    output_path.write_text(
+        json.dumps(candidates, ensure_ascii=False, indent=2), encoding="utf-8",
+    )
+    if candidates:
+        print(f"  [exhausted] {user_name}: {len(candidates)} 个字段判定为耗尽 → {output_path}")
+
+    return candidates

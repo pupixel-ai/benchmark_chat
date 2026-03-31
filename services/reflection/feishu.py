@@ -1,8 +1,13 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import uuid
+
+# 飞书 API 走直连，不经过系统代理
+os.environ.setdefault("NO_PROXY", "open.feishu.cn")
+os.environ.setdefault("no_proxy", "open.feishu.cn")
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Dict, Iterable, List
@@ -879,7 +884,9 @@ def send_evolution_round_card(
             why = p.get("why_this_surface_zh", "")
             key_ev = p.get("key_evidence_zh") or []
 
-            content = f"📋 **{zh_field(fk)}**\n"
+            imp_type = p.get("improvement_type", "precision")
+            imp_label = "📈 召回提升（GT 未标注，系统发现了新信号）" if imp_type == "recall" else "🎯 准确率优化"
+            content = f"📋 **{zh_field(fk)}**　{imp_label}\n"
             content += f"当前输出: `{zh_val(str(gt_info.get('output_value', '—'))[:60])}`\n"
             content += f"GT 标准: `{zh_val(str(gt_info.get('gt_value', '—'))[:60])}`\n"
             content += f"**根因**: {ROOT_CAUSE_ZH_MAP.get(rc, rc)}（置信度 {conf:.0%}）\n"
@@ -897,12 +904,12 @@ def send_evolution_round_card(
             rule_lines: List[str] = []
             fso = patch.get("field_spec_overrides") or {}
             for field, spec in fso.items():
-                if isinstance(spec, dict) and spec.get("null_preferred_when"):
-                    conditions = spec["null_preferred_when"]
+                if isinstance(spec, dict) and spec.get("weak_evidence_caution"):
+                    conditions = spec["weak_evidence_caution"]
                     if isinstance(conditions, list):
-                        rule_lines.append(f"**判断口径修改** ({zh_field(field)}):")
+                        rule_lines.append(f"**{zh_field(field)}** — 以下情况证据较弱，需谨慎判断:")
                         for c in conditions[:3]:
-                            rule_lines.append(f"  · {c}")
+                            rule_lines.append(f"  · 当{c}时")
             tr = patch.get("tool_rules") or {}
             for field, rule in tr.items():
                 if isinstance(rule, dict):
@@ -918,7 +925,7 @@ def send_evolution_round_card(
                     rule_lines.append(f"**数据来源修改** ({zh_field(field)}): 新增 {', '.join(sources)}")
 
             if rule_lines:
-                content += "\n\n**具体规则变更**:\n" + "\n".join(rule_lines)
+                content += "\n\n**审批通过后生效的规则**:\n" + "\n".join(rule_lines)
 
             elements.append({"tag": "markdown", "content": content})
     else:

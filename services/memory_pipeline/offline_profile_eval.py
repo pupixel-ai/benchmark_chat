@@ -245,16 +245,16 @@ def _propose_cot_updates(round1_eval: Dict[str, Any]) -> Dict[str, Dict[str, Any
         if field_key not in target_fields or status not in {"fp", "fp_fn", "fn"}:
             continue
         spec = FIELD_SPECS[field_key]
-        null_preferred_when = list(spec.null_preferred_when)
+        weak_evidence_caution = list(spec.weak_evidence_caution)
         cot_steps = list(spec.cot_steps)
         if status in {"fp", "fp_fn"}:
-            null_preferred_when.append("若证据集中在单事件簇或单时间窗口，优先输出 null")
+            weak_evidence_caution.append("若证据集中在单事件簇或单时间窗口，优先输出 null")
             cot_steps.append("反思阶段必须确认至少两个独立事件窗口，否则不输出非 null")
         else:
             cot_steps.append("若存在跨事件重复且主体归属明确，可放宽单字段保守阈值")
         updates[field_key] = {
             "cot_steps": list(dict.fromkeys(cot_steps)),
-            "null_preferred_when": list(dict.fromkeys(null_preferred_when)),
+            "weak_evidence_caution": list(dict.fromkeys(weak_evidence_caution)),
         }
     return updates
 

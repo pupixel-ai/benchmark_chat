@@ -76,6 +76,18 @@ Pipeline 中有 4 个 LLM 角色，各司其职，详见 `.knowledge/roles/`：
 - **多锚点证据**: 下游 `profile_agent` 的 `Evidence` 已扩展支持 `event_id / photo_id / person_id / feature_names`，主工程 evidence 要尽量保留这些 refs
 - **下游审计产物**: 下游裁判结果会先按原生 `Judge -> merged_outputs` 逻辑写入下游 `profiles.json`，并同步生成 `downstream_audit_report`；当前主角 `nullify/downgrade` 会回退成 `photographer_mode`，直接清空正式 `relationships / relationship_dossiers / groups`，再重跑 `LP3 -> downstream audit`；关系 `nullify/downgrade` 会先改正式 `Relationship[]` 再重跑 `groups -> LP3 -> downstream audit`，最后才把已映射的 profile facts 字段安全回流到 `structured_profile`，并同步更新 `profile_fact_decisions.final`，保留 `final_before_backflow + backflow`
 
+**跨用户分析（Harness Engineering）**
+- 完整文档见 `/Users/vigar07/Desktop/me_reflection/AGENTS.md`
+- 入口: `scripts/run_hardness_pipeline.py harness`
+- Agent 架构: GT Matcher → UpstreamTriageScorer → BadcasePacketAssembler → UpstreamReflectionAgent → ProposalBuilder → EngineeringCritic → extract_difficult_cases
+- 核心原则: 人工覆写优先、用户数据隔离、GT 对比为主数据源、字段标签映射唯一来自 `docs/reflection_field_bilingual_table.csv`
+
+**疑难杂症沉淀**
+- 完整策略见 `/Users/vigar07/Desktop/me_reflection/AGENTS.md` 的「疑难杂症接入策略」章节
+- 来源 A（跨用户）: EngineeringCritic 判定需要 new_tool/architecture_change → `summary.difficult_cases`
+- 来源 B（单用户）: Reflect Agent 多轮信号累积（watch_only/needs_review/低 confidence）→ `exhausted_fields/{user}.json`
+- 关键原则: LLM 信号驱动而非硬编码规则、门槛严格、分类信息来自 LLM 诊断
+
 ---
 
 ## 工程信息
@@ -171,6 +183,9 @@ Pipeline 中有 4 个 LLM 角色，各司其职，详见 `.knowledge/roles/`：
 
 ### 规则3：兼容性代码
 **不能写兼容性代码，除非 Vigar 主动要求**
+
+### 规则4：改配置前检查消费端
+**修改任何配置变量、常量、函数签名或参数默认值时，必须先 grep 所有使用方，确认消费逻辑兼容新值后再改。不要只看定义处就动手。**
 
 ---
 

@@ -69,14 +69,36 @@ REFLECTION_DIR = Path(CONFIG_ROOT) / "memory" / "reflection"
 # GT 桥接
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+def _resolve_album_id(user_name: str, explicit_album_id: str | None = None) -> str:
+    """确定 GT 应使用的 album_id：显式传入 > 最新 run_meta > 兜底。"""
+    if explicit_album_id:
+        return explicit_album_id
+    # 从最新 run 的 run_meta.json 读取
+    runs_dir = DATASETS_PATH / user_name / "runs"
+    if runs_dir.exists():
+        run_dirs = sorted(runs_dir.iterdir(), key=lambda d: d.stat().st_mtime, reverse=True)
+        for d in run_dirs:
+            meta = d / "run_meta.json"
+            if meta.exists():
+                try:
+                    return json.loads(meta.read_text(encoding="utf-8")).get("album_id", "")
+                except Exception:
+                    pass
+    return f"{user_name}_default"
+
+
 def sync_gt_to_reflection(user_name: str, album_id: str | None = None) -> bool:
     """将 datasets/{user}/gt/profile_field_gt.jsonl 同步到 memory/reflection/。
-    如果提供 album_id，会把每条 GT 的 album_id 替换为该值，确保和 case_facts 匹配。
-    返回是否有 GT 可用。
+
+    album_id 对齐策略：
+    - 显式传入 album_id → 使用它（cmd_run 场景）
+    - 未传入 → 从最新 run_meta.json 读取（cmd_evolve 等场景），保持和 case_facts 一致
     """
     gt_source = DATASETS_PATH / user_name / "gt" / "profile_field_gt.jsonl"
     if not gt_source.exists():
         return False
+
+    resolved_id = _resolve_album_id(user_name, album_id)
 
     REFLECTION_DIR.mkdir(parents=True, exist_ok=True)
     gt_dest = REFLECTION_DIR / f"profile_field_gt_{user_name}.jsonl"
@@ -90,14 +112,13 @@ def sync_gt_to_reflection(user_name: str, album_id: str | None = None) -> bool:
             continue
         try:
             record = json.loads(line)
-            if album_id:
-                record["album_id"] = album_id
+            record["album_id"] = resolved_id
             output_lines.append(json.dumps(record, ensure_ascii=False))
         except json.JSONDecodeError:
             output_lines.append(line)
 
     gt_dest.write_text("\n".join(output_lines) + "\n", encoding="utf-8")
-    print(f"  [gt] 同步 GT: {gt_source.name} → {gt_dest.name}" + (f" (album_id={album_id})" if album_id else ""))
+    print(f"  [gt] 同步 GT: {gt_source.name} → {gt_dest.name} (album_id={resolved_id})")
     return True
 
 
@@ -249,9 +270,18 @@ def cmd_run(args) -> int:
                 gt_records = load_profile_field_gt(str(REFLECTION_DIR / f"profile_field_gt_{user_name}.jsonl"))
                 updated_facts, comparisons = apply_profile_field_gt(facts, gt_records)
 
-                # 写出 gt_comparisons
+                # 写出 gt_comparisons（保护人工校准不被覆盖）
+                human_overrides = _load_human_overrides(user_name)
                 with open(gt_comp_path, "w", encoding="utf-8") as f:
                     for c in comparisons:
+                        cid = c.get("case_id", "")
+                        override_grade = human_overrides.get(cid)
+                        if override_grade:
+                            cr = c.get("comparison_result", {})
+                            cr["original_grade"] = cr.get("grade", "")
+                            cr["grade"] = override_grade
+                            cr["human_override"] = True
+                            c["comparison_result"] = cr
                         f.write(json.dumps(c, ensure_ascii=False) + "\n")
 
                 # 更新 case_facts（带 comparison 结果）
@@ -270,7 +300,24 @@ def cmd_run(args) -> int:
                 print(f"  [gt] GT 对比失败: {exc}")
                 import traceback; traceback.print_exc()
 
-        # ── 8. 写 run_meta.json ──
+        # ── 8. 确保 trace ledger 存在（bundle_runner 内部写入可能静默失败） ──
+        trace_json = run_dir / "memory_pipeline_run_trace.json"
+        trace_ledger_dir = Path(CONFIG_ROOT) / "memory" / "evolution" / "traces" / user_name
+        trace_ledger = trace_ledger_dir / f"{date_str}.jsonl"
+        if trace_json.exists() and not trace_ledger.exists():
+            try:
+                from services.memory_pipeline.evolution import persist_memory_run_trace
+                trace_payload = json.loads(trace_json.read_text(encoding="utf-8"))
+                persist_memory_run_trace(
+                    project_root=CONFIG_ROOT,
+                    output_dir=str(run_dir),
+                    trace_payload=trace_payload,
+                )
+                print(f"  [trace] ledger 补写成功")
+            except Exception as exc:
+                print(f"  [trace] ledger 补写失败: {exc}")
+
+        # ── 9. 写 run_meta.json ──
         run_meta = {
             "run_id": run_id,
             "user_name": user_name,
@@ -287,7 +334,7 @@ def cmd_run(args) -> int:
             json.dumps(run_meta, ensure_ascii=False, indent=2), encoding="utf-8"
         )
 
-        # ── 9. 发飞书 GT 对比卡片（如果有 GT） ──
+        # ── 10. 发飞书 GT 对比卡片（如果有 GT） ──
         if has_gt:
             try:
                 feishu_resp = _requests.post(
@@ -301,6 +348,10 @@ def cmd_run(args) -> int:
                     print(f"  [feishu] 发送失败: {feishu_resp.text[:100]}")
             except Exception as exc:
                 print(f"  [feishu] 发送跳过: {exc}")
+
+        # ── 11. 初始化 field_loop_state（让热力图在 GT 对比后就可用） ──
+        if has_gt:
+            _init_field_loop_state_from_gt(user_name)
 
         results.append({"user": user_name, "status": "ok", "run_id": run_id})
         print(f"  [done] 输出: datasets/{user_name}/runs/{run_id}/")
@@ -343,6 +394,69 @@ def cmd_reflect(args) -> int:
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # Step 2: evolve — 单人多轮优化
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+def _load_human_overrides(user_name: str) -> Dict[str, str]:
+    """加载人工校准记录。返回 {case_id: override_grade}。人工评注是唯一基线，不可被覆盖。"""
+    overrides_path = REFLECTION_DIR / "gt_grade_overrides.json"
+    if not overrides_path.exists():
+        return {}
+    try:
+        all_overrides = json.loads(overrides_path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    suffix = f"_{user_name}"
+    return {
+        k.replace(suffix, ""): v
+        for k, v in all_overrides.items()
+        if k.endswith(suffix)
+    }
+
+
+def _init_field_loop_state_from_gt(user_name: str) -> None:
+    """GT 对比完成后初始化 field_loop_state，让热力图立即可用。"""
+    gt_path = REFLECTION_DIR / f"gt_comparisons_{user_name}.jsonl"
+    if not gt_path.exists():
+        return
+    state_path = Path(CONFIG_ROOT) / "memory" / "evolution" / "field_loop_state" / f"{user_name}.json"
+    # 如果已有 state 则不覆盖（evolve 可能已经写过更详细的状态）
+    if state_path.exists():
+        return
+    fields: Dict[str, Any] = {}
+    for line in gt_path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        try:
+            r = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        fk = r.get("field_key", "")
+        if not fk:
+            continue
+        cr = r.get("comparison_result", {})
+        grade = cr.get("grade", "")
+        if not grade:
+            continue
+        good = grade in ("exact_match", "close_match", "improved")
+        fields[fk] = {
+            "cycle_count": 0,
+            "last_grade": grade,
+            "last_issue_score": 0.0,
+            "last_status": "monitoring" if good else "not_focused",
+            "last_signal_key": "",
+            "seen_signal_keys": [],
+            "no_new_signal_streak": 0,
+            "cooldown_remaining": 0,
+            "issue_score_history": [],
+            "score_trend": "",
+            "reflect_fail_streak": 0,
+            "last_updated": datetime.now().isoformat(),
+        }
+    if fields:
+        state_path.parent.mkdir(parents=True, exist_ok=True)
+        state = {"updated_at": datetime.now().isoformat(), "fields": fields}
+        state_path.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(f"  [heatmap] 初始化 field_loop_state: {len(fields)} 字段")
+
 
 def _notify_evolution_round(user_name: str, date_str: str, result: dict) -> None:
     """发送 evolution 轮次汇报到飞书个人，失败不阻塞 pipeline。"""
@@ -406,11 +520,23 @@ def cmd_evolve(args) -> int:
     users = resolve_users(args)
     date_str = args.date or datetime.now().strftime("%Y-%m-%d")
     top_k = args.top_k_fields
+    skip_gt_check = getattr(args, "skip_gt_check", False)
     results = []
 
     # 先同步所有用户的 GT
     for user_name in users:
         sync_gt_to_reflection(user_name)
+
+    # GT 校准门槛：首次 evolve 前必须有人工校准记录
+    if not skip_gt_check:
+        unconfirmed = [u for u in users if not _check_gt_confirmed(u)]
+        if unconfirmed:
+            print(f"\n⚠️  以下用户的 GT 对比尚未人工校准，evolve 已跳过:")
+            for u in unconfirmed:
+                print(f"  - {u}")
+            print(f"\n请先在平台校准: http://localhost:5180/errors")
+            print(f"校准完成后重新运行，或加 --skip-gt-check 跳过")
+            return 1
 
     if len(users) == 1:
         user_name = users[0]
@@ -634,6 +760,13 @@ def cmd_autoloop(args) -> int:
         if converged_count == len(users):
             print(f"  所有用户已收敛，共 {round_idx} 轮")
             break
+    else:
+        # 达到 max_rounds 仍未收敛 — 强制复盘
+        print(f"\n  达到最大轮次 ({max_rounds})，强制生成复盘")
+        date_str_now = datetime.now().strftime("%Y-%m-%d")
+        for u in users:
+            if not _is_user_converged(u):
+                _force_recap_if_needed(u, date_str_now)
 
     # Step 3: harness
     print("\n[3/3] harness: 跨用户聚类")
@@ -662,7 +795,7 @@ def cmd_rerun_fields(args) -> int:
     """规则修改后只重跑指定字段的 LP3 推理 + GT 对比。"""
     from services.memory_pipeline.precomputed_loader import load_precomputed_memory_state
     from services.memory_pipeline.profile_fields import generate_structured_profile, build_profile_context
-    from services.memory_pipeline.llm_utils import OpenRouterProfileLLMProcessor
+    from services.memory_pipeline.profile_llm import OpenRouterProfileLLMProcessor
 
     user_name = args.user
     field_keys = set(f.strip() for f in args.fields.split(",") if f.strip())
@@ -722,21 +855,13 @@ def cmd_rerun_fields(args) -> int:
             ia_path.write_text(json.dumps(ia, ensure_ascii=False, indent=2), encoding="utf-8")
             print(f"  artifacts 已更新: {ia_path}")
 
-    # 5. GT 对比（只对修改的字段重新对比）
-    sync_gt_to_reflection(user_name)
-    from services.reflection.gt import apply_profile_field_gt
-    from services.reflection.mainline_capture import load_case_facts_for_user
-
-    case_facts = load_case_facts_for_user(project_root=CONFIG_ROOT, user_name=user_name)
-    gt_records = []
-    gt_path = REFLECTION_DIR / f"profile_field_gt_{user_name}.jsonl"
-    if gt_path.exists():
-        gt_records = [json.loads(l) for l in gt_path.read_text().splitlines() if l.strip()]
-
-    # 读取修改前的分数
+    # 5. 更新被修改字段的 GT 对比结果
     gt_comps_path = REFLECTION_DIR / f"gt_comparisons_{user_name}.jsonl"
+    gt_path = REFLECTION_DIR / f"profile_field_gt_{user_name}.jsonl"
     before_scores: Dict[str, float] = {}
+
     if gt_comps_path.exists():
+        # 读取修改前的分数
         for line in gt_comps_path.read_text().splitlines():
             if not line.strip():
                 continue
@@ -745,31 +870,245 @@ def cmd_rerun_fields(args) -> int:
             if fk in field_keys:
                 before_scores[fk] = float(r.get("comparison_result", {}).get("score", 0))
 
-    updated_facts, comparisons = apply_profile_field_gt(case_facts, gt_records)
-    print(f"  GT 对比完成: {len(comparisons)} 条")
+    # 用新的 field_decisions 更新 GT 对比
+    new_decisions = profile_result.get("field_decisions", [])
+    new_by_key = {d["field_key"]: d for d in new_decisions}
+
+    gt_by_field: Dict[str, Any] = {}
+    if gt_path.exists():
+        for line in gt_path.read_text().splitlines():
+            if not line.strip():
+                continue
+            r = json.loads(line)
+            fk = r.get("field_key", "")
+            if fk:
+                gt_by_field[fk] = r
+
+    # 保存 GT 对比快照（rerun 前）
+    gt_snapshots_dir = Path(CONFIG_ROOT) / "memory" / "evolution" / "gt_snapshots" / user_name
+    gt_snapshots_dir.mkdir(parents=True, exist_ok=True)
+    if gt_comps_path.exists():
+        import shutil
+        snapshot_name = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}.jsonl"
+        shutil.copy2(gt_comps_path, gt_snapshots_dir / snapshot_name)
+
+    # 重新对比被修改字段
+    from services.reflection.gt_matcher import compare_profile_field_values
+    if gt_comps_path.exists():
+        lines = gt_comps_path.read_text().splitlines()
+        updated_lines = []
+        for line in lines:
+            if not line.strip():
+                continue
+            r = json.loads(line)
+            fk = r.get("field_key", "")
+            if fk in new_by_key:
+                # 人工校准过的字段不覆盖——人工评注是唯一基线
+                cr = r.get("comparison_result", {})
+                if cr.get("human_override"):
+                    updated_lines.append(json.dumps(r, ensure_ascii=False))
+                    print(f"  跳过人工校准字段: {fk} (grade={cr.get('grade')})")
+                    continue
+                new_val = new_by_key[fk].get("final", {}).get("value")
+                gt_rec = gt_by_field.get(fk, {})
+                gt_val = gt_rec.get("gt_value")
+                new_comp = compare_profile_field_values(field_key=fk, predicted_value=new_val, gt_value=gt_val)
+                r["comparison_result"] = new_comp
+                r["comparison_result"]["output_value"] = new_val
+                r["comparison_result"]["gt_value"] = gt_val
+            updated_lines.append(json.dumps(r, ensure_ascii=False))
+        gt_comps_path.write_text("\n".join(updated_lines) + "\n", encoding="utf-8")
+        print(f"  GT 对比已更新: {len(new_by_key)} 个字段")
 
     # 6. 输出分数变化
-    after_scores: Dict[str, float] = {}
-    for comp in comparisons:
-        fk = comp.get("field_key", "")
-        if fk in field_keys:
-            cr = comp.get("comparison_result", {})
-            after_scores[fk] = float(cr.get("score", 0))
-            grade = cr.get("grade", "")
+    for fk in field_keys:
+        if fk in new_by_key:
+            new_val = new_by_key[fk].get("final", {}).get("value", "?")
+            gt_rec = gt_by_field.get(fk, {})
+            gt_val = gt_rec.get("gt_value", "?")
             before = before_scores.get(fk, 0)
-            after = after_scores[fk]
-            delta = after - before
-            arrow = "↑" if delta > 0 else "↓" if delta < 0 else "="
-            print(f"  {fk}: {grade} | 分数 {before:.2f} → {after:.2f} ({arrow}{abs(delta):.2f})")
+            print(f"  {fk}: 新输出={new_val} | GT={gt_val} | 旧分数={before:.2f}")
 
-    # 7. 飞书通知
-    _notify_evolution_round(user_name, datetime.now().strftime("%Y-%m-%d"), {
-        "total_focus_fields": len(field_keys),
-        "total_insights": 0,
-        "total_proposals": 0,
-    })
+    # 7. 先发改进结果飞书通知
+    try:
+        from services.reflection.feishu import _get_tenant_access_token, _translate_values_for_card
+        from services.reflection.labels import load_bilingual_label_rows
+        import requests as _rerun_requests
+        from config import FEISHU_APP_ID, FEISHU_APP_SECRET, FEISHU_API_BASE_URL, FEISHU_DEFAULT_RECEIVE_ID, FEISHU_DEFAULT_RECEIVE_ID_TYPE
+
+        label_map = {}
+        try:
+            for row in load_bilingual_label_rows():
+                if row.get("key") and row.get("zh_label"):
+                    label_map[row["key"]] = row["zh_label"]
+        except Exception:
+            pass
+
+        rerun_lines = []
+        for fk in field_keys:
+            if fk not in new_by_key:
+                continue
+            new_val = str(new_by_key[fk].get("final", {}).get("value", "—"))[:60]
+            gt_rec = gt_by_field.get(fk, {})
+            gt_val_str = str(gt_rec.get("gt_value", "—"))[:60]
+            zh_name = label_map.get(fk, fk.rsplit(".", 1)[-1])
+            before = before_scores.get(fk, 0)
+
+            # 翻译值
+            val_zh = _translate_values_for_card([new_val, gt_val_str])
+            new_val_zh = val_zh.get(new_val, new_val)
+            gt_val_zh = val_zh.get(gt_val_str, gt_val_str)
+
+            changed = "🔄 有变化" if new_val != str(before_scores.get(fk + "_old_val", "")) else "➡️ 未变"
+            rerun_lines.append(
+                f"**{zh_name}**\n"
+                f"修改前: `{new_val_zh}`\n"
+                f"GT: `{gt_val_zh}`"
+            )
+
+        if rerun_lines and FEISHU_APP_ID and FEISHU_APP_SECRET and FEISHU_DEFAULT_RECEIVE_ID:
+            token = _get_tenant_access_token(app_id=FEISHU_APP_ID, app_secret=FEISHU_APP_SECRET, api_base_url=FEISHU_API_BASE_URL)
+            card = {
+                "schema": "2.0",
+                "config": {"enable_forward": True, "width_mode": "fill"},
+                "header": {
+                    "title": {"tag": "plain_text", "content": f"规则重跑结果 — {user_name}"},
+                    "template": "wathet",
+                    "subtitle": {"tag": "plain_text", "content": f"{len(field_keys)} 个字段已用新规则重跑"},
+                },
+                "body": {"elements": [{"tag": "markdown", "content": "\n\n".join(rerun_lines)}]},
+            }
+            _rerun_requests.post(
+                f"{FEISHU_API_BASE_URL}/open-apis/im/v1/messages?receive_id_type={FEISHU_DEFAULT_RECEIVE_ID_TYPE}",
+                json={"receive_id": FEISHU_DEFAULT_RECEIVE_ID, "msg_type": "interactive", "content": json.dumps(card, ensure_ascii=False)},
+                headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json; charset=utf-8"},
+                timeout=15,
+            )
+            print(f"  [飞书] 重跑结果已发送")
+    except Exception as exc:
+        print(f"  [飞书] 重跑结果发送失败: {exc}")
+
+    # 8. 自动触发下一轮 evolve（用新分数生成下一轮提案）
+    # 版本上限保护：同一天超过 MAX_VERSIONS_PER_DAY 则不再 evolve
+    MAX_VERSIONS_PER_DAY = 10
+    date_str_now = datetime.now().strftime("%Y-%m-%d")
+    proposals_dir = Path(CONFIG_ROOT) / "memory" / "evolution" / "proposals" / user_name
+    existing_versions = sorted(proposals_dir.glob(f"{date_str_now}_c*.json")) if proposals_dir.exists() else []
+    if len(existing_versions) >= MAX_VERSIONS_PER_DAY:
+        print(f"\n  [auto] 已达单日版本上限 ({MAX_VERSIONS_PER_DAY} 轮)，停止 evolve")
+        # 强制触发复盘
+        _force_recap_if_needed(user_name, date_str_now)
+        return 0
+
+    print(f"\n  [auto] 触发下一轮 evolve (当前第 {len(existing_versions) + 1} 轮)...")
+    from services.memory_pipeline.evolution import run_memory_nightly_evaluation
+    try:
+        evolve_result = run_memory_nightly_evaluation(
+            project_root=CONFIG_ROOT,
+            user_name=user_name,
+            date_str=date_str_now,
+            top_k_fields=3,
+        )
+        total_proposals = evolve_result.get("total_proposals", 0)
+        converged = evolve_result.get("converged", False)
+        print(f"  [auto] evolve 完成: focus={evolve_result.get('total_focus_fields', 0)} proposals={total_proposals} converged={converged}")
+
+        if converged:
+            # 已收敛 — 通知用户循环结束
+            _notify_evolution_round(user_name, date_str_now, evolve_result)
+            print(f"  [auto] 用户 {user_name} 已收敛，循环结束")
+        elif total_proposals > 0:
+            # 有新提案 — 正常通知
+            _notify_evolution_round(user_name, date_str_now, evolve_result)
+        else:
+            # 无新提案 — 通知用户当前轮次无可执行提案
+            print(f"  [auto] 本轮无新提案，通知用户")
+            _notify_no_proposals(user_name, date_str_now, evolve_result)
+    except Exception as exc:
+        print(f"  [auto] evolve 失败: {exc}")
 
     return 0
+
+
+def _force_recap_if_needed(user_name: str, date_str: str) -> None:
+    """达到版本上限时强制生成复盘（即使还有活跃字段）。"""
+    from services.memory_pipeline.evolution import _check_and_generate_recap
+    state_path = Path(CONFIG_ROOT) / "memory" / "evolution" / "field_loop_state" / f"{user_name}.json"
+    if not state_path.exists():
+        return
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    cycles_dir = Path(CONFIG_ROOT) / "memory" / "evolution" / "field_cycles" / user_name
+    all_cycles = []
+    if cycles_dir.exists():
+        latest = cycles_dir / f"{date_str}.json"
+        if latest.exists():
+            all_cycles = json.loads(latest.read_text(encoding="utf-8"))
+
+    # 将剩余活跃字段标记为 throttled（强制收敛）
+    _ACTIVE = {"needs_next_cycle", "new_rule_candidate", "new_insight_found", "initial_snapshot"}
+    fields = state.get("fields") or {}
+    forced = []
+    for fk, fs in fields.items():
+        if fs.get("last_status") in _ACTIVE:
+            fs["last_status"] = "throttled"
+            fs["cooldown_remaining"] = 0
+            forced.append(fk)
+    if forced:
+        state_path.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(f"  [recap] 强制收敛 {len(forced)} 个活跃字段: {forced}")
+
+    _check_and_generate_recap(
+        project_root=CONFIG_ROOT,
+        user_name=user_name,
+        date_str=date_str,
+        state_payload=state,
+        field_cycles_all=all_cycles,
+    )
+
+
+def _notify_no_proposals(user_name: str, date_str: str, evolve_result: dict) -> None:
+    """通知用户本轮无新提案。"""
+    try:
+        from services.reflection.feishu import _get_tenant_access_token
+        import requests as _requests
+        from config import (
+            FEISHU_APP_ID, FEISHU_APP_SECRET, FEISHU_API_BASE_URL,
+            FEISHU_DEFAULT_RECEIVE_ID, FEISHU_DEFAULT_RECEIVE_ID_TYPE,
+        )
+        if not (FEISHU_APP_ID and FEISHU_APP_SECRET and FEISHU_DEFAULT_RECEIVE_ID):
+            return
+        token = _get_tenant_access_token(
+            app_id=FEISHU_APP_ID, app_secret=FEISHU_APP_SECRET,
+            api_base_url=FEISHU_API_BASE_URL,
+        )
+        focus = evolve_result.get("total_focus_fields", 0)
+        converged = evolve_result.get("converged", False)
+        card = {
+            "schema": "2.0",
+            "config": {"enable_forward": True, "width_mode": "fill"},
+            "header": {
+                "title": {"tag": "plain_text", "content": f"循环暂停 — {user_name}"},
+                "template": "grey",
+            },
+            "body": {"elements": [{
+                "tag": "markdown",
+                "content": (
+                    f"本轮 evolve 未产出新提案（{focus} 个焦点字段均未达到提案置信度阈值）。\n\n"
+                    f"循环暂停，等待下次手动触发或新数据输入。\n\n"
+                    f"[查看详情](http://localhost:5180/user/{user_name}?date={date_str})"
+                ),
+            }]},
+        }
+        _requests.post(
+            f"{FEISHU_API_BASE_URL}/open-apis/im/v1/messages?receive_id_type={FEISHU_DEFAULT_RECEIVE_ID_TYPE}",
+            json={"receive_id": FEISHU_DEFAULT_RECEIVE_ID, "msg_type": "interactive",
+                  "content": json.dumps(card, ensure_ascii=False)},
+            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json; charset=utf-8"},
+            timeout=15,
+        )
+        print(f"  [飞书] 暂停通知已发送")
+    except Exception as exc:
+        print(f"  [飞书] 暂停通知发送失败: {exc}")
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -843,6 +1182,7 @@ def main() -> int:
     p_evolve.add_argument("--all", action="store_true", help="所有 datasets/ 用户")
     p_evolve.add_argument("--date", type=str, default=None, help="日期 (默认今天)")
     p_evolve.add_argument("--top-k-fields", type=int, default=3, help="聚焦字段数")
+    p_evolve.add_argument("--skip-gt-check", action="store_true", help="跳过 GT 人工校准检查")
 
     # ── harness ──
     p_harness = subparsers.add_parser("harness", help="跨用户 Harness Engineering")

@@ -170,11 +170,37 @@ def infer_relationships_from_dossiers(
     llm_processor: Any,
     dossiers: List[RelationshipDossier],
 ) -> Tuple[List[Relationship], List[RelationshipDossier]]:
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    # 并行调用 LLM 推断关系
+    llm_results: Dict[str, Tuple] = {}
+    max_workers = min(8, len(dossiers))
+
+    def _infer_one(d: RelationshipDossier) -> Tuple[str, Relationship, Dict]:
+        rel, ref = _infer_relationship_from_dossier(d, llm_processor=llm_processor)
+        return d.person_id, rel, ref
+
+    if max_workers > 1 and llm_processor:
+        with ThreadPoolExecutor(max_workers=max_workers) as pool:
+            futures = {pool.submit(_infer_one, d): d for d in dossiers}
+            for future in as_completed(futures):
+                try:
+                    pid, rel, ref = future.result()
+                    llm_results[pid] = (rel, ref)
+                except Exception:
+                    d = futures[future]
+                    llm_results[d.person_id] = _infer_relationship_from_dossier(d, llm_processor=None)
+    else:
+        for d in dossiers:
+            _, rel, ref = _infer_one(d)
+            llm_results[d.person_id] = (rel, ref)
+
+    # 串行后处理（依赖顺序逻辑）
     relationships: List[Relationship] = []
     updated_dossiers: List[RelationshipDossier] = []
 
     for dossier in dossiers:
-        relationship, reflection = _infer_relationship_from_dossier(dossier, llm_processor=llm_processor)
+        relationship, reflection = llm_results.get(dossier.person_id, _infer_relationship_from_dossier(dossier, llm_processor=None))
         relationship, reflection = _apply_relationship_type_veto(dossier, relationship, reflection)
         relationship = _apply_status_correction(dossier, relationship)
         relationship = _normalize_relationship_output(dossier, relationship, reflection)

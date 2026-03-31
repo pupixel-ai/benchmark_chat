@@ -7,5 +7,21 @@
   },
   "long_term_facts.geography.location_anchors": {
     "max_refs_per_source": 20
+  },
+  "short_term_facts.current_displacement": {
+    "max_refs_per_source": 10,
+    "required_evidence_types": [
+      "weather_location",
+      "landmark_photo"
+    ],
+    "min_cross_location_refs": 2
+  },
+  "long_term_facts.geography.mobility_pattern": {
+    "max_refs_per_source": 5,
+    "required_evidence_types": [
+      "event",
+      "vlm_observations"
+    ],
+    "evidence_sort_strategy": "by_location_recurrence"
   }
 }

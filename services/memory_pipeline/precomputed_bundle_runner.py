@@ -349,7 +349,9 @@ def run_precomputed_bundle_pipeline(
             trace_payload=run_trace_payload,
         )
     except Exception as exc:
+        import traceback
         print(f"[bundle pipeline][warn] memory run trace 写入失败: {exc}")
+        traceback.print_exc()
 
     return {
         "output_dir": str(output_path),

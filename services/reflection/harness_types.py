@@ -23,7 +23,18 @@ class CrossUserPattern:
     root_cause_candidates: List[str] = field(default_factory=list)
     fix_surface_candidates: List[str] = field(default_factory=list)
     avg_confidence: float = 0.0
+    avg_lane_quality: Dict[str, float] = field(default_factory=dict)
     summary: str = ""
+    # ── GT-grounded cross-user enrichment ──
+    gt_comparisons: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    # user → {grade, score, output_value, gt_value}
+    pre_loop_grades: Dict[str, str] = field(default_factory=dict)
+    # user → initial grade before any evolution
+    proposal_history: List[Dict[str, Any]] = field(default_factory=list)
+    # all proposals targeting this dimension across users
+    approval_count: int = 0
+    evolution_state: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    # user → {cycle_count, last_grade, last_status, score_trend}
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -43,7 +54,13 @@ class CrossUserPattern:
             "root_cause_candidates": self.root_cause_candidates,
             "fix_surface_candidates": self.fix_surface_candidates,
             "avg_confidence": self.avg_confidence,
+            "avg_lane_quality": self.avg_lane_quality,
             "summary": self.summary,
+            "gt_comparisons": self.gt_comparisons,
+            "pre_loop_grades": self.pre_loop_grades,
+            "proposal_history": self.proposal_history,
+            "approval_count": self.approval_count,
+            "evolution_state": self.evolution_state,
         }
 
 

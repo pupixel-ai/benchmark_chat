@@ -298,8 +298,6 @@ def _safe_float(value: Any, default: float) -> float:
 
 
 def _build_llm_processor() -> Any | None:
-    if PROFILE_LLM_PROVIDER != "openrouter":
-        return None
     try:
         return OpenRouterProfileLLMProcessor()
     except Exception:

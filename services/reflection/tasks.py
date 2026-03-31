@@ -363,6 +363,10 @@ def run_reflection_task_generation(*, project_root: str, user_name: str) -> Dict
         case_facts=enriched_case_facts,
     )
 
+    # 保存旧 case_id → field_key 映射（覆写前），让旧 proposal 引用可追溯
+    if paths.case_facts_path.exists():
+        _save_case_id_mapping(paths.case_facts_path, user_name, reflected_case_facts)
+
     _write_jsonl_snapshot(paths.case_facts_path, [fact.to_dict() for fact in reflected_case_facts])
     _write_jsonl_snapshot(paths.gt_comparisons_path, gt_comparisons)
 
@@ -1316,6 +1320,27 @@ def _write_json_file(path: str, payload: List[Dict[str, Any]]) -> None:
     file_path = Path(path)
     file_path.parent.mkdir(parents=True, exist_ok=True)
     file_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def _save_case_id_mapping(case_facts_path: str, user_name: str, new_facts: List[CaseFact]) -> None:
+    """Save old→new case_id mapping before overwriting case_facts."""
+    old_ids: Dict[str, str] = {}
+    path = Path(case_facts_path)
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if line.strip():
+            try:
+                old = json.loads(line)
+                cid = old.get("case_id", "")
+                if cid:
+                    old_ids[cid] = old.get("dimension", "")
+            except json.JSONDecodeError:
+                pass
+    if not old_ids:
+        return
+    new_ids = {f.case_id: f.dimension for f in new_facts}
+    mapping = {"old_to_field": old_ids, "new_to_field": new_ids, "updated_at": datetime.now().isoformat()}
+    mapping_path = path.parent / f"case_id_mapping_{user_name}.json"
+    mapping_path.write_text(json.dumps(mapping, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def _write_jsonl_snapshot(path: str, payloads: List[Dict[str, Any]]) -> None:

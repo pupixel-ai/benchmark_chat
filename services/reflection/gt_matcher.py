@@ -70,15 +70,21 @@ def compare_profile_field_values(
     predicted_value: Any,
     gt_value: Any,
     llm_processor: Any | None = None,
+    evidence_count: int | None = None,
 ) -> Dict[str, Any]:
     if _is_missing(predicted_value):
-        return {
+        result = {
             "grade": "missing_prediction",
             "score": 0.0,
             "method": "rule_missing_prediction",
             "output_value": predicted_value,
             "gt_value": gt_value,
         }
+        result["quality_dimensions"] = _compute_quality_dimensions(
+            grade="missing_prediction", predicted_value=predicted_value, gt_value=gt_value,
+            field_key=field_key, evidence_count=evidence_count,
+        )
+        return result
     if _is_missing(gt_value):
         return {
             "grade": "missing_gt",
@@ -88,21 +94,25 @@ def compare_profile_field_values(
             "gt_value": gt_value,
         }
 
+    def _finalize(result: Dict[str, Any]) -> Dict[str, Any]:
+        result["output_value"] = predicted_value
+        result["gt_value"] = gt_value
+        result["quality_dimensions"] = _compute_quality_dimensions(
+            grade=result.get("grade", "mismatch"),
+            predicted_value=predicted_value,
+            gt_value=gt_value,
+            field_key=field_key,
+            evidence_count=evidence_count,
+        )
+        return result
+
     exact_result = _exact_or_hierarchy_match(field_key=field_key, predicted_value=predicted_value, gt_value=gt_value)
     if exact_result:
-        return {
-            **exact_result,
-            "output_value": predicted_value,
-            "gt_value": gt_value,
-        }
+        return _finalize(exact_result)
 
     list_result = _list_overlap_match(field_key=field_key, predicted_value=predicted_value, gt_value=gt_value)
     if list_result:
-        return {
-            **list_result,
-            "output_value": predicted_value,
-            "gt_value": gt_value,
-        }
+        return _finalize(list_result)
 
     text_result = _text_similarity_match(
         field_key=field_key,
@@ -111,19 +121,22 @@ def compare_profile_field_values(
         llm_processor=llm_processor,
     )
     if text_result:
-        return {
-            **text_result,
-            "output_value": predicted_value,
-            "gt_value": gt_value,
-        }
+        return _finalize(text_result)
 
-    return {
+    llm_fallback = _judge_text_with_llm(
+        field_key=field_key,
+        predicted_value=predicted_value,
+        gt_value=gt_value,
+        llm_processor=llm_processor,
+    )
+    if llm_fallback:
+        return _finalize(llm_fallback)
+
+    return _finalize({
         "grade": "mismatch",
         "score": 0.0,
         "method": "rule_no_match",
-        "output_value": predicted_value,
-        "gt_value": gt_value,
-    }
+    })
 
 
 def _exact_or_hierarchy_match(*, field_key: str, predicted_value: Any, gt_value: Any) -> Dict[str, Any] | None:
@@ -160,37 +173,8 @@ def _list_overlap_match(*, field_key: str, predicted_value: Any, gt_value: Any) 
             "score": 1.0,
             "method": "rule_set_exact",
         }
-    if predicted_tokens < gt_tokens or gt_tokens < predicted_tokens:
-        overlap = predicted_tokens & gt_tokens
-        precision = len(overlap) / len(predicted_tokens)
-        recall = len(overlap) / len(gt_tokens)
-        completeness_score = recall if predicted_tokens < gt_tokens else precision
-        return {
-            "grade": "partial_match",
-            "score": round(completeness_score, 4),
-            "method": "rule_set_overlap",
-        }
-
-    overlap = predicted_tokens & gt_tokens
-    if not overlap:
-        return {
-            "grade": "mismatch",
-            "score": 0.0,
-            "method": "rule_set_overlap",
-        }
-
-    precision = len(overlap) / len(predicted_tokens)
-    recall = len(overlap) / len(gt_tokens)
-    f1 = 0.0 if precision + recall == 0 else (2 * precision * recall) / (precision + recall)
-    if f1 >= 0.67:
-        grade = "close_match"
-    else:
-        grade = "partial_match"
-    return {
-        "grade": grade,
-        "score": round(f1, 4),
-        "method": "rule_set_overlap",
-    }
+    # 非精确匹配的列表交给 LLM 语义判定
+    return None
 
 
 def _text_similarity_match(
@@ -200,8 +184,6 @@ def _text_similarity_match(
     gt_value: Any,
     llm_processor: Any | None = None,
 ) -> Dict[str, Any] | None:
-    if field_key not in TEXT_STYLE_FIELDS:
-        return None
 
     predicted_tokens = set(_tokenize_text(predicted_value))
     gt_tokens = set(_tokenize_text(gt_value))
@@ -213,15 +195,16 @@ def _text_similarity_match(
     score = round(len(overlap) / len(union), 4) if union else 0.0
     if score >= 0.67:
         return {"grade": "close_match", "score": score, "method": "rule_text_overlap"}
+    # token overlap 不高时，用 LLM 语义判定
+    llm_result = _judge_text_with_llm(
+        field_key=field_key,
+        predicted_value=predicted_value,
+        gt_value=gt_value,
+        llm_processor=llm_processor,
+    )
+    if llm_result:
+        return llm_result
     if score >= 0.34:
-        llm_result = _judge_text_with_llm(
-            field_key=field_key,
-            predicted_value=predicted_value,
-            gt_value=gt_value,
-            llm_processor=llm_processor,
-        )
-        if llm_result:
-            return llm_result
         return {"grade": "partial_match", "score": score, "method": "rule_text_overlap"}
     return {"grade": "mismatch", "score": score, "method": "rule_text_overlap"}
 
@@ -232,8 +215,12 @@ def _judge_text_with_llm(*, field_key: str, predicted_value: Any, gt_value: Any,
         return None
 
     prompt = (
-        "你是 GT 近似匹配判定器。"
-        "只能从 exact_match, close_match, partial_match, mismatch 中选一个。"
+        "你是 GT 近似匹配判定器。只能从 exact_match, close_match, partial_match, mismatch 中选一个。"
+        "判定规则："
+        "1. 语义等价（如 student 和 学生，domestic_only 和 中国境内）→ exact_match"
+        "2. 系统输出比 GT 更具体（如 GT=student，输出=东华大学本科在读）→ close_match，因为输出包含了 GT 的语义且更丰富"
+        "3. 系统输出和 GT 有部分重叠但不完全覆盖 → partial_match"
+        "4. 语义完全不同 → mismatch"
         "只返回 JSON，字段必须是 grade, score, reason。"
         + json.dumps(
             {
@@ -265,9 +252,51 @@ def _judge_text_with_llm(*, field_key: str, predicted_value: Any, gt_value: Any,
     }
 
 
+# ── P1: 质量维度 ──────────────────────────────────────────────
+
+_EVIDENCE_DENSITY_BASELINES: Dict[str, int] = {
+    "identity": 3, "social_identity": 3, "material": 4, "geography": 3,
+    "time": 3, "relationships": 4, "hobbies": 4, "physiology": 2,
+    "expression": 3, "short_term": 3,
+}
+
+
+def _compute_quality_dimensions(
+    *,
+    grade: str,
+    predicted_value: Any,
+    gt_value: Any,
+    field_key: str,
+    evidence_count: int | None = None,
+) -> Dict[str, float]:
+    is_bad = grade in ("mismatch", "missing_prediction")
+    dims: Dict[str, float] = {}
+
+    # specificity: 输出有多细粒度（mismatch 时归零）
+    if is_bad:
+        dims["specificity"] = 0.0
+    else:
+        pred_tokens = _normalize_multi_value(predicted_value)
+        pred_char_len = sum(len(t) for t in pred_tokens)
+        dims["specificity"] = round(min(1.0, pred_char_len / 20.0), 3)
+
+    # coverage_breadth: GT 语义空间覆盖了多少
+    grade_coverage = {"exact_match": 1.0, "close_match": 0.8, "partial_match": 0.5, "mismatch": 0.0, "missing_prediction": 0.0}
+    dims["coverage_breadth"] = grade_coverage.get(grade, 0.0)
+
+    # evidence_density: 证据支撑密度（mismatch 时归零，可选）
+    if evidence_count is not None:
+        if is_bad:
+            dims["evidence_density"] = 0.0
+        else:
+            domain = field_key.split(".")[1] if "." in field_key else "short_term"
+            baseline = _EVIDENCE_DENSITY_BASELINES.get(domain, 3)
+            dims["evidence_density"] = round(min(1.0, evidence_count / baseline), 3)
+
+    return dims
+
+
 def _build_llm_processor() -> Any | None:
-    if PROFILE_LLM_PROVIDER != "openrouter":
-        return None
     try:
         return OpenRouterProfileLLMProcessor()
     except Exception:

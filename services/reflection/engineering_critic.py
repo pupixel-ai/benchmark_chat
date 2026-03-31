@@ -290,11 +290,15 @@ class EngineeringCritic:
         # Field index update
         field_update = step2.get("field_index_update")
         if isinstance(field_update, dict):
+            recs = step2.get("recommendations") or []
             update_field_index(
                 field_key=dimension,
                 diagnosis=step2.get("system_diagnosis", ""),
-                recommendation_level=int(step2.get("recommendations", [{}])[0].get("level", 1)) if step2.get("recommendations") else 1,
+                recommendation_level=int(recs[0].get("level", 1)) if recs else 1,
                 pattern_id=pattern_id,
+                user_name="_critic",
+                root_cause_family=str(step2.get("root_cause_depth", "")),
+                fix_surface=str(recs[0].get("type", "")) if recs else "",
             )
 
     # ── Critique level determination ──

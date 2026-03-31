@@ -16,6 +16,7 @@ from config import PROJECT_ROOT
 REFLECTION_DIR = Path(PROJECT_ROOT) / "memory" / "reflection"
 POLICY_PATH = REFLECTION_DIR / "critic_policy.md"
 FIELD_INDEX_PATH = REFLECTION_DIR / "critic_field_index.json"
+FIELD_INDEX_CHANGELOG_PATH = REFLECTION_DIR / "field_index_changelog.jsonl"
 POLICY_LOG_PATH = REFLECTION_DIR / "critic_policy_log.jsonl"
 
 # ── Policy constraints ──
@@ -138,25 +139,34 @@ def update_field_index(
     *,
     field_key: str,
     diagnosis: str,
-    recommendation_level: int,
-    pattern_id: str,
+    recommendation_level: int = 1,
+    pattern_id: str = "",
+    user_name: str = "",
+    proposal_id: str = "",
+    root_cause_family: str = "",
+    fix_surface: str = "",
     human_verdict: str | None = None,
     outcome_improved: bool | None = None,
 ) -> None:
-    """Add or update a field index entry."""
+    """Add or update a field index entry. user_name is required for traceability."""
+    if not user_name:
+        return  # User isolation: refuse anonymous entries
+
     all_data = _read_field_index()
     field_data = all_data.setdefault(field_key, {"entries": [], "aggregate": {}})
     entries = field_data.get("entries", [])
 
-    # Check if we're updating an existing entry (same pattern_id)
+    # Match by proposal_id first, then pattern_id
     existing = None
     for e in entries:
-        if e.get("pattern_id") == pattern_id:
+        if proposal_id and e.get("proposal_id") == proposal_id:
+            existing = e
+            break
+        if pattern_id and e.get("pattern_id") == pattern_id and e.get("user_name") == user_name:
             existing = e
             break
 
     if existing:
-        # Update existing
         if human_verdict:
             existing["human_verdict"] = human_verdict
             if human_verdict == "approve":
@@ -165,6 +175,8 @@ def update_field_index(
                 existing["weight"] = max(0.1, existing.get("weight", 0.6) - 0.20)
             elif human_verdict == "need_revision":
                 existing["weight"] = max(0.1, existing.get("weight", 0.6) - 0.05)
+            elif human_verdict == "field_resolved":
+                existing["weight"] = min(0.95, existing.get("weight", 0.6) + 0.20)
         if outcome_improved is not None:
             existing["outcome_improved"] = outcome_improved
             if outcome_improved:
@@ -173,39 +185,51 @@ def update_field_index(
                 existing["weight"] = max(0.1, existing.get("weight", 0.6) - 0.10)
         existing["updated_at"] = datetime.now().isoformat()
     else:
-        # New entry
         entries.append({
             "diagnosis": diagnosis,
+            "user_name": user_name,
+            "proposal_id": proposal_id,
+            "pattern_id": pattern_id,
             "recommendation_level": recommendation_level,
+            "root_cause_family": root_cause_family,
+            "fix_surface": fix_surface,
             "weight": 0.60,
             "human_verdict": human_verdict,
             "outcome_improved": outcome_improved,
             "created_at": datetime.now().isoformat(),
             "updated_at": datetime.now().isoformat(),
-            "pattern_id": pattern_id,
         })
 
-    # Prune: max 5 entries per field, keep highest weight
+    # Prune: max 10 entries per field, keep highest weight
     entries.sort(key=lambda e: e.get("weight", 0), reverse=True)
-    field_data["entries"] = entries[:5]
-
-    # Remove entries with weight < 0.2
-    field_data["entries"] = [e for e in field_data["entries"] if e.get("weight", 0) >= 0.2]
+    field_data["entries"] = [e for e in entries[:10] if e.get("weight", 0) >= 0.2]
 
     # Update aggregate
     valid = field_data["entries"]
+    reviewed = [e for e in valid if e.get("human_verdict")]
     field_data["aggregate"] = {
         "avg_weight": round(sum(e.get("weight", 0) for e in valid) / len(valid), 3) if valid else 0,
-        "total_reviews": sum(1 for e in valid if e.get("human_verdict")),
+        "total_reviews": len(reviewed),
         "approve_rate": round(
-            sum(1 for e in valid if e.get("human_verdict") == "approve") /
-            max(1, sum(1 for e in valid if e.get("human_verdict")))
-        , 2),
+            sum(1 for e in reviewed if e["human_verdict"] == "approve") / max(1, len(reviewed)), 2
+        ),
         "dominant_diagnosis": valid[0].get("diagnosis", "") if valid else "",
+        "source_users": sorted(set(e.get("user_name", "") for e in valid if e.get("user_name"))),
     }
 
     all_data[field_key] = field_data
     _write_field_index(all_data)
+
+    # Append changelog
+    _append_field_index_changelog({
+        "action": "update",
+        "field_key": field_key,
+        "user_name": user_name,
+        "proposal_id": proposal_id,
+        "diagnosis": diagnosis[:120],
+        "human_verdict": human_verdict,
+        "timestamp": datetime.now().isoformat(),
+    })
 
 
 def _decay_weights(field_data: Dict) -> None:
@@ -236,6 +260,40 @@ def _read_field_index() -> Dict[str, Any]:
 def _write_field_index(data: Dict) -> None:
     FIELD_INDEX_PATH.parent.mkdir(parents=True, exist_ok=True)
     FIELD_INDEX_PATH.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def _append_field_index_changelog(record: Dict) -> None:
+    FIELD_INDEX_CHANGELOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with open(FIELD_INDEX_CHANGELOG_PATH, "a", encoding="utf-8") as f:
+        f.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+
+# ═══════════════════════════════════════════════════
+# Layer 2b: Field Knowledge Summary (for LLM consumption)
+# ═══════════════════════════════════════════════════
+
+
+def summarize_field_knowledge(field_key: str) -> str:
+    """Compact summary of field knowledge for LLM prompt injection (< 200 tokens)."""
+    data = load_field_index(field_key)
+    entries = data.get("entries", [])
+    if not entries:
+        return ""
+    agg = data.get("aggregate", {})
+    verdict_zh = {"approve": "有效", "reject": "无效", "need_revision": "需修改"}
+    lines = [
+        f"该字段历史经验（{len(entries)} 条，审批通过率 {agg.get('approve_rate', 0):.0%}）：",
+    ]
+    for e in entries[:3]:
+        v = verdict_zh.get(e.get("human_verdict", ""), "待审")
+        u = e.get("user_name", "?")
+        lines.append(f"  - [{v}] {e.get('diagnosis', '')[:80]} (来源: {u}, 权重: {e.get('weight', 0):.2f})")
+    return "\n".join(lines)
+
+
+def load_all_field_knowledge() -> Dict[str, Any]:
+    """Load entire field index for API consumption."""
+    return _read_field_index()
 
 
 # ═══════════════════════════════════════════════════
