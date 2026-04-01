@@ -29,7 +29,20 @@ from backend.auth import (
     register_user,
 )
 from backend.face_review_store import FaceReviewStore
+from backend.feishu_api import (
+    handle_feishu_callback_event as handle_feishu_callback_event_view,
+    preview_difficult_case_alert_card as preview_difficult_case_alert_card_view,
+    preview_reflection_task_card as preview_reflection_task_card_view,
+    send_difficult_case_alert as send_difficult_case_alert_view,
+    send_reflection_task_card as send_reflection_task_card_view,
+    submit_mock_feishu_action as submit_mock_feishu_action_view,
+)
 from backend.memory_full_retrieval import build_task_memory_core_payload
+from backend.reflection_api import (
+    get_difficult_case_detail as get_difficult_case_detail_view,
+    get_reflection_task_detail as get_reflection_task_detail_view,
+    list_reflection_tasks as list_reflection_tasks_view,
+)
 from backend.memory_step_retrieval import build_task_memory_steps_payload
 from backend.progress_utils import append_terminal_error, append_terminal_info, merge_stage_progress
 from backend.task_download_bundle import build_task_analysis_bundle, describe_task_downloads
@@ -125,6 +138,17 @@ class MemoryQueryPayload(BaseModel):
     context_hints: Optional[Dict[str, str]] = None
     time_hint: Optional[str] = None
     answer_shape_hint: Optional[str] = None
+
+
+class FeishuMockActionPayload(BaseModel):
+    action_type: str
+    candidate_id: Optional[str] = None
+    reviewer_note: Optional[str] = None
+
+
+class FeishuSendPayload(BaseModel):
+    receive_id: str
+    receive_id_type: Optional[str] = "open_id"
 
 
 def _apply_no_store_headers(response: Response) -> Response:
@@ -1063,6 +1087,81 @@ def list_tasks(response: Response, limit: int = 20, current_user: dict = Depends
     }
 
 
+@app.get("/api/reflection/tasks")
+def list_reflection_tasks(response: Response, current_user: dict = Depends(get_current_user)):
+    return list_reflection_tasks_view(response=response, current_user=current_user)
+
+
+@app.get("/api/reflection/tasks/{task_id}")
+def get_reflection_task_detail(task_id: str, response: Response, current_user: dict = Depends(get_current_user)):
+    return get_reflection_task_detail_view(task_id=task_id, response=response, current_user=current_user)
+
+
+@app.get("/api/reflection/difficult-cases/{case_id}")
+def get_difficult_case_detail(case_id: str, response: Response, current_user: dict = Depends(get_current_user)):
+    return get_difficult_case_detail_view(case_id=case_id, response=response, current_user=current_user)
+
+
+@app.get("/api/reflection/tasks/{task_id}/feishu/card-preview")
+def get_reflection_task_feishu_card_preview(task_id: str, response: Response, current_user: dict = Depends(get_current_user)):
+    return preview_reflection_task_card_view(task_id=task_id, response=response, current_user=current_user)
+
+
+@app.get("/api/reflection/difficult-cases/{case_id}/feishu/card-preview")
+def get_difficult_case_feishu_card_preview(case_id: str, response: Response, current_user: dict = Depends(get_current_user)):
+    return preview_difficult_case_alert_card_view(case_id=case_id, response=response, current_user=current_user)
+
+
+@app.post("/api/reflection/tasks/{task_id}/feishu/mock-action")
+def submit_reflection_task_feishu_mock_action(
+    task_id: str,
+    payload: FeishuMockActionPayload,
+    response: Response,
+    current_user: dict = Depends(get_current_user),
+):
+    return submit_mock_feishu_action_view(
+        task_id=task_id,
+        payload=payload.model_dump(),
+        response=response,
+        current_user=current_user,
+    )
+
+
+@app.post("/api/reflection/tasks/{task_id}/feishu/send")
+def send_reflection_task_feishu_card(
+    task_id: str,
+    payload: FeishuSendPayload,
+    response: Response,
+    current_user: dict = Depends(get_current_user),
+):
+    return send_reflection_task_card_view(
+        task_id=task_id,
+        payload=payload.model_dump(),
+        response=response,
+        current_user=current_user,
+    )
+
+
+@app.post("/api/reflection/difficult-cases/{case_id}/feishu/send")
+def send_difficult_case_feishu_card(
+    case_id: str,
+    payload: FeishuSendPayload,
+    response: Response,
+    current_user: dict = Depends(get_current_user),
+):
+    return send_difficult_case_alert_view(
+        case_id=case_id,
+        payload=payload.model_dump(),
+        response=response,
+        current_user=current_user,
+    )
+
+
+@app.post("/api/integrations/feishu/callback")
+def handle_feishu_callback(payload: Dict[str, object], response: Response):
+    return handle_feishu_callback_event_view(payload=payload, response=response)
+
+
 @app.get("/api/tasks/{task_id}")
 def get_task(task_id: str, response: Response, current_user: dict = Depends(get_current_user)):
     _apply_no_store_headers(response)
@@ -1150,8 +1249,6 @@ def get_task_memory_steps(
     if not task:
         raise HTTPException(status_code=404, detail="任务不存在")
     hydrated = _sync_task_from_worker(task, current_user["user_id"])
-    if str(hydrated.get("version") or "").strip() != "v0323":
-        raise HTTPException(status_code=404, detail="当前任务没有 LP steps 输出")
     return build_task_memory_steps_payload(
         hydrated,
         asset_url_builder=lambda resolved_task_id, relative_path: asset_store.asset_url(resolved_task_id, relative_path),

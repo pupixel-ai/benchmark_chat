@@ -1,0 +1,163 @@
+{
+  "Person_001": {
+    "name": "",
+    "photo_count": 1,
+    "first_seen": null,
+    "last_seen": null,
+    "avg_confidence": 0.7050547003746033
+  },
+  "Person_002": {
+    "name": "",
+    "photo_count": 8,
+    "first_seen": null,
+    "last_seen": null,
+    "avg_confidence": 0.8103235438466072
+  },
+  "Person_004": {
+    "name": "",
+    "photo_count": 1,
+    "first_seen": null,
+    "last_seen": null,
+    "avg_confidence": 0.8120403289794922
+  },
+  "Person_005": {
+    "name": "",
+    "photo_count": 2,
+    "first_seen": null,
+    "last_seen": null,
+    "avg_confidence": 0.8396888077259064
+  },
+  "Person_006": {
+    "name": "",
+    "photo_count": 3,
+    "first_seen": null,
+    "last_seen": null,
+    "avg_confidence": 0.8207793533802032
+  },
+  "Person_007": {
+    "name": "",
+    "photo_count": 1,
+    "first_seen": null,
+    "last_seen": null,
+    "avg_confidence": 0.8531777858734131
+  },
+  "Person_008": {
+    "name": "",
+    "photo_count": 1,
+    "first_seen": null,
+    "last_seen": null,
+    "avg_confidence": 0.6364201903343201
+  },
+  "Person_009": {
+    "name": "",
+    "photo_count": 1,
+    "first_seen": null,
+    "last_seen": null,
+    "avg_confidence": 0.7877751588821411
+  },
+  "Person_010": {
+    "name": "",
+    "photo_count": 1,
+    "first_seen": null,
+    "last_seen": null,
+    "avg_confidence": 0.7399280071258545
+  },
+  "Person_011": {
+    "name": "",
+    "photo_count": 1,
+    "first_seen": null,
+    "last_seen": null,
+    "avg_confidence": 0.883608341217041
+  },
+  "Person_012": {
+    "name": "",
+    "photo_count": 1,
+    "first_seen": null,
+    "last_seen": null,
+    "avg_confidence": 0.8776499629020691
+  },
+  "Person_013": {
+    "name": "",
+    "photo_count": 1,
+    "first_seen": null,
+    "last_seen": null,
+    "avg_confidence": 0.8875581622123718
+  },
+  "Person_014": {
+    "name": "",
+    "photo_count": 1,
+    "first_seen": null,
+    "last_seen": null,
+    "avg_confidence": 0.8541127443313599
+  },
+  "Person_015": {
+    "name": "",
+    "photo_count": 1,
+    "first_seen": null,
+    "last_seen": null,
+    "avg_confidence": 0.8854517936706543
+  },
+  "Person_016": {
+    "name": "",
+    "photo_count": 1,
+    "first_seen": null,
+    "last_seen": null,
+    "avg_confidence": 0.8531839582655165
+  },
+  "Person_017": {
+    "name": "",
+    "photo_count": 1,
+    "first_seen": null,
+    "last_seen": null,
+    "avg_confidence": 0.9024906754493713
+  },
+  "Person_018": {
+    "name": "",
+    "photo_count": 1,
+    "first_seen": null,
+    "last_seen": null,
+    "avg_confidence": 0.7666666507720947
+  },
+  "Person_019": {
+    "name": "",
+    "photo_count": 1,
+    "first_seen": null,
+    "last_seen": null,
+    "avg_confidence": 0.7765054702758789
+  },
+  "Person_020": {
+    "name": "",
+    "photo_count": 2,
+    "first_seen": null,
+    "last_seen": null,
+    "avg_confidence": 0.8668642044067383
+  },
+  "Person_021": {
+    "name": "",
+    "photo_count": 1,
+    "first_seen": null,
+    "last_seen": null,
+    "avg_confidence": 0.8210461437702179
+  },
+  "Person_022": {
+    "name": "",
+    "photo_count": 1,
+    "first_seen": null,
+    "last_seen": null,
+    "avg_confidence": 0.6587949991226196
+  },
+  "Person_023": {
+    "name": "",
+    "photo_count": 1,
+    "first_seen": null,
+    "last_seen": null,
+    "avg_confidence": 0.7682294249534607
+  },
+  "Person_024": {
+    "name": "",
+    "photo_count": 1,
+    "first_seen": null,
+    "last_seen": null,
+    "avg_confidence": 0.8170385360717773
+  }
+}

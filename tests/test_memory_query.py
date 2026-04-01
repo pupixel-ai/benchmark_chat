@@ -15,7 +15,7 @@ class MemoryQueryTests(unittest.TestCase):
         query_service = MemoryQueryService(now=datetime(2026, 3, 23, 12, 0))
         memory_payload = {
             "memory": {
-                "pipeline_family": "v0321_3",
+                "pipeline_family": "v0317",
                 "envelope": {"scope": {"user_id": "user_001"}},
                 "event_revisions": [
                     {

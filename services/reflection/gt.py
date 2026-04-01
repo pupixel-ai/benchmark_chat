@@ -1,0 +1,410 @@
+from __future__ import annotations
+
+import json
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any, Dict, Iterable, List, Set, Tuple
+
+from .gt_matcher import compare_profile_field_values
+from .types import CaseFact
+
+
+def load_profile_field_gt(path: str) -> List[Dict[str, Any]]:
+    file_path = Path(path)
+    if not file_path.exists():
+        return []
+    payloads: List[Dict[str, Any]] = []
+    with file_path.open("r", encoding="utf-8") as handle:
+        for line in handle:
+            stripped = line.strip()
+            if not stripped:
+                continue
+            try:
+                payload = json.loads(stripped)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(payload, dict):
+                payloads.append(payload)
+    return payloads
+
+
+def apply_profile_field_gt(case_facts: Iterable[CaseFact], gt_records: Iterable[Dict[str, Any]]) -> Tuple[List[CaseFact], List[Dict[str, Any]]]:
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    gt_by_key = {
+        _gt_lookup_key(str(record.get("album_id") or ""), str(record.get("field_key") or "")): dict(record)
+        for record in gt_records
+        if str(record.get("album_id") or "").strip() and str(record.get("field_key") or "").strip()
+    }
+
+    # 分离需要 GT 对比的 facts 和不需要的
+    profile_facts: List[Tuple[int, CaseFact, Dict]] = []
+    all_facts = list(case_facts)
+    for i, fact in enumerate(all_facts):
+        if fact.signal_source == "mainline_profile" and fact.entity_type == "profile_field":
+            gt_payload = gt_by_key.get(_gt_lookup_key(fact.album_id, fact.dimension), {})
+            profile_facts.append((i, fact, gt_payload))
+
+    # 并行执行 GT 对比（含 LLM 语义匹配）
+    gt_results: Dict[int, Tuple[CaseFact, Dict | None]] = {}
+    max_workers = min(8, len(profile_facts)) if profile_facts else 1
+
+    def _compare_one(item: Tuple[int, CaseFact, Dict]) -> Tuple[int, CaseFact, Dict | None]:
+        idx, fact, gt_payload = item
+        updated_fact, comp = _apply_single_gt(fact, gt_payload)
+        return idx, updated_fact, comp
+
+    if max_workers > 1:
+        with ThreadPoolExecutor(max_workers=max_workers) as pool:
+            futures = {pool.submit(_compare_one, item): item for item in profile_facts}
+            for future in as_completed(futures):
+                try:
+                    idx, updated_fact, comp = future.result()
+                    gt_results[idx] = (updated_fact, comp)
+                except Exception:
+                    item = futures[future]
+                    gt_results[item[0]] = (item[1], None)
+    else:
+        for item in profile_facts:
+            idx, updated_fact, comp = _compare_one(item)
+            gt_results[idx] = (updated_fact, comp)
+
+    # 按原始顺序组装结果
+    updated: List[CaseFact] = []
+    comparisons: List[Dict[str, Any]] = []
+    for i, fact in enumerate(all_facts):
+        if i in gt_results:
+            updated_fact, comp = gt_results[i]
+            updated.append(updated_fact)
+            if comp:
+                comparisons.append(comp)
+        else:
+            updated.append(fact)
+
+    return updated, comparisons
+
+
+def _apply_single_gt(case_fact: CaseFact, gt_payload: Dict[str, Any]) -> Tuple[CaseFact, Dict[str, Any] | None]:
+    upstream_value = case_fact.upstream_output.get("value")
+    pre_audit_present = bool(case_fact.pre_audit_output)
+    pre_audit_value = case_fact.pre_audit_output.get("value") if pre_audit_present else None
+    if upstream_value in (None, "", []):
+        gt_val = gt_payload.get("gt_value") if gt_payload else None
+        gt_also_empty = gt_val in (None, "", [])
+
+        if gt_also_empty:
+            # GT 和输出都为空 → 一致，不是 badcase
+            case_fact.badcase_source = ""
+            case_fact.badcase_kind = ""
+            case_fact.accuracy_gap_status = "resolved"
+            if not gt_payload:
+                return case_fact, None
+            comparison_result = _build_comparison_payload(
+                upstream_value=upstream_value,
+                gt_value=gt_val,
+                comparison={
+                    "grade": "exact_match",
+                    "score": 1.0,
+                    "method": "rule_both_null_match",
+                },
+                confidence=case_fact.auto_confidence,
+            )
+            case_fact.gt_payload = dict(gt_payload)
+            case_fact.comparison_result = dict(comparison_result)
+            case_fact.comparison_grade = "exact_match"
+            case_fact.comparison_score = 1.0
+            case_fact.comparison_method = "rule_both_null_match"
+            _apply_pre_audit_comparison(case_fact, None)
+            return case_fact, comparison_result
+
+        case_fact.badcase_source = "empty_output_candidate"
+        case_fact.badcase_kind = "missing_value"
+        case_fact.accuracy_gap_status = "open"
+        if not gt_payload:
+            return case_fact, None
+        comparison_result = _build_comparison_payload(
+            upstream_value=upstream_value,
+            gt_value=gt_val,
+            comparison={
+                "grade": "missing_prediction",
+                "score": 0.0,
+                "method": "rule_missing_prediction",
+            },
+            confidence=case_fact.auto_confidence,
+        )
+        pre_audit_comparison = _build_optional_pre_audit_comparison(
+            pre_audit_present=pre_audit_present,
+            pre_audit_value=pre_audit_value,
+            field_key=case_fact.dimension,
+            gt_value=gt_payload.get("gt_value"),
+            confidence=case_fact.auto_confidence,
+        )
+        case_fact.gt_payload = dict(gt_payload)
+        case_fact.comparison_result = dict(comparison_result)
+        case_fact.comparison_grade = "missing_prediction"
+        case_fact.comparison_score = 0.0
+        case_fact.comparison_method = "rule_missing_prediction"
+        _apply_pre_audit_comparison(case_fact, pre_audit_comparison)
+        case_fact.causality_route = _resolve_causality_route(
+            audit_action_type=case_fact.audit_action_type,
+            pre_grade=case_fact.pre_audit_comparison_grade,
+            post_grade=case_fact.comparison_grade,
+        )
+        _apply_causality_routing(case_fact)
+        return case_fact, {
+            "case_id": case_fact.case_id,
+            "user_name": case_fact.user_name,
+            "album_id": case_fact.album_id,
+            "field_key": case_fact.dimension,
+            "gt_payload": gt_payload,
+            "comparison_result": comparison_result,
+        }
+
+    if not gt_payload:
+        return case_fact, None
+
+    comparison = compare_profile_field_values(
+        field_key=case_fact.dimension,
+        predicted_value=upstream_value,
+        gt_value=gt_payload.get("gt_value"),
+    )
+    grade = str(comparison.get("grade") or "mismatch")
+    score = float(comparison.get("score") or 0.0)
+    method = str(comparison.get("method") or "rule_no_match")
+    is_match = grade in {"exact_match", "close_match"}
+    pre_audit_comparison = _build_optional_pre_audit_comparison(
+        pre_audit_present=pre_audit_present,
+        pre_audit_value=pre_audit_value,
+        field_key=case_fact.dimension,
+        gt_value=gt_payload.get("gt_value"),
+        confidence=case_fact.auto_confidence,
+    )
+    comparison_payload = {
+        "case_id": case_fact.case_id,
+        "user_name": case_fact.user_name,
+        "album_id": case_fact.album_id,
+        "field_key": case_fact.dimension,
+        "gt_payload": gt_payload,
+        "comparison_result": _build_comparison_payload(
+            upstream_value=upstream_value,
+            gt_value=gt_payload.get("gt_value"),
+            comparison=comparison,
+            confidence=case_fact.auto_confidence,
+        ),
+    }
+    case_fact.gt_payload = dict(gt_payload)
+    case_fact.comparison_result = dict(comparison_payload["comparison_result"])
+    case_fact.comparison_grade = grade
+    case_fact.comparison_score = round(score, 4)
+    case_fact.comparison_method = method
+    _apply_pre_audit_comparison(case_fact, pre_audit_comparison)
+    case_fact.causality_route = _resolve_causality_route(
+        audit_action_type=case_fact.audit_action_type,
+        pre_grade=case_fact.pre_audit_comparison_grade,
+        post_grade=case_fact.comparison_grade,
+    )
+    if is_match:
+        case_fact.badcase_source = ""
+        case_fact.badcase_kind = ""
+        case_fact.routing_result = "resolved_ok"
+        case_fact.business_priority = "low"
+        case_fact.accuracy_gap_status = "resolved"
+        return case_fact, comparison_payload
+
+    case_fact.badcase_source = "gt_mismatch_candidate"
+    case_fact.badcase_kind = _resolve_badcase_kind(upstream_value=upstream_value, gt_value=gt_payload.get("gt_value"), grade=grade)
+    case_fact.business_priority = "medium" if grade == "partial_match" else "high"
+    case_fact.accuracy_gap_status = "open"
+    _apply_causality_routing(case_fact)
+    return case_fact, comparison_payload
+
+
+def _gt_lookup_key(album_id: str, field_key: str) -> str:
+    return f"{album_id.strip()}::{field_key.strip()}"
+
+
+def _normalize_value(value: Any) -> str:
+    if isinstance(value, list):
+        return "|".join(sorted(_normalize_value(item) for item in value if _normalize_value(item)))
+    if value is None:
+        return ""
+    return str(value).strip().lower()
+
+
+def _mismatch_severity(confidence: float) -> str:
+    return "high" if confidence >= 0.6 else "medium"
+
+
+def _build_optional_pre_audit_comparison(
+    *,
+    pre_audit_present: bool,
+    pre_audit_value: Any,
+    field_key: str,
+    gt_value: Any,
+    confidence: float,
+) -> Dict[str, Any]:
+    if not pre_audit_present:
+        return {}
+    if pre_audit_value is None and gt_value in (None, "", []):
+        return {}
+    comparison = compare_profile_field_values(
+        field_key=field_key,
+        predicted_value=pre_audit_value,
+        gt_value=gt_value,
+    )
+    return _build_comparison_payload(
+        upstream_value=pre_audit_value,
+        gt_value=gt_value,
+        comparison=comparison,
+        confidence=confidence,
+    )
+
+
+def _apply_pre_audit_comparison(case_fact: CaseFact, comparison: Dict[str, Any]) -> None:
+    if not comparison:
+        return
+    case_fact.pre_audit_comparison_result = dict(comparison)
+    case_fact.pre_audit_comparison_grade = str(comparison.get("grade") or "")
+    case_fact.pre_audit_comparison_score = float(comparison.get("score") or 0.0)
+    case_fact.pre_audit_comparison_method = str(comparison.get("method") or "")
+
+
+def _build_comparison_payload(
+    *,
+    upstream_value: Any,
+    gt_value: Any,
+    comparison: Dict[str, Any],
+    confidence: float,
+) -> Dict[str, Any]:
+    grade = str(comparison.get("grade") or "mismatch")
+    score = float(comparison.get("score") or 0.0)
+    method = str(comparison.get("method") or "rule_no_match")
+    return {
+        "output_value": upstream_value,
+        "gt_value": gt_value,
+        "normalized_output": _normalize_value(upstream_value),
+        "normalized_gt": _normalize_value(gt_value),
+        "is_match": grade in {"exact_match", "close_match"},
+        "severity": _mismatch_severity(confidence),
+        "grade": grade,
+        "score": round(score, 4),
+        "method": method,
+    }
+
+
+def _resolve_causality_route(*, audit_action_type: str, pre_grade: str, post_grade: str) -> str:
+    if not audit_action_type or not pre_grade:
+        return ""
+    pre_rank = _comparison_rank(pre_grade)
+    post_rank = _comparison_rank(post_grade)
+    if _is_resolved_grade(pre_grade) and not _is_resolved_grade(post_grade):
+        return "downstream_caused"
+    if not _is_resolved_grade(pre_grade) and _is_resolved_grade(post_grade):
+        return "downstream_helped"
+    if post_rank < pre_rank:
+        return "downstream_exacerbated"
+    return "upstream_rooted"
+
+
+def _apply_causality_routing(case_fact: CaseFact) -> None:
+    if case_fact.causality_route not in {"downstream_caused", "downstream_exacerbated"}:
+        return
+    case_fact.routing_result = "audit_disagreement"
+    case_fact.business_priority = "high"
+    case_fact.resolution_route = "difficult_case"
+    case_fact.triage_reason = "downstream_backflow_degraded_gt_alignment"
+
+
+def _comparison_rank(grade: str) -> int:
+    if grade in {"exact_match", "close_match"}:
+        return 3
+    if grade == "partial_match":
+        return 2
+    if grade in {"mismatch", "missing_prediction"}:
+        return 1
+    return 0
+
+
+def _is_resolved_grade(grade: str) -> bool:
+    return grade in {"exact_match", "close_match"}
+
+
+def _resolve_badcase_kind(*, upstream_value: Any, gt_value: Any, grade: str) -> str:
+    if grade == "partial_match" and isinstance(upstream_value, list) and isinstance(gt_value, list):
+        upstream_tokens = set(_normalize_value(item) for item in upstream_value if _normalize_value(item))
+        gt_tokens = set(_normalize_value(item) for item in gt_value if _normalize_value(item))
+        if upstream_tokens < gt_tokens:
+            return "underclaim"
+        if gt_tokens < upstream_tokens:
+            return "overclaim"
+        return "wrong_granularity"
+    return "wrong_value"
+
+
+def auto_generate_pseudo_gt(
+    case_facts: Iterable[CaseFact],
+    gt_path: str,
+    *,
+    manual_gt_keys: Set[str] | None = None,
+    confidence_threshold: float = 0.85,
+    enum_field_keys: Set[str] | None = None,
+) -> List[Dict[str, Any]]:
+    """
+    Generate pseudo-GT from high-confidence, Judge-accepted, non-social-media fields.
+    Only for empty_output_candidate cases (not mismatch).
+    Only for enum-type fields (enum_field_keys whitelist).
+    Writes new entries to gt_path (JSONL append).
+    Returns list of newly written GT records.
+    """
+    existing_gt = load_profile_field_gt(gt_path)
+    existing_keys: Set[str] = {
+        _gt_lookup_key(str(r.get("album_id") or ""), str(r.get("field_key") or ""))
+        for r in existing_gt
+    }
+    manual_keys = manual_gt_keys or set()
+    enum_keys = enum_field_keys or set()
+
+    new_records: List[Dict[str, Any]] = []
+    for fact in case_facts:
+        if fact.signal_source != "mainline_profile" or fact.entity_type != "profile_field":
+            continue
+        if fact.badcase_source != "empty_output_candidate":
+            continue
+        if fact.dimension in manual_keys:
+            continue
+        if enum_keys and fact.dimension not in enum_keys:
+            continue
+        lookup_key = _gt_lookup_key(fact.album_id, fact.dimension)
+        if lookup_key in existing_keys:
+            continue
+        if float(fact.auto_confidence or 0.0) < confidence_threshold:
+            continue
+        audit_verdict = str((fact.downstream_judge or {}).get("verdict") or "").strip().lower()
+        if audit_verdict != "accept":
+            continue
+        causality_route = str(fact.causality_route or "").strip()
+        if causality_route == "downstream_helped":
+            continue
+        upstream_value = (fact.upstream_output or {}).get("value")
+        if upstream_value in (None, "", []):
+            continue
+        record = {
+            "album_id": fact.album_id,
+            "field_key": fact.dimension,
+            "gt_value": upstream_value,
+            "source": "auto_high_confidence",
+            "confidence": float(fact.auto_confidence or 0.0),
+            "case_id": fact.case_id,
+            "created_at": datetime.now(UTC).isoformat(),
+        }
+        new_records.append(record)
+        existing_keys.add(lookup_key)
+
+    if new_records:
+        gt_file = Path(gt_path)
+        gt_file.parent.mkdir(parents=True, exist_ok=True)
+        with gt_file.open("a", encoding="utf-8") as handle:
+            for record in new_records:
+                handle.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+    return new_records

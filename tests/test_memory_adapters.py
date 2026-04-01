@@ -94,7 +94,7 @@ class MemoryAdapterTests(unittest.TestCase):
                 "memory_units_v2": [
                     {
                         "unit_id": "unit-1",
-                        "pipeline_family": "v0321_3",
+                        "pipeline_family": "v0317",
                         "source_type": "event_revision",
                         "event_root_id": "event-root-1",
                         "event_revision_id": "event-rev-1",
@@ -113,7 +113,7 @@ class MemoryAdapterTests(unittest.TestCase):
                 "memory_evidence_v2": [
                     {
                         "evidence_id": "ev-1",
-                        "pipeline_family": "v0321_3",
+                        "pipeline_family": "v0317",
                         "source_type": "atomic_evidence",
                         "parent_unit_id": "event-rev-1",
                         "event_root_id": "event-root-1",

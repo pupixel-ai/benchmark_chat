@@ -104,7 +104,7 @@ def build_task_memory_steps_payload(
 ) -> Dict[str, Any]:
     task_id = str(task.get("task_id") or "").strip()
     task_dir = Path(str(task.get("task_dir") or ""))
-    family_dir = task_dir / "v0323"
+    family_dir = task_dir / "output"
     result = task.get("result") or {}
     memory = result.get("memory") or {}
     memory_stage = _memory_stage(task)
@@ -160,7 +160,7 @@ def build_task_memory_steps_payload(
     return {
         "task_id": task_id,
         "version": task.get("version"),
-        "pipeline_family": memory.get("pipeline_family") or "v0323",
+        "pipeline_family": memory.get("pipeline_family") or "v0317",
         "task_status": task_status,
         "current_stage": task.get("stage"),
         "current_substage": current_substage or None,

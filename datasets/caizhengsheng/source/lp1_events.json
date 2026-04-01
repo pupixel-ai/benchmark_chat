@@ -1,0 +1,527 @@
+{
+  "metadata": {
+    "generated_at": "2026-03-19T19:21:59.169966",
+    "version": "2.0",
+    "total_events": 4,
+    "total_relationships": 0,
+    "models": {
+      "vlm": "google/gemini-3.1-flash-lite-preview",
+      "llm": "google/gemini-2.5-flash",
+      "face": "InsightFace/buffalo_l"
+    }
+  },
+  "events": [
+    {
+      "event_id": "EVT_001",
+      "date": "2026-01-22",
+      "time_range": "15:28 - 17:21",
+      "duration": "",
+      "title": "北京冬日园林历史漫步与文化采风",
+      "type": "其他",
+      "participants": [
+        "Person_001"
+      ],
+      "location": "公共街区/文化场馆",
+      "description": "冬日凋零的落叶林（photo_001, photo_002），北京雍和宫（photo_003, photo_004），故宫博物院中和宫（photo_006），故宫檐角（photo_005），圆明园遗址地下通道（photo_007）及地铁站文化墙（photo_008）。日落时分的公园雪景（photo_009, photo_010）。他拍视角下的雪地涂鸦（photo_067），显示Person_001身着Camel冲锋衣，背对镜头在积雪上写字，左手持KELA帽。",
+      "photo_count": 11,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "热爱自然与历史文化，善于捕捉细节",
+          "独自或与少数亲密同伴深入探索",
+          "具备一定的观察力与记录欲",
+          "对历史遗迹和古建筑表现出浓厚兴趣"
+        ],
+        "aesthetic": [
+          "偏爱宁静、清冷的冬季景致",
+          "对传统建筑美学有一定鉴赏能力",
+          "构图偏向仰拍与特写，注重光影和纹理"
+        ],
+        "socioeconomic": [
+          "具有可支配的休闲时间进行深度文化旅游"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_002",
+      "date": "2026-02-01",
+      "time_range": "11:45 - 20:27",
+      "duration": "",
+      "title": "商务考察与活动筹备",
+      "type": "其他",
+      "participants": [
+        "Person_001",
+        "Person_002"
+      ],
+      "location": "高端商务/公共场所",
+      "description": "沙滩黄色警戒线（photo_057），商业空间蓝色数据线与展示柜（photo_058），三亚美高梅酒店户外广场（photo_059）及身着正装人员Person_001, Person_002，高层露台的户外灯光秀（photo_060），室内火舞表演（photo_061）及表演者Person_001, Person_002。",
+      "photo_count": 5,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "注重细节与环境安全（警戒线、数据线）",
+          "关注商务礼仪与专业场合（正装人员、高端酒店）",
+          "具有敏锐的观察力，能捕捉活动筹备与进行的线索",
+          "可能从事酒店管理、活动策划或商务会展相关工作"
+        ],
+        "aesthetic": [
+          "偏好现代简约风格（商业空间设计）",
+          "对光影艺术与舞台效果具有一定欣赏力"
+        ],
+        "socioeconomic": [
+          "处于中高端消费/工作环境",
+          "具有一定的职业地位或商务活动参与度"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_003",
+      "date": "2026-02-09",
+      "time_range": "11:24 - 10:27",
+      "duration": "",
+      "title": "都市生活剪影与交通出行",
+      "type": "其他",
+      "participants": [
+        "Person_001",
+        "Person_002",
+        "Person_003"
+      ],
+      "location": "都市户外/公共交通",
+      "description": "Manner Coffee门店外景及室内顾客（photo_062），Person_001侧身坐于店内；夜空烟花（photo_063）及“金马献瑞 万事亨通”字样；陆丰市南塘镇泓锋客运站（photo_064）及坐着的Person_001；在露天停车场多人共同整理SUV后备箱（photo_065），包括Person_001、Person_002、Person_003三位同伴。",
+      "photo_count": 5,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "享受咖啡文化，关注品牌门店",
+          "积极参与节庆活动（烟花）",
+          "具备一定的出行和旅行规划能力",
+          "喜欢和朋友一同出行，注重社交互动"
+        ],
+        "aesthetic": [
+          "对有设计感的门店和生活场景有偏好",
+          "欣赏节庆场景的活力与美感"
+        ],
+        "socioeconomic": [
+          "具有休闲消费能力",
+          "使用长途交通工具，可能涉及跨地域活动"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_004",
+      "date": "2026-02-23",
+      "time_range": "19:55 - 14:37",
+      "duration": "",
+      "title": "职业与个人成长并重的都市个体",
+      "type": "其他",
+      "participants": [
+        "Person_001",
+        "Person_002",
+        "Person_003",
+        "Person_004",
+        "Person_005",
+        "Person_006",
+        "Person_007",
+        "Person_008",
+        "Person_009",
+        "Person_010",
+        "Person_011",
+        "Person_012",
+        "Person_014",
+        "Person_015",
+        "Person_016",
+        "Person_017",
+        "Person_018",
+        "Person_019",
+        "Person_021",
+        "Person_022",
+        "Person_023",
+        "Person_024",
+        "Person_025",
+        "Person_027",
+        "Person_028",
+        "Person_029",
+        "Person_030",
+        "Person_031",
+        "Person_032",
+        "Person_033",
+        "Person_034",
+        "Person_035",
+        "Person_036",
+        "Person_037",
+        "Person_038",
+        "Person_039",
+        "Person_040",
+        "Person_041",
+        "Person_042",
+        "Person_043",
+        "Person_044",
+        "Person_045"
+      ],
+      "location": "职业办公/私密居家/文化场馆",
+      "description": "华为Pura70 Pro+作为拍摄设备频繁出现（HUAWEI Pura70 Pro+水印）。打印HP LaserJet P1008打印机（photo_085）。手写读书笔记，引用《大明王朝1566》（photo_087）。深夜到访深圳市公安局派出所（photo_086）并拍摄Person_001警察。清晨在写字楼西塔（photo_088）及东塔（photo_089）通勤打卡，东塔玻璃门贴有“马到登大财”春节装饰。拍摄黄色狮头道具（photo_091）。在厨房拍摄印有“环保袋”的购物袋（photo_093）。白色新能源轿车（photo_075）车牌为“苏AJA12238”。与Person_006, Person_005, Person_004在积雪覆盖的湖面合影比V字（photo_070, photo_071）。使用滴滴出行App规划前往玉环市第二人民医院路线（photo_073），目的地为浙江玉环。拍摄多场景中式聚餐餐具（photo_074）。在深圳龙岗区门店工作打卡，与Person_007、Person_008合影（photo_076）。在深圳文华东方酒店与Person_010、Person_014、Person_011、Person_006、Person_009、Person_012六人集体合影（photo_079）。与Person_019、Person_017、Person_015、Person_018、Person_006、Person_016五位同事在深业上城商场出席活动（photo_080）。参与社交营销活动，手机界面显示“好友面对面扫码，有机会直接提现”及87.66元累计提现金额（photo_077）。使用WPS Office查看工资考勤数据，涉及“蔡政晟、梁卜尹、黄晓欣、彭文杰、林佳奇”等人员（photo_083, photo_084）。他拍视角下，Person_001身穿棒球夹克与蓝帽在冰封湖畔观景（photo_072）。拍摄北京故宫西北角楼护城河（photo_011）及神武门（photo_012）冰面。在国博参观“古代中国”展厅入口主题墙（photo_017），复古主题博物馆家具（photo_013）及国徽展示（photo_014），金缕玉衣（photo_019, photo_020），东汉陶车（photo_023）和击鼓说唱俑（photo_025），陶俑阵列（photo_022）。与Person_001女性、Person_029、Person_030、Person_038、Person_039、Person_040、Person_041、Person_042在博物馆参观。秦始皇兵马俑博物馆（photo_021）兵马俑阵列，西汉牛皮靴文物（photo_028），鎏金神兽青铜牌饰（photo_027），陶骑马武士俑（photo_029）。参观中国国家博物馆（photo_031, photo_032, photo_033）外景及飞机凝结尾迹。在北京颐和园昆明湖（photo_035, photo_043, photo_044, photo_045）拍摄冰面与夕阳，他拍Person_006于颐和园十七孔桥比V（photo_038, photo_041）。午间时分在“宽窄”主题川菜馆聚餐（photo_034），包含辣子鸡等菜品。酒店走廊拍摄送物机器人（photo_046）。在故宫午门城台与Person_001、Person_002、Person_003等多位游客。在北京天安门城楼拍摄Person_044，背景为天安门广场（photo_049）。拍摄个人入住酒店，旁边有Person_001赤足穿拖鞋，地上有茶颜悦色购物袋（photo_050）。在高铁列车车厢内拍摄北京清河火车站台（photo_051）。在北京八达岭长城景区，手持身份证打卡，身份证签发地为广东省陆丰市公安局（photo_052, photo_055）。在故宫乾清宫拍摄“正大光明”匾（photo_056）。支付宝小程序进行网约车合规查询（photo_094）。手机流量界面显示历史天气（photo_097），显示2026年1月25日气温为-2°/-7°。在长城景区拍摄Person_045手持手机展示《清平乐·六盘山》诗词（photo_095）及长城游记备忘录（photo_096）。",
+      "photo_count": 32,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "工作认真，有行政或人事管理经验（工资考勤、合规查询）",
+          "积极学习和反思，关注个人成长（读书笔记）",
+          "具备清晰的出行规划能力（滴滴路径、高铁出行）",
+          "重视效率，善用数字化工具（App操作）",
+          "注重个人形象和健康，会关注天气，穿着注重保暖功能性（防寒服饰、天气App）",
+          "拥有多元化的职业身份（行政/人事、醒狮表演、团队协作）"
+        ],
+        "aesthetic": [
+          "对历史文化有浓厚兴趣（博物馆参观、古迹打卡）",
+          "对传统文化与民俗表演有参与和欣赏欲（醒狮）",
+          "对影像记录有设备偏好（华为Pura70 Pro+）",
+          "着装风格偏向功能性与休闲运动风（冲锋衣、运动帽）"
+        ],
+        "socioeconomic": [
+          "有稳定的工作和收入，承担行政管理职责",
+          "具备一定的消费能力（参观高档酒店、品质餐馆、品牌服饰）",
+          "关注社会规范与个人权益（网约车合规查询）",
+          "广东省陆丰市户籍，经常跨省活动于北京、深圳、浙江等地，具有较强的流动性和活动半径"
+        ]
+      }
+    }
+  ],
+  "relationships": [],
+  "face_db": {
+    "Person_001": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-02-23T10:27:52",
+      "last_seen": "2026-02-23T10:27:52",
+      "avg_confidence": 0.7548588514328003
+    },
+    "Person_002": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-02-23T10:27:52",
+      "last_seen": "2026-02-23T10:27:52",
+      "avg_confidence": 0.7269963622093201
+    },
+    "Person_003": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-02-23T10:27:52",
+      "last_seen": "2026-02-23T10:27:52",
+      "avg_confidence": 0.6691755652427673
+    },
+    "Person_004": {
+      "name": "Person",
+      "photo_count": 2,
+      "first_seen": "2026-03-11T14:22:57",
+      "last_seen": "2026-03-11T14:23:16",
+      "avg_confidence": 0.8926551640033722
+    },
+    "Person_005": {
+      "name": "Person",
+      "photo_count": 2,
+      "first_seen": "2026-03-11T14:22:57",
+      "last_seen": "2026-03-11T14:23:16",
+      "avg_confidence": 0.8869695067405701
+    },
+    "Person_006": {
+      "name": "Primary",
+      "photo_count": 10,
+      "first_seen": "2026-03-11T14:22:57",
+      "last_seen": "2026-03-11T14:25:54",
+      "avg_confidence": 0.8641596078872681
+    },
+    "Person_007": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:22:58",
+      "last_seen": "2026-03-11T14:22:58",
+      "avg_confidence": 0.8463691473007202
+    },
+    "Person_008": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:22:58",
+      "last_seen": "2026-03-11T14:22:58",
+      "avg_confidence": 0.829103946685791
+    },
+    "Person_009": {
+      "name": "Person",
+      "photo_count": 2,
+      "first_seen": "2026-03-11T14:22:59",
+      "last_seen": "2026-03-11T14:23:00",
+      "avg_confidence": 0.878984659910202
+    },
+    "Person_010": {
+      "name": "Person",
+      "photo_count": 2,
+      "first_seen": "2026-03-11T14:22:59",
+      "last_seen": "2026-03-11T14:23:00",
+      "avg_confidence": 0.868399977684021
+    },
+    "Person_011": {
+      "name": "Person",
+      "photo_count": 2,
+      "first_seen": "2026-03-11T14:22:59",
+      "last_seen": "2026-03-11T14:23:00",
+      "avg_confidence": 0.8727590441703796
+    },
+    "Person_012": {
+      "name": "Person",
+      "photo_count": 2,
+      "first_seen": "2026-03-11T14:22:59",
+      "last_seen": "2026-03-11T14:23:00",
+      "avg_confidence": 0.8682764172554016
+    },
+    "Person_013": {
+      "name": "Person",
+      "photo_count": 5,
+      "first_seen": "2026-03-11T14:22:59",
+      "last_seen": "2026-03-11T14:23:25",
+      "avg_confidence": 0.8700637459754944
+    },
+    "Person_014": {
+      "name": "Person",
+      "photo_count": 2,
+      "first_seen": "2026-03-11T14:22:59",
+      "last_seen": "2026-03-11T14:23:00",
+      "avg_confidence": 0.823979377746582
+    },
+    "Person_015": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:22:59",
+      "last_seen": "2026-03-11T14:22:59",
+      "avg_confidence": 0.9012714624404907
+    },
+    "Person_016": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:22:59",
+      "last_seen": "2026-03-11T14:22:59",
+      "avg_confidence": 0.8891623020172119
+    },
+    "Person_017": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:22:59",
+      "last_seen": "2026-03-11T14:22:59",
+      "avg_confidence": 0.8808266520500183
+    },
+    "Person_018": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:22:59",
+      "last_seen": "2026-03-11T14:22:59",
+      "avg_confidence": 0.877348780632019
+    },
+    "Person_019": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:22:59",
+      "last_seen": "2026-03-11T14:22:59",
+      "avg_confidence": 0.8282371759414673
+    },
+    "Person_020": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:23:00",
+      "last_seen": "2026-03-11T14:23:00",
+      "avg_confidence": 0.8606440424919128
+    },
+    "Person_021": {
+      "name": "Person",
+      "photo_count": 2,
+      "first_seen": "2026-03-11T14:23:23",
+      "last_seen": "2026-03-11T14:23:25",
+      "avg_confidence": 0.8866854906082153
+    },
+    "Person_022": {
+      "name": "Person",
+      "photo_count": 2,
+      "first_seen": "2026-03-11T14:23:23",
+      "last_seen": "2026-03-11T14:23:25",
+      "avg_confidence": 0.8686323165893555
+    },
+    "Person_023": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:25:19",
+      "last_seen": "2026-03-11T14:25:19",
+      "avg_confidence": 0.7822756767272949
+    },
+    "Person_024": {
+      "name": "Person",
+      "photo_count": 2,
+      "first_seen": "2026-03-11T14:25:26",
+      "last_seen": "2026-03-11T14:25:26",
+      "avg_confidence": 0.8238605260848999
+    },
+    "Person_025": {
+      "name": "Person",
+      "photo_count": 2,
+      "first_seen": "2026-03-11T14:25:26",
+      "last_seen": "2026-03-11T14:25:26",
+      "avg_confidence": 0.7371394038200378
+    },
+    "Person_026": {
+      "name": "Person",
+      "photo_count": 2,
+      "first_seen": "2026-03-11T14:25:26",
+      "last_seen": "2026-03-11T14:25:26",
+      "avg_confidence": 0.7405495643615723
+    },
+    "Person_027": {
+      "name": "Person",
+      "photo_count": 2,
+      "first_seen": "2026-03-11T14:25:26",
+      "last_seen": "2026-03-11T14:25:28",
+      "avg_confidence": 0.8190729320049286
+    },
+    "Person_028": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:25:26",
+      "last_seen": "2026-03-11T14:25:26",
+      "avg_confidence": 0.7605739831924438
+    },
+    "Person_029": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:25:27",
+      "last_seen": "2026-03-11T14:25:27",
+      "avg_confidence": 0.8222730159759521
+    },
+    "Person_030": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:25:27",
+      "last_seen": "2026-03-11T14:25:27",
+      "avg_confidence": 0.766707181930542
+    },
+    "Person_031": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:25:28",
+      "last_seen": "2026-03-11T14:25:28",
+      "avg_confidence": 0.7721692323684692
+    },
+    "Person_032": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:25:28",
+      "last_seen": "2026-03-11T14:25:28",
+      "avg_confidence": 0.6819754540920258
+    },
+    "Person_033": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:25:28",
+      "last_seen": "2026-03-11T14:25:28",
+      "avg_confidence": 0.760333776473999
+    },
+    "Person_034": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:25:28",
+      "last_seen": "2026-03-11T14:25:28",
+      "avg_confidence": 0.731453001499176
+    },
+    "Person_035": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:25:28",
+      "last_seen": "2026-03-11T14:25:28",
+      "avg_confidence": 0.701637864112854
+    },
+    "Person_036": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:25:28",
+      "last_seen": "2026-03-11T14:25:28",
+      "avg_confidence": 0.6926109194755554
+    },
+    "Person_037": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:25:28",
+      "last_seen": "2026-03-11T14:25:28",
+      "avg_confidence": 0.6139659285545349
+    },
+    "Person_038": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:25:31",
+      "last_seen": "2026-03-11T14:25:31",
+      "avg_confidence": 0.9111922383308411
+    },
+    "Person_039": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:25:31",
+      "last_seen": "2026-03-11T14:25:31",
+      "avg_confidence": 0.846514880657196
+    },
+    "Person_040": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:25:31",
+      "last_seen": "2026-03-11T14:25:31",
+      "avg_confidence": 0.8429611921310425
+    },
+    "Person_041": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:25:31",
+      "last_seen": "2026-03-11T14:25:31",
+      "avg_confidence": 0.8400129675865173
+    },
+    "Person_042": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:25:31",
+      "last_seen": "2026-03-11T14:25:31",
+      "avg_confidence": 0.6478673219680786
+    },
+    "Person_043": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:25:33",
+      "last_seen": "2026-03-11T14:25:33",
+      "avg_confidence": 0.8589777946472168
+    },
+    "Person_044": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:25:57",
+      "last_seen": "2026-03-11T14:25:57",
+      "avg_confidence": 0.8661179542541504
+    },
+    "Person_045": {
+      "name": "Person",
+      "photo_count": 2,
+      "first_seen": "2026-03-11T14:37:18",
+      "last_seen": "2026-03-11T14:37:20",
+      "avg_confidence": 0.8657252490520477
+    }
+  }
+}

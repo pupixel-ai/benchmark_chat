@@ -1,0 +1,731 @@
+[
+  {
+    "person_id": "Person_001",
+    "relationship_type": "friend",
+    "intimacy_score": 0.533,
+    "status": "stable",
+    "confidence": 0.7,
+    "reasoning": "关键事件 EVT_001, EVT_019, EVT_004；共现 13 张，覆盖 13 类场景，月均 0.5 次，判为 friend。",
+    "shared_events": [
+      {
+        "event_id": "EVT_001",
+        "date": "2023-10-27",
+        "narrative": "校园舞台剧与民族歌舞汇演记录"
+      },
+      {
+        "event_id": "EVT_019",
+        "date": "2026-02-18",
+        "narrative": "与友协作与共同学习"
+      },
+      {
+        "event_id": "EVT_004",
+        "date": "2025-08-31",
+        "narrative": "长途火车出行与深夜购物"
+      },
+      {
+        "event_id": "EVT_007",
+        "date": "2025-09-04",
+        "narrative": "教育课程学习与教研记录"
+      },
+      {
+        "event_id": "EVT_008",
+        "date": "2025-09-05",
+        "narrative": "果园采摘与校园就业关注"
+      },
+      {
+        "event_id": "EVT_011",
+        "date": "2025-09-14",
+        "narrative": "校园身份认同与夜间游乐"
+      },
+      {
+        "event_id": "EVT_017",
+        "date": "2026-01-29",
+        "narrative": "居家烹饪、游戏与数字化生活"
+      },
+      {
+        "event_id": "EVT_015",
+        "date": "2025-11-18",
+        "narrative": "特教教案与政治学习及行政记录"
+      },
+      {
+        "event_id": "EVT_010",
+        "date": "2025-09-09",
+        "narrative": "校园漫步与课程学习"
+      }
+    ],
+    "evidence": {
+      "photo_ids": [
+        "photo_005",
+        "photo_004",
+        "photo_026",
+        "photo_048",
+        "photo_049",
+        "photo_052",
+        "photo_060",
+        "photo_062",
+        "photo_063",
+        "photo_065",
+        "photo_081",
+        "photo_116",
+        "photo_105"
+      ],
+      "event_ids": [
+        "EVT_001",
+        "EVT_019",
+        "EVT_004",
+        "EVT_007",
+        "EVT_008",
+        "EVT_011",
+        "EVT_017",
+        "EVT_015",
+        "EVT_010"
+      ],
+      "person_ids": [
+        "Person_001",
+        "Person_002",
+        "Person_003"
+      ],
+      "group_ids": [],
+      "feature_names": [
+        "photo_count",
+        "monthly_frequency",
+        "relationship_type:friend"
+      ],
+      "supporting_refs": [
+        {
+          "source_type": "photo",
+          "source_id": "photo_005",
+          "signal": "2023年10月27日21:12，【主角】在室内剧场正前方位置，通过镜头记录台上正在进行的一场民国题材话剧表演，大屏幕正同步显示俄中双语剧本台词。",
+          "why": "co_photo_for_Person_001"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_004",
+          "signal": "2023年10月27日21:02，【主角】在剧场或礼堂的观众席中，正在观看一场以乡村生活为布景的舞台剧表演。",
+          "why": "co_photo_for_Person_001"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_026",
+          "signal": "2025年8月30日22:14，夜间，【主角】位于中卫火车站站前广场，正处于中卫火车站进站口外，观察进出站的旅客及车站建筑外观。",
+          "why": "co_photo_for_Person_001"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_048",
+          "signal": "2025年09月05日15:31，【主角】正身处一间教育培训室内，拍摄视角位于会场后排，正在参与一场以“特殊教育班级管理”为主题的专题讲座。",
+          "why": "co_photo_for_Person_001"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_049",
+          "signal": "2025年9月5日16:02，【主角】正处于一间教室内，通过前排视野记录投影屏幕上关于《班级管理》的教育学讲座内容。",
+          "why": "co_photo_for_Person_001"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_052",
+          "signal": "2025年09月06日16:28，晴天天气下，【主角】在户外果园或山地景观区伸出手掌采摘并展示一颗带有叶柄的成熟红富士苹果。",
+          "why": "co_photo_for_Person_001"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_060",
+          "signal": "2025年9月9日10:27，多云天气，【主角】正处于一处高等院校或大型园区的户外坡道区域，前方可见长木梯与后方高耸的浅黄色建筑，【主角】正在沿路向前行走或观望。",
+          "why": "co_photo_for_Person_001"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_062",
+          "signal": "2025-09-14 22:17，室内文印工作室环境，【主角】正俯身在金属工作台上，手持剪刀精细修剪新疆师范大学校徽贴纸，处于专注作业状态。",
+          "why": "co_photo_for_Person_001"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_063",
+          "signal": "2025-09-14 22:17，室内环境下，【主角】正在使用剪刀裁剪一张印有“Nanjing Normal University”及维吾尔文（دانىشو）校徽标识的贴纸。",
+          "why": "co_photo_for_Person_001"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_065",
+          "signal": "2025年9月14日22:21，在城市住宅区或大学校园内部道路，【主角】跟随一名手持“教师”标识圆盘的人员行进，记录下其正在进行的夜间社交活动。",
+          "why": "co_photo_for_Person_001"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_081",
+          "signal": "2025-11-21 10:56，在某康复培训教室内，【主角】正处于参加专业课程学习的状态，拍摄视角正前方为投屏演示文稿。",
+          "why": "co_photo_for_Person_001"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_116",
+          "signal": "2026-01-29 21:20，室内光线环境下，【主角】正处于电子设备屏幕前，通过观看购物直播列表页面进行商品浏览与低价鞋款选购。",
+          "why": "co_photo_for_Person_001"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_105",
+          "signal": "2026年2月18日17:05，在承德市平泉市的一处室内卧室/起居室场景中，【主角】与另一名同伴并排俯卧在铺设了格纹床单的床上，共同注视并操作手写平板设备。",
+          "why": "co_photo_for_Person_001"
+        },
+        {
+          "source_type": "event",
+          "source_id": "EVT_001",
+          "signal": "校园舞台剧与民族歌舞汇演记录",
+          "why": "shared_event_for_Person_001"
+        },
+        {
+          "source_type": "event",
+          "source_id": "EVT_019",
+          "signal": "与友协作与共同学习",
+          "why": "shared_event_for_Person_001"
+        },
+        {
+          "source_type": "event",
+          "source_id": "EVT_004",
+          "signal": "长途火车出行与深夜购物",
+          "why": "shared_event_for_Person_001"
+        },
+        {
+          "source_type": "event",
+          "source_id": "EVT_007",
+          "signal": "教育课程学习与教研记录",
+          "why": "shared_event_for_Person_001"
+        },
+        {
+          "source_type": "event",
+          "source_id": "EVT_008",
+          "signal": "果园采摘与校园就业关注",
+          "why": "shared_event_for_Person_001"
+        },
+        {
+          "source_type": "event",
+          "source_id": "EVT_011",
+          "signal": "校园身份认同与夜间游乐",
+          "why": "shared_event_for_Person_001"
+        },
+        {
+          "source_type": "event",
+          "source_id": "EVT_017",
+          "signal": "居家烹饪、游戏与数字化生活",
+          "why": "shared_event_for_Person_001"
+        },
+        {
+          "source_type": "event",
+          "source_id": "EVT_015",
+          "signal": "特教教案与政治学习及行政记录",
+          "why": "shared_event_for_Person_001"
+        },
+        {
+          "source_type": "event",
+          "source_id": "EVT_010",
+          "signal": "校园漫步与课程学习",
+          "why": "shared_event_for_Person_001"
+        },
+        {
+          "source_type": "person",
+          "source_id": "Person_002",
+          "signal": "co_ratio=0.62",
+          "why": "third_party_co_appearance"
+        },
+        {
+          "source_type": "person",
+          "source_id": "Person_003",
+          "signal": "co_ratio=0.46",
+          "why": "third_party_co_appearance"
+        },
+        {
+          "source_type": "feature",
+          "source_id": "photo_count",
+          "signal": "13",
+          "why": "relationship_frequency"
+        },
+        {
+          "source_type": "feature",
+          "source_id": "monthly_frequency",
+          "signal": "0.5",
+          "why": "relationship_frequency"
+        }
+      ],
+      "contradicting_refs": []
+    }
+  },
+  {
+    "person_id": "Person_002",
+    "relationship_type": "classmate_colleague",
+    "intimacy_score": 0.438,
+    "status": "stable",
+    "confidence": 0.7,
+    "reasoning": "关键事件 EVT_001, EVT_019, EVT_004；共现 9 张，覆盖 9 类场景，月均 0.3 次，判为 classmate_colleague。",
+    "shared_events": [
+      {
+        "event_id": "EVT_001",
+        "date": "2023-10-27",
+        "narrative": "校园舞台剧与民族歌舞汇演记录"
+      },
+      {
+        "event_id": "EVT_019",
+        "date": "2026-02-18",
+        "narrative": "与友协作与共同学习"
+      },
+      {
+        "event_id": "EVT_004",
+        "date": "2025-08-31",
+        "narrative": "长途火车出行与深夜购物"
+      },
+      {
+        "event_id": "EVT_007",
+        "date": "2025-09-04",
+        "narrative": "教育课程学习与教研记录"
+      },
+      {
+        "event_id": "EVT_015",
+        "date": "2025-11-18",
+        "narrative": "特教教案与政治学习及行政记录"
+      },
+      {
+        "event_id": "EVT_010",
+        "date": "2025-09-09",
+        "narrative": "校园漫步与课程学习"
+      }
+    ],
+    "evidence": {
+      "photo_ids": [
+        "photo_005",
+        "photo_004",
+        "photo_006",
+        "photo_026",
+        "photo_048",
+        "photo_049",
+        "photo_060",
+        "photo_081",
+        "photo_105"
+      ],
+      "event_ids": [
+        "EVT_001",
+        "EVT_019",
+        "EVT_004",
+        "EVT_007",
+        "EVT_015",
+        "EVT_010"
+      ],
+      "person_ids": [
+        "Person_002",
+        "Person_001",
+        "Person_003",
+        "Person_004",
+        "Person_005",
+        "Person_008"
+      ],
+      "group_ids": [],
+      "feature_names": [
+        "photo_count",
+        "monthly_frequency",
+        "relationship_type:classmate_colleague"
+      ],
+      "supporting_refs": [
+        {
+          "source_type": "photo",
+          "source_id": "photo_005",
+          "signal": "2023年10月27日21:12，【主角】在室内剧场正前方位置，通过镜头记录台上正在进行的一场民国题材话剧表演，大屏幕正同步显示俄中双语剧本台词。",
+          "why": "co_photo_for_Person_002"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_004",
+          "signal": "2023年10月27日21:02，【主角】在剧场或礼堂的观众席中，正在观看一场以乡村生活为布景的舞台剧表演。",
+          "why": "co_photo_for_Person_002"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_006",
+          "signal": "2023年10月27日21:16，在室内礼堂或多功能厅内，【主角】在观众席持手机仰视舞台视角，记录下了一场关于“五四运动”的历史题材话剧或情景剧表演。",
+          "why": "co_photo_for_Person_002"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_026",
+          "signal": "2025年8月30日22:14，夜间，【主角】位于中卫火车站站前广场，正处于中卫火车站进站口外，观察进出站的旅客及车站建筑外观。",
+          "why": "co_photo_for_Person_002"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_048",
+          "signal": "2025年09月05日15:31，【主角】正身处一间教育培训室内，拍摄视角位于会场后排，正在参与一场以“特殊教育班级管理”为主题的专题讲座。",
+          "why": "co_photo_for_Person_002"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_049",
+          "signal": "2025年9月5日16:02，【主角】正处于一间教室内，通过前排视野记录投影屏幕上关于《班级管理》的教育学讲座内容。",
+          "why": "co_photo_for_Person_002"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_060",
+          "signal": "2025年9月9日10:27，多云天气，【主角】正处于一处高等院校或大型园区的户外坡道区域，前方可见长木梯与后方高耸的浅黄色建筑，【主角】正在沿路向前行走或观望。",
+          "why": "co_photo_for_Person_002"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_081",
+          "signal": "2025-11-21 10:56，在某康复培训教室内，【主角】正处于参加专业课程学习的状态，拍摄视角正前方为投屏演示文稿。",
+          "why": "co_photo_for_Person_002"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_105",
+          "signal": "2026年2月18日17:05，在承德市平泉市的一处室内卧室/起居室场景中，【主角】与另一名同伴并排俯卧在铺设了格纹床单的床上，共同注视并操作手写平板设备。",
+          "why": "co_photo_for_Person_002"
+        },
+        {
+          "source_type": "event",
+          "source_id": "EVT_001",
+          "signal": "校园舞台剧与民族歌舞汇演记录",
+          "why": "shared_event_for_Person_002"
+        },
+        {
+          "source_type": "event",
+          "source_id": "EVT_019",
+          "signal": "与友协作与共同学习",
+          "why": "shared_event_for_Person_002"
+        },
+        {
+          "source_type": "event",
+          "source_id": "EVT_004",
+          "signal": "长途火车出行与深夜购物",
+          "why": "shared_event_for_Person_002"
+        },
+        {
+          "source_type": "event",
+          "source_id": "EVT_007",
+          "signal": "教育课程学习与教研记录",
+          "why": "shared_event_for_Person_002"
+        },
+        {
+          "source_type": "event",
+          "source_id": "EVT_015",
+          "signal": "特教教案与政治学习及行政记录",
+          "why": "shared_event_for_Person_002"
+        },
+        {
+          "source_type": "event",
+          "source_id": "EVT_010",
+          "signal": "校园漫步与课程学习",
+          "why": "shared_event_for_Person_002"
+        },
+        {
+          "source_type": "person",
+          "source_id": "Person_001",
+          "signal": "co_ratio=0.89",
+          "why": "third_party_co_appearance"
+        },
+        {
+          "source_type": "person",
+          "source_id": "Person_003",
+          "signal": "co_ratio=0.78",
+          "why": "third_party_co_appearance"
+        },
+        {
+          "source_type": "person",
+          "source_id": "Person_004",
+          "signal": "co_ratio=0.22",
+          "why": "third_party_co_appearance"
+        },
+        {
+          "source_type": "person",
+          "source_id": "Person_005",
+          "signal": "co_ratio=0.22",
+          "why": "third_party_co_appearance"
+        },
+        {
+          "source_type": "person",
+          "source_id": "Person_008",
+          "signal": "co_ratio=0.22",
+          "why": "third_party_co_appearance"
+        },
+        {
+          "source_type": "feature",
+          "source_id": "photo_count",
+          "signal": "9",
+          "why": "relationship_frequency"
+        },
+        {
+          "source_type": "feature",
+          "source_id": "monthly_frequency",
+          "signal": "0.3",
+          "why": "relationship_frequency"
+        }
+      ],
+      "contradicting_refs": []
+    }
+  },
+  {
+    "person_id": "Person_003",
+    "relationship_type": "acquaintance",
+    "intimacy_score": 0.438,
+    "status": "stable",
+    "confidence": 0.25,
+    "reasoning": "关键事件 EVT_001, EVT_010, EVT_004；共现 7 张，覆盖 7 类场景，月均 0.3 次，判为 acquaintance。",
+    "shared_events": [
+      {
+        "event_id": "EVT_001",
+        "date": "2023-10-27",
+        "narrative": "校园舞台剧与民族歌舞汇演记录"
+      },
+      {
+        "event_id": "EVT_010",
+        "date": "2025-09-09",
+        "narrative": "校园漫步与课程学习"
+      },
+      {
+        "event_id": "EVT_004",
+        "date": "2025-08-31",
+        "narrative": "长途火车出行与深夜购物"
+      },
+      {
+        "event_id": "EVT_007",
+        "date": "2025-09-04",
+        "narrative": "教育课程学习与教研记录"
+      }
+    ],
+    "evidence": {
+      "photo_ids": [
+        "photo_005",
+        "photo_004",
+        "photo_006",
+        "photo_026",
+        "photo_048",
+        "photo_049",
+        "photo_060"
+      ],
+      "event_ids": [
+        "EVT_001",
+        "EVT_010",
+        "EVT_004",
+        "EVT_007"
+      ],
+      "person_ids": [
+        "Person_003",
+        "Person_002",
+        "Person_001",
+        "Person_004",
+        "Person_005",
+        "Person_008"
+      ],
+      "group_ids": [],
+      "feature_names": [
+        "photo_count",
+        "monthly_frequency",
+        "relationship_type:acquaintance"
+      ],
+      "supporting_refs": [
+        {
+          "source_type": "photo",
+          "source_id": "photo_005",
+          "signal": "2023年10月27日21:12，【主角】在室内剧场正前方位置，通过镜头记录台上正在进行的一场民国题材话剧表演，大屏幕正同步显示俄中双语剧本台词。",
+          "why": "co_photo_for_Person_003"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_004",
+          "signal": "2023年10月27日21:02，【主角】在剧场或礼堂的观众席中，正在观看一场以乡村生活为布景的舞台剧表演。",
+          "why": "co_photo_for_Person_003"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_006",
+          "signal": "2023年10月27日21:16，在室内礼堂或多功能厅内，【主角】在观众席持手机仰视舞台视角，记录下了一场关于“五四运动”的历史题材话剧或情景剧表演。",
+          "why": "co_photo_for_Person_003"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_026",
+          "signal": "2025年8月30日22:14，夜间，【主角】位于中卫火车站站前广场，正处于中卫火车站进站口外，观察进出站的旅客及车站建筑外观。",
+          "why": "co_photo_for_Person_003"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_048",
+          "signal": "2025年09月05日15:31，【主角】正身处一间教育培训室内，拍摄视角位于会场后排，正在参与一场以“特殊教育班级管理”为主题的专题讲座。",
+          "why": "co_photo_for_Person_003"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_049",
+          "signal": "2025年9月5日16:02，【主角】正处于一间教室内，通过前排视野记录投影屏幕上关于《班级管理》的教育学讲座内容。",
+          "why": "co_photo_for_Person_003"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_060",
+          "signal": "2025年9月9日10:27，多云天气，【主角】正处于一处高等院校或大型园区的户外坡道区域，前方可见长木梯与后方高耸的浅黄色建筑，【主角】正在沿路向前行走或观望。",
+          "why": "co_photo_for_Person_003"
+        },
+        {
+          "source_type": "event",
+          "source_id": "EVT_001",
+          "signal": "校园舞台剧与民族歌舞汇演记录",
+          "why": "shared_event_for_Person_003"
+        },
+        {
+          "source_type": "event",
+          "source_id": "EVT_010",
+          "signal": "校园漫步与课程学习",
+          "why": "shared_event_for_Person_003"
+        },
+        {
+          "source_type": "event",
+          "source_id": "EVT_004",
+          "signal": "长途火车出行与深夜购物",
+          "why": "shared_event_for_Person_003"
+        },
+        {
+          "source_type": "event",
+          "source_id": "EVT_007",
+          "signal": "教育课程学习与教研记录",
+          "why": "shared_event_for_Person_003"
+        },
+        {
+          "source_type": "person",
+          "source_id": "Person_002",
+          "signal": "co_ratio=1.0",
+          "why": "third_party_co_appearance"
+        },
+        {
+          "source_type": "person",
+          "source_id": "Person_001",
+          "signal": "co_ratio=0.86",
+          "why": "third_party_co_appearance"
+        },
+        {
+          "source_type": "person",
+          "source_id": "Person_004",
+          "signal": "co_ratio=0.29",
+          "why": "third_party_co_appearance"
+        },
+        {
+          "source_type": "person",
+          "source_id": "Person_005",
+          "signal": "co_ratio=0.29",
+          "why": "third_party_co_appearance"
+        },
+        {
+          "source_type": "person",
+          "source_id": "Person_008",
+          "signal": "co_ratio=0.29",
+          "why": "third_party_co_appearance"
+        },
+        {
+          "source_type": "feature",
+          "source_id": "photo_count",
+          "signal": "7",
+          "why": "relationship_frequency"
+        },
+        {
+          "source_type": "feature",
+          "source_id": "monthly_frequency",
+          "signal": "0.3",
+          "why": "relationship_frequency"
+        }
+      ],
+      "contradicting_refs": []
+    }
+  },
+  {
+    "person_id": "Person_104",
+    "relationship_type": "family",
+    "intimacy_score": 0.775,
+    "status": "stable",
+    "confidence": 0.85,
+    "reasoning": "关键事件 EVT_018；共现 6 张，覆盖 5 类场景，月均 6.0 次，判为 family。",
+    "shared_events": [
+      {
+        "event_id": "EVT_018",
+        "date": "2026-02-01",
+        "narrative": "幼童居家生活记录"
+      }
+    ],
+    "evidence": {
+      "photo_ids": [
+        "photo_118",
+        "photo_097",
+        "photo_098",
+        "photo_099",
+        "photo_103",
+        "photo_102"
+      ],
+      "event_ids": [
+        "EVT_018"
+      ],
+      "person_ids": [
+        "Person_104"
+      ],
+      "group_ids": [],
+      "feature_names": [
+        "photo_count",
+        "monthly_frequency",
+        "relationship_type:family"
+      ],
+      "supporting_refs": [
+        {
+          "source_type": "photo",
+          "source_id": "photo_118",
+          "signal": "2026年2月1日09:48，在室内卧室明亮的自然光线下，【主角】记录了Person_104坐在床上专注操作平板电脑的瞬间，处于休闲居家状态。",
+          "why": "co_photo_for_Person_104"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_097",
+          "signal": "2026年2月11日16:34，于河北省承德市平泉市某室内，【主角】俯拍正在床铺上爬行的男童。",
+          "why": "co_photo_for_Person_104"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_098",
+          "signal": "2026年2月11日下午16:34，在承德市平泉市一处室内居家环境中，【主角】平视拍摄正趴在炕上的儿童，捕捉其直视镜头的瞬间。",
+          "why": "co_photo_for_Person_104"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_099",
+          "signal": "2026年2月12日12:52，在承德市平泉市的室内环境中，【主角】正近距离拍摄一名幼童的正面肖像，画面聚焦于人物的面部特征。",
+          "why": "co_photo_for_Person_104"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_103",
+          "signal": "2026年2月13日17时53分，于承德市平泉市室内，【主角】在光线昏暗的环境中，以近距离正面视角拍摄了一名男童，男童处于低照度环境中，面部接受到微弱向上的照明。",
+          "why": "co_photo_for_Person_104"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_102",
+          "signal": "2026年2月13日17时53分，在承德市平泉市一处室内居家环境中，【主角】近距离拍摄了一名幼童的特写镜头，正值傍晚时分，窗外光线暗淡，室内呈现低照度环境。",
+          "why": "co_photo_for_Person_104"
+        },
+        {
+          "source_type": "event",
+          "source_id": "EVT_018",
+          "signal": "幼童居家生活记录",
+          "why": "shared_event_for_Person_104"
+        },
+        {
+          "source_type": "feature",
+          "source_id": "photo_count",
+          "signal": "6",
+          "why": "relationship_frequency"
+        },
+        {
+          "source_type": "feature",
+          "source_id": "monthly_frequency",
+          "signal": "6.0",
+          "why": "relationship_frequency"
+        }
+      ],
+      "contradicting_refs": []
+    }
+  }
+]

@@ -1,0 +1,14 @@
+{
+  "long_term_facts.social_identity.education": {
+    "append_allowed_sources": [
+      "relationship"
+    ]
+  },
+  "long_term_facts.material.brand_preference": {
+    "append_allowed_sources": [
+      "event",
+      "vlm_observations",
+      "relationship"
+    ]
+  }
+}

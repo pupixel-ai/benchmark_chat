@@ -1,0 +1,14 @@
+{
+  "user_name": "chenqiantong",
+  "source_dir_prefix": "01_chenqiantong",
+  "imported_at": "2026-03-28T04:50:40.035525",
+  "source_origin": "/Users/vigar07/Desktop/data/output_user_v1",
+  "has_vlm": true,
+  "has_gt": true,
+  "source_files": {
+    "face": "01_chenqiantong_face_recognition_output.json",
+    "vlm": "01_chenqiantong_vlm_cache.json",
+    "events": "01_chenqiantong_events.json",
+    "gt": "01_chenqiantong_gt.jsonl"
+  }
+}

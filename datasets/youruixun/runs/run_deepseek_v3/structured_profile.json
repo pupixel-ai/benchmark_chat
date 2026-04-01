@@ -1,0 +1,1650 @@
+{
+  "long_term_facts": {
+    "identity": {
+      "name": {
+        "value": "尤瑞迅",
+        "confidence": 0.8,
+        "evidence": {
+          "photo_ids": [
+            "photo_513"
+          ],
+          "event_ids": [],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 1,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.identity.name"
+        },
+        "reasoning": "在 photo_513 中的人脸识别流程中明确显示身份证姓名'尤瑞迅'，且该身份认证流程与主角的设备使用行为直接相关 关键证据: photo_513。"
+      },
+      "gender": {
+        "value": null,
+        "confidence": 0.0,
+        "evidence": {
+          "photo_ids": [
+            "photo_444",
+            "photo_578",
+            "photo_477",
+            "photo_624",
+            "photo_471"
+          ],
+          "event_ids": [],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 5,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [
+            "无可靠生理特征证据"
+          ],
+          "summary": "profile_agent:long_term_facts.identity.gender"
+        },
+        "reasoning": "long_term_facts.identity.gender 在审查 photo_444、photo_578 后，当前证据仍不足以形成可审计结论，因此输出 null。"
+      },
+      "age_range": {
+        "value": "college_student",
+        "confidence": 0.7,
+        "evidence": {
+          "photo_ids": [
+            "photo_127",
+            "photo_268",
+            "photo_492"
+          ],
+          "event_ids": [],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 3,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.identity.age_range"
+        },
+        "reasoning": "photo_127显示使用'学生专享88折券'，photo_268卫衣印有'COLLEGE'字样，且photo_492导航位置靠近东华大学校区，形成学生身份交叉印证 关键证据: photo_127、photo_268。"
+      },
+      "role": {
+        "value": "student",
+        "confidence": 0.8,
+        "evidence": {
+          "photo_ids": [
+            "photo_127",
+            "photo_268",
+            "photo_492"
+          ],
+          "event_ids": [],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 3,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.identity.role"
+        },
+        "reasoning": "photo_127显示使用'学生专享88折券'，photo_268卫衣印有'COLLEGE'字样，且photo_492导航位置靠近东华大学校区，形成学生身份交叉印证 关键证据: photo_127、photo_268。"
+      },
+      "race": {
+        "value": null,
+        "confidence": 0.0,
+        "evidence": {
+          "photo_ids": [
+            "photo_268",
+            "photo_127",
+            "photo_606",
+            "photo_492",
+            "photo_587"
+          ],
+          "event_ids": [
+            "EVT_0088",
+            "EVT_0058"
+          ],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 7,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [
+            "no_reliable_evidence"
+          ],
+          "summary": "profile_agent:long_term_facts.identity.race"
+        },
+        "reasoning": "long_term_facts.identity.race 在审查 EVT_0088、EVT_0058、photo_268、photo_127 后，当前证据仍不足以形成可审计结论，因此输出 null。"
+      },
+      "nationality": {
+        "value": "Chinese",
+        "confidence": 0.9,
+        "evidence": {
+          "photo_ids": [
+            "photo_513",
+            "photo_350",
+            "photo_489"
+          ],
+          "event_ids": [],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 3,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.identity.nationality"
+        },
+        "reasoning": "身份证号340222200209025414显示中国户籍，且长期活动地点集中在上海（如photo_350显示的宝山区工作环境、photo_489显示的上海影院购票行为），符合中国公民特征 关键证据: photo_513、photo_350。"
+      }
+    },
+    "social_identity": {
+      "education": {
+        "value": "东华大学（延安路校区）本科在读",
+        "confidence": 0.7,
+        "evidence": {
+          "photo_ids": [
+            "photo_492",
+            "photo_127",
+            "photo_268"
+          ],
+          "event_ids": [],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 3,
+          "contradicting_ref_count": 1,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.social_identity.education"
+        },
+        "reasoning": "photo_492导航记录显示常出现在东华大学延安路校区附近，配合photo_127的学生专享优惠券及photo_268的COLLEGE字样卫衣，形成在校生证据链 关键证据: photo_492、photo_127。"
+      },
+      "career": {
+        "value": "student",
+        "confidence": 0.8,
+        "evidence": {
+          "photo_ids": [],
+          "event_ids": [
+            "EVT_0034",
+            "EVT_0016",
+            "EVT_0008",
+            "EVT_0095",
+            "EVT_0024",
+            "EVT_0028"
+          ],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 6,
+          "contradicting_ref_count": 1,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.social_identity.career"
+        },
+        "reasoning": "根据已确定的身份字段（identity.role=student）和教育字段（social_identity.education=东华大学本科在读），结合photo_127的学生专享优惠券和photo_268的COLLEGE字样卫衣，确认主角的主要社会身份为学生。虽然存在EVT_0028等工作相关通信记录，但缺乏持续的职业主线证据 关键证据: EVT_0034、EVT_0016。"
+      },
+      "career_phase": {
+        "value": "college_student",
+        "confidence": 0.7,
+        "evidence": {
+          "photo_ids": [],
+          "event_ids": [
+            "EVT_0034",
+            "EVT_0016",
+            "EVT_0008",
+            "EVT_0095",
+            "EVT_0024",
+            "EVT_0028"
+          ],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 6,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.social_identity.career_phase"
+        },
+        "reasoning": "基于东华大学在读身份（photo_492导航位置靠近该校）和年龄范围（identity.age_range=college_student），结合photo_127的学生优惠券使用行为，推断处于大学在读阶段。但缺乏明确的年级或专业信息 关键证据: EVT_0034、EVT_0016。"
+      },
+      "professional_dedication": {
+        "value": "student",
+        "confidence": 0.8,
+        "evidence": {
+          "photo_ids": [],
+          "event_ids": [
+            "EVT_0034",
+            "EVT_0016",
+            "EVT_0008"
+          ],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 3,
+          "contradicting_ref_count": 1,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.social_identity.professional_dedication"
+        },
+        "reasoning": "基于已确定的身份字段（identity.role=student）和教育字段（social_identity.education=东华大学本科在读），结合EVT_0034的DIY手工活动、EVT_0016的体育活动等学生典型休闲行为，确认主角的主要社会身份为学生。虽然存在EVT_0028等工作相关通信记录，但缺乏持续的职业主线证据 关键证据: EVT_0034、EVT_0016。"
+      },
+      "language_culture": {
+        "value": "chinese_mandarin",
+        "confidence": 0.9,
+        "evidence": {
+          "photo_ids": [
+            "photo_489",
+            "photo_350",
+            "photo_463",
+            "photo_081"
+          ],
+          "event_ids": [],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 4,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.social_identity.language_culture"
+        },
+        "reasoning": "photo_489购票界面显示中文影院信息，photo_350工作环境中的'功夫客栈'中文标识，photo_463演唱会中文字幕，以及photo_081手机标签中文说明，形成稳定的中文使用环境证据链。虽然photo_489显示观看英文电影，但整体语言环境以中文为主 关键证据: photo_489、photo_350。"
+      },
+      "political_preference": {
+        "value": null,
+        "confidence": 0.0,
+        "evidence": {
+          "photo_ids": [],
+          "event_ids": [],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 0,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": ""
+        },
+        "reasoning": ""
+      }
+    },
+    "material": {
+      "asset_level": {
+        "value": "upper_middle_class",
+        "confidence": 0.8,
+        "evidence": {
+          "photo_ids": [
+            "photo_180",
+            "photo_178",
+            "photo_555"
+          ],
+          "event_ids": [
+            "EVT_0011"
+          ],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 4,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.material.asset_level"
+        },
+        "reasoning": "photo_180和photo_178显示主角拥有Helena Rubinstein高端护肤品礼盒，photo_555显示京东PLUS会员身份及575元的科颜氏精华乳购买记录，结合EVT_0011的Louis Vuitton包展示，形成稳定的中高消费水平证据链。关键证据: photo_180、photo_555。 关键证据: EVT_0011、photo_180、photo_178。"
+      },
+      "spending_style": {
+        "value": "premium_brand_preference",
+        "confidence": 0.85,
+        "evidence": {
+          "photo_ids": [
+            "photo_180",
+            "photo_555"
+          ],
+          "event_ids": [
+            "EVT_0045",
+            "EVT_0011"
+          ],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 4,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.material.spending_style"
+        },
+        "reasoning": "跨平台购买赫莲娜、科颜氏等中高端护肤品牌（photo_180/555），配合EVT_0045线下比价行为和EVT_0011奢侈品展示，显示明确的品牌导向型消费模式。关键证据: photo_180、EVT_0045。 关键证据: EVT_0045、EVT_0011、photo_180、photo_555。"
+      },
+      "brand_preference": {
+        "value": [
+          "Helena Rubinstein",
+          "Kiehl's",
+          "Louis Vuitton"
+        ],
+        "confidence": 0.85,
+        "evidence": {
+          "photo_ids": [
+            "photo_180",
+            "photo_178",
+            "photo_555"
+          ],
+          "event_ids": [
+            "EVT_0011"
+          ],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 4,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.material.brand_preference"
+        },
+        "reasoning": "photo_180和photo_178显示主角拥有Helena Rubinstein高端护肤品礼盒，photo_555显示科颜氏精华乳购买记录，EVT_0011展示Louis Vuitton包，形成稳定的中高端品牌偏好证据链。关键证据: photo_180(HR礼盒)、photo_555(科颜氏)、EVT_0011(LV包) 关键证据: EVT_0011、photo_180、photo_178。"
+      },
+      "income_model": {
+        "value": "student_allowance",
+        "confidence": 0.8,
+        "evidence": {
+          "photo_ids": [],
+          "event_ids": [
+            "EVT_0034",
+            "EVT_0016"
+          ],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 2,
+          "contradicting_ref_count": 1,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.material.income_model"
+        },
+        "reasoning": "基于已确定的身份字段（identity.role=student）和教育字段（social_identity.education=东华大学本科在读），结合EVT_0034的DIY手工活动、EVT_0016的体育活动等学生典型休闲行为，推断主要收入来源为家庭资助或学生津贴。虽然存在EVT_0028等工作相关通信记录，但缺乏持续的职业收入证据。关键证据: EVT_0034(tufting活动)、EVT_0016(运动后自拍) 关键证据: EVT_0034、EVT_0016。"
+      },
+      "signature_items": {
+        "value": [
+          "Helena Rubinstein护肤品礼盒",
+          "Louis Vuitton包"
+        ],
+        "confidence": 0.85,
+        "evidence": {
+          "photo_ids": [
+            "photo_180",
+            "photo_178"
+          ],
+          "event_ids": [
+            "EVT_0011"
+          ],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 3,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.material.signature_items"
+        },
+        "reasoning": "photo_180和photo_178显示主角拥有Helena Rubinstein高端护肤品礼盒，EVT_0011展示Louis Vuitton包，形成稳定的品牌偏好证据链。关键证据: photo_180(HR礼盒)、EVT_0011(LV包) 关键证据: EVT_0011、photo_180、photo_178。"
+      }
+    },
+    "geography": {
+      "location_anchors": {
+        "value": [
+          "Shanghai"
+        ],
+        "confidence": 0.8,
+        "evidence": {
+          "photo_ids": [
+            "photo_041"
+          ],
+          "event_ids": [
+            "EVT_0043",
+            "EVT_0069"
+          ],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 3,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.geography.location_anchors"
+        },
+        "reasoning": "EVT_0043和EVT_0069显示主角在上海徐汇区和宝山区的活动记录，photo_041明确显示上海宝山区私人住宅场景，形成稳定的城市级锚点。关键证据: EVT_0043(徐汇区晚餐)、photo_041(宝山区住宅) 关键证据: EVT_0043、EVT_0069、photo_041。"
+      },
+      "mobility_pattern": {
+        "value": "intra_city_mobility",
+        "confidence": 0.7,
+        "evidence": {
+          "photo_ids": [],
+          "event_ids": [
+            "EVT_0043",
+            "EVT_0069"
+          ],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 2,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.geography.mobility_pattern"
+        },
+        "reasoning": "EVT_0043(徐汇区)和EVT_0069(宝山区)显示主角在上海不同行政区间移动，配合photo_492显示的东华大学周边导航记录，形成城市内部移动模式。关键证据: EVT_0043、EVT_0069 关键证据: EVT_0043、EVT_0069。"
+      },
+      "cross_border": {
+        "value": "none",
+        "confidence": 0.85,
+        "evidence": {
+          "photo_ids": [],
+          "event_ids": [
+            "EVT_0043",
+            "EVT_0069"
+          ],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 2,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.geography.cross_border"
+        },
+        "reasoning": "所有活动记录均集中在上海地区（如EVT_0043徐汇区、EVT_0069宝山区），未发现跨境活动证据。关键证据: EVT_0043、EVT_0069。 关键证据: EVT_0043、EVT_0069。"
+      }
+    },
+    "time": {
+      "life_rhythm": {
+        "value": "irregular",
+        "confidence": 0.7,
+        "evidence": {
+          "photo_ids": [],
+          "event_ids": [
+            "EVT_0016",
+            "EVT_0022"
+          ],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 2,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.time.life_rhythm"
+        },
+        "reasoning": "活动时间分布显示无固定模式，包含深夜运动（EVT_0016）、下午古城游览（EVT_0022）等多样化时间安排。关键证据: EVT_0016、EVT_0022。 关键证据: EVT_0016、EVT_0022。"
+      },
+      "event_cycles": {
+        "value": "social_events",
+        "confidence": 0.65,
+        "evidence": {
+          "photo_ids": [],
+          "event_ids": [
+            "EVT_0043",
+            "EVT_0069"
+          ],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 2,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.time.event_cycles"
+        },
+        "reasoning": "存在重复的社交活动模式，如约会晚餐（EVT_0043）和情人节庆祝（EVT_0069），但时间跨度不足3个月。关键证据: EVT_0043、EVT_0069。 关键证据: EVT_0043、EVT_0069。"
+      },
+      "sleep_pattern": {
+        "value": "irregular",
+        "confidence": 0.55,
+        "evidence": {
+          "photo_ids": [],
+          "event_ids": [
+            "EVT_0043",
+            "EVT_0036",
+            "EVT_0018",
+            "EVT_0022",
+            "EVT_0016"
+          ],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [
+            "event_count"
+          ],
+          "supporting_ref_count": 6,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.time.sleep_pattern"
+        },
+        "reasoning": "long_term_facts.time.sleep_pattern 主要依据 EVT_0043、EVT_0036、event_count 得到当前结论，且没有发现足以推翻该字段的反证。"
+      }
+    },
+    "relationships": {
+      "intimate_partner": {
+        "value": "Person_012",
+        "confidence": 0.88,
+        "evidence": {
+          "photo_ids": [
+            "photo_256",
+            "photo_257",
+            "photo_258",
+            "photo_259",
+            "photo_260",
+            "photo_261",
+            "photo_270",
+            "photo_271",
+            "photo_272",
+            "photo_273",
+            "photo_282",
+            "photo_283",
+            "photo_284",
+            "photo_285",
+            "photo_288",
+            "photo_289",
+            "photo_290",
+            "photo_292",
+            "photo_294",
+            "photo_304",
+            "photo_305",
+            "photo_306",
+            "photo_307",
+            "photo_308",
+            "photo_309",
+            "photo_310",
+            "photo_311",
+            "photo_312",
+            "photo_313",
+            "photo_164",
+            "photo_066",
+            "photo_067",
+            "photo_167",
+            "photo_572",
+            "photo_328",
+            "photo_329",
+            "photo_330",
+            "photo_331",
+            "photo_333",
+            "photo_176"
+          ],
+          "event_ids": [
+            "EVT_0022",
+            "EVT_0069",
+            "EVT_0043",
+            "EVT_0034",
+            "EVT_0054",
+            "EVT_0051",
+            "EVT_0065"
+          ],
+          "person_ids": [
+            "Person_012"
+          ],
+          "group_ids": [],
+          "feature_names": [
+            "photo_count",
+            "monthly_frequency",
+            "relationship_type:romantic",
+            "event_count"
+          ],
+          "supporting_ref_count": 2,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.relationships.intimate_partner"
+        },
+        "reasoning": "long_term_facts.relationships.intimate_partner 主要依据 EVT_0022、EVT_0069、photo_256、photo_257、Person_012、photo_count、monthly_frequency 得到当前结论，且没有发现足以推翻该字段的反证。"
+      },
+      "close_circle_size": {
+        "value": 3,
+        "confidence": 0.82,
+        "evidence": {
+          "photo_ids": [
+            "photo_004",
+            "photo_005",
+            "photo_188",
+            "photo_017",
+            "photo_547",
+            "photo_143",
+            "photo_144",
+            "photo_145",
+            "photo_146",
+            "photo_147",
+            "photo_153",
+            "photo_621",
+            "photo_638",
+            "photo_640",
+            "photo_190",
+            "photo_011",
+            "photo_014",
+            "photo_022",
+            "photo_023",
+            "photo_063",
+            "photo_024",
+            "photo_062",
+            "photo_064",
+            "photo_242",
+            "photo_519",
+            "photo_026",
+            "photo_079",
+            "photo_175",
+            "photo_620",
+            "photo_042",
+            "photo_043",
+            "photo_044",
+            "photo_045",
+            "photo_046",
+            "photo_047",
+            "photo_048",
+            "photo_050"
+          ],
+          "event_ids": [
+            "EVT_0001",
+            "EVT_0038",
+            "EVT_0004",
+            "EVT_0007",
+            "EVT_0008",
+            "EVT_0012",
+            "EVT_0009",
+            "EVT_0021",
+            "EVT_0014"
+          ],
+          "person_ids": [
+            "Person_002",
+            "Person_003",
+            "Person_004",
+            "Person_005",
+            "Person_006",
+            "Person_007"
+          ],
+          "group_ids": [],
+          "feature_names": [
+            "photo_count",
+            "monthly_frequency",
+            "relationship_type:friend",
+            "relationship_type:acquaintance",
+            "event_count"
+          ],
+          "supporting_ref_count": 7,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.relationships.close_circle_size"
+        },
+        "reasoning": "long_term_facts.relationships.close_circle_size 主要依据 EVT_0001、EVT_0038、photo_004、photo_005、Person_002、photo_count、monthly_frequency 得到当前结论，且没有发现足以推翻该字段的反证。"
+      },
+      "social_groups": {
+        "value": null,
+        "confidence": 0.0,
+        "evidence": {
+          "photo_ids": [],
+          "event_ids": [],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 0,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.relationships.social_groups"
+        },
+        "reasoning": "long_term_facts.relationships.social_groups 在审查 当前证据池 后，当前证据仍不足以形成可审计结论，因此输出 null。"
+      },
+      "pets": {
+        "value": "cat",
+        "confidence": 0.85,
+        "evidence": {
+          "photo_ids": [
+            "photo_266"
+          ],
+          "event_ids": [
+            "EVT_0015",
+            "EVT_0074"
+          ],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 3,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.relationships.pets"
+        },
+        "reasoning": "EVT_0015和EVT_0074显示主角在家中与一只橘白相间的猫互动（粉色项套特征），photo_266显示家庭环境中存在宠物相关物品（卡通地垫）。跨事件重复出现且场景稳定 关键证据: EVT_0015(宠物猫互动)、photo_266(家庭宠物环境)。 关键证据: EVT_0015、EVT_0074、photo_266。"
+      },
+      "parenting": {
+        "value": null,
+        "confidence": 0.0,
+        "evidence": {
+          "photo_ids": [
+            "photo_004",
+            "photo_005",
+            "photo_188",
+            "photo_017",
+            "photo_547",
+            "photo_143",
+            "photo_144",
+            "photo_145",
+            "photo_146",
+            "photo_147",
+            "photo_153",
+            "photo_621",
+            "photo_638",
+            "photo_640",
+            "photo_190",
+            "photo_266",
+            "photo_138",
+            "photo_157",
+            "photo_124"
+          ],
+          "event_ids": [
+            "EVT_0015",
+            "EVT_0074",
+            "EVT_0025",
+            "EVT_0001",
+            "EVT_0038",
+            "EVT_0004",
+            "EVT_0007"
+          ],
+          "person_ids": [
+            "Person_002",
+            "Person_003"
+          ],
+          "group_ids": [],
+          "feature_names": [
+            "photo_count",
+            "monthly_frequency",
+            "relationship_type:friend",
+            "relationship_type:acquaintance"
+          ],
+          "supporting_ref_count": 9,
+          "contradicting_ref_count": 1,
+          "constraint_notes": [
+            "no_direct_parenting_evidence"
+          ],
+          "summary": "profile_agent:long_term_facts.relationships.parenting"
+        },
+        "reasoning": "long_term_facts.relationships.parenting 在审查 EVT_0015、EVT_0074、photo_004、photo_005、Person_002、photo_count、monthly_frequency 后，当前证据仍不足以形成可审计结论，因此输出 null。"
+      },
+      "living_situation": {
+        "value": null,
+        "confidence": 0.0,
+        "evidence": {
+          "photo_ids": [
+            "photo_004",
+            "photo_005",
+            "photo_188",
+            "photo_017",
+            "photo_547",
+            "photo_143",
+            "photo_144",
+            "photo_145",
+            "photo_146",
+            "photo_147",
+            "photo_153",
+            "photo_621",
+            "photo_638",
+            "photo_640",
+            "photo_190"
+          ],
+          "event_ids": [
+            "EVT_0015",
+            "EVT_0074",
+            "EVT_0025",
+            "EVT_0001",
+            "EVT_0038",
+            "EVT_0004",
+            "EVT_0007"
+          ],
+          "person_ids": [
+            "Person_002",
+            "Person_003"
+          ],
+          "group_ids": [],
+          "feature_names": [
+            "photo_count",
+            "monthly_frequency",
+            "relationship_type:friend",
+            "relationship_type:acquaintance"
+          ],
+          "supporting_ref_count": 5,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.relationships.living_situation"
+        },
+        "reasoning": "long_term_facts.relationships.living_situation 在审查 EVT_0015、EVT_0074、photo_004、photo_005、Person_002、photo_count、monthly_frequency 后，当前证据仍不足以形成可审计结论，因此输出 null。"
+      }
+    },
+    "hobbies": {
+      "interests": {
+        "value": [
+          "art_photography",
+          "travel",
+          "music_concerts"
+        ],
+        "confidence": 0.8,
+        "evidence": {
+          "photo_ids": [
+            "photo_147",
+            "photo_146"
+          ],
+          "event_ids": [
+            "EVT_0018",
+            "EVT_0022",
+            "EVT_0007"
+          ],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 5,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.hobbies.interests"
+        },
+        "reasoning": "EVT_0018和EVT_0022显示主角在千岛湖和严州古城的旅行摄影活动，photo_147和photo_146显示艺术摄影创作，EVT_0007显示参加梁静茹演唱会。关键证据: EVT_0018(千岛湖阳台放松)、photo_146(超现实艺术摄影)、EVT_0007(虹口足球场演唱会) 关键证据: EVT_0018、EVT_0022、photo_147、photo_146。"
+      },
+      "frequent_activities": {
+        "value": [
+          "travel_photography",
+          "social_dining"
+        ],
+        "confidence": 0.75,
+        "evidence": {
+          "photo_ids": [],
+          "event_ids": [
+            "EVT_0022",
+            "EVT_0029"
+          ],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 2,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.hobbies.frequent_activities"
+        },
+        "reasoning": "EVT_0022显示严州古城游览拍照，EVT_0029显示在沪食江西菜等餐厅社交用餐。关键证据: EVT_0022(严州古城9张照片)、EVT_0029(江西菜排队票据) 关键证据: EVT_0022、EVT_0029。"
+      },
+      "solo_vs_social": {
+        "value": "social",
+        "confidence": 0.85,
+        "evidence": {
+          "photo_ids": [
+            "photo_256",
+            "photo_257",
+            "photo_258",
+            "photo_259",
+            "photo_260",
+            "photo_261",
+            "photo_270",
+            "photo_271",
+            "photo_272",
+            "photo_273",
+            "photo_282",
+            "photo_283",
+            "photo_284",
+            "photo_285",
+            "photo_288",
+            "photo_289",
+            "photo_290",
+            "photo_292",
+            "photo_294",
+            "photo_304",
+            "photo_305",
+            "photo_306",
+            "photo_307",
+            "photo_308",
+            "photo_309",
+            "photo_310",
+            "photo_311",
+            "photo_312",
+            "photo_313",
+            "photo_164",
+            "photo_066",
+            "photo_067",
+            "photo_167",
+            "photo_572",
+            "photo_328",
+            "photo_329",
+            "photo_330",
+            "photo_331",
+            "photo_333",
+            "photo_176"
+          ],
+          "event_ids": [
+            "EVT_0022",
+            "EVT_0069",
+            "EVT_0043",
+            "EVT_0034",
+            "EVT_0054",
+            "EVT_0051",
+            "EVT_0065"
+          ],
+          "person_ids": [
+            "Person_012"
+          ],
+          "group_ids": [],
+          "feature_names": [
+            "photo_count",
+            "monthly_frequency",
+            "relationship_type:romantic"
+          ],
+          "supporting_ref_count": 1,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.hobbies.solo_vs_social"
+        },
+        "reasoning": "EVT_0034显示与Person_012共同参与tufting手工约会，EVT_0065显示情人节社交动态准备。关键证据: EVT_0034(手工约会)、EVT_0065(情人节动态) 关键证据: EVT_0022、EVT_0069、photo_256、photo_257、Person_012、photo_count、monthly_frequency。"
+      }
+    },
+    "physiology": {
+      "fitness_level": {
+        "value": "moderate",
+        "confidence": 0.7,
+        "evidence": {
+          "photo_ids": [
+            "photo_264"
+          ],
+          "event_ids": [
+            "EVT_0016"
+          ],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 2,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.physiology.fitness_level"
+        },
+        "reasoning": "EVT_0016显示夜间运动后自拍，photo_264显示拥有多件运动队服。关键证据: EVT_0016(运动后自拍16张)、photo_264(阿森纳/热刺球衣) 关键证据: EVT_0016、photo_264。"
+      },
+      "health_conditions": {
+        "value": null,
+        "confidence": 0.0,
+        "evidence": {
+          "photo_ids": [],
+          "event_ids": [],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 0,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": ""
+        },
+        "reasoning": ""
+      },
+      "diet_mode": {
+        "value": "regular_dining_out",
+        "confidence": 0.65,
+        "evidence": {
+          "photo_ids": [
+            "photo_138"
+          ],
+          "event_ids": [
+            "EVT_0029"
+          ],
+          "person_ids": [],
+          "group_ids": [],
+          "feature_names": [],
+          "supporting_ref_count": 2,
+          "contradicting_ref_count": 0,
+          "constraint_notes": [],
+          "summary": "profile_agent:long_term_facts.physiology.diet_mode"
+        },
+        "reasoning": "EVT_0029显示在沪食江西菜排队，photo_138显示居家咖啡早餐。关键证据: EVT_0029(江西菜排队)、photo_138(麦斯威尔咖啡) 关键证据: EVT_0029、photo_138。"
+      }
+    }
+  },
+  "short_term_facts": {
+    "life_events": {
+      "value": "skincare_shopping",
+      "confidence": 0.85,
+      "evidence": {
+        "photo_ids": [],
+        "event_ids": [
+          "EVT_0045",
+          "EVT_0046"
+        ],
+        "person_ids": [],
+        "group_ids": [],
+        "feature_names": [],
+        "supporting_ref_count": 2,
+        "contradicting_ref_count": 0,
+        "constraint_notes": [],
+        "summary": "profile_agent:short_term_facts.life_events"
+      },
+      "reasoning": "EVT_0045显示主角在上海徐汇区多个化妆品柜台比价护肤品，EVT_0046显示在淘宝/京东完成护肤品线上购买，形成近期护肤消费集中趋势。关键证据: EVT_0045(线下比价5张照片)、EVT_0046(线上购买2张截图) 关键证据: EVT_0045、EVT_0046。"
+    },
+    "phase_change": {
+      "value": "skincare_focus",
+      "confidence": 0.75,
+      "evidence": {
+        "photo_ids": [],
+        "event_ids": [
+          "EVT_0045",
+          "EVT_0046"
+        ],
+        "person_ids": [],
+        "group_ids": [],
+        "feature_names": [],
+        "supporting_ref_count": 2,
+        "contradicting_ref_count": 0,
+        "constraint_notes": [],
+        "summary": "profile_agent:short_term_facts.phase_change"
+      },
+      "reasoning": "近期出现护肤品消费集中趋势（EVT_0045线下比价、EVT_0046线上购买），与长期消费模式形成对比。关键证据: EVT_0045、EVT_0046。 关键证据: EVT_0045、EVT_0046。"
+    },
+    "spending_shift": {
+      "value": "luxury_skincare_increase",
+      "confidence": 0.8,
+      "evidence": {
+        "photo_ids": [
+          "photo_555"
+        ],
+        "event_ids": [
+          "EVT_0045",
+          "EVT_0046"
+        ],
+        "person_ids": [],
+        "group_ids": [],
+        "feature_names": [],
+        "supporting_ref_count": 3,
+        "contradicting_ref_count": 0,
+        "constraint_notes": [],
+        "summary": "profile_agent:short_term_facts.spending_shift"
+      },
+      "reasoning": "近期EVT_0045和EVT_0046显示主角在护肤品消费上明显增加高端品牌购买（如HR和科颜氏），photo_555显示575元的科颜氏精华乳购买记录，形成消费升级趋势。关键证据: EVT_0045(线下比价)、photo_555(科颜氏订单) 关键证据: EVT_0045、EVT_0046、photo_555。"
+    },
+    "current_displacement": {
+      "value": "Shanghai",
+      "confidence": 0.8,
+      "evidence": {
+        "photo_ids": [],
+        "event_ids": [
+          "EVT_0043",
+          "EVT_0069"
+        ],
+        "person_ids": [],
+        "group_ids": [],
+        "feature_names": [],
+        "supporting_ref_count": 2,
+        "contradicting_ref_count": 0,
+        "constraint_notes": [],
+        "summary": "profile_agent:short_term_facts.current_displacement"
+      },
+      "reasoning": "EVT_0043显示主角在上海徐汇区进行晚餐约会，EVT_0069显示在宝山区庆祝情人节，形成近期在上海活动的稳定证据链。关键证据: EVT_0043(徐汇区晚餐)、EVT_0069(宝山区庆祝) 关键证据: EVT_0043、EVT_0069。"
+    },
+    "recent_habits": {
+      "value": "social_dating",
+      "confidence": 0.7,
+      "evidence": {
+        "photo_ids": [],
+        "event_ids": [
+          "EVT_0043",
+          "EVT_0069"
+        ],
+        "person_ids": [],
+        "group_ids": [],
+        "feature_names": [],
+        "supporting_ref_count": 2,
+        "contradicting_ref_count": 0,
+        "constraint_notes": [],
+        "summary": "profile_agent:short_term_facts.recent_habits"
+      },
+      "reasoning": "EVT_0043显示频繁的晚餐约会自拍行为，配合EVT_0069的情人节庆祝活动，形成社交约会的近期行为模式。关键证据: EVT_0043(晚餐约会自拍)、EVT_0069(情人节庆祝) 关键证据: EVT_0043、EVT_0069。"
+    },
+    "recent_interests": {
+      "value": [
+        "#travel",
+        "#food"
+      ],
+      "confidence": 0.7,
+      "evidence": {
+        "photo_ids": [],
+        "event_ids": [
+          "EVT_0088",
+          "EVT_0099"
+        ],
+        "person_ids": [],
+        "group_ids": [],
+        "feature_names": [],
+        "supporting_ref_count": 2,
+        "contradicting_ref_count": 0,
+        "constraint_notes": [],
+        "summary": "profile_agent:short_term_facts.recent_interests"
+      },
+      "reasoning": "EVT_0088显示拍摄邮轮时刻表(旅行规划)，EVT_0099显示浏览KFC菜单(快餐)，但单次事件证据强度不足。关键证据: EVT_0088(邮轮时刻表)、EVT_0099(KFC菜单) 关键证据: EVT_0088、EVT_0099。"
+    },
+    "physiological_state": {
+      "value": null,
+      "confidence": 0.0,
+      "evidence": {
+        "photo_ids": [],
+        "event_ids": [],
+        "person_ids": [],
+        "group_ids": [],
+        "feature_names": [],
+        "supporting_ref_count": 0,
+        "contradicting_ref_count": 0,
+        "constraint_notes": [],
+        "summary": ""
+      },
+      "reasoning": ""
+    }
+  },
+  "long_term_expression": {
+    "personality_mbti": {
+      "value": null,
+      "confidence": 0.0,
+      "evidence": {
+        "photo_ids": [
+          "photo_004",
+          "photo_005",
+          "photo_188",
+          "photo_017",
+          "photo_547",
+          "photo_143",
+          "photo_144",
+          "photo_145",
+          "photo_146",
+          "photo_147",
+          "photo_153",
+          "photo_621",
+          "photo_638",
+          "photo_640",
+          "photo_190"
+        ],
+        "event_ids": [
+          "EVT_0001",
+          "EVT_0038",
+          "EVT_0004",
+          "EVT_0007"
+        ],
+        "person_ids": [
+          "Person_002",
+          "Person_003"
+        ],
+        "group_ids": [],
+        "feature_names": [
+          "photo_count",
+          "monthly_frequency",
+          "relationship_type:friend",
+          "relationship_type:acquaintance"
+        ],
+        "supporting_ref_count": 2,
+        "contradicting_ref_count": 0,
+        "constraint_notes": [
+          "no_direct_evidence"
+        ],
+        "summary": "profile_agent:long_term_expression.personality_mbti"
+      },
+      "reasoning": "long_term_expression.personality_mbti 在审查 EVT_0001、EVT_0038、photo_004、photo_005、Person_002、photo_count、monthly_frequency 后，当前证据仍不足以形成可审计结论，因此输出 null。"
+    },
+    "morality": {
+      "value": null,
+      "confidence": 0.0,
+      "evidence": {
+        "photo_ids": [
+          "photo_004",
+          "photo_005",
+          "photo_188",
+          "photo_017",
+          "photo_547",
+          "photo_143",
+          "photo_144",
+          "photo_145",
+          "photo_146",
+          "photo_147",
+          "photo_153",
+          "photo_621",
+          "photo_638",
+          "photo_640",
+          "photo_190"
+        ],
+        "event_ids": [
+          "EVT_0001",
+          "EVT_0038",
+          "EVT_0004",
+          "EVT_0007"
+        ],
+        "person_ids": [
+          "Person_002",
+          "Person_003"
+        ],
+        "group_ids": [],
+        "feature_names": [
+          "photo_count",
+          "monthly_frequency",
+          "relationship_type:friend",
+          "relationship_type:acquaintance"
+        ],
+        "supporting_ref_count": 2,
+        "contradicting_ref_count": 0,
+        "constraint_notes": [
+          "no_direct_evidence"
+        ],
+        "summary": "profile_agent:long_term_expression.morality"
+      },
+      "reasoning": "long_term_expression.morality 在审查 EVT_0001、EVT_0038、photo_004、photo_005、Person_002、photo_count、monthly_frequency 后，当前证据仍不足以形成可审计结论，因此输出 null。"
+    },
+    "philosophy": {
+      "value": "social_oriented",
+      "confidence": 0.7,
+      "evidence": {
+        "photo_ids": [
+          "photo_004",
+          "photo_005",
+          "photo_188",
+          "photo_017",
+          "photo_547",
+          "photo_143",
+          "photo_144",
+          "photo_145",
+          "photo_146",
+          "photo_147",
+          "photo_153",
+          "photo_621",
+          "photo_638",
+          "photo_640",
+          "photo_190"
+        ],
+        "event_ids": [
+          "EVT_0001",
+          "EVT_0038",
+          "EVT_0004",
+          "EVT_0007"
+        ],
+        "person_ids": [
+          "Person_002",
+          "Person_003"
+        ],
+        "group_ids": [],
+        "feature_names": [
+          "photo_count",
+          "monthly_frequency",
+          "relationship_type:friend",
+          "relationship_type:acquaintance"
+        ],
+        "supporting_ref_count": 2,
+        "contradicting_ref_count": 0,
+        "constraint_notes": [],
+        "summary": "profile_agent:long_term_expression.philosophy"
+      },
+      "reasoning": "基于EVT_0001/0038/0004中与Person_002的14次共现（朋友关系）和EVT_0004/0007中与Person_003的10次共现（熟人关系），显示稳定的社交倾向。关键证据: EVT_0001(朋友互动)、EVT_0004(熟人互动) 关键证据: EVT_0001、EVT_0038、photo_004、photo_005、Person_002、photo_count、monthly_frequency。"
+    },
+    "attitude_style": {
+      "value": "casual_artistic",
+      "confidence": 0.8,
+      "evidence": {
+        "photo_ids": [
+          "photo_143",
+          "photo_082"
+        ],
+        "event_ids": [
+          "EVT_0008"
+        ],
+        "person_ids": [],
+        "group_ids": [],
+        "feature_names": [],
+        "supporting_ref_count": 3,
+        "contradicting_ref_count": 0,
+        "constraint_notes": [],
+        "summary": "profile_agent:long_term_expression.attitude_style"
+      },
+      "reasoning": "基于EVT_0008艺术展览参观(22张照片)和photo_143超现实艺术摄影构图，结合photo_082展示的兰蔻香水等个人护理品，显示主角偏好艺术与休闲结合的穿搭风格 关键证据: EVT_0008、photo_143、photo_082。"
+    },
+    "aesthetic_tendency": {
+      "value": "modern_minimalist",
+      "confidence": 0.75,
+      "evidence": {
+        "photo_ids": [
+          "photo_143",
+          "photo_080"
+        ],
+        "event_ids": [
+          "EVT_0008"
+        ],
+        "person_ids": [],
+        "group_ids": [],
+        "feature_names": [],
+        "supporting_ref_count": 3,
+        "contradicting_ref_count": 0,
+        "constraint_notes": [],
+        "summary": "profile_agent:long_term_expression.aesthetic_tendency"
+      },
+      "reasoning": "photo_143的结构主义服装设计和photo_080的嵌套式视觉构图，配合EVT_0008白色画廊空间的偏好，显示对现代极简美学的倾向 关键证据: EVT_0008、photo_143、photo_080。"
+    },
+    "visual_creation_style": {
+      "value": "conceptual_selfie",
+      "confidence": 0.7,
+      "evidence": {
+        "photo_ids": [
+          "photo_080",
+          "photo_143"
+        ],
+        "event_ids": [
+          "EVT_0034"
+        ],
+        "person_ids": [],
+        "group_ids": [],
+        "feature_names": [],
+        "supporting_ref_count": 3,
+        "contradicting_ref_count": 0,
+        "constraint_notes": [],
+        "summary": "profile_agent:long_term_expression.visual_creation_style"
+      },
+      "reasoning": "photo_080的屏幕反射构图和photo_143的鱼眼镜头使用，配合EVT_0034手工约会中的创意自拍(4张)，形成概念化自拍风格 关键证据: EVT_0034、photo_080、photo_143。"
+    }
+  },
+  "short_term_expression": {
+    "current_mood": {
+      "value": "romantic",
+      "confidence": 0.85,
+      "evidence": {
+        "photo_ids": [
+          "photo_256",
+          "photo_257",
+          "photo_258",
+          "photo_259",
+          "photo_260",
+          "photo_261",
+          "photo_270",
+          "photo_271",
+          "photo_272",
+          "photo_273",
+          "photo_282",
+          "photo_283",
+          "photo_284",
+          "photo_285",
+          "photo_288",
+          "photo_289",
+          "photo_290",
+          "photo_292",
+          "photo_294",
+          "photo_304",
+          "photo_305",
+          "photo_306",
+          "photo_307",
+          "photo_308",
+          "photo_309",
+          "photo_310",
+          "photo_311",
+          "photo_312",
+          "photo_313",
+          "photo_164",
+          "photo_066",
+          "photo_067",
+          "photo_167",
+          "photo_572",
+          "photo_328",
+          "photo_329",
+          "photo_330",
+          "photo_331",
+          "photo_333",
+          "photo_176"
+        ],
+        "event_ids": [
+          "EVT_0022",
+          "EVT_0069",
+          "EVT_0043",
+          "EVT_0034",
+          "EVT_0054",
+          "EVT_0051",
+          "EVT_0065"
+        ],
+        "person_ids": [
+          "Person_012"
+        ],
+        "group_ids": [],
+        "feature_names": [
+          "photo_count",
+          "monthly_frequency",
+          "relationship_type:romantic"
+        ],
+        "supporting_ref_count": 3,
+        "contradicting_ref_count": 0,
+        "constraint_notes": [],
+        "summary": "profile_agent:short_term_expression.current_mood"
+      },
+      "reasoning": "EVT_0065情人节社交媒体准备和photo_307/305与Person_012的密集自拍互动，显示近期浪漫情绪状态 关键证据: EVT_0022、EVT_0069、photo_256、photo_257、Person_012、photo_count、monthly_frequency。"
+    },
+    "mental_state": {
+      "value": "socially_active",
+      "confidence": 0.8,
+      "evidence": {
+        "photo_ids": [
+          "photo_256",
+          "photo_257",
+          "photo_258",
+          "photo_259",
+          "photo_260",
+          "photo_261",
+          "photo_270",
+          "photo_271",
+          "photo_272",
+          "photo_273",
+          "photo_282",
+          "photo_283",
+          "photo_284",
+          "photo_285",
+          "photo_288",
+          "photo_289",
+          "photo_290",
+          "photo_292",
+          "photo_294",
+          "photo_304",
+          "photo_305",
+          "photo_306",
+          "photo_307",
+          "photo_308",
+          "photo_309",
+          "photo_310",
+          "photo_311",
+          "photo_312",
+          "photo_313",
+          "photo_164",
+          "photo_066",
+          "photo_067",
+          "photo_167",
+          "photo_572",
+          "photo_328",
+          "photo_329",
+          "photo_330",
+          "photo_331",
+          "photo_333",
+          "photo_176"
+        ],
+        "event_ids": [
+          "EVT_0036",
+          "EVT_0022",
+          "EVT_0069",
+          "EVT_0043",
+          "EVT_0034",
+          "EVT_0054",
+          "EVT_0051",
+          "EVT_0065"
+        ],
+        "person_ids": [
+          "Person_012"
+        ],
+        "group_ids": [],
+        "feature_names": [
+          "photo_count",
+          "monthly_frequency",
+          "relationship_type:romantic"
+        ],
+        "supporting_ref_count": 3,
+        "contradicting_ref_count": 0,
+        "constraint_notes": [],
+        "summary": "profile_agent:short_term_expression.mental_state"
+      },
+      "reasoning": "近期EVT_0036(浏览社交媒体记忆6张)、EVT_0034(tufting手工约会4张)和EVT_0065(情人节动态准备)显示持续社交投入。关键证据: photo_167(咖啡厅亲密自拍)、EVT_0034(手工约会) 关键证据: EVT_0036、EVT_0022、photo_256、photo_257、Person_012、photo_count、monthly_frequency。"
+    },
+    "motivation_shift": {
+      "value": "relationship_focused",
+      "confidence": 0.75,
+      "evidence": {
+        "photo_ids": [
+          "photo_256",
+          "photo_257",
+          "photo_258",
+          "photo_259",
+          "photo_260",
+          "photo_261",
+          "photo_270",
+          "photo_271",
+          "photo_272",
+          "photo_273",
+          "photo_282",
+          "photo_283",
+          "photo_284",
+          "photo_285",
+          "photo_288",
+          "photo_289",
+          "photo_290",
+          "photo_292",
+          "photo_294",
+          "photo_304",
+          "photo_305",
+          "photo_306",
+          "photo_307",
+          "photo_308",
+          "photo_309",
+          "photo_310",
+          "photo_311",
+          "photo_312",
+          "photo_313",
+          "photo_164",
+          "photo_066",
+          "photo_067",
+          "photo_167",
+          "photo_572",
+          "photo_328",
+          "photo_329",
+          "photo_330",
+          "photo_331",
+          "photo_333",
+          "photo_176"
+        ],
+        "event_ids": [
+          "EVT_0022",
+          "EVT_0069",
+          "EVT_0043",
+          "EVT_0034",
+          "EVT_0054",
+          "EVT_0051",
+          "EVT_0065"
+        ],
+        "person_ids": [
+          "Person_012"
+        ],
+        "group_ids": [],
+        "feature_names": [
+          "photo_count",
+          "monthly_frequency",
+          "relationship_type:romantic"
+        ],
+        "supporting_ref_count": 1,
+        "contradicting_ref_count": 0,
+        "constraint_notes": [],
+        "summary": "profile_agent:short_term_expression.motivation_shift"
+      },
+      "reasoning": "EVT_0034(tufting约会)和EVT_0065(情人节动态准备)显示近期关系维护活动集中。关键证据: EVT_0034(手工约会)、photo_305(商业空间自拍) 关键证据: EVT_0022、EVT_0069、photo_256、photo_257、Person_012、photo_count、monthly_frequency。"
+    },
+    "stress_signal": {
+      "value": null,
+      "confidence": 0.0,
+      "evidence": {
+        "photo_ids": [
+          "photo_004",
+          "photo_005",
+          "photo_188",
+          "photo_017",
+          "photo_547",
+          "photo_143",
+          "photo_144",
+          "photo_145",
+          "photo_146",
+          "photo_147",
+          "photo_153",
+          "photo_621",
+          "photo_638",
+          "photo_640",
+          "photo_190"
+        ],
+        "event_ids": [
+          "EVT_0036",
+          "EVT_0034",
+          "EVT_0065",
+          "EVT_0001",
+          "EVT_0038",
+          "EVT_0004",
+          "EVT_0007"
+        ],
+        "person_ids": [
+          "Person_002",
+          "Person_003"
+        ],
+        "group_ids": [],
+        "feature_names": [
+          "photo_count",
+          "monthly_frequency",
+          "relationship_type:friend",
+          "relationship_type:acquaintance"
+        ],
+        "supporting_ref_count": 5,
+        "contradicting_ref_count": 0,
+        "constraint_notes": [
+          "insufficient_evidence"
+        ],
+        "summary": "profile_agent:short_term_expression.stress_signal"
+      },
+      "reasoning": "short_term_expression.stress_signal 在审查 EVT_0036、EVT_0034、photo_004、photo_005、Person_002、photo_count、monthly_frequency 后，当前证据仍不足以形成可审计结论，因此输出 null。"
+    },
+    "social_energy": {
+      "value": "high",
+      "confidence": 0.8,
+      "evidence": {
+        "photo_ids": [
+          "photo_256",
+          "photo_257",
+          "photo_258",
+          "photo_259",
+          "photo_260",
+          "photo_261",
+          "photo_270",
+          "photo_271",
+          "photo_272",
+          "photo_273",
+          "photo_282",
+          "photo_283",
+          "photo_284",
+          "photo_285",
+          "photo_288",
+          "photo_289",
+          "photo_290",
+          "photo_292",
+          "photo_294",
+          "photo_304",
+          "photo_305",
+          "photo_306",
+          "photo_307",
+          "photo_308",
+          "photo_309",
+          "photo_310",
+          "photo_311",
+          "photo_312",
+          "photo_313",
+          "photo_164",
+          "photo_066",
+          "photo_067",
+          "photo_167",
+          "photo_572",
+          "photo_328",
+          "photo_329",
+          "photo_330",
+          "photo_331",
+          "photo_333",
+          "photo_176"
+        ],
+        "event_ids": [
+          "EVT_0022",
+          "EVT_0069",
+          "EVT_0043",
+          "EVT_0034",
+          "EVT_0054",
+          "EVT_0051",
+          "EVT_0065"
+        ],
+        "person_ids": [
+          "Person_012"
+        ],
+        "group_ids": [],
+        "feature_names": [
+          "photo_count",
+          "monthly_frequency",
+          "relationship_type:romantic"
+        ],
+        "supporting_ref_count": 1,
+        "contradicting_ref_count": 0,
+        "constraint_notes": [],
+        "summary": "profile_agent:short_term_expression.social_energy"
+      },
+      "reasoning": "EVT_0034手工约会(4张)和EVT_0065情人节活动显示近期社交活跃度提升，与Person_012互动频繁 关键证据: EVT_0022、EVT_0069、photo_256、photo_257、Person_012、photo_count、monthly_frequency。"
+    }
+  }
+}

@@ -1,0 +1,1292 @@
+{
+  "metadata": {
+    "generated_at": "2026-03-19T17:45:43.187887",
+    "version": "2.0",
+    "total_events": 14,
+    "total_relationships": 1,
+    "models": {
+      "vlm": "google/gemini-3.1-flash-lite-preview",
+      "llm": "google/gemini-2.5-flash",
+      "face": "InsightFace/buffalo_l"
+    }
+  },
+  "events": [
+    {
+      "event_id": "EVT_001",
+      "date": "2025-12-31",
+      "time_range": "20:33 - 17:03",
+      "duration": "",
+      "title": "北京中式聚餐与新年飞行旅程",
+      "type": "其他",
+      "participants": [
+        "Person_001",
+        "Person_002"
+      ],
+      "location": "室内餐饮/城市交通枢纽/飞行途中",
+      "description": "包含北京中式烤鸭与煲仔饭场景，以及北京大兴国际机场的航站楼、登机廊桥、停机坪、民航客机客舱内等多样化场景。构图视角以平视和透过舷窗的记录为主，无自拍或他拍的主观判定。",
+      "photo_count": 8,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "善于观察与捕捉细节",
+          "热爱记录生活",
+          "重视传统节日仪式感"
+        ],
+        "aesthetic": [
+          "偏爱自然光线",
+          "注重画面故事性"
+        ],
+        "socioeconomic": [
+          "具备航空出行能力",
+          "注重中式餐饮体验"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_002",
+      "date": "2026-01-02",
+      "time_range": "07:36 - 12:05",
+      "duration": "",
+      "title": "大连海滨新年日出与景点打卡",
+      "type": "其他",
+      "participants": [
+        "Person_001",
+        "Person_002",
+        "隐形成员"
+      ],
+      "location": "户外海滨/城市观光景点",
+      "description": "包含大连星海湾、海滨防波堤、渔人码头等沿海景观。构图视角包括低角度观赏日出、景区远眺、以及多张以Person_002（用户本人）为焦点的自拍和由“隐形成员”拍摄的照片。画面中多次出现用户，双手未持拍摄设备且姿态自然，故判定为他拍。",
+      "photo_count": 9,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "注重户外活动",
+          "欣赏自然美景",
+          "喜欢通过照片记录个人形象",
+          "对当地特色文化和景观有探索欲"
+        ],
+        "aesthetic": [
+          "偏爱开阔的自然景观",
+          "注重着装保暖和舒适性"
+        ],
+        "socioeconomic": [
+          "具备旅行消费能力",
+          "重视个人休闲体验"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_003",
+      "date": "2026-01-02",
+      "time_range": "16:30 - 22:43",
+      "duration": "",
+      "title": "金石滩落日与酒吧夜生活",
+      "type": "其他",
+      "participants": [
+        "Person_001",
+        "Person_002",
+        "Person_003",
+        "Person_004",
+        "Person_005",
+        "Person_006",
+        "Person_007",
+        "隐形成员"
+      ],
+      "location": "户外旅游景点/室内酒吧",
+      "description": "包括金石滩海滨度假区、CAAN咖啡馆、小平岛沿海礁石区，以及大连“念Bar”。构图视角以记录景观和人物互动为主，部分照片显示了人群聚集的场景和酒吧内的创意饮品。多张照片（如photo_025, photo_031）捕捉到用户与他人的近距离互动，但没有用户作为主要被拍摄人物的实例。",
+      "photo_count": 13,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "享受社交生活",
+          "热爱自然景观（尤其是日落）",
+          "关注节庆活动和流行打卡地",
+          "对主题性消费（比如特色酒吧）有兴趣"
+        ],
+        "aesthetic": [
+          "偏爱温暖色调和独特构图",
+          "对现代艺术装置敏感"
+        ],
+        "socioeconomic": [
+          "具备休闲旅行消费能力",
+          "追求有品位的生活体验"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_004",
+      "date": "2026-01-04",
+      "time_range": "16:16 - 14:00",
+      "duration": "",
+      "title": "海滨徒步与水上运动观测",
+      "type": "其他",
+      "participants": [
+        "Person_001",
+        "Person_002",
+        "Person_008",
+        "隐形成员"
+      ],
+      "location": "户外海滨/自然保护区",
+      "description": "包括星海广场海岸线、星海湾海域、老虎滩潮间带岩礁，以及海岸边的礁石区。构图视角以远景、平视和俯视为主，记录了海上翼展帆板运动、潮间带生态，以及与Person_008（另一位同行者）的互动，其中Person_002作为主体出现在photo_046和photo_047中，双手未持拍摄设备且姿态自然，故判定为他拍。",
+      "photo_count": 6,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "热爱户外探险",
+          "关注自然生态",
+          "对水上极限运动感兴趣",
+          "喜欢与亲密同伴分享体验"
+        ],
+        "aesthetic": [
+          "偏爱自然风光",
+          "注重色彩和光影效果（如逆光）"
+        ],
+        "socioeconomic": [
+          "具备旅行消费能力",
+          "享受休闲户外活动"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_005",
+      "date": "2026-01-03",
+      "time_range": "15:39 - 07:03",
+      "duration": "",
+      "title": "大连城市景观与离店准备",
+      "type": "其他",
+      "participants": [
+        "Person_002",
+        "Person_007",
+        "隐形成员"
+      ],
+      "location": "户外旅游景点/室内酒店",
+      "description": "包括海滨大桥、星海湾高层建筑，以及酒店房间和设计师民宿。构图视角以高层俯瞰、平视和自拍为主。Person_002（用户本人）在photo_104、photo_105、photo_106中作为主体出现，双手插兜，姿态自然且面对镜头或凝视远方，故判定为他拍。酒店客房的凌乱床铺和房卡则体现了个人生活状态的记录。",
+      "photo_count": 7,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "喜欢旅行",
+          "对城市地标感兴趣",
+          "乐于分享旅程中的个人体验",
+          "注重入住体验感",
+          "生活节奏偏向早起和早离店"
+        ],
+        "aesthetic": [
+          "偏爱开阔的城市景观",
+          "对高空视角有兴趣"
+        ],
+        "socioeconomic": [
+          "具备支付中高端酒店住宿的能力",
+          "注重旅行的舒适度"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_006",
+      "date": "2026-01-10",
+      "time_range": "09:55 - 11:05",
+      "duration": "",
+      "title": "北京文化探访与日常简餐",
+      "type": "其他",
+      "participants": [
+        "Person_009"
+      ],
+      "location": "室内文化场馆/室内餐饮",
+      "description": "包括梅兰芳纪念馆、什刹海老宅风格建筑、庆丰包子铺。构图视角以手持纪念卡、陈设细节和餐桌食物为主。",
+      "photo_count": 3,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "对传统文化有浓厚兴趣",
+          "重视文化纪念品的收藏",
+          "喜欢体验地道北京小吃",
+          "注重日常生活的仪式感"
+        ],
+        "aesthetic": [
+          "偏爱中式古典风格",
+          "对建筑细节有观察力"
+        ],
+        "socioeconomic": [
+          "注重文化消费",
+          "消费观念务实"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_007",
+      "date": "2026-01-10",
+      "time_range": "14:04 - 14:50",
+      "duration": "",
+      "title": "小米科技与汽车产业探访",
+      "type": "其他",
+      "participants": [
+        "Person_010",
+        "Person_011",
+        "Person_012",
+        "Person_013",
+        "Person_014"
+      ],
+      "location": "户外科技园区/室内汽车展厅",
+      "description": "包括小米科技园的办公楼、新年装饰，以及小米汽车展厅内的SU7 Ultra展车、底盘组件和电机模型。构图视角以平视和俯视为主，记录了科技产品和展示细节，画面中有多位观展人员，但无明确的社交互动。",
+      "photo_count": 5,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "对科技前沿产品和新技术有浓厚兴趣",
+          "具有求知欲和考察精神",
+          "可能从事相关行业或有购车需求"
+        ],
+        "aesthetic": [
+          "偏爱现代工业设计风格",
+          "注重产品细节和技术指标"
+        ],
+        "socioeconomic": [
+          "关注新兴科技产业",
+          "具备一定的消费能力和品味"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_008",
+      "date": "2026-01-11",
+      "time_range": "09:20 - 09:31",
+      "duration": "",
+      "title": "中国法院博物馆与法庭考察",
+      "type": "其他",
+      "participants": [
+        "Person_001",
+        "Person_015",
+        "Person_016",
+        "Person_017",
+        "Person_018",
+        "Person_019"
+      ],
+      "location": "室内文化场馆/室内公共机构",
+      "description": "包括中国法院博物馆的展厅和北京市基层人民法院法庭。构图视角以手持物品和法庭陈设为主，强调庄重肃穆的氛围。",
+      "photo_count": 3,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "对法律和司法历史有兴趣",
+          "具有严谨的考证态度",
+          "可能关注公共社会议题或具备相关职业背景"
+        ],
+        "aesthetic": [
+          "欣赏庄重正式的场所",
+          "注重细节的记录"
+        ],
+        "socioeconomic": [
+          "具备文化消费能力",
+          "对社会公益有关注"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_009",
+      "date": "2026-01-23",
+      "time_range": "18:46 - 19:52",
+      "duration": "",
+      "title": "北京春晚录制与节庆活动参与",
+      "type": "其他",
+      "participants": [
+        "Person_001",
+        "Person_002",
+        "Person_020",
+        "Person_021",
+        "Person_022",
+        "Person_023",
+        "Person_024",
+        "Person_025",
+        "Person_027",
+        "Person_028",
+        "Person_029",
+        "Person_030",
+        "Person_031",
+        "Person_032",
+        "Person_033",
+        "Person_034",
+        "Person_035",
+        "Person_036",
+        "Person_037",
+        "Person_038",
+        "Person_039",
+        "Person_040",
+        "Person_041",
+        "Person_042"
+      ],
+      "location": "室内演播厅/公共活动场所",
+      "description": "包括北京广播电视台附近的宣传海报、演播厅内部的舞台和观众席，以及带有春节主题装饰的回廊或市集。构图视角以自拍、舞台记录和观众席全景为主。Person_002（用户本人）在photo_066和photo_070中作为主体出现，佩戴眼镜，打扮应景，且在photo_066中做出点赞手势，判定为自拍。",
+      "photo_count": 7,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "积极参与大型节庆活动",
+          "享受现场表演带来的氛围",
+          "热衷自拍和记录社交场景",
+          "可能与媒体/娱乐行业相关"
+        ],
+        "aesthetic": [
+          "偏爱红色和喜庆的节日装饰",
+          "对舞台灯光和视觉效果有兴趣"
+        ],
+        "socioeconomic": [
+          "具备参与文化娱乐活动的消费能力",
+          "关注大众文化事件"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_010",
+      "date": "2026-01-24",
+      "time_range": "15:17 - 15:41",
+      "duration": "",
+      "title": "金源购物中心文化与时尚消费",
+      "type": "其他",
+      "participants": [
+        "Person_043",
+        "Person_Unknown_01"
+      ],
+      "location": "室内购物中心/品牌零售店",
+      "description": "包括金源购物中心中庭的圆明园主题展览和安踏（ANTA）品牌门店的服饰货架及生肖挂件。构图视角以展览细节、商品特写和手持商品记录为主。",
+      "photo_count": 4,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "对传统文化（如圆明园主题）有兴趣",
+          "关注潮流运动品牌和季节限定产品",
+          "有节前购物的习惯",
+          "可能承担亲子陪伴角色"
+        ],
+        "aesthetic": [
+          "偏爱亮丽色彩和生肖主题设计",
+          "注重商品的特点和功能性"
+        ],
+        "socioeconomic": [
+          "具备中高端品牌消费能力",
+          "重视文化体验与时尚潮流的结合"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_011",
+      "date": "2026-01-31",
+      "time_range": "16:32 - 16:51",
+      "duration": "",
+      "title": "国际文化节与体育收藏品探访",
+      "type": "其他",
+      "participants": [
+        "Person_044",
+        "Person_045",
+        "Person_046",
+        "Person_047",
+        "Person_048",
+        "Person_049",
+        "Person_050",
+        "Person_051",
+        "Person_007",
+        "Person_052",
+        "Person_053",
+        "Person_054",
+        "Person_055",
+        "Person_056"
+      ],
+      "location": "室内文化节/室内零售店",
+      "description": "包括望京Culturopolis国际文化生活节的乐队演出舞台、韩食市场摊位，以及体育收藏品展示空间。构图视角以舞台全景、摊位制作和商品特写为主。",
+      "photo_count": 3,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "对多元文化活动有探索欲",
+          "享受现场演出的氛围",
+          "热衷于体验特色美食",
+          "可能是体育爱好者或收藏者"
+        ],
+        "aesthetic": [
+          "欣赏艺术表演和创意餐饮",
+          "对体育偶像有情感投入"
+        ],
+        "socioeconomic": [
+          "具备文化消费能力",
+          "关注流行文化和体育产业"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_012",
+      "date": "2026-02-01",
+      "time_range": "16:46 - 21:18",
+      "duration": "",
+      "title": "居家消费与日常餐饮",
+      "type": "其他",
+      "participants": [
+        "Person_057"
+      ],
+      "location": "室内超市/居住空间",
+      "description": "包括七鲜超市的烘焙区和家用室内环境。构图视角以商品特写、手持湿巾和外卖食物记录为主。",
+      "photo_count": 4,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "注重日常生活消费",
+          "可能具备育儿职责",
+          "有食用速食和外卖的习惯",
+          "关注名人效应和市场营销"
+        ],
+        "aesthetic": [
+          "偏爱便捷且有品质的日常用品",
+          "对食物的口感和保质期有关注"
+        ],
+        "socioeconomic": [
+          "注重居家生活品质",
+          "具备日常消费能力"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_013",
+      "date": "2026-02-22",
+      "time_range": "15:06 - 16:20",
+      "duration": "",
+      "title": "邯郸广府古城春节之旅",
+      "type": "其他",
+      "participants": [
+        "Person_001",
+        "Person_002",
+        "Person_003",
+        "Person_058",
+        "隐形成员"
+      ],
+      "location": "户外旅游景点/历史文化区",
+      "description": "包括邯郸广府古城步行街、青砖展示墙、古城入口、磁州窑古镇景观通道和广平府署前广场。构图视角以仰拍节庆装饰、人物肖像和古建筑细节为主，突出了节庆氛围和传统文化元素。Person_058为身着汉服的被拍摄者，姿态自然且面对镜头，故判定为他拍。",
+      "photo_count": 6,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "热爱传统文化和古建筑",
+          "享受节庆氛围",
+          "乐于为同伴拍照",
+          "对地方民俗感兴趣"
+        ],
+        "aesthetic": [
+          "欣赏古朴典雅的风格",
+          "偏爱传统服饰和装饰"
+        ],
+        "socioeconomic": [
+          "具备旅游消费能力",
+          "重视文化体验"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_014",
+      "date": "2026-03-11",
+      "time_range": "13:38 - 13:50",
+      "duration": "",
+      "title": "摄影器材与数字生活",
+      "type": "其他",
+      "participants": [
+        "Person_001",
+        "Person_060",
+        "Person_061",
+        "Person_062",
+        "Person_063",
+        "Person_064",
+        "Person_065"
+      ],
+      "location": "室内工作/居住空间/线上数字环境",
+      "description": "包括潮玩店的徽章、摄影工作台上的佳能相机及配件、问卷网手机界面、抖音电商直播界面、品牌丝巾展示台和地铁站旅游推广展位。构图视角以手持小物特写、俯拍器材和屏幕截图为主。其中photo_098捕捉到主角本人手持运动鞋的自拍。",
+      "photo_count": 13,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "热衷摄影，并喜欢个性化装饰器材",
+          "对潮流玩偶和二次元文化有兴趣",
+          "积极参与线上问卷和电商直播购物",
+          "关注生活中的细节和创意产品",
+          "可能从事内容创作或市场调研相关工作"
+        ],
+        "aesthetic": [
+          "偏爱精致的小物件和有设计感的商品",
+          "注重视觉展示和个性化表达"
+        ],
+        "socioeconomic": [
+          "具备中高端电子产品消费能力",
+          "适应数字时代的消费和互动模式",
+          "可能是自由职业者或兼职者"
+        ]
+      }
+    }
+  ],
+  "relationships": [
+    {
+      "person_id": "Person_007",
+      "relationship_type": "bestie",
+      "intimacy_score": 0.115,
+      "status": "new",
+      "confidence": 0.7,
+      "reason": "Person_007 appears in 2 out of 3 shared events with Person_002, with descriptions suggesting close interaction ('共同观景/亲密同行', '亲密同行') and a hypothesis of '伴侣/密友' from the photographic evidence. The weekend frequency is high, indicating leisure time spent together. While the total number of shared events is low (3 incidents over 29 days), the repeated intimate interactions within that short timeframe, especially the scenic viewings together, strongly point towards a significant relationship rather than a casual one. The '摊位工作者' interaction is an outlier and might be a misidentification or a very brief, unrelated occurrence that doesn't define the overall relationship suggested by the other two more intimate events. The intimacy score is low (0.115), which is a key conflicting point, but the explicit narrative clues suggesting '伴侣/密友' are strong, hinting that the score might not fully capture the nature of the interaction. Given these opposing signals, 'bestie' feels like a safer, but still significant, relationship given the 'intimate companionship' descriptions, with 'new' due to the very limited timeframe (29 days) and 'insufficient data' for trends.",
+      "shared_events": [
+        {
+          "event_id": "EVT_003",
+          "date": "2026-01-02",
+          "narrative": "用户在大连金石滩观赏了壮丽的海上日落，并与同行朋友一同打卡圣诞装置，捕捉了游客聚集的节日氛围，结束后在酒吧体验了富有故事性的主题鸡尾酒，展现出社交活跃和对仪式感的追求。"
+        },
+        {
+          "event_id": "EVT_011",
+          "date": "2026-01-31",
+          "narrative": "用户参与了望京Culturopolis国际文化生活节，观看了现场乐队演出和韩式料理制作，随后在一个收藏品商店记录了勒布朗·詹姆斯和斯蒂芬·库里主题的体育周边产品，展现了对多元文化、现场演出和体育消费的热情。"
+        },
+        {
+          "event_id": "EVT_005",
+          "date": "2026-01-03",
+          "narrative": "用户结束了大连的旅行，通过自拍和他人拍摄相结合的方式记录了自己在高层建筑俯瞰大桥和海鸥飞舞的场景，展现出对城市地标的兴趣和与亲密同伴分享旅程的愿望，同时也在酒店客房记录了个人瞬间。"
+        }
+      ],
+      "evidence": {
+        "photo_count": 2,
+        "time_span": "29天",
+        "time_span_days": 29,
+        "scenes": [
+          "大连星海湾壹号或周边高层公寓",
+          "商场内部‘晨初韩食市场’临时摊位"
+        ],
+        "interaction_behavior": [
+          "共同观景/亲密同行",
+          "摊位工作者",
+          "亲密同行"
+        ],
+        "weekend_frequency": "高",
+        "with_user_only": false,
+        "sample_scenes": [
+          {
+            "timestamp": "2026-01-03T16:28:01",
+            "scene": "大连星海湾壹号或周边高层公寓",
+            "summary": "2026年1月3日16:28，【主角】在大连星海广场附近的高层建筑内，与Person_007共同观赏黄昏下的星海湾大桥海景，【主角】正处于休憩与拍摄录像状态。",
+            "activity": "休闲观景",
+            "social_context": "与伴侣或密友结伴"
+          },
+          {
+            "timestamp": "2026-01-31T16:32:18",
+            "scene": "商场内部‘晨初韩食市场’临时摊位",
+            "summary": "2026年1月31日16:32，【主角】在一家名为“晨初韩食市场”的餐饮摊位前，记录下摊主与员工在忙碌制作韩式料理的现场工作状态。",
+            "activity": "韩式料理制作与销售",
+            "social_context": "工作环境下的即时记录"
+          }
+        ],
+        "contact_types": [
+          "no_contact",
+          "no_contact"
+        ],
+        "rela_events": [
+          {
+            "event_id": "EVT_003",
+            "date": "2026-01-02",
+            "title": "金石滩落日与酒吧夜生活",
+            "location": "户外旅游景点/室内酒吧",
+            "photo_count": 13,
+            "description": "包括金石滩海滨度假区、CAAN咖啡馆、小平岛沿海礁石区，以及大连“念Bar”。构图视角以记录景观和人物互动为主，部分照片显示了人群聚集的场景和酒吧内的创意饮品。多张照片（如photo_025, photo_031）捕捉到用户与他人的近距离互动，但没有用户作为主要被拍摄人物的实例。",
+            "participants": [
+              "Person_001",
+              "Person_002",
+              "Person_003",
+              "Person_004",
+              "Person_005",
+              "Person_006",
+              "Person_007",
+              "隐形成员"
+            ],
+            "narrative_synthesis": "用户在大连金石滩观赏了壮丽的海上日落，并与同行朋友一同打卡圣诞装置，捕捉了游客聚集的节日氛围，结束后在酒吧体验了富有故事性的主题鸡尾酒，展现出社交活跃和对仪式感的追求。",
+            "social_dynamics": [
+              {
+                "target_id": "Person_003",
+                "interaction_type": "共同观景",
+                "social_clue": "与Person_004、Person_005一同站在圣诞树旁，目光注视装饰灯。",
+                "relation_hypothesis": "朋友/旅行同伴",
+                "confidence": 0.8
+              },
+              {
+                "target_id": "Person_004",
+                "interaction_type": "共同观景与交谈",
+                "social_clue": "站在圣诞树前，与Person_005交谈。",
+                "relation_hypothesis": "朋友/旅行同伴",
+                "confidence": 0.8
+              },
+              {
+                "target_id": "Person_005",
+                "interaction_type": "共同观景",
+                "social_clue": "手持咖啡杯，身体朝向Person_004，一同观赏圣诞装置。",
+                "relation_hypothesis": "朋友/旅行同伴",
+                "confidence": 0.8
+              },
+              {
+                "target_id": "Person_006",
+                "interaction_type": "公共空间中的陌生人",
+                "social_clue": "在CAAN咖啡馆附近独自前行，与主角保持社交距离。",
+                "relation_hypothesis": "偶遇的游客",
+                "confidence": 0.5
+              },
+              {
+                "target_id": "Person_001",
+                "interaction_type": "共同观赏日落",
+                "social_clue": "画面右下方，背对镜头观察海面，与Person_002（另一位游客）都在前景中。",
+                "relation_hypothesis": "普通游客或偶遇者",
+                "confidence": 0.6
+              },
+              {
+                "target_id": "Person_002",
+                "interaction_type": "共同观赏日落与拍照",
+                "social_clue": "画面下方中心位置，双手举起持拍照设备记录海平线。",
+                "relation_hypothesis": "普通游客或偶遇者",
+                "confidence": 0.6
+              },
+              {
+                "target_id": "Person_007",
+                "interaction_type": "共同观景/亲密同行",
+                "social_clue": "与主角并排坐在深色皮质沙发上，距离紧密，共同观赏黄昏下的星海湾大桥海景。",
+                "relation_hypothesis": "伴侣/密友",
+                "confidence": 0.9
+              },
+              {
+                "target_id": "隐形成员",
+                "interaction_type": "摄影师",
+                "social_clue": "用户（由photo_034显示其双脚，判断为画面外部的主体）与Person_007亲密同坐，共同观景，推测为Person_007拍摄。",
+                "relation_hypothesis": "亲密同伴（作为拍摄者）",
+                "confidence": 0.9
+              }
+            ]
+          },
+          {
+            "event_id": "EVT_011",
+            "date": "2026-01-31",
+            "title": "国际文化节与体育收藏品探访",
+            "location": "室内文化节/室内零售店",
+            "photo_count": 3,
+            "description": "包括望京Culturopolis国际文化生活节的乐队演出舞台、韩食市场摊位，以及体育收藏品展示空间。构图视角以舞台全景、摊位制作和商品特写为主。",
+            "participants": [
+              "Person_044",
+              "Person_045",
+              "Person_046",
+              "Person_047",
+              "Person_048",
+              "Person_049",
+              "Person_050",
+              "Person_051",
+              "Person_007",
+              "Person_052",
+              "Person_053",
+              "Person_054",
+              "Person_055",
+              "Person_056"
+            ],
+            "narrative_synthesis": "用户参与了望京Culturopolis国际文化生活节，观看了现场乐队演出和韩式料理制作，随后在一个收藏品商店记录了勒布朗·詹姆斯和斯蒂芬·库里主题的体育周边产品，展现了对多元文化、现场演出和体育消费的热情。",
+            "social_dynamics": [
+              {
+                "target_id": "Person_044",
+                "interaction_type": "共同观演",
+                "social_clue": "位于前景，侧头看向舞台方向。",
+                "relation_hypothesis": "同伴/朋友",
+                "confidence": 0.7
+              },
+              {
+                "target_id": "Person_045",
+                "interaction_type": "舞台表演者",
+                "social_clue": "站在舞台右侧，看向台下观众。",
+                "relation_hypothesis": "乐队成员",
+                "confidence": 0.8
+              },
+              {
+                "target_id": "Person_046",
+                "interaction_type": "舞台表演者",
+                "social_clue": "手持乐谱/歌单进行演唱。",
+                "relation_hypothesis": "乐队主唱",
+                "confidence": 0.9
+              },
+              {
+                "target_id": "Person_047",
+                "interaction_type": "舞台表演者",
+                "social_clue": "坐于架子鼓后，双手敲击。",
+                "relation_hypothesis": "乐队成员",
+                "confidence": 0.8
+              },
+              {
+                "target_id": "Person_048",
+                "interaction_type": "舞台表演者",
+                "social_clue": "手持麦克风进行演唱/主持。",
+                "relation_hypothesis": "乐队成员/主持人",
+                "confidence": 0.8
+              },
+              {
+                "target_id": "Person_049",
+                "interaction_type": "摊位工作者",
+                "social_clue": "操作铁铲，搅拌分装辣炒年糕。",
+                "relation_hypothesis": "餐饮工作人员",
+                "confidence": 0.8
+              },
+              {
+                "target_id": "Person_050",
+                "interaction_type": "摊位工作者",
+                "social_clue": "站在料理台后方，专注处理食材。",
+                "relation_hypothesis": "餐饮工作人员",
+                "confidence": 0.8
+              },
+              {
+                "target_id": "Person_051",
+                "interaction_type": "摊位工作者",
+                "social_clue": "站在摊位中央，观察或处理食物。",
+                "relation_hypothesis": "餐饮工作人员",
+                "confidence": 0.8
+              },
+              {
+                "target_id": "Person_007",
+                "interaction_type": "摊位工作者",
+                "social_clue": "手持长筷在煎板上操作食物。",
+                "relation_hypothesis": "餐饮工作人员",
+                "confidence": 0.8
+              }
+            ]
+          },
+          {
+            "event_id": "EVT_005",
+            "date": "2026-01-03",
+            "title": "大连城市景观与离店准备",
+            "location": "户外旅游景点/室内酒店",
+            "photo_count": 7,
+            "description": "包括海滨大桥、星海湾高层建筑，以及酒店房间和设计师民宿。构图视角以高层俯瞰、平视和自拍为主。Person_002（用户本人）在photo_104、photo_105、photo_106中作为主体出现，双手插兜，姿态自然且面对镜头或凝视远方，故判定为他拍。酒店客房的凌乱床铺和房卡则体现了个人生活状态的记录。",
+            "participants": [
+              "Person_002",
+              "Person_007",
+              "隐形成员"
+            ],
+            "narrative_synthesis": "用户结束了大连的旅行，通过自拍和他人拍摄相结合的方式记录了自己在高层建筑俯瞰大桥和海鸥飞舞的场景，展现出对城市地标的兴趣和与亲密同伴分享旅程的愿望，同时也在酒店客房记录了个人瞬间。",
+            "social_dynamics": [
+              {
+                "target_id": "Person_002",
+                "interaction_type": "被拍摄/自拍",
+                "social_clue": "多张照片中作为主体，或被隐形成员拍摄，或为自拍（photo_106）。",
+                "relation_hypothesis": "用户本人",
+                "confidence": 1.0
+              },
+              {
+                "target_id": "隐形成员",
+                "interaction_type": "摄影师",
+                "social_clue": "用户（Person_002）在photo_104、photo_105中作为被拍摄主体，双手未持拍摄设备且姿态自然。",
+                "relation_hypothesis": "亲密同伴（伴侣/密友）",
+                "confidence": 0.95
+              },
+              {
+                "target_id": "Person_007",
+                "interaction_type": "亲密同行",
+                "social_clue": "与主角一起在高层建筑内观赏黄昏海景，关系亲密。",
+                "relation_hypothesis": "伴侣/密友",
+                "confidence": 0.9
+              }
+            ]
+          }
+        ],
+        "monthly_frequency": 2.0,
+        "trend_detail": {},
+        "co_appearing_persons": [],
+        "anomalies": []
+      }
+    }
+  ],
+  "face_db": {
+    "Person_001": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-01-01T14:09:29",
+      "last_seen": "2026-01-01T14:09:29",
+      "avg_confidence": 0.6721667051315308
+    },
+    "Person_002": {
+      "name": "Primary",
+      "photo_count": 13,
+      "first_seen": "2026-01-01T16:51:03",
+      "last_seen": "2026-01-23T19:03:06",
+      "avg_confidence": 0.8576059845777658
+    },
+    "Person_003": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-01-02T16:30:03",
+      "last_seen": "2026-01-02T16:30:03",
+      "avg_confidence": 0.6595372557640076
+    },
+    "Person_004": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-01-02T16:30:03",
+      "last_seen": "2026-01-02T16:30:03",
+      "avg_confidence": 0.6548528671264648
+    },
+    "Person_005": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-01-02T16:30:03",
+      "last_seen": "2026-01-02T16:30:03",
+      "avg_confidence": 0.6426523327827454
+    },
+    "Person_006": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-01-02T16:30:17",
+      "last_seen": "2026-01-02T16:30:17",
+      "avg_confidence": 0.6541743874549866
+    },
+    "Person_007": {
+      "name": "Person",
+      "photo_count": 2,
+      "first_seen": "2026-01-03T16:28:01",
+      "last_seen": "2026-01-31T16:32:18",
+      "avg_confidence": 0.6305009722709656
+    },
+    "Person_008": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-01-05T13:59:46",
+      "last_seen": "2026-01-05T13:59:46",
+      "avg_confidence": 0.6088035702705383
+    },
+    "Person_009": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-01-10T09:55:30",
+      "last_seen": "2026-01-10T09:55:30",
+      "avg_confidence": 0.8536309003829956
+    },
+    "Person_010": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-01-10T14:16:05",
+      "last_seen": "2026-01-10T14:16:05",
+      "avg_confidence": 0.7201720476150513
+    },
+    "Person_011": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-01-10T14:21:12",
+      "last_seen": "2026-01-10T14:21:12",
+      "avg_confidence": 0.7466417551040649
+    },
+    "Person_012": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-01-10T14:38:57",
+      "last_seen": "2026-01-10T14:38:57",
+      "avg_confidence": 0.8462508320808411
+    },
+    "Person_013": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-01-10T14:38:57",
+      "last_seen": "2026-01-10T14:38:57",
+      "avg_confidence": 0.8019776344299316
+    },
+    "Person_014": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-01-10T14:38:57",
+      "last_seen": "2026-01-10T14:38:57",
+      "avg_confidence": 0.7471930980682373
+    },
+    "Person_015": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-01-11T09:20:52",
+      "last_seen": "2026-01-11T09:20:52",
+      "avg_confidence": 0.826134204864502
+    },
+    "Person_016": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-01-11T09:20:52",
+      "last_seen": "2026-01-11T09:20:52",
+      "avg_confidence": 0.7621369361877441
+    },
+    "Person_017": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-01-11T09:20:52",
+      "last_seen": "2026-01-11T09:20:52",
+      "avg_confidence": 0.7449638247489929
+    },
+    "Person_018": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-01-11T09:20:52",
+      "last_seen": "2026-01-11T09:20:52",
+      "avg_confidence": 0.691834568977356
+    },
+    "Person_019": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-01-11T09:20:52",
+      "last_seen": "2026-01-11T09:20:52",
+      "avg_confidence": 0.6396445035934448
+    },
+    "Person_020": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-01-23T18:59:23",
+      "last_seen": "2026-01-23T18:59:23",
+      "avg_confidence": 0.9232926964759827
+    },
+    "Person_021": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-01-23T18:59:23",
+      "last_seen": "2026-01-23T18:59:23",
+      "avg_confidence": 0.7164062261581421
+    },
+    "Person_022": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-01-23T18:59:23",
+      "last_seen": "2026-01-23T18:59:23",
+      "avg_confidence": 0.6800869107246399
+    },
+    "Person_023": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-01-23T18:59:23",
+      "last_seen": "2026-01-23T18:59:23",
+      "avg_confidence": 0.6241104006767273
+    },
+    "Person_024": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-01-23T19:03:06",
+      "last_seen": "2026-01-23T19:03:06",
+      "avg_confidence": 0.8308898210525513
+    },
+    "Person_025": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-01-23T19:03:06",
+      "last_seen": "2026-01-23T19:03:06",
+      "avg_confidence": 0.8016625642776489
+    },
+    "Person_026": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-01-23T19:03:06",
+      "last_seen": "2026-01-23T19:03:06",
+      "avg_confidence": 0.7879170179367065
+    },
+    "Person_027": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-01-23T19:03:06",
+      "last_seen": "2026-01-23T19:03:06",
+      "avg_confidence": 0.7773054838180542
+    },
+    "Person_028": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-01-23T19:03:06",
+      "last_seen": "2026-01-23T19:03:06",
+      "avg_confidence": 0.728759229183197
+    },
+    "Person_029": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-01-23T19:03:06",
+      "last_seen": "2026-01-23T19:03:06",
+      "avg_confidence": 0.7128159403800964
+    },
+    "Person_030": {
+      "name": "Person",
+      "photo_count": 2,
+      "first_seen": "2026-01-23T19:43:08",
+      "last_seen": "2026-01-23T19:43:09",
+      "avg_confidence": 0.8648096323013306
+    },
+    "Person_031": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-01-23T19:52:53",
+      "last_seen": "2026-01-23T19:52:53",
+      "avg_confidence": 0.8278038501739502
+    },
+    "Person_032": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-01-23T19:52:53",
+      "last_seen": "2026-01-23T19:52:53",
+      "avg_confidence": 0.827592134475708
+    },
+    "Person_033": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-01-23T19:52:53",
+      "last_seen": "2026-01-23T19:52:53",
+      "avg_confidence": 0.8075003623962402
+    },
+    "Person_034": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-01-23T19:52:53",
+      "last_seen": "2026-01-23T19:52:53",
+      "avg_confidence": 0.8036051988601685
+    },
+    "Person_035": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-01-23T19:52:53",
+      "last_seen": "2026-01-23T19:52:53",
+      "avg_confidence": 0.7697378993034363
+    },
+    "Person_036": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-01-23T19:52:53",
+      "last_seen": "2026-01-23T19:52:53",
+      "avg_confidence": 0.7694422006607056
+    },
+    "Person_037": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-01-23T19:52:53",
+      "last_seen": "2026-01-23T19:52:53",
+      "avg_confidence": 0.7604407072067261
+    },
+    "Person_038": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-01-23T19:52:53",
+      "last_seen": "2026-01-23T19:52:53",
+      "avg_confidence": 0.7440914511680603
+    },
+    "Person_039": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-01-23T19:52:53",
+      "last_seen": "2026-01-23T19:52:53",
+      "avg_confidence": 0.7128060460090637
+    },
+    "Person_040": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-01-23T19:52:53",
+      "last_seen": "2026-01-23T19:52:53",
+      "avg_confidence": 0.7039532661437988
+    },
+    "Person_041": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-01-23T19:52:53",
+      "last_seen": "2026-01-23T19:52:53",
+      "avg_confidence": 0.6604446768760681
+    },
+    "Person_042": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-01-23T19:52:53",
+      "last_seen": "2026-01-23T19:52:53",
+      "avg_confidence": 0.6213387846946716
+    },
+    "Person_043": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-01-24T15:17:28",
+      "last_seen": "2026-01-24T15:17:28",
+      "avg_confidence": 0.8295300602912903
+    },
+    "Person_044": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-01-31T16:32:05",
+      "last_seen": "2026-01-31T16:32:05",
+      "avg_confidence": 0.8375604152679443
+    },
+    "Person_045": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-01-31T16:32:05",
+      "last_seen": "2026-01-31T16:32:05",
+      "avg_confidence": 0.7769366502761841
+    },
+    "Person_046": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-01-31T16:32:05",
+      "last_seen": "2026-01-31T16:32:05",
+      "avg_confidence": 0.7678197622299194
+    },
+    "Person_047": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-01-31T16:32:05",
+      "last_seen": "2026-01-31T16:32:05",
+      "avg_confidence": 0.7129461765289307
+    },
+    "Person_048": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-01-31T16:32:05",
+      "last_seen": "2026-01-31T16:32:05",
+      "avg_confidence": 0.6564598679542542
+    },
+    "Person_049": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-01-31T16:32:18",
+      "last_seen": "2026-01-31T16:32:18",
+      "avg_confidence": 0.8888164758682251
+    },
+    "Person_050": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-01-31T16:32:18",
+      "last_seen": "2026-01-31T16:32:18",
+      "avg_confidence": 0.8184182643890381
+    },
+    "Person_051": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-01-31T16:32:18",
+      "last_seen": "2026-01-31T16:32:18",
+      "avg_confidence": 0.6985765099525452
+    },
+    "Person_052": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-01-31T16:51:04",
+      "last_seen": "2026-01-31T16:51:04",
+      "avg_confidence": 0.6022688150405884
+    },
+    "Person_053": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-01-31T16:51:19",
+      "last_seen": "2026-01-31T16:51:19",
+      "avg_confidence": 0.8314827382564545
+    },
+    "Person_054": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-01-31T16:51:19",
+      "last_seen": "2026-01-31T16:51:19",
+      "avg_confidence": 0.8337700963020325
+    },
+    "Person_055": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-01-31T16:51:19",
+      "last_seen": "2026-01-31T16:51:19",
+      "avg_confidence": 0.6896406412124634
+    },
+    "Person_056": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-01-31T16:51:19",
+      "last_seen": "2026-01-31T16:51:19",
+      "avg_confidence": 0.6797385215759277
+    },
+    "Person_057": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-02-05T19:49:06",
+      "last_seen": "2026-02-05T19:49:06",
+      "avg_confidence": 0.8059020638465881
+    },
+    "Person_058": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-02-22T15:09:10",
+      "last_seen": "2026-02-22T15:09:10",
+      "avg_confidence": 0.8495998978614807
+    },
+    "Person_059": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-02-22T15:55:48",
+      "last_seen": "2026-02-22T15:55:48",
+      "avg_confidence": 0.654562771320343
+    },
+    "Person_060": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T13:49:49",
+      "last_seen": "2026-03-11T13:49:49",
+      "avg_confidence": 0.8151957392692566
+    },
+    "Person_061": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T13:50:08",
+      "last_seen": "2026-03-11T13:50:08",
+      "avg_confidence": 0.8729957938194275
+    }
+  }
+}

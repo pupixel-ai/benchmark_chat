@@ -1,0 +1,524 @@
+{
+  "metadata": {
+    "generated_at": "2026-03-20T15:32:40.394824",
+    "version": "2.0",
+    "total_events": 8,
+    "total_relationships": 0,
+    "models": {
+      "vlm": "google/gemini-3.1-flash-lite-preview",
+      "llm": "google/gemini-2.5-flash",
+      "face": "InsightFace/buffalo_l"
+    }
+  },
+  "events": [
+    {
+      "event_id": "EVT_001",
+      "date": "2022-12-20",
+      "time_range": "17:22:03 - 17:24:08",
+      "duration": "",
+      "title": "老旧城区环境考察与路径记录",
+      "type": "其他",
+      "participants": [
+        "主角",
+        "Person_001 (匿名行人)"
+      ],
+      "location": "城市户外 - 老旧住宅区",
+      "description": "2022年12月20日17:22至17:24，阴天微光，【主角】在安徽宣城至芜湖的老旧住宅区巷道内，手持手机（自拍视角）对巷道进行了多角度拍摄，并使用红色箭头标记了纵深路径。场景中：老旧水泥地面裂痕严重、狭长巷道、污损老化建筑外立面、凌乱电线管路、远处高层公寓楼背景、蓝色遮阳棚、停放的载货三轮车、入户防盗铁门、蓝色卷帘门、单元楼入口处停放的蓝色电动车。Person_001（背影）出现在巷道中前行。",
+      "photo_count": 4,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "记录欲强",
+          "注重细节",
+          "观察力敏锐",
+          "独立行动"
+        ],
+        "aesthetic": [
+          "纪实风格",
+          "偏爱旧物/怀旧感"
+        ],
+        "socioeconomic": [
+          "关注社会现象（城市发展、拆迁、底层生活）"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_002",
+      "date": "2025-09-11",
+      "time_range": "09:46:30 - 16:14:24",
+      "duration": "",
+      "title": "工科专业学习与3D打印实践",
+      "type": "其他",
+      "participants": [
+        "主角",
+        "Person_020 (教师)"
+      ],
+      "location": "高校教室/实验室/办公室/私人工作室",
+      "description": "2025年9月至11月间，【主角】在高校教室、实验室及个人工作室等室内环境中，频繁接触机械工程、自动化控制、3D打印等专业内容。包括：拍摄学习通签到界面、信号与系统频谱分析课件、CAD建模实验报告、3D打印机切片软件界面、战斗机模型3D打印过程与成品、机床数控系统调试、PLC控制实验布线、机械设计课程内容、专利技术文档查阅、以及自动化实训台操作。Person_020（教师）在安徽科技学院讲授数控技术。",
+      "photo_count": 27,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "学习能力强",
+          "技术导向",
+          "求知欲强",
+          "实践能力强",
+          "自主学习",
+          "严谨细致"
+        ],
+        "aesthetic": [
+          "工整有序",
+          "关注技术细节"
+        ],
+        "socioeconomic": [
+          "理工科专业学生/工程师",
+          "中上层技术精英趋势"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_003",
+      "date": "2025-10-02",
+      "time_range": "14:09:39 - 12:10:54",
+      "duration": "",
+      "title": "国庆美食之旅与社会事件记录",
+      "type": "其他",
+      "participants": [
+        "主角",
+        "Person_001 (投诉者/店员/朋友)",
+        "Person_002",
+        "Person_003",
+        "Person_004",
+        "Person_005",
+        "Person_006",
+        "Person_007",
+        "Person_008",
+        "Person_009",
+        "Person_011",
+        "Person_012",
+        "Person_013",
+        "Person_014",
+        "Person_015",
+        "Person_016",
+        "Person_017",
+        "Person_018",
+        "Person_019"
+      ],
+      "location": "城市户外 - 街头小吃摊位/公共场所/文创街区/糖水铺",
+      "description": "2025年10月2日至3日，国庆假期期间，【主角】在景德镇和九江进行旅行。记录了：在户外公共区域，Person_001情绪激动地展示江西省检验检疫报告（维权事件）；在街头“回头客鸡柳鸡排”摊位前排队，Person_002-Person_009等多人在场；在景德镇美食街拍摄炸鸡柳摊位，Person_003-Person_017等人围观；在景德镇户外与Person_001、Person_002分享零食，手持已咬过的酥饼；在商业街区品尝炸鸡，Person_018在旁；在景德镇夜市购物，手持国旗与史努比纸袋，Person_019（摊位主）在场，挑选发饰、珠串；在茶颜悦色取青花瓷主题茶饮，Person_001（店员）在服务。次日，在九江与Person_001一起手持余记港式糖水铺甜品，展示购买。",
+      "photo_count": 13,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "好奇心强",
+          "乐于尝试（美食）",
+          "关注社会事件",
+          "记录欲强",
+          "享受慢节奏生活",
+          "注重消费体验"
+        ],
+        "aesthetic": [
+          "喜欢网红打卡地",
+          "关注细节（商品包装、食物造型）"
+        ],
+        "socioeconomic": [
+          "消费能力中等偏上（旅游消费、网红美食）",
+          "假期旅游爱好者"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_004",
+      "date": "2025-10-03",
+      "time_range": "16:17:01 - 18:03:51",
+      "duration": "",
+      "title": "万达广场用餐与日常事务",
+      "type": "其他",
+      "participants": [
+        "主角",
+        "Person_001 (同行路人/朋友)",
+        "流浪猫"
+      ],
+      "location": "商业街/万达广场/户外路面/社区面包店",
+      "description": "2025年10月3日至7日，【主角】在九江和安徽泾县一带活动。包括：在九江商业街区跟随Person_001（女性）行走，她背着黄色网兜背包；在九江万达广场排队等候“浔上鲜·口味馆”，手持号票，票上显示与一人小桌；在户外路面与流浪猫互动，抚摸其背，并拍摄其离开的背影；在泾县的社区面包店选购面包。",
+      "photo_count": 7,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "有耐心（排队）",
+          "生活节奏较快",
+          "关注民生",
+          "有爱心（对小动物）",
+          "注重性价比（社区面包店）"
+        ],
+        "aesthetic": [
+          "生活化场景偏好"
+        ],
+        "socioeconomic": [
+          "中等收入",
+          "日常消费者"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_005",
+      "date": "2025-11-01",
+      "time_range": "20:04:30 - 22:24:20",
+      "duration": "",
+      "title": "潮玩盲盒与亚文化探索",
+      "type": "其他",
+      "participants": [
+        "主角",
+        "Person_001 (女性朋友/同伴)"
+      ],
+      "location": "室内停车场/城市街道/个人居住空间",
+      "description": "2025年11月1日晚，【主角】在户外夜间停车场拍摄Person_001（女性，穿白色蓬松裙装）步入或离开车辆；随后在镇江丹徒区，【主角】跟随Person_001（女性，穿Lolita风格服饰）行走于城市夜间道路；最后在室内，【主角】与Person_001（女性，戴蕾丝装饰）共同手持毛绒盲盒玩偶进行展示，包括粉色挂件、黄色和深褐色玩偶，并拍摄了三个玩偶的合照。",
+      "photo_count": 5,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "对新事物保持热情",
+          "分享欲强",
+          "注重圈层社交",
+          "热衷收集（盲盒）",
+          "行动力强"
+        ],
+        "aesthetic": [
+          "喜爱动漫/亚文化",
+          "偏爱可爱风格",
+          "关注流行趋势",
+          "注重仪式感"
+        ],
+        "socioeconomic": [
+          "年轻群体",
+          "具备一定消费能力（盲盒/Lolita）"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_006",
+      "date": "2025-10-18",
+      "time_range": "20:01:46 - 14:59:18",
+      "duration": "",
+      "title": "3D打印与精密制造实践",
+      "type": "其他",
+      "participants": [
+        "主角"
+      ],
+      "location": "室内工作室/实验室/书房",
+      "description": "2025年10月至2026年1月，【主角】在室内环境下频繁进行与3D打印、精密制造相关的活动。包括：拍摄圆柱形塑料教具和玩偶；手持手机查看校园社团名单；在实验室学习电涡流传感器实验材料和安装示意图；在室内操作专业建模/切片软件，对战斗机模型进行缩放和参数调整；拍摄3D打印中的战斗机模型及其成品；在工厂车间调试华中数控系统机床参数；拍摄PLA+打印耗材卷、黑色金属尖嘴钳和3D打印件残件；特写带有网格纹理的工业产品表面、白色涂层边缘的灰色物体、以及带有Warning标识的保温杯；拍摄打印机热敏打印头及损坏的黑色塑料接口元器件。此外，还拍摄了书桌或学习环境。",
+      "photo_count": 14,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "解决问题导向",
+          "动手能力强",
+          "专注",
+          "细致",
+          "探索欲强",
+          "有技术追求"
+        ],
+        "aesthetic": [
+          "工业设计偏好",
+          "注重产品细节与质感",
+          "作品展示欲",
+          "机械美学"
+        ],
+        "socioeconomic": [
+          "创客/工程师",
+          "具备一定消费能力购买专业设备和材料",
+          "对科技前沿保持敏感"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_007",
+      "date": "2026-02-10",
+      "time_range": "16:57:04 - 13:54:11",
+      "duration": "",
+      "title": "职场发展与技能提升",
+      "type": "其他",
+      "participants": [
+        "主角",
+        "Person_021 (哪吒动画角色)",
+        "Person_022 (哪吒动画角色)"
+      ],
+      "location": "办公环境/快餐店/室内商业综合体/住所",
+      "description": "2026年2月中下旬，【主角】在室内环境下，围绕工作与日常消费展开活动。包括：拍摄排班管理表（包含多位员工姓名和职位，有手写修改痕迹）；在芜湖某商业空间摄录亮黄色冰淇淋两次；在办公室内储物间拍摄肯德基外送餐点和快递纸箱；在餐饮店拍摄印有《哪吒之魔童降世》角色图案的包装纸，并手持一次性手套，随后拍摄炸鸡块和烤鸡翅；在凌晨时分将剩余的红油泡椒类食物及外卖餐盒丢弃至垃圾桶；手持装有炸鸡块和蛋挞的快餐纸盒。最后，拍摄《考勤汇总表》，文档显示为2026年2月24日导出。",
+      "photo_count": 8,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "工作认真负责",
+          "注重细节",
+          "适应能力强",
+          "生活节奏较快",
+          "独立解决问题"
+        ],
+        "aesthetic": [
+          "快餐文化接受度高",
+          "对甜食有偏好"
+        ],
+        "socioeconomic": [
+          "基层管理者/职员 (服务业属性)",
+          "注重效率",
+          "有加班习惯",
+          "中等收入"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_008",
+      "date": "2026-03-11",
+      "time_range": "12:42:21 - 12:45:44",
+      "duration": "",
+      "title": "专业学习、多元兴趣与社交生活",
+      "type": "其他",
+      "participants": [
+        "主角",
+        "Person_001 (潮玩DIY背景人物/电梯内朋友/街头背景人物)",
+        "Person_023 (电梯内朋友)",
+        "Person_unknown_01 (电梯内朋友)"
+      ],
+      "location": "工作室/实验室/教室/快递驿站/街头/数字界面",
+      "description": "2026年3月11日中午，【主角】在不同场景中进行了多项活动。包括：在工作室拍摄黄色3D打印容器模型、八卦太极挂件；在快递驿站拆快递；在工业自动化实验室记录装配生产线模型；查看支付宝“扫码领红包”页面；在电脑上进行MATLAB数据分析；拆开快递，内含水果和电子产品配件；拍摄红色马形陶瓷摆件和皮卡丘手办；查看3D打印机控制面板；拍摄损坏的USB数据线；学习机械设计教材。此外，在潮玩DIY工作室拍摄完成的Hello Kitty涂鸦玩偶，背景中Person_001（男性）坐在工位上；在移动设备上操作信息服务投诉平台，内容涉及TikTok账号实名认证纠纷；在教学楼记录CAD几何变换作业题目、安徽科技学院教务系统、课程表；分享支付宝红包活动结算信息；展示共青团安徽科技学院委员会颁发的聘书，被聘人是张威洋，职位是工业设计科技创新协会副会长；查看校园运动App；拍摄数控机床CNC加工参数表；手持麦当劳薯饼袋，袋内各放一只幼猫；在电梯内通过镜像拍摄Person_023及其自身（Person_001），Person_023头部略仰，Person_001（持手机）戴眼镜，穿AJ T恤；拍摄手机屏幕中“也鸟”提供的校园灰产服务清单；拍摄3D打印章鱼模型；拍摄重口味外卖；拍摄盒装“椒麻大杂烩”食品；手机微信账号封禁提示；在零售店手持苹果造型陶瓷碗；在街头观察哈啰共享电动车，背景有Person_001（女性）行走；在电脑上查看“马小学习平台”设备绑定教程。",
+      "photo_count": 27,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "学习能力强",
+          "好奇心旺盛",
+          "热爱生活",
+          "善于利用数字化工具",
+          "热衷于探索与实践",
+          "注重分享",
+          "关注自我权益（投诉）",
+          "兴趣广泛（游戏、潮玩、3D打印）"
+        ],
+        "aesthetic": [
+          "喜爱潮玩/动漫文化",
+          "注重物品细节",
+          "对工业设计有审美",
+          "偏爱简洁风格"
+        ],
+        "socioeconomic": [
+          "大学生群体 (安徽科技学院)",
+          "具备一定消费能力购买潮玩、游戏道具",
+          "关注互联网信息和趋势",
+          "具有社会责任感（维权）"
+        ]
+      }
+    }
+  ],
+  "relationships": [],
+  "face_db": {
+    "Person_001": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2025-10-02T14:09:39",
+      "last_seen": "2025-10-02T14:09:39",
+      "avg_confidence": 0.8040451407432556
+    },
+    "Person_002": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2025-10-02T14:18:18",
+      "last_seen": "2025-10-02T14:18:18",
+      "avg_confidence": 0.9032644033432007
+    },
+    "Person_003": {
+      "name": "Person",
+      "photo_count": 2,
+      "first_seen": "2025-10-02T14:18:18",
+      "last_seen": "2025-10-02T14:18:20",
+      "avg_confidence": 0.797468900680542
+    },
+    "Person_004": {
+      "name": "Person",
+      "photo_count": 2,
+      "first_seen": "2025-10-02T14:18:18",
+      "last_seen": "2025-10-02T14:18:20",
+      "avg_confidence": 0.726409912109375
+    },
+    "Person_005": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2025-10-02T14:18:18",
+      "last_seen": "2025-10-02T14:18:18",
+      "avg_confidence": 0.7827248573303223
+    },
+    "Person_006": {
+      "name": "Person",
+      "photo_count": 2,
+      "first_seen": "2025-10-02T14:18:18",
+      "last_seen": "2025-10-02T14:18:20",
+      "avg_confidence": 0.7183905839920044
+    },
+    "Person_007": {
+      "name": "Person",
+      "photo_count": 2,
+      "first_seen": "2025-10-02T14:18:18",
+      "last_seen": "2025-10-02T14:18:20",
+      "avg_confidence": 0.827162504196167
+    },
+    "Person_008": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2025-10-02T14:18:18",
+      "last_seen": "2025-10-02T14:18:18",
+      "avg_confidence": 0.6310023665428162
+    },
+    "Person_009": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2025-10-02T14:18:18",
+      "last_seen": "2025-10-02T14:18:18",
+      "avg_confidence": 0.6072374582290649
+    },
+    "Person_010": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2025-10-02T14:18:20",
+      "last_seen": "2025-10-02T14:18:20",
+      "avg_confidence": 0.8946605920791626
+    },
+    "Person_011": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2025-10-02T14:18:20",
+      "last_seen": "2025-10-02T14:18:20",
+      "avg_confidence": 0.8531218767166138
+    },
+    "Person_012": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2025-10-02T14:18:20",
+      "last_seen": "2025-10-02T14:18:20",
+      "avg_confidence": 0.7921169996261597
+    },
+    "Person_013": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2025-10-02T14:18:20",
+      "last_seen": "2025-10-02T14:18:20",
+      "avg_confidence": 0.7629854083061218
+    },
+    "Person_014": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2025-10-02T14:18:20",
+      "last_seen": "2025-10-02T14:18:20",
+      "avg_confidence": 0.7165437936782837
+    },
+    "Person_015": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2025-10-02T14:18:20",
+      "last_seen": "2025-10-02T14:18:20",
+      "avg_confidence": 0.6841580867767334
+    },
+    "Person_016": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2025-10-02T14:18:20",
+      "last_seen": "2025-10-02T14:18:20",
+      "avg_confidence": 0.6753502488136292
+    },
+    "Person_017": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2025-10-02T14:18:20",
+      "last_seen": "2025-10-02T14:18:20",
+      "avg_confidence": 0.6751987934112549
+    },
+    "Person_018": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2025-10-02T14:19:33",
+      "last_seen": "2025-10-02T14:19:33",
+      "avg_confidence": 0.7834061980247498
+    },
+    "Person_019": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2025-10-02T18:10:01",
+      "last_seen": "2025-10-02T18:10:01",
+      "avg_confidence": 0.875503420829773
+    },
+    "Person_020": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2025-11-03T11:30:47",
+      "last_seen": "2025-11-03T11:30:47",
+      "avg_confidence": 0.7660609483718872
+    },
+    "Person_021": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-02-20T21:19:35",
+      "last_seen": "2026-02-20T21:19:35",
+      "avg_confidence": 0.7102748155593872
+    },
+    "Person_022": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-02-20T21:19:35",
+      "last_seen": "2026-02-20T21:19:35",
+      "avg_confidence": 0.6086640357971191
+    },
+    "Person_023": {
+      "name": "Person",
+      "photo_count": 2,
+      "first_seen": "2026-03-11T12:44:23",
+      "last_seen": "2026-03-11T12:44:23",
+      "avg_confidence": 0.7383778989315033
+    },
+    "Person_024": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T12:45:37",
+      "last_seen": "2026-03-11T12:45:37",
+      "avg_confidence": 0.6496407985687256
+    }
+  }
+}

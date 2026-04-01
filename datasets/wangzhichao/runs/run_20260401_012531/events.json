@@ -1,0 +1,1471 @@
+[
+  {
+    "event_id": "EVT_001",
+    "date": "2023-10-27",
+    "time_range": "21:02 - 20:46",
+    "duration": "",
+    "title": "校园舞台剧与民族歌舞汇演记录",
+    "type": "其他",
+    "participants": [
+      "Person_018",
+      "Person_019",
+      "Person_016",
+      "Person_022",
+      "Person_024",
+      "Person_023",
+      "Person_021",
+      "Person_001",
+      "Person_002",
+      "Person_003",
+      "Person_004",
+      "Person_005",
+      "Person_007",
+      "Person_008",
+      "Person_009",
+      "Person_006",
+      "Person_014",
+      "Person_010",
+      "Person_013",
+      "Person_012",
+      "Person_011",
+      "Person_017",
+      "Person_015",
+      "Person_025",
+      "Person_026",
+      "Person_027",
+      "Person_028",
+      "Person_051",
+      "Person_052",
+      "Person_053",
+      "Person_054",
+      "Person_055",
+      "Person_056",
+      "Person_057",
+      "Person_058",
+      "Person_062",
+      "Person_063",
+      "Person_061",
+      "Person_059",
+      "Person_060",
+      "Person_067",
+      "Person_066",
+      "Person_069",
+      "Person_068",
+      "Person_070",
+      "Person_071",
+      "Person_072",
+      "Person_073",
+      "Person_074",
+      "Person_075",
+      "Person_080",
+      "Person_081",
+      "Person_079",
+      "Person_082",
+      "Person_078",
+      "Person_077",
+      "Person_076",
+      "Person_083",
+      "Person_084",
+      "Person_085",
+      "Person_086",
+      "Person_087",
+      "Person_088",
+      "Person_089",
+      "Person_090"
+    ],
+    "location": "职业办公/公共街区（高校/剧场）",
+    "description": "2023年10月27日晚间，用户在大学剧场观众席，以多种视角（平视、仰视、鹰眼抓拍）记录了多场舞台表演。内容包括民国题材话剧、迷彩军训主题情景剧及具有中日双语字幕的沉浸式戏剧表演。人物包括身着迷彩军训服的学生、民国长衫袍褂的演员、以及进行朗诵和多媒体互动的表演者。2025年12月5日晚间，用户再次在专业剧场，记录了一场宏大且融合了民族乐器演奏、舞蹈和婚庆主题元素的民族歌舞剧，舞台中央有身着华丽红色民族礼服的身影，伴舞群演动作高密。",
+    "photo_count": 19,
+    "confidence": 0.5,
+    "reason": "",
+    "narrative": "",
+    "narrative_synthesis": "",
+    "meta_info": {
+      "raw_participants": [
+        "Person_018",
+        "Person_019",
+        "Person_016",
+        "Person_022",
+        "Person_024",
+        "Person_023",
+        "Person_021",
+        "Person_001",
+        "Person_002",
+        "Person_003",
+        "Person_004",
+        "Person_005",
+        "Person_007",
+        "Person_008",
+        "Person_009",
+        "Person_006",
+        "Person_014",
+        "Person_010",
+        "Person_013",
+        "Person_012",
+        "Person_011",
+        "Person_017",
+        "Person_015",
+        "Person_025",
+        "Person_026",
+        "Person_027",
+        "Person_028",
+        "Person_051",
+        "Person_052",
+        "Person_053",
+        "Person_054",
+        "Person_055",
+        "Person_056",
+        "Person_057",
+        "Person_058",
+        "Person_062",
+        "Person_063",
+        "Person_061",
+        "Person_059",
+        "Person_060",
+        "Person_067",
+        "Person_066",
+        "Person_069",
+        "Person_068",
+        "Person_070",
+        "Stage_Partner_Actress",
+        "Person_071",
+        "Person_072",
+        "Person_073",
+        "Person_074",
+        "Person_075",
+        "Person_080",
+        "Person_081",
+        "Person_079",
+        "Person_082",
+        "Person_078",
+        "Person_077",
+        "Person_076",
+        "Person_083",
+        "Person_084",
+        "Person_085",
+        "Person_086",
+        "Person_087",
+        "Person_088",
+        "Person_089",
+        "Person_090"
+      ],
+      "started_at": "2023-10-27T21:02",
+      "ended_at": "2023-10-27T20:46"
+    },
+    "objective_fact": {
+      "raw_participants": [
+        "Person_018",
+        "Person_019",
+        "Person_016",
+        "Person_022",
+        "Person_024",
+        "Person_023",
+        "Person_021",
+        "Person_001",
+        "Person_002",
+        "Person_003",
+        "Person_004",
+        "Person_005",
+        "Person_007",
+        "Person_008",
+        "Person_009",
+        "Person_006",
+        "Person_014",
+        "Person_010",
+        "Person_013",
+        "Person_012",
+        "Person_011",
+        "Person_017",
+        "Person_015",
+        "Person_025",
+        "Person_026",
+        "Person_027",
+        "Person_028",
+        "Person_051",
+        "Person_052",
+        "Person_053",
+        "Person_054",
+        "Person_055",
+        "Person_056",
+        "Person_057",
+        "Person_058",
+        "Person_062",
+        "Person_063",
+        "Person_061",
+        "Person_059",
+        "Person_060",
+        "Person_067",
+        "Person_066",
+        "Person_069",
+        "Person_068",
+        "Person_070",
+        "Stage_Partner_Actress",
+        "Person_071",
+        "Person_072",
+        "Person_073",
+        "Person_074",
+        "Person_075",
+        "Person_080",
+        "Person_081",
+        "Person_079",
+        "Person_082",
+        "Person_078",
+        "Person_077",
+        "Person_076",
+        "Person_083",
+        "Person_084",
+        "Person_085",
+        "Person_086",
+        "Person_087",
+        "Person_088",
+        "Person_089",
+        "Person_090"
+      ],
+      "participants": [
+        "Person_018",
+        "Person_019",
+        "Person_016",
+        "Person_022",
+        "Person_024",
+        "Person_023",
+        "Person_021",
+        "Person_001",
+        "Person_002",
+        "Person_003",
+        "Person_004",
+        "Person_005",
+        "Person_007",
+        "Person_008",
+        "Person_009",
+        "Person_006",
+        "Person_014",
+        "Person_010",
+        "Person_013",
+        "Person_012",
+        "Person_011",
+        "Person_017",
+        "Person_015",
+        "Person_025",
+        "Person_026",
+        "Person_027",
+        "Person_028",
+        "Person_051",
+        "Person_052",
+        "Person_053",
+        "Person_054",
+        "Person_055",
+        "Person_056",
+        "Person_057",
+        "Person_058",
+        "Person_062",
+        "Person_063",
+        "Person_061",
+        "Person_059",
+        "Person_060",
+        "Person_067",
+        "Person_066",
+        "Person_069",
+        "Person_068",
+        "Person_070",
+        "Person_071",
+        "Person_072",
+        "Person_073",
+        "Person_074",
+        "Person_075",
+        "Person_080",
+        "Person_081",
+        "Person_079",
+        "Person_082",
+        "Person_078",
+        "Person_077",
+        "Person_076",
+        "Person_083",
+        "Person_084",
+        "Person_085",
+        "Person_086",
+        "Person_087",
+        "Person_088",
+        "Person_089",
+        "Person_090"
+      ],
+      "place_refs": [
+        "职业办公/公共街区（高校/剧场）"
+      ]
+    },
+    "social_interaction": {},
+    "social_dynamics": [],
+    "lifestyle_tags": [],
+    "tags": [],
+    "social_slices": [],
+    "persona_evidence": {
+      "behavioral": [
+        "关注校园文化活动",
+        "对舞台艺术感兴趣",
+        "具备学术或社团背景"
+      ],
+      "aesthetic": [
+        "欣赏传统文化与民族艺术",
+        "注重细节记录，如字幕、服装"
+      ],
+      "socioeconomic": []
+    }
+  },
+  {
+    "event_id": "EVT_002",
+    "date": "2025-08-28",
+    "time_range": "11:08 - 15:45",
+    "duration": "",
+    "title": "小镇市井生活观察",
+    "type": "其他",
+    "participants": [
+      "Person_029",
+      "Person_030",
+      "Person_031",
+      "Person_032",
+      "Person_033",
+      "Person_034",
+      "Person_035"
+    ],
+    "location": "都市户外/公共街区（城镇）",
+    "description": "2025年8月28日中午，用户在“春香鲜果超市”外记录了街边商铺，并看到“蜜雪冰城”等连锁店。次日午后，在学校放学人流中观察到青少年在街上行走，以及一名男性驾驶蓝色三轮摩托车经过。拍摄地点具有典型的县域商业和生活化场景。",
+    "photo_count": 4,
+    "confidence": 0.5,
+    "reason": "",
+    "narrative": "",
+    "narrative_synthesis": "",
+    "meta_info": {
+      "raw_participants": [
+        "Person_029",
+        "Person_030",
+        "Person_031",
+        "Person_032",
+        "Person_033",
+        "Person_034",
+        "Person_035"
+      ],
+      "started_at": "2025-08-28T11:08",
+      "ended_at": "2025-08-28T15:45"
+    },
+    "objective_fact": {
+      "raw_participants": [
+        "Person_029",
+        "Person_030",
+        "Person_031",
+        "Person_032",
+        "Person_033",
+        "Person_034",
+        "Person_035"
+      ],
+      "participants": [
+        "Person_029",
+        "Person_030",
+        "Person_031",
+        "Person_032",
+        "Person_033",
+        "Person_034",
+        "Person_035"
+      ],
+      "place_refs": [
+        "都市户外/公共街区（城镇）"
+      ]
+    },
+    "social_interaction": {},
+    "social_dynamics": [],
+    "lifestyle_tags": [],
+    "tags": [],
+    "social_slices": [],
+    "persona_evidence": {
+      "behavioral": [
+        "喜欢观察市井生活",
+        "关注环境细节"
+      ],
+      "aesthetic": [
+        "对地方特色商业风格有感知"
+      ],
+      "socioeconomic": [
+        "生活在非一线城市或城镇社区"
+      ]
+    }
+  },
+  {
+    "event_id": "EVT_003",
+    "date": "2025-08-30",
+    "time_range": "05:36 - 22:13",
+    "duration": "",
+    "title": "旅途风光与工业景观记录",
+    "type": "其他",
+    "participants": [
+      "Person_036"
+    ],
+    "location": "都市户外/环境景观",
+    "description": "2025年8月30日清晨，用户在移动车辆上拍摄乡村晨景，包括炊烟弥漫的红瓦房和山丘。之后在户外路边拍摄了工业设施和积雨云。当天夜间，用户在火车站台拍摄了硬卧车厢的细节，包括车厢编号和警示语，以及乘客上车检票的场景。",
+    "photo_count": 5,
+    "confidence": 0.5,
+    "reason": "",
+    "narrative": "",
+    "narrative_synthesis": "",
+    "meta_info": {
+      "raw_participants": [
+        "Person_036",
+        "Unlabeled_001",
+        "Unlabeled_002"
+      ],
+      "started_at": "2025-08-30T05:36",
+      "ended_at": "2025-08-30T22:13"
+    },
+    "objective_fact": {
+      "raw_participants": [
+        "Person_036",
+        "Unlabeled_001",
+        "Unlabeled_002"
+      ],
+      "participants": [
+        "Person_036"
+      ],
+      "place_refs": [
+        "都市户外/环境景观"
+      ]
+    },
+    "social_interaction": {},
+    "social_dynamics": [],
+    "lifestyle_tags": [],
+    "tags": [],
+    "social_slices": [],
+    "persona_evidence": {
+      "behavioral": [
+        "喜欢记录旅途中的自然与工业景观",
+        "对细节敏感"
+      ],
+      "aesthetic": [
+        "欣赏乡村宁静，也关注工业设施的结构美"
+      ],
+      "socioeconomic": [
+        "有长途火车旅行习惯"
+      ]
+    }
+  },
+  {
+    "event_id": "EVT_004",
+    "date": "2025-08-31",
+    "time_range": "12:33 - 23:48",
+    "duration": "",
+    "title": "长途火车出行与深夜购物",
+    "type": "其他",
+    "participants": [
+      "Person_001",
+      "Person_002",
+      "Person_003"
+    ],
+    "location": "都市户外/私密居家（火车站/校园超市/居所）",
+    "description": "2025年8月31日，用户在铁路沿线拍摄了农田与输电铁塔景观。随后在火车站台拍摄Z69次列车信息和站台环境，即将前往乌鲁木齐。当晚深夜，用户在“永年·新生活·校园超市”外拍摄关门后的超市，并在家中拍摄了刚采购的大量瓶装饮料。",
+    "photo_count": 7,
+    "confidence": 0.5,
+    "reason": "",
+    "narrative": "",
+    "narrative_synthesis": "",
+    "meta_info": {
+      "raw_participants": [
+        "Person_001",
+        "Person_002",
+        "Person_003"
+      ],
+      "started_at": "2025-08-31T12:33",
+      "ended_at": "2025-08-31T23:48"
+    },
+    "objective_fact": {
+      "raw_participants": [
+        "Person_001",
+        "Person_002",
+        "Person_003"
+      ],
+      "participants": [
+        "Person_001",
+        "Person_002",
+        "Person_003"
+      ],
+      "place_refs": [
+        "都市户外/私密居家（火车站/校园超市/居所）"
+      ]
+    },
+    "social_interaction": {},
+    "social_dynamics": [],
+    "lifestyle_tags": [],
+    "tags": [],
+    "social_slices": [],
+    "persona_evidence": {
+      "behavioral": [
+        "长途旅行习惯",
+        "有深夜购物/囤货习惯",
+        "关注出行信息"
+      ],
+      "aesthetic": [],
+      "socioeconomic": [
+        "学生群体，经常在校园超市消费"
+      ]
+    }
+  },
+  {
+    "event_id": "EVT_005",
+    "date": "2025-09-02",
+    "time_range": "10:51 - 17:05",
+    "duration": "",
+    "title": "办公室日常与学术探索",
+    "type": "其他",
+    "participants": [
+      "Person_037"
+    ],
+    "location": "职业办公/学习空间（办公室/图书馆）",
+    "description": "2025年9月2日，用户在办公室拍摄同事Person_037查阅文件和使用计算器工作。随后用户拍摄了一份《新疆师范大学新生教材销售单》，并记录了两本学术书籍《二十世纪初中国古文献四大发现》的封面和封底条形码。最后，在档案馆或图书馆拍摄了《小说月报》合订本的书架。",
+    "photo_count": 5,
+    "confidence": 0.5,
+    "reason": "",
+    "narrative": "",
+    "narrative_synthesis": "",
+    "meta_info": {
+      "raw_participants": [
+        "Person_037"
+      ],
+      "started_at": "2025-09-02T10:51",
+      "ended_at": "2025-09-02T17:05"
+    },
+    "objective_fact": {
+      "raw_participants": [
+        "Person_037"
+      ],
+      "participants": [
+        "Person_037"
+      ],
+      "place_refs": [
+        "职业办公/学习空间（办公室/图书馆）"
+      ]
+    },
+    "social_interaction": {},
+    "social_dynamics": [],
+    "lifestyle_tags": [],
+    "tags": [],
+    "social_slices": [],
+    "persona_evidence": {
+      "behavioral": [
+        "工作认真细致",
+        "对学术研究有兴趣",
+        "有文献查阅习惯",
+        "可能是高校教职工或研究生"
+      ],
+      "aesthetic": [
+        "注重书籍的装帧和出版信息"
+      ],
+      "socioeconomic": [
+        "具备一定的经济能力购买昂贵学术书籍"
+      ]
+    }
+  },
+  {
+    "event_id": "EVT_006",
+    "date": "2025-09-02",
+    "time_range": "20:27 - 20:27",
+    "duration": "",
+    "title": "校园建筑与景观摄影",
+    "type": "其他",
+    "participants": [],
+    "location": "都市户外/校园景观",
+    "description": "2025年9月2日傍晚，用户在户外广场拍摄夕阳下带有学院派或纪念性特征的体育建筑群。随后拍摄了具有中式建筑符号的塔楼结构，背景为橘黄色晚霞。",
+    "photo_count": 2,
+    "confidence": 0.5,
+    "reason": "",
+    "narrative": "",
+    "narrative_synthesis": "",
+    "meta_info": {
+      "started_at": "2025-09-02T20:27",
+      "ended_at": "2025-09-02T20:27"
+    },
+    "objective_fact": {
+      "participants": [],
+      "place_refs": [
+        "都市户外/校园景观"
+      ]
+    },
+    "social_interaction": {},
+    "social_dynamics": [],
+    "lifestyle_tags": [],
+    "tags": [],
+    "social_slices": [],
+    "persona_evidence": {
+      "behavioral": [
+        "喜欢在傍晚散步拍照",
+        "关注建筑美学"
+      ],
+      "aesthetic": [
+        "欣赏夕阳下的建筑轮廓",
+        "对中式建筑符号敏感"
+      ],
+      "socioeconomic": []
+    }
+  },
+  {
+    "event_id": "EVT_007",
+    "date": "2025-09-04",
+    "time_range": "13:38 - 16:02",
+    "duration": "",
+    "title": "教育课程学习与教研记录",
+    "type": "其他",
+    "participants": [
+      "Person_038",
+      "Person_039",
+      "Person_040",
+      "Person_001",
+      "Person_002",
+      "Person_003"
+    ],
+    "location": "职业办公/学习空间（教室/研讨室）",
+    "description": "2025年9月4日，用户在教室内拍摄融合教育课程幻灯片和康复医学教学内容，包括Person_038讲解和儿童平衡训练演示。次日，用户记录了《大脑深处》观影作业要求和新疆师范大学特殊教育课程进度表。随后在特殊教育班级管理讲座中，从后排拍摄前排同学（Person_001, Person_002, Person_003）和讲座PPT。",
+    "photo_count": 7,
+    "confidence": 0.5,
+    "reason": "",
+    "narrative": "",
+    "narrative_synthesis": "",
+    "meta_info": {
+      "raw_participants": [
+        "Person_038",
+        "Person_039",
+        "Person_040",
+        "Person_001",
+        "Person_002",
+        "Person_003"
+      ],
+      "started_at": "2025-09-04T13:38",
+      "ended_at": "2025-09-04T16:02"
+    },
+    "objective_fact": {
+      "raw_participants": [
+        "Person_038",
+        "Person_039",
+        "Person_040",
+        "Person_001",
+        "Person_002",
+        "Person_003"
+      ],
+      "participants": [
+        "Person_038",
+        "Person_039",
+        "Person_040",
+        "Person_001",
+        "Person_002",
+        "Person_003"
+      ],
+      "place_refs": [
+        "职业办公/学习空间（教室/研讨室）"
+      ]
+    },
+    "social_interaction": {},
+    "social_dynamics": [],
+    "lifestyle_tags": [],
+    "tags": [],
+    "social_slices": [],
+    "persona_evidence": {
+      "behavioral": [
+        "对教育事业充满热情",
+        "关注特殊教育和儿童康复",
+        "学习认真，注重记录"
+      ],
+      "aesthetic": [],
+      "socioeconomic": [
+        "可能是特教专业学生或相关领域教育工作者"
+      ]
+    }
+  },
+  {
+    "event_id": "EVT_008",
+    "date": "2025-09-05",
+    "time_range": "18:57 - 16:36",
+    "duration": "",
+    "title": "果园采摘与校园就业关注",
+    "type": "其他",
+    "participants": [
+      "Person_001"
+    ],
+    "location": "都市户外/职业办公（果园/校园）",
+    "description": "2025年9月5日傍晚，用户在新疆师范大学教学楼拍摄了2026届毕业生就业意向调查问卷的投影海报。次日午后，在果园采摘并展示红富士苹果、拍摄海棠树果实。随后将采摘的苹果装入橙色购物袋，并拍摄苹果树挂果状态。",
+    "photo_count": 7,
+    "confidence": 0.5,
+    "reason": "",
+    "narrative": "",
+    "narrative_synthesis": "",
+    "meta_info": {
+      "raw_participants": [
+        "Person_001"
+      ],
+      "started_at": "2025-09-05T18:57",
+      "ended_at": "2025-09-05T16:36"
+    },
+    "objective_fact": {
+      "raw_participants": [
+        "Person_001"
+      ],
+      "participants": [
+        "Person_001"
+      ],
+      "place_refs": [
+        "都市户外/职业办公（果园/校园）"
+      ]
+    },
+    "social_interaction": {},
+    "social_dynamics": [],
+    "lifestyle_tags": [],
+    "tags": [],
+    "social_slices": [],
+    "persona_evidence": {
+      "behavioral": [
+        "享受户外活动，亲近自然",
+        "关注学校行政事务和学生就业",
+        "具有生活记录的习惯"
+      ],
+      "aesthetic": [
+        "欣赏丰收景象，喜欢色彩鲜艳的果实"
+      ],
+      "socioeconomic": [
+        "可能是新疆师范大学的学生或相关工作人员"
+      ]
+    }
+  },
+  {
+    "event_id": "EVT_009",
+    "date": "2025-09-06",
+    "time_range": "17:10 - 22:26",
+    "duration": "",
+    "title": "城市细节记录与行政事务",
+    "type": "其他",
+    "participants": [],
+    "location": "都市户外/职业办公",
+    "description": "2025年9月6日下午，用户拍摄了一辆停放在花岗岩墙边的FENGZX山地自行车。当晚，在城市公园拍摄了立式景观灯和爬山虎覆盖的毛石墙体。次日深夜，用户拍摄了平泉市榆林子镇粮油检查站盖章的行政文书局部。",
+    "photo_count": 3,
+    "confidence": 0.5,
+    "reason": "",
+    "narrative": "",
+    "narrative_synthesis": "",
+    "meta_info": {
+      "started_at": "2025-09-06T17:10",
+      "ended_at": "2025-09-06T22:26"
+    },
+    "objective_fact": {
+      "participants": [],
+      "place_refs": [
+        "都市户外/职业办公"
+      ]
+    },
+    "social_interaction": {},
+    "social_dynamics": [],
+    "lifestyle_tags": [],
+    "tags": [],
+    "social_slices": [],
+    "persona_evidence": {
+      "behavioral": [
+        "善于观察城市细节",
+        "有行政工作或相关接触",
+        "生活规律性，深夜仍处理事务"
+      ],
+      "aesthetic": [
+        "对工业设计和自然与建筑结合有兴趣"
+      ],
+      "socioeconomic": [
+        "可能与平泉市榆林子镇相关行政机构有联系"
+      ]
+    }
+  },
+  {
+    "event_id": "EVT_010",
+    "date": "2025-09-09",
+    "time_range": "10:27 - 12:32",
+    "duration": "",
+    "title": "校园漫步与课程学习",
+    "type": "其他",
+    "participants": [
+      "Person_001",
+      "Person_002",
+      "Person_003",
+      "Person_041"
+    ],
+    "location": "都市户外/职业办公（校园）",
+    "description": "2025年9月9日上午，用户在大学校园的户外坡道区域拍摄了长木梯和浅黄色的大型公共建筑，有数名学生或教职工（Person_001, Person_002, Person_003）在台阶上行走。随后在室内教学或办公场所，拍摄了Person_041专注于观看WPS教学文档，内容是课程考核与成绩评定。",
+    "photo_count": 2,
+    "confidence": 0.5,
+    "reason": "",
+    "narrative": "",
+    "narrative_synthesis": "",
+    "meta_info": {
+      "raw_participants": [
+        "Person_001",
+        "Person_002",
+        "Person_003",
+        "Person_041"
+      ],
+      "started_at": "2025-09-09T10:27",
+      "ended_at": "2025-09-09T12:32"
+    },
+    "objective_fact": {
+      "raw_participants": [
+        "Person_001",
+        "Person_002",
+        "Person_003",
+        "Person_041"
+      ],
+      "participants": [
+        "Person_001",
+        "Person_002",
+        "Person_003",
+        "Person_041"
+      ],
+      "place_refs": [
+        "都市户外/职业办公（校园）"
+      ]
+    },
+    "social_interaction": {},
+    "social_dynamics": [],
+    "lifestyle_tags": [],
+    "tags": [],
+    "social_slices": [],
+    "persona_evidence": {
+      "behavioral": [
+        "关注校园环境",
+        "对课程考核和教学方法有深入了解",
+        "具有学术或教学背景"
+      ],
+      "aesthetic": [
+        "欣赏高校建筑风格"
+      ],
+      "socioeconomic": [
+        "与新疆师范大学教务处相关"
+      ]
+    }
+  },
+  {
+    "event_id": "EVT_011",
+    "date": "2025-09-14",
+    "time_range": "22:17 - 22:21",
+    "duration": "",
+    "title": "校园身份认同与夜间游乐",
+    "type": "其他",
+    "participants": [
+      "Person_001",
+      "Person_042"
+    ],
+    "location": "职业办公/公共街区（文印店/校园）",
+    "description": "2025年9月14日深夜，用户在文印工作室裁剪印有“新疆师范大学”和“Nanjing Normal University”校徽的圆形贴纸，Person_001专注于此。随后，用户与Person_042手持带有“师大”字样的圆牌在夜间柏油路上拍照。接着用户跟随Person_001（手持“教师”标识圆盘）在校园道路上行进。",
+    "photo_count": 4,
+    "confidence": 0.5,
+    "reason": "",
+    "narrative": "",
+    "narrative_synthesis": "",
+    "meta_info": {
+      "raw_participants": [
+        "Person_001",
+        "Person_042"
+      ],
+      "started_at": "2025-09-14T22:17",
+      "ended_at": "2025-09-14T22:21"
+    },
+    "objective_fact": {
+      "raw_participants": [
+        "Person_001",
+        "Person_042"
+      ],
+      "participants": [
+        "Person_001",
+        "Person_042"
+      ],
+      "place_refs": [
+        "职业办公/公共街区（文印店/校园）"
+      ]
+    },
+    "social_interaction": {},
+    "social_dynamics": [],
+    "lifestyle_tags": [],
+    "tags": [],
+    "social_slices": [],
+    "persona_evidence": {
+      "behavioral": [
+        "具有创意和动手能力",
+        "享受与朋友的互动",
+        "对校园有强烈归属感",
+        "情感丰富，喜欢通过具象物品表达情谊"
+      ],
+      "aesthetic": [
+        "喜欢定制化物品",
+        "有图像记录的习惯"
+      ],
+      "socioeconomic": [
+        "可能是大学学生或校友"
+      ]
+    }
+  },
+  {
+    "event_id": "EVT_012",
+    "date": "2025-10-07",
+    "time_range": "14:49 - 14:50",
+    "duration": "",
+    "title": "乌鲁木齐City Walk打卡",
+    "type": "其他",
+    "participants": [
+      "Person_043",
+      "Person_045",
+      "Person_044",
+      "Person_093"
+    ],
+    "location": "都市户外/旅游景点",
+    "description": "2025年10月7日午后，用户在乌鲁木齐“两颗糖”地标建筑前为Person_043和Person_045（他拍）以及Person_043和Person_044（他拍）拍摄纪念照，Person_043和Person_093（他拍）在另一张照片中也出镜。照片中人物穿着休闲装，做V字手势或指向地标，背景是砖墙、花卉装饰和地标Logo。另有Person_093（他拍）在同一地点留影。",
+    "photo_count": 5,
+    "confidence": 0.5,
+    "reason": "",
+    "narrative": "",
+    "narrative_synthesis": "",
+    "meta_info": {
+      "raw_participants": [
+        "Person_043",
+        "Person_045",
+        "Person_044",
+        "Person_093",
+        "隐形拍摄者 (主角)"
+      ],
+      "started_at": "2025-10-07T14:49",
+      "ended_at": "2025-10-07T14:50"
+    },
+    "objective_fact": {
+      "raw_participants": [
+        "Person_043",
+        "Person_045",
+        "Person_044",
+        "Person_093",
+        "隐形拍摄者 (主角)"
+      ],
+      "participants": [
+        "Person_043",
+        "Person_045",
+        "Person_044",
+        "Person_093"
+      ],
+      "place_refs": [
+        "都市户外/旅游景点"
+      ]
+    },
+    "social_interaction": {},
+    "social_dynamics": [],
+    "lifestyle_tags": [],
+    "tags": [],
+    "social_slices": [],
+    "persona_evidence": {
+      "behavioral": [
+        "热爱旅行，享受City Walk",
+        "喜欢打卡网红景点",
+        "注重与朋友分享生活"
+      ],
+      "aesthetic": [
+        "善于构图，捕捉旅行纪念照"
+      ],
+      "socioeconomic": [
+        "有旅游消费能力"
+      ]
+    }
+  },
+  {
+    "event_id": "EVT_013",
+    "date": "2025-10-10",
+    "time_range": "16:51 - 17:11",
+    "duration": "",
+    "title": "偶发事件管理与教育教学记录",
+    "type": "其他",
+    "participants": [],
+    "location": "职业办公/学习空间（教室/培训室）",
+    "description": "2025年10月10日，用户在会议室或教室拍摄了关于“处理偶发事件的方法”的投影内容。随后记录了“如何做偶发事件的教育记录”的模板和“培智七年级运动与保健课”的突发案例研讨。",
+    "photo_count": 3,
+    "confidence": 0.5,
+    "reason": "",
+    "narrative": "",
+    "narrative_synthesis": "",
+    "meta_info": {
+      "started_at": "2025-10-10T16:51",
+      "ended_at": "2025-10-10T17:11"
+    },
+    "objective_fact": {
+      "participants": [],
+      "place_refs": [
+        "职业办公/学习空间（教室/培训室）"
+      ]
+    },
+    "social_interaction": {},
+    "social_dynamics": [],
+    "lifestyle_tags": [],
+    "tags": [],
+    "social_slices": [],
+    "persona_evidence": {
+      "behavioral": [
+        "工作严谨认真",
+        "关注教育管理和危机处理",
+        "持续学习提升专业技能"
+      ],
+      "aesthetic": [],
+      "socioeconomic": [
+        "可能是特殊教育领域的专业人士"
+      ]
+    }
+  },
+  {
+    "event_id": "EVT_014",
+    "date": "2025-10-11",
+    "time_range": "21:50 - 21:50",
+    "duration": "",
+    "title": "校园公示信息记录",
+    "type": "其他",
+    "participants": [
+      "Person_047",
+      "Person_046",
+      "Person_049",
+      "Person_048"
+    ],
+    "location": "职业办公（校园公示栏）",
+    "description": "2025年10月11日深夜，用户在新疆师范大学校内公示栏拍摄了万远栋和虎玉飞的学生卡证件照。随后又记录了余国涛和叶雅靖的学生卡证件照。照片重点展示了学生的姓名、班级、学号和卡号。",
+    "photo_count": 2,
+    "confidence": 0.5,
+    "reason": "",
+    "narrative": "",
+    "narrative_synthesis": "",
+    "meta_info": {
+      "raw_participants": [
+        "Person_047",
+        "Person_046",
+        "Person_049",
+        "Person_048"
+      ],
+      "started_at": "2025-10-11T21:50",
+      "ended_at": "2025-10-11T21:50"
+    },
+    "objective_fact": {
+      "raw_participants": [
+        "Person_047",
+        "Person_046",
+        "Person_049",
+        "Person_048"
+      ],
+      "participants": [
+        "Person_047",
+        "Person_046",
+        "Person_049",
+        "Person_048"
+      ],
+      "place_refs": [
+        "职业办公（校园公示栏）"
+      ]
+    },
+    "social_interaction": {},
+    "social_dynamics": [],
+    "lifestyle_tags": [],
+    "tags": [],
+    "social_slices": [],
+    "persona_evidence": {
+      "behavioral": [
+        "关注校园信息",
+        "有信息核对/留存的习惯",
+        "可能承担学生管理或行政职责"
+      ],
+      "aesthetic": [],
+      "socioeconomic": [
+        "与新疆师范大学相关"
+      ]
+    }
+  },
+  {
+    "event_id": "EVT_015",
+    "date": "2025-11-18",
+    "time_range": "15:30 - 15:27",
+    "duration": "",
+    "title": "特教教案与政治学习及行政记录",
+    "type": "其他",
+    "participants": [
+      "Person_001",
+      "Person_002",
+      "Person_050"
+    ],
+    "location": "职业办公/学习空间",
+    "description": "2025年11月18日，用户在室内操作电脑编写听障儿童集体听觉训练游戏教案。两天后，在高校公共多媒体教室参与关于“三个代表”重要思想的政治理论课程，拍摄讲台屏幕内容。11月27日，用户在室内拍摄了王志超（Person_050）的中华人民共和国居民身份证原件，记录法定身份信息。",
+    "photo_count": 3,
+    "confidence": 0.5,
+    "reason": "",
+    "narrative": "",
+    "narrative_synthesis": "",
+    "meta_info": {
+      "raw_participants": [
+        "Person_001",
+        "Person_002",
+        "Person_050"
+      ],
+      "started_at": "2025-11-18T15:30",
+      "ended_at": "2025-11-18T15:27"
+    },
+    "objective_fact": {
+      "raw_participants": [
+        "Person_001",
+        "Person_002",
+        "Person_050"
+      ],
+      "participants": [
+        "Person_001",
+        "Person_002",
+        "Person_050"
+      ],
+      "place_refs": [
+        "职业办公/学习空间"
+      ]
+    },
+    "social_interaction": {},
+    "social_dynamics": [],
+    "lifestyle_tags": [],
+    "tags": [],
+    "social_slices": [],
+    "persona_evidence": {
+      "behavioral": [
+        "在特殊教育领域专业投入",
+        "关注政治理论学习",
+        "处理行政事务严谨，注重信息记录"
+      ],
+      "aesthetic": [],
+      "socioeconomic": [
+        "与特殊教育机构或高校有联系"
+      ]
+    }
+  },
+  {
+    "event_id": "EVT_016",
+    "date": "2025-12-30",
+    "time_range": "20:10 - 20:13",
+    "duration": "",
+    "title": "党建参观与红色教育",
+    "type": "其他",
+    "participants": [
+      "Person_092",
+      "Person_093",
+      "Person_094",
+      "Person_096"
+    ],
+    "location": "职业办公/学习空间（高校党建展厅）",
+    "description": "2025年12月30日晚，用户在高校走廊拍摄Person_092站在大型红色政治标语墙前。随后用户为Person_093在带有党建文化墙的办公室拍照。之后用户在历史陈列馆背景前为Person_093拍照，背景是习近平总书记2012年考察河北的图文。接着，用户再次为Person_093在“人民情怀”主题展板前拍照。最后，用户在红色教育基地为Person_092在党史相关前言展板前留影。",
+    "photo_count": 5,
+    "confidence": 0.5,
+    "reason": "",
+    "narrative": "",
+    "narrative_synthesis": "",
+    "meta_info": {
+      "raw_participants": [
+        "Person_092",
+        "Person_093",
+        "Person_094",
+        "Person_096"
+      ],
+      "started_at": "2025-12-30T20:10",
+      "ended_at": "2025-12-30T20:13"
+    },
+    "objective_fact": {
+      "raw_participants": [
+        "Person_092",
+        "Person_093",
+        "Person_094",
+        "Person_096"
+      ],
+      "participants": [
+        "Person_092",
+        "Person_093",
+        "Person_094",
+        "Person_096"
+      ],
+      "place_refs": [
+        "职业办公/学习空间（高校党建展厅）"
+      ]
+    },
+    "social_interaction": {},
+    "social_dynamics": [],
+    "lifestyle_tags": [],
+    "tags": [],
+    "social_slices": [],
+    "persona_evidence": {
+      "behavioral": [
+        "关注时政和历史教育",
+        "积极参与红色主题活动",
+        "注重通过拍照记录活动过程"
+      ],
+      "aesthetic": [],
+      "socioeconomic": [
+        "与高校或党政机构有密切联系"
+      ]
+    }
+  },
+  {
+    "event_id": "EVT_017",
+    "date": "2026-01-29",
+    "time_range": "12:07 - 16:48",
+    "duration": "",
+    "title": "居家烹饪、游戏与数字化生活",
+    "type": "其他",
+    "participants": [
+      "Person_001"
+    ],
+    "location": "私密居家/都市户外",
+    "description": "2026年1月29日中午，用户在家庭厨房俯拍正在铁锅中烹饪的土豆丝。随后，独自在室内操作电脑玩《Duty and Honor》战争模拟游戏。当晚，在手机屏幕前观看购物直播。1月31日傍晚，在城郊或乡村住宅外拍摄黑色大众帕萨特轿车尾部。",
+    "photo_count": 4,
+    "confidence": 0.5,
+    "reason": "",
+    "narrative": "",
+    "narrative_synthesis": "",
+    "meta_info": {
+      "raw_participants": [
+        "Person_001"
+      ],
+      "started_at": "2026-01-29T12:07",
+      "ended_at": "2026-01-29T16:48"
+    },
+    "objective_fact": {
+      "raw_participants": [
+        "Person_001"
+      ],
+      "participants": [
+        "Person_001"
+      ],
+      "place_refs": [
+        "私密居家/都市户外"
+      ]
+    },
+    "social_interaction": {},
+    "social_dynamics": [],
+    "lifestyle_tags": [],
+    "tags": [],
+    "social_slices": [],
+    "persona_evidence": {
+      "behavioral": [
+        "享受居家生活（烹饪、游戏、购物）",
+        "对数字化生活方式依赖程度高",
+        "有日常记录的习惯",
+        "关注家庭或朋友的私家车信息"
+      ],
+      "aesthetic": [],
+      "socioeconomic": [
+        "具有一定的消费能力（游戏、购物）"
+      ]
+    }
+  },
+  {
+    "event_id": "EVT_018",
+    "date": "2026-02-01",
+    "time_range": "09:48 - 17:53",
+    "duration": "",
+    "title": "幼童居家生活记录",
+    "type": "其他",
+    "participants": [
+      "Person_104"
+    ],
+    "location": "私密居家",
+    "description": "2026年2月1日，用户在室内卧室拍摄Person_104坐在床上专注操作平板电脑。2月11日，在平泉市住宅卧室俯拍Person_104在床铺上爬行，并平视拍摄其趴在炕上直视镜头的瞬间。次日，近距离拍摄Person_104的正面肖像。2月13日，用户在户外拍摄承德市平泉市的山脉景观，随后在平泉市工厂库房拍摄覆盖物的工业场景。当晚在室内昏暗光线下，近距离正面拍摄男童Person_104的特写。",
+    "photo_count": 6,
+    "confidence": 0.5,
+    "reason": "",
+    "narrative": "",
+    "narrative_synthesis": "",
+    "meta_info": {
+      "raw_participants": [
+        "Person_104"
+      ],
+      "started_at": "2026-02-01T09:48",
+      "ended_at": "2026-02-01T17:53"
+    },
+    "objective_fact": {
+      "raw_participants": [
+        "Person_104"
+      ],
+      "participants": [
+        "Person_104"
+      ],
+      "place_refs": [
+        "私密居家"
+      ]
+    },
+    "social_interaction": {},
+    "social_dynamics": [],
+    "lifestyle_tags": [],
+    "tags": [],
+    "social_slices": [],
+    "persona_evidence": {
+      "behavioral": [
+        "对家庭生活和幼童成长高度关注",
+        "喜欢记录生活中的温馨瞬间",
+        "珍惜与家人的相处时光"
+      ],
+      "aesthetic": [
+        "对孩子的表情和动作有细腻的捕捉力"
+      ],
+      "socioeconomic": [
+        "有家庭观念，注重亲子关系"
+      ]
+    }
+  },
+  {
+    "event_id": "EVT_019",
+    "date": "2026-02-18",
+    "time_range": "17:05 - 17:05",
+    "duration": "",
+    "title": "与友协作与共同学习",
+    "type": "其他",
+    "participants": [
+      "Person_001",
+      "Person_002",
+      "Person_105",
+      "Person_093"
+    ],
+    "location": "私密居家",
+    "description": "2026年2月18日傍晚，用户在承德市平泉市的室内卧室/起居室，与Person_001和Person_002共同俯卧在床上操作平板电脑。Person_002手持手写笔在平板上书写，Person_105侧头看向镜头，面带微笑。两人穿着一致的红色卫衣。",
+    "photo_count": 2,
+    "confidence": 0.5,
+    "reason": "",
+    "narrative": "",
+    "narrative_synthesis": "",
+    "meta_info": {
+      "raw_participants": [
+        "Person_001",
+        "Person_002",
+        "Person_105",
+        "Person_093"
+      ],
+      "started_at": "2026-02-18T17:05",
+      "ended_at": "2026-02-18T17:05"
+    },
+    "objective_fact": {
+      "raw_participants": [
+        "Person_001",
+        "Person_002",
+        "Person_105",
+        "Person_093"
+      ],
+      "participants": [
+        "Person_001",
+        "Person_002",
+        "Person_105",
+        "Person_093"
+      ],
+      "place_refs": [
+        "私密居家"
+      ]
+    },
+    "social_interaction": {},
+    "social_dynamics": [],
+    "lifestyle_tags": [],
+    "tags": [],
+    "social_slices": [],
+    "persona_evidence": {
+      "behavioral": [
+        "与朋友关系融洽，喜欢共同学习或完成任务",
+        "善于使用数字化工具进行协作",
+        "居家学习或工作氛围轻松"
+      ],
+      "aesthetic": [],
+      "socioeconomic": []
+    }
+  },
+  {
+    "event_id": "EVT_020",
+    "date": "2026-02-27",
+    "time_range": "22:17 - 15:41",
+    "duration": "",
+    "title": "中卫站与长途火车之旅",
+    "type": "其他",
+    "participants": [],
+    "location": "都市户外/交通工具",
+    "description": "2026年2月27日深夜，用户在中卫站1号站台仰视列车信息显示屏，确认Z69次列车信息。随后在站台目送或等待Z70/69次列车，记录车厢上的线路牌和机械铭牌。接着通过车窗向内观察，记录红皮火车车厢内满座乘客的状态。次日午后，在高速移动的绿皮火车旁拍摄邻近车厢的外立面，画面捕捉到列车运行时的动态模糊感，注明拍摄地点为吐鲁番。",
+    "photo_count": 4,
+    "confidence": 0.5,
+    "reason": "",
+    "narrative": "",
+    "narrative_synthesis": "",
+    "meta_info": {
+      "started_at": "2026-02-27T22:17",
+      "ended_at": "2026-02-27T15:41"
+    },
+    "objective_fact": {
+      "participants": [],
+      "place_refs": [
+        "都市户外/交通工具"
+      ]
+    },
+    "social_interaction": {},
+    "social_dynamics": [],
+    "lifestyle_tags": [],
+    "tags": [],
+    "social_slices": [],
+    "persona_evidence": {
+      "behavioral": [
+        "热爱长途铁路旅行",
+        "善于捕捉旅途中的细节（车厢铭牌、时刻表）",
+        "有记录旅途日志的习惯"
+      ],
+      "aesthetic": [
+        "对火车这种工业美学有兴趣"
+      ],
+      "socioeconomic": [
+        "具备长途旅行的时间与经济条件"
+      ]
+    }
+  },
+  {
+    "event_id": "EVT_021",
+    "date": "2026-03-11",
+    "time_range": "13:10 - 13:15",
+    "duration": "",
+    "title": "数字化生活、自我反思与旅途休憩",
+    "type": "其他",
+    "participants": [
+      "Person_093",
+      "Person_106"
+    ],
+    "location": "数字化虚拟空间/私密居家/交通工具",
+    "description": "2026年3月11日午后，用户在数字界面操作支付宝领取红包，并浏览微信消息列表，其中包含鸿蒙OS相关群和自闭症干预交流群。随后，在虚拟或艺术化背景下比心自拍。接着在“荣耀笔记”APP发布一篇关于步入2026年、反思“03年出生”成长焦虑的长文《夜不寐》。同时进行了个人人像拍摄，背景纯白。最后以自拍形式记录了Person_093和Person_106佩戴旅行颈枕在交通工具内休息的状态。",
+    "photo_count": 7,
+    "confidence": 0.5,
+    "reason": "",
+    "narrative": "",
+    "narrative_synthesis": "",
+    "meta_info": {
+      "raw_participants": [
+        "Person_093",
+        "Person_106"
+      ],
+      "started_at": "2026-03-11T13:10",
+      "ended_at": "2026-03-11T13:15"
+    },
+    "objective_fact": {
+      "raw_participants": [
+        "Person_093",
+        "Person_106"
+      ],
+      "participants": [
+        "Person_093",
+        "Person_106"
+      ],
+      "place_refs": [
+        "数字化虚拟空间/私密居家/交通工具"
+      ]
+    },
+    "social_interaction": {},
+    "social_dynamics": [],
+    "lifestyle_tags": [],
+    "tags": [],
+    "social_slices": [],
+    "persona_evidence": {
+      "behavioral": [
+        "高度依赖数字化生活",
+        "善于通过文字进行自我反思与表达",
+        "注重个人形象和旅途舒适性",
+        "关注教育、社会问题（自闭症）和科技（鸿蒙OS）"
+      ],
+      "aesthetic": [
+        "喜欢艺术化构图",
+        "注重图像细节"
+      ],
+      "socioeconomic": [
+        "03年出生，正在经历职场或人生转型期的青年"
+      ]
+    }
+  }
+]

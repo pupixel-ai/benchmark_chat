@@ -6,7 +6,7 @@ import sys
 import uuid
 from collections import defaultdict
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from config import (
     DEFAULT_TASK_VERSION,
@@ -28,9 +28,6 @@ from config import (
     FACE_STATE_PATH,
     TASK_VERSION_V0315,
     TASK_VERSION_V0317,
-    TASK_VERSION_V0317_HEAVY,
-    TASK_VERSION_V0321_2,
-    TASK_VERSION_V0321_3,
 )
 from models import Person, Photo
 from services.face_precision import (
@@ -82,13 +79,7 @@ class FaceRecognition:
         self.output_path = output_path
         self.workspace_dir = workspace_dir or os.getcwd()
         self.task_version = task_version
-        enhanced_versions = {
-            TASK_VERSION_V0315,
-            TASK_VERSION_V0317,
-            TASK_VERSION_V0317_HEAVY,
-            TASK_VERSION_V0321_2,
-            TASK_VERSION_V0321_3,
-        }
+        enhanced_versions = {TASK_VERSION_V0315, TASK_VERSION_V0317}
         self.pose_evidence_enabled = self.task_version in enhanced_versions
         self.same_photo_guard_enabled = self.task_version in enhanced_versions
 
@@ -494,13 +485,7 @@ class FaceRecognition:
         保留 face-recognition 的原生 Person_### 编号，仅计算主人物。
         """
         merge_summaries: List[Dict[str, object]] = []
-        if self.task_version in {
-            TASK_VERSION_V0315,
-            TASK_VERSION_V0317,
-            TASK_VERSION_V0317_HEAVY,
-            TASK_VERSION_V0321_2,
-            TASK_VERSION_V0321_3,
-        }:
+        if self.task_version in {TASK_VERSION_V0315, TASK_VERSION_V0317}:
             merge_summaries = self._run_second_pass_cluster_merge()
             if merge_summaries:
                 self._refresh_photo_faces(photos)
@@ -597,7 +582,7 @@ class FaceRecognition:
 
         return best_candidate
 
-    def _select_merge_target(self, left_person_id: str, right_person_id: str) -> tuple[str, str]:
+    def _select_merge_target(self, left_person_id: str, right_person_id: str) -> Tuple[str, str]:
         persons_state = self.state.get("persons", {})
         left_state = persons_state.get(left_person_id, {})
         right_state = persons_state.get(right_person_id, {})

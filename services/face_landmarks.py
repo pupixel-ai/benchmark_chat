@@ -7,11 +7,14 @@ import math
 from dataclasses import dataclass
 from pathlib import Path
 from threading import Lock
-from typing import Dict, Iterable, Sequence
+from typing import Dict, Iterable, Optional, Sequence, Union
 import warnings
 
 import numpy as np
-import requests
+try:
+    import requests
+except ModuleNotFoundError:  # pragma: no cover - test env may not install requests
+    requests = None
 
 from config import (
     FACE_LANDMARK_MODEL_PATH,
@@ -41,15 +44,15 @@ NOSE_TIP_INDEX = 1
 
 @dataclass(frozen=True)
 class FacePose:
-    pose_yaw: float | None
-    pose_pitch: float | None
-    pose_roll: float | None
+    pose_yaw: Optional[float]
+    pose_pitch: Optional[float]
+    pose_roll: Optional[float]
     pose_bucket: str
-    left_eye_width: float | None
-    right_eye_width: float | None
-    eye_visibility_ratio: float | None
+    left_eye_width: Optional[float]
+    right_eye_width: Optional[float]
+    eye_visibility_ratio: Optional[float]
     landmark_detected: bool
-    landmark_source: str | None
+    landmark_source: Optional[str]
 
     def as_dict(self) -> Dict[str, object]:
         return {
@@ -216,6 +219,9 @@ def ensure_model_downloaded(model_path: Path, model_url: str) -> Path:
     if model_path.exists():
         return model_path
 
+    if requests is None:
+        raise RuntimeError("requests 未安装，无法下载 MediaPipe face landmark 模型")
+
     model_path.parent.mkdir(parents=True, exist_ok=True)
     response = requests.get(model_url, timeout=60)
     response.raise_for_status()
@@ -265,7 +271,10 @@ def classify_pose_bucket(yaw: float | None, threshold: float = FACE_POSE_PROFILE
 
 
 def landmark_distance(landmarks: Sequence[object], indexes: Iterable[int]) -> float:
-    first_index, second_index = tuple(indexes)
+    indexes_list = list(indexes)
+    if len(indexes_list) < 2:
+        return 0.0
+    first_index, second_index = indexes_list[0], indexes_list[1]
     if max(first_index, second_index) >= len(landmarks):
         return 0.0
     first = landmarks[first_index]
@@ -324,7 +333,10 @@ def euler_from_rotation_matrix(rotation_matrix: np.ndarray) -> tuple[float, floa
 
 
 def midpoint(first: object, second: object) -> tuple[float, float]:
-    return (
-        (float(first.x) + float(second.x)) / 2.0,
-        (float(first.y) + float(second.y)) / 2.0,
-    )
+    try:
+        return (
+            (float(first.x) + float(second.x)) / 2.0,
+            (float(first.y) + float(second.y)) / 2.0,
+        )
+    except (AttributeError, TypeError, ValueError):
+        return (0.0, 0.0)

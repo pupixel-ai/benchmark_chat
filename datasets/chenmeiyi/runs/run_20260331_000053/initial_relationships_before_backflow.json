@@ -1,0 +1,288 @@
+[
+  {
+    "person_id": "Person_001",
+    "relationship_type": "friend",
+    "intimacy_score": 0.77,
+    "status": "stable",
+    "confidence": 0.7,
+    "reasoning": "关键事件 EVT_001, EVT_040, EVT_031；共现 18 张，覆盖 18 类场景，月均 5.6 次，判为 friend。",
+    "shared_events": [
+      {
+        "event_id": "EVT_001",
+        "date": "2025-12-12",
+        "narrative": "深夜玩雪合伴"
+      },
+      {
+        "event_id": "EVT_040",
+        "date": "2026-03-11",
+        "narrative": "音乐回顾与居家伴侣"
+      },
+      {
+        "event_id": "EVT_031",
+        "date": "2026-03-11",
+        "narrative": "文化熏陶与数字生活挑战"
+      },
+      {
+        "event_id": "EVT_032",
+        "date": "2026-03-11",
+        "narrative": "时尚穿搭与社交生活"
+      },
+      {
+        "event_id": "EVT_038",
+        "date": "2026-03-11",
+        "narrative": "可爱表达与健康实况"
+      },
+      {
+        "event_id": "EVT_019",
+        "date": "2026-01-19",
+        "narrative": "忙碌生活中的精致与科技"
+      },
+      {
+        "event_id": "EVT_020",
+        "date": "2026-02-27",
+        "narrative": "居家休闲与生活琐事"
+      },
+      {
+        "event_id": "EVT_023",
+        "date": "2026-03-11",
+        "narrative": "仪式感生活与居家自娱"
+      },
+      {
+        "event_id": "EVT_036",
+        "date": "2026-03-11",
+        "narrative": "职业探索与时尚穿搭"
+      },
+      {
+        "event_id": "EVT_007",
+        "date": "2025-12-05",
+        "narrative": "手工艺术创作体验"
+      }
+    ],
+    "evidence": {
+      "photo_ids": [
+        "photo_044",
+        "photo_043",
+        "photo_089",
+        "photo_031",
+        "photo_034",
+        "photo_007",
+        "photo_005",
+        "photo_115",
+        "photo_090",
+        "photo_116",
+        "photo_109",
+        "photo_113",
+        "photo_111",
+        "photo_123",
+        "photo_130",
+        "photo_131",
+        "photo_132",
+        "photo_133"
+      ],
+      "event_ids": [
+        "EVT_001",
+        "EVT_040",
+        "EVT_031",
+        "EVT_032",
+        "EVT_038",
+        "EVT_019",
+        "EVT_020",
+        "EVT_023",
+        "EVT_036",
+        "EVT_007"
+      ],
+      "person_ids": [
+        "Person_001"
+      ],
+      "group_ids": [],
+      "feature_names": [
+        "photo_count",
+        "monthly_frequency",
+        "relationship_type:friend"
+      ],
+      "supporting_refs": [
+        {
+          "source_type": "photo",
+          "source_id": "photo_044",
+          "signal": "2025年12月12日20:15，在室外雪地环境下，【主角】正与另一位人士共同手持心形与星形塑料雪球夹，正在进行玩雪活动。",
+          "why": "co_photo_for_Person_001"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_043",
+          "signal": "2025-12-05 11:25，在疑似手作工坊的室内空间，【主角】右手托举着一份手工制作的蓝色系纸艺花束，正在记录手作成果。",
+          "why": "co_photo_for_Person_001"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_089",
+          "signal": "2026-01-19 15:03，在一处光线平滑的室内环境中，【主角】正向上伸展右臂，展示其极长、带有尖锐美甲造型的手部。",
+          "why": "co_photo_for_Person_001"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_031",
+          "signal": "2026-02-27 20:32，在室内瓷砖地面环境，【主角】正用右手按压一台白色万利达电热水壶的顶部开关，正在进行烧水或检查热水壶的操作。",
+          "why": "co_photo_for_Person_001"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_034",
+          "signal": "2026年3月11日12:10，在台球厅室内，【主角】正持杆准备击球，画面覆盖了一层社交媒体的网络评论截图。",
+          "why": "co_photo_for_Person_001"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_007",
+          "signal": "2026年3月11日12:10，于室内某家庭空间中，【主角】正处于整理杂物或居家环境的状态，画面核心展示了一件放置在铺着印花桌布桌面上、带有透明可视窗的米白色帆布收纳箱。",
+          "why": "co_photo_for_Person_001"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_005",
+          "signal": "2026年3月11日12:10，在一处室内卧室场景中，【主角】正处于戴着眼罩休息的状态，画面呈现出一种居家且疲惫的氛围。",
+          "why": "co_photo_for_Person_001"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_115",
+          "signal": "2026-03-11 12:12，【主角】处于室内环境，正在使用手机查看微信聊天界面，核心事件为讨论个人隐私泄露后的应对措施。",
+          "why": "co_photo_for_Person_001"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_090",
+          "signal": "2026年3月11日12:12，于室内环境，【主角】正在阅读查尔斯·狄更斯的《双城记》，并展示其美甲与配饰细节。",
+          "why": "co_photo_for_Person_001"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_116",
+          "signal": "2026-03-11 12:12，【主角】正处于室内环境中，视角向下俯瞰自身穿着的浅蓝色礼服裙与白色绸缎手套，同时正在操作手机微信界面与“墙”进行涉及个人隐私的社交信息沟通。",
+          "why": "co_photo_for_Person_001"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_109",
+          "signal": "2026-03-11 12:13，【主角】正处于微信群聊界面，在中山首府社区业主群内输入“谁家有小猫送我”的文字内容，背景显示包含背景滤镜且人物衣着带有洛丽塔/演出服风格的照片。",
+          "why": "co_photo_for_Person_001"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_113",
+          "signal": "2026-03-11 12:13，【主角】在室内卧室的穿衣镜前进行自我造型记录，完成穿搭后正持手机拍摄镜像。",
+          "why": "co_photo_for_Person_001"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_111",
+          "signal": "2026-03-11 12:13，【主角】正在查看手机微信聊天界面，背景展示了一位身穿灰姑娘Cosplay礼服的女性背影，暗示其正在参与某招聘或演艺角色的工作场景。",
+          "why": "co_photo_for_Person_001"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_123",
+          "signal": "2026-03-11 12:13，在该室内环境中，【主角】正手持一个黑色Kitty造型毛绒挂件贴近面部进行自拍记录，展现出明显的个人风格偏好。",
+          "why": "co_photo_for_Person_001"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_130",
+          "signal": "2026-03-11 12:13，在《和平精英》数字化虚拟战场中，【主角】操控的角色在完成获胜挑战后，正高举金色平底锅奖杯进行定格展示。",
+          "why": "co_photo_for_Person_001"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_131",
+          "signal": "2026年3月11日12:13，【主角】在《和平精英》游戏虚拟战场中，以第三人称视角拍摄了队友高举金杯庆祝胜利的画面。",
+          "why": "co_photo_for_Person_001"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_132",
+          "signal": "2026-03-11 12:13，在《和平精英》游戏虚拟雨林地图场景中，【主角】以第一人称视角记录了小队三人获胜后的颁奖仪式状态。",
+          "why": "co_photo_for_Person_001"
+        },
+        {
+          "source_type": "photo",
+          "source_id": "photo_133",
+          "signal": "2026年3月11日12:13，一处室内卧室环境内，【主角】正处于休憩状态中，视角拍摄侧卧于床铺上的男性伴侣。",
+          "why": "co_photo_for_Person_001"
+        },
+        {
+          "source_type": "event",
+          "source_id": "EVT_001",
+          "signal": "深夜玩雪合伴",
+          "why": "shared_event_for_Person_001"
+        },
+        {
+          "source_type": "event",
+          "source_id": "EVT_040",
+          "signal": "音乐回顾与居家伴侣",
+          "why": "shared_event_for_Person_001"
+        },
+        {
+          "source_type": "event",
+          "source_id": "EVT_031",
+          "signal": "文化熏陶与数字生活挑战",
+          "why": "shared_event_for_Person_001"
+        },
+        {
+          "source_type": "event",
+          "source_id": "EVT_032",
+          "signal": "时尚穿搭与社交生活",
+          "why": "shared_event_for_Person_001"
+        },
+        {
+          "source_type": "event",
+          "source_id": "EVT_038",
+          "signal": "可爱表达与健康实况",
+          "why": "shared_event_for_Person_001"
+        },
+        {
+          "source_type": "event",
+          "source_id": "EVT_019",
+          "signal": "忙碌生活中的精致与科技",
+          "why": "shared_event_for_Person_001"
+        },
+        {
+          "source_type": "event",
+          "source_id": "EVT_020",
+          "signal": "居家休闲与生活琐事",
+          "why": "shared_event_for_Person_001"
+        },
+        {
+          "source_type": "event",
+          "source_id": "EVT_023",
+          "signal": "仪式感生活与居家自娱",
+          "why": "shared_event_for_Person_001"
+        },
+        {
+          "source_type": "event",
+          "source_id": "EVT_036",
+          "signal": "职业探索与时尚穿搭",
+          "why": "shared_event_for_Person_001"
+        },
+        {
+          "source_type": "event",
+          "source_id": "EVT_007",
+          "signal": "手工艺术创作体验",
+          "why": "shared_event_for_Person_001"
+        },
+        {
+          "source_type": "feature",
+          "source_id": "photo_count",
+          "signal": "18",
+          "why": "relationship_frequency"
+        },
+        {
+          "source_type": "feature",
+          "source_id": "monthly_frequency",
+          "signal": "5.6",
+          "why": "relationship_frequency"
+        }
+      ],
+      "contradicting_refs": []
+    }
+  }
+]

@@ -1,0 +1,5718 @@
+{
+  "engine": {
+    "src_path": "/Users/ziyan/Downloads/v0139/vendor/face_recognition_src",
+    "model_name": "buffalo_l",
+    "providers": [
+      "CPUExecutionProvider"
+    ],
+    "max_side": 1920,
+    "det_threshold": 0.6,
+    "sim_threshold": 0.5,
+    "strong_threshold": 0.5,
+    "weak_threshold": 0.445,
+    "margin_threshold": 0.03,
+    "match_top_k": 5,
+    "task_version": "v0317",
+    "landmark_source": "mediapipe-first-with-insightface-fallback",
+    "index_path": "/Users/ziyan/Downloads/v0139/cache/caizhengsheng/faces.index"
+  },
+  "primary_person_id": "Person_006",
+  "metrics": {
+    "total_images": 86,
+    "total_faces": 67,
+    "total_persons": 43
+  },
+  "cache_metrics": {
+    "total_images": 86,
+    "total_persons": 43,
+    "indexed_faces": 67
+  },
+  "persons": [
+    {
+      "person_id": "Person_001",
+      "representative_face_id": "0e69f25b-189a-474c-afb7-3fab509f77d9",
+      "photo_count": 1,
+      "face_count": 1,
+      "first_seen": "2026-02-23T10:27:52",
+      "last_seen": "2026-02-23T10:27:52",
+      "avg_score": 0.7548588514328003,
+      "avg_similarity": 0.0,
+      "avg_quality": 0.5348,
+      "high_quality_face_count": 1,
+      "sample_photo_ids": [
+        "photo_065"
+      ],
+      "pose_counts": {
+        "right_profile": 1
+      },
+      "label": "Person"
+    },
+    {
+      "person_id": "Person_002",
+      "representative_face_id": "539c507d-50a7-4015-bbe5-353d36c1841a",
+      "photo_count": 1,
+      "face_count": 1,
+      "first_seen": "2026-02-23T10:27:52",
+      "last_seen": "2026-02-23T10:27:52",
+      "avg_score": 0.7269963622093201,
+      "avg_similarity": 0.0,
+      "avg_quality": 0.6503,
+      "high_quality_face_count": 1,
+      "sample_photo_ids": [
+        "photo_065"
+      ],
+      "pose_counts": {
+        "right_profile": 1
+      },
+      "label": "Person"
+    },
+    {
+      "person_id": "Person_003",
+      "representative_face_id": "b15ec99a-be44-414d-b32f-ee5f839cc27a",
+      "photo_count": 1,
+      "face_count": 1,
+      "first_seen": "2026-02-23T10:27:52",
+      "last_seen": "2026-02-23T10:27:52",
+      "avg_score": 0.6691755652427673,
+      "avg_similarity": 0.0,
+      "avg_quality": 0.5218,
+      "high_quality_face_count": 1,
+      "sample_photo_ids": [
+        "photo_065"
+      ],
+      "pose_counts": {
+        "left_profile": 1
+      },
+      "label": "Person"
+    },
+    {
+      "person_id": "Person_004",
+      "representative_face_id": "9c4527a5-5391-43ce-b19d-3b99abf78575",
+      "photo_count": 2,
+      "face_count": 2,
+      "first_seen": "2026-03-11T14:22:57",
+      "last_seen": "2026-03-11T14:23:16",
+      "avg_score": 0.8926551640033722,
+      "avg_similarity": 0.4343583434820175,
+      "avg_quality": 0.6841999999999999,
+      "high_quality_face_count": 2,
+      "sample_photo_ids": [
+        "photo_070",
+        "photo_071"
+      ],
+      "pose_counts": {
+        "frontal": 2
+      },
+      "label": "Person"
+    },
+    {
+      "person_id": "Person_005",
+      "representative_face_id": "171f7ac7-7af9-47fa-8f76-8ab098831531",
+      "photo_count": 2,
+      "face_count": 2,
+      "first_seen": "2026-03-11T14:22:57",
+      "last_seen": "2026-03-11T14:23:16",
+      "avg_score": 0.8869695067405701,
+      "avg_similarity": 0.4732523523271084,
+      "avg_quality": 0.7724500000000001,
+      "high_quality_face_count": 2,
+      "sample_photo_ids": [
+        "photo_070",
+        "photo_071"
+      ],
+      "pose_counts": {
+        "frontal": 2
+      },
+      "label": "Person"
+    },
+    {
+      "person_id": "Person_006",
+      "representative_face_id": "98e23265-2a4d-4ee0-a872-5477b374d14b",
+      "photo_count": 10,
+      "face_count": 10,
+      "first_seen": "2026-03-11T14:22:57",
+      "last_seen": "2026-03-11T14:25:54",
+      "avg_score": 0.8641596078872681,
+      "avg_similarity": 0.6629871368408203,
+      "avg_quality": 0.78833,
+      "high_quality_face_count": 10,
+      "sample_photo_ids": [
+        "photo_070",
+        "photo_079",
+        "photo_080",
+        "photo_081",
+        "photo_071",
+        "photo_090",
+        "photo_092",
+        "photo_038",
+        "photo_041",
+        "photo_040"
+      ],
+      "pose_counts": {
+        "frontal": 10
+      },
+      "label": "Primary"
+    },
+    {
+      "person_id": "Person_007",
+      "representative_face_id": "ee3dccac-7dc2-45dd-a8bd-0c8c5d07077e",
+      "photo_count": 1,
+      "face_count": 1,
+      "first_seen": "2026-03-11T14:22:58",
+      "last_seen": "2026-03-11T14:22:58",
+      "avg_score": 0.8463691473007202,
+      "avg_similarity": 0.124677374958992,
+      "avg_quality": 0.59,
+      "high_quality_face_count": 1,
+      "sample_photo_ids": [
+        "photo_076"
+      ],
+      "pose_counts": {
+        "frontal": 1
+      },
+      "label": "Person"
+    },
+    {
+      "person_id": "Person_008",
+      "representative_face_id": "80801cf6-2095-4a7c-8ed2-5d3465580e41",
+      "photo_count": 1,
+      "face_count": 1,
+      "first_seen": "2026-03-11T14:22:58",
+      "last_seen": "2026-03-11T14:22:58",
+      "avg_score": 0.829103946685791,
+      "avg_similarity": 0.19841817021369934,
+      "avg_quality": 0.5964,
+      "high_quality_face_count": 1,
+      "sample_photo_ids": [
+        "photo_076"
+      ],
+      "pose_counts": {
+        "frontal": 1
+      },
+      "label": "Person"
+    },
+    {
+      "person_id": "Person_009",
+      "representative_face_id": "3a167bbc-1a2d-48c1-9ccf-11b1383f5deb",
+      "photo_count": 2,
+      "face_count": 2,
+      "first_seen": "2026-03-11T14:22:59",
+      "last_seen": "2026-03-11T14:23:00",
+      "avg_score": 0.878984659910202,
+      "avg_similarity": 0.3636970706284046,
+      "avg_quality": 0.81455,
+      "high_quality_face_count": 2,
+      "sample_photo_ids": [
+        "photo_079",
+        "photo_081"
+      ],
+      "pose_counts": {
+        "frontal": 2
+      },
+      "label": "Person"
+    },
+    {
+      "person_id": "Person_010",
+      "representative_face_id": "0fe3e587-6ab6-4a11-90e4-1ed5757d4b16",
+      "photo_count": 2,
+      "face_count": 2,
+      "first_seen": "2026-03-11T14:22:59",
+      "last_seen": "2026-03-11T14:23:00",
+      "avg_score": 0.868399977684021,
+      "avg_similarity": 0.4157657027244568,
+      "avg_quality": 0.7646999999999999,
+      "high_quality_face_count": 2,
+      "sample_photo_ids": [
+        "photo_079",
+        "photo_081"
+      ],
+      "pose_counts": {
+        "frontal": 2
+      },
+      "label": "Person"
+    },
+    {
+      "person_id": "Person_011",
+      "representative_face_id": "5169cfd8-1570-4fb7-8df7-5e92a629b70a",
+      "photo_count": 2,
+      "face_count": 2,
+      "first_seen": "2026-03-11T14:22:59",
+      "last_seen": "2026-03-11T14:23:00",
+      "avg_score": 0.8727590441703796,
+      "avg_similarity": 0.44363149255514145,
+      "avg_quality": 0.7836000000000001,
+      "high_quality_face_count": 2,
+      "sample_photo_ids": [
+        "photo_079",
+        "photo_081"
+      ],
+      "pose_counts": {
+        "frontal": 2
+      },
+      "label": "Person"
+    },
+    {
+      "person_id": "Person_012",
+      "representative_face_id": "845e079a-99e6-400c-afd8-4b6651157c39",
+      "photo_count": 2,
+      "face_count": 2,
+      "first_seen": "2026-03-11T14:22:59",
+      "last_seen": "2026-03-11T14:23:00",
+      "avg_score": 0.8682764172554016,
+      "avg_similarity": 0.3082140386104584,
+      "avg_quality": 0.74285,
+      "high_quality_face_count": 2,
+      "sample_photo_ids": [
+        "photo_079",
+        "photo_081"
+      ],
+      "pose_counts": {
+        "frontal": 2
+      },
+      "label": "Person"
+    },
+    {
+      "person_id": "Person_014",
+      "representative_face_id": "17114b8d-0dd7-47f3-88ff-758bee1435ec",
+      "photo_count": 2,
+      "face_count": 2,
+      "first_seen": "2026-03-11T14:22:59",
+      "last_seen": "2026-03-11T14:23:00",
+      "avg_score": 0.823979377746582,
+      "avg_similarity": 0.29123304039239883,
+      "avg_quality": 0.7444999999999999,
+      "high_quality_face_count": 2,
+      "sample_photo_ids": [
+        "photo_079",
+        "photo_081"
+      ],
+      "pose_counts": {
+        "frontal": 2
+      },
+      "label": "Person"
+    },
+    {
+      "person_id": "Person_015",
+      "representative_face_id": "2c623270-855c-4731-9b4a-3c865669b1c0",
+      "photo_count": 1,
+      "face_count": 1,
+      "first_seen": "2026-03-11T14:22:59",
+      "last_seen": "2026-03-11T14:22:59",
+      "avg_score": 0.9012714624404907,
+      "avg_similarity": 0.4545764923095703,
+      "avg_quality": 0.7728,
+      "high_quality_face_count": 1,
+      "sample_photo_ids": [
+        "photo_080"
+      ],
+      "pose_counts": {
+        "frontal": 1
+      },
+      "label": "Person"
+    },
+    {
+      "person_id": "Person_016",
+      "representative_face_id": "18794ed4-5d39-4988-ba01-a816a3c09eb6",
+      "photo_count": 1,
+      "face_count": 1,
+      "first_seen": "2026-03-11T14:22:59",
+      "last_seen": "2026-03-11T14:22:59",
+      "avg_score": 0.8891623020172119,
+      "avg_similarity": 0.15188544988632202,
+      "avg_quality": 0.7787,
+      "high_quality_face_count": 1,
+      "sample_photo_ids": [
+        "photo_080"
+      ],
+      "pose_counts": {
+        "frontal": 1
+      },
+      "label": "Person"
+    },
+    {
+      "person_id": "Person_017",
+      "representative_face_id": "53b9eaf6-97cc-4a0d-b765-7c4dec9e647b",
+      "photo_count": 1,
+      "face_count": 1,
+      "first_seen": "2026-03-11T14:22:59",
+      "last_seen": "2026-03-11T14:22:59",
+      "avg_score": 0.8808266520500183,
+      "avg_similarity": 0.09741580486297607,
+      "avg_quality": 0.7673,
+      "high_quality_face_count": 1,
+      "sample_photo_ids": [
+        "photo_080"
+      ],
+      "pose_counts": {
+        "frontal": 1
+      },
+      "label": "Person"
+    },
+    {
+      "person_id": "Person_018",
+      "representative_face_id": "45bbc2f6-e966-4e37-8aee-de71fc98611f",
+      "photo_count": 1,
+      "face_count": 1,
+      "first_seen": "2026-03-11T14:22:59",
+      "last_seen": "2026-03-11T14:22:59",
+      "avg_score": 0.877348780632019,
+      "avg_similarity": 0.19761493802070618,
+      "avg_quality": 0.7498,
+      "high_quality_face_count": 1,
+      "sample_photo_ids": [
+        "photo_080"
+      ],
+      "pose_counts": {
+        "frontal": 1
+      },
+      "label": "Person"
+    },
+    {
+      "person_id": "Person_019",
+      "representative_face_id": "b79ca81f-7487-46cd-ac52-9753361d3e54",
+      "photo_count": 1,
+      "face_count": 1,
+      "first_seen": "2026-03-11T14:22:59",
+      "last_seen": "2026-03-11T14:22:59",
+      "avg_score": 0.8282371759414673,
+      "avg_similarity": 0.17885300517082214,
+      "avg_quality": 0.7443,
+      "high_quality_face_count": 1,
+      "sample_photo_ids": [
+        "photo_080"
+      ],
+      "pose_counts": {
+        "frontal": 1
+      },
+      "label": "Person"
+    },
+    {
+      "person_id": "Person_021",
+      "representative_face_id": "a3aa180b-c560-4f51-b215-4be88199ae28",
+      "photo_count": 2,
+      "face_count": 2,
+      "first_seen": "2026-03-11T14:23:23",
+      "last_seen": "2026-03-11T14:23:25",
+      "avg_score": 0.8866854906082153,
+      "avg_similarity": 0.479202076792717,
+      "avg_quality": 0.5937,
+      "high_quality_face_count": 2,
+      "sample_photo_ids": [
+        "photo_090",
+        "photo_092"
+      ],
+      "pose_counts": {
+        "frontal": 2
+      },
+      "label": "Person"
+    },
+    {
+      "person_id": "Person_022",
+      "representative_face_id": "0299ea3d-c631-4119-81f6-c7cd02d990cb",
+      "photo_count": 2,
+      "face_count": 2,
+      "first_seen": "2026-03-11T14:23:23",
+      "last_seen": "2026-03-11T14:23:25",
+      "avg_score": 0.8686323165893555,
+      "avg_similarity": 0.45850756764411926,
+      "avg_quality": 0.6204000000000001,
+      "high_quality_face_count": 2,
+      "sample_photo_ids": [
+        "photo_090",
+        "photo_092"
+      ],
+      "pose_counts": {
+        "frontal": 2
+      },
+      "label": "Person"
+    },
+    {
+      "person_id": "Person_023",
+      "representative_face_id": "d1a72b7d-5b2f-491e-b92c-688f059a9bbc",
+      "photo_count": 1,
+      "face_count": 1,
+      "first_seen": "2026-03-11T14:25:19",
+      "last_seen": "2026-03-11T14:25:19",
+      "avg_score": 0.7822756767272949,
+      "avg_similarity": 0.08380389213562012,
+      "avg_quality": 0.9779,
+      "high_quality_face_count": 1,
+      "sample_photo_ids": [
+        "photo_018"
+      ],
+      "pose_counts": {
+        "frontal": 1
+      },
+      "label": "Person"
+    },
+    {
+      "person_id": "Person_024",
+      "representative_face_id": "997b2f83-9386-446e-979b-aa0ea838c316",
+      "photo_count": 2,
+      "face_count": 2,
+      "first_seen": "2026-03-11T14:25:26",
+      "last_seen": "2026-03-11T14:25:26",
+      "avg_score": 0.8238605260848999,
+      "avg_similarity": 0.44659677147865295,
+      "avg_quality": 0.54835,
+      "high_quality_face_count": 2,
+      "sample_photo_ids": [
+        "photo_019",
+        "photo_020"
+      ],
+      "pose_counts": {
+        "frontal": 2
+      },
+      "label": "Person"
+    },
+    {
+      "person_id": "Person_025",
+      "representative_face_id": "834abb11-2ad5-4367-a2d1-de3670546f42",
+      "photo_count": 2,
+      "face_count": 2,
+      "first_seen": "2026-03-11T14:25:26",
+      "last_seen": "2026-03-11T14:25:26",
+      "avg_score": 0.7371394038200378,
+      "avg_similarity": 0.38184787333011627,
+      "avg_quality": 0.54405,
+      "high_quality_face_count": 2,
+      "sample_photo_ids": [
+        "photo_019",
+        "photo_020"
+      ],
+      "pose_counts": {
+        "frontal": 2
+      },
+      "label": "Person"
+    },
+    {
+      "person_id": "Person_026",
+      "representative_face_id": "04c85b09-caa9-4434-9af2-b46600a985f1",
+      "photo_count": 2,
+      "face_count": 2,
+      "first_seen": "2026-03-11T14:25:26",
+      "last_seen": "2026-03-11T14:25:26",
+      "avg_score": 0.7405495643615723,
+      "avg_similarity": 0.45441125333309174,
+      "avg_quality": 0.40280000000000005,
+      "high_quality_face_count": 1,
+      "sample_photo_ids": [
+        "photo_019",
+        "photo_020"
+      ],
+      "pose_counts": {
+        "right_profile": 2
+      },
+      "label": "Person"
+    },
+    {
+      "person_id": "Person_027",
+      "representative_face_id": "837adf95-6592-4392-8e7d-5b02d5aba997",
+      "photo_count": 2,
+      "face_count": 2,
+      "first_seen": "2026-03-11T14:25:26",
+      "last_seen": "2026-03-11T14:25:28",
+      "avg_score": 0.8190729320049286,
+      "avg_similarity": 0.4665593206882477,
+      "avg_quality": 0.6465000000000001,
+      "high_quality_face_count": 2,
+      "sample_photo_ids": [
+        "photo_022",
+        "photo_021"
+      ],
+      "pose_counts": {
+        "left_profile": 2
+      },
+      "label": "Person"
+    },
+    {
+      "person_id": "Person_028",
+      "representative_face_id": "84a6ae94-b4ff-4f51-967a-6778763b47cd",
+      "photo_count": 1,
+      "face_count": 1,
+      "first_seen": "2026-03-11T14:25:26",
+      "last_seen": "2026-03-11T14:25:26",
+      "avg_score": 0.7605739831924438,
+      "avg_similarity": 0.20198242366313934,
+      "avg_quality": 0.5883,
+      "high_quality_face_count": 1,
+      "sample_photo_ids": [
+        "photo_022"
+      ],
+      "pose_counts": {
+        "frontal": 1
+      },
+      "label": "Person"
+    },
+    {
+      "person_id": "Person_029",
+      "representative_face_id": "d14f8cf3-4bd2-4249-a8e9-f684ddb7dedf",
+      "photo_count": 1,
+      "face_count": 1,
+      "first_seen": "2026-03-11T14:25:27",
+      "last_seen": "2026-03-11T14:25:27",
+      "avg_score": 0.8222730159759521,
+      "avg_similarity": 0.20127858221530914,
+      "avg_quality": 0.5194,
+      "high_quality_face_count": 1,
+      "sample_photo_ids": [
+        "photo_023"
+      ],
+      "pose_counts": {
+        "right_profile": 1
+      },
+      "label": "Person"
+    },
+    {
+      "person_id": "Person_030",
+      "representative_face_id": "d58e8066-c8cb-406b-b59d-80e7e216da53",
+      "photo_count": 1,
+      "face_count": 1,
+      "first_seen": "2026-03-11T14:25:27",
+      "last_seen": "2026-03-11T14:25:27",
+      "avg_score": 0.766707181930542,
+      "avg_similarity": 0.25110313296318054,
+      "avg_quality": 0.5474,
+      "high_quality_face_count": 1,
+      "sample_photo_ids": [
+        "photo_023"
+      ],
+      "pose_counts": {
+        "left_profile": 1
+      },
+      "label": "Person"
+    },
+    {
+      "person_id": "Person_031",
+      "representative_face_id": "3345e406-4c57-439a-a60e-591137ce9ef2",
+      "photo_count": 1,
+      "face_count": 1,
+      "first_seen": "2026-03-11T14:25:28",
+      "last_seen": "2026-03-11T14:25:28",
+      "avg_score": 0.7721692323684692,
+      "avg_similarity": 0.4551061987876892,
+      "avg_quality": 0.5412,
+      "high_quality_face_count": 1,
+      "sample_photo_ids": [
+        "photo_021"
+      ],
+      "pose_counts": {
+        "left_profile": 1
+      },
+      "label": "Person"
+    },
+    {
+      "person_id": "Person_032",
+      "representative_face_id": "a8a525e0-eb42-4cec-b403-13cdb87de119",
+      "photo_count": 1,
+      "face_count": 2,
+      "first_seen": "2026-03-11T14:25:28",
+      "last_seen": "2026-03-11T14:25:28",
+      "avg_score": 0.6819754540920258,
+      "avg_similarity": 0.36594488795871805,
+      "avg_quality": 0.4807,
+      "high_quality_face_count": 2,
+      "sample_photo_ids": [
+        "photo_021"
+      ],
+      "pose_counts": {
+        "frontal": 1,
+        "left_profile": 1
+      },
+      "label": "Person"
+    },
+    {
+      "person_id": "Person_033",
+      "representative_face_id": "6969a0c5-1187-471b-9104-8b8a62ebc95d",
+      "photo_count": 1,
+      "face_count": 1,
+      "first_seen": "2026-03-11T14:25:28",
+      "last_seen": "2026-03-11T14:25:28",
+      "avg_score": 0.760333776473999,
+      "avg_similarity": 0.17778629064559937,
+      "avg_quality": 0.5988,
+      "high_quality_face_count": 1,
+      "sample_photo_ids": [
+        "photo_021"
+      ],
+      "pose_counts": {
+        "left_profile": 1
+      },
+      "label": "Person"
+    },
+    {
+      "person_id": "Person_034",
+      "representative_face_id": "5da4370b-de38-4fe3-8831-e320488a8035",
+      "photo_count": 1,
+      "face_count": 1,
+      "first_seen": "2026-03-11T14:25:28",
+      "last_seen": "2026-03-11T14:25:28",
+      "avg_score": 0.731453001499176,
+      "avg_similarity": 0.1438218057155609,
+      "avg_quality": 0.5235,
+      "high_quality_face_count": 1,
+      "sample_photo_ids": [
+        "photo_021"
+      ],
+      "pose_counts": {
+        "frontal": 1
+      },
+      "label": "Person"
+    },
+    {
+      "person_id": "Person_035",
+      "representative_face_id": "df524e8f-e291-4128-98ad-5122585b1b7c",
+      "photo_count": 1,
+      "face_count": 1,
+      "first_seen": "2026-03-11T14:25:28",
+      "last_seen": "2026-03-11T14:25:28",
+      "avg_score": 0.701637864112854,
+      "avg_similarity": 0.0,
+      "avg_quality": 0.4586,
+      "high_quality_face_count": 1,
+      "sample_photo_ids": [
+        "photo_021"
+      ],
+      "pose_counts": {
+        "left_profile": 1
+      },
+      "label": "Person"
+    },
+    {
+      "person_id": "Person_036",
+      "representative_face_id": "4d4749d0-cb84-4880-8b54-cf20498c32ec",
+      "photo_count": 1,
+      "face_count": 1,
+      "first_seen": "2026-03-11T14:25:28",
+      "last_seen": "2026-03-11T14:25:28",
+      "avg_score": 0.6926109194755554,
+      "avg_similarity": 0.0,
+      "avg_quality": 0.4619,
+      "high_quality_face_count": 1,
+      "sample_photo_ids": [
+        "photo_021"
+      ],
+      "pose_counts": {
+        "frontal": 1
+      },
+      "label": "Person"
+    },
+    {
+      "person_id": "Person_037",
+      "representative_face_id": "fdb94f6e-6a50-42e5-ae4f-55553a49a4ec",
+      "photo_count": 1,
+      "face_count": 1,
+      "first_seen": "2026-03-11T14:25:28",
+      "last_seen": "2026-03-11T14:25:28",
+      "avg_score": 0.6139659285545349,
+      "avg_similarity": 0.0,
+      "avg_quality": 0.4621,
+      "high_quality_face_count": 1,
+      "sample_photo_ids": [
+        "photo_021"
+      ],
+      "pose_counts": {
+        "left_profile": 1
+      },
+      "label": "Person"
+    },
+    {
+      "person_id": "Person_038",
+      "representative_face_id": "4c68ea37-1ebf-45c3-b058-df84950931cc",
+      "photo_count": 1,
+      "face_count": 1,
+      "first_seen": "2026-03-11T14:25:31",
+      "last_seen": "2026-03-11T14:25:31",
+      "avg_score": 0.9111922383308411,
+      "avg_similarity": 0.18415886163711548,
+      "avg_quality": 0.5866,
+      "high_quality_face_count": 1,
+      "sample_photo_ids": [
+        "photo_024"
+      ],
+      "pose_counts": {
+        "frontal": 1
+      },
+      "label": "Person"
+    },
+    {
+      "person_id": "Person_039",
+      "representative_face_id": "13898e1f-9fea-4e8f-aed2-015cf1e8875d",
+      "photo_count": 1,
+      "face_count": 1,
+      "first_seen": "2026-03-11T14:25:31",
+      "last_seen": "2026-03-11T14:25:31",
+      "avg_score": 0.846514880657196,
+      "avg_similarity": 0.2250758558511734,
+      "avg_quality": 0.5508,
+      "high_quality_face_count": 1,
+      "sample_photo_ids": [
+        "photo_024"
+      ],
+      "pose_counts": {
+        "right_profile": 1
+      },
+      "label": "Person"
+    },
+    {
+      "person_id": "Person_040",
+      "representative_face_id": "8628c854-5605-42b5-86ce-bbecc3d3b347",
+      "photo_count": 1,
+      "face_count": 1,
+      "first_seen": "2026-03-11T14:25:31",
+      "last_seen": "2026-03-11T14:25:31",
+      "avg_score": 0.8429611921310425,
+      "avg_similarity": 0.16864246129989624,
+      "avg_quality": 0.5882,
+      "high_quality_face_count": 1,
+      "sample_photo_ids": [
+        "photo_024"
+      ],
+      "pose_counts": {
+        "left_profile": 1
+      },
+      "label": "Person"
+    },
+    {
+      "person_id": "Person_041",
+      "representative_face_id": "d70dd7e1-cd52-4022-801e-6c8d2c258995",
+      "photo_count": 1,
+      "face_count": 1,
+      "first_seen": "2026-03-11T14:25:31",
+      "last_seen": "2026-03-11T14:25:31",
+      "avg_score": 0.8400129675865173,
+      "avg_similarity": 0.18160684406757355,
+      "avg_quality": 0.558,
+      "high_quality_face_count": 1,
+      "sample_photo_ids": [
+        "photo_024"
+      ],
+      "pose_counts": {
+        "frontal": 1
+      },
+      "label": "Person"
+    },
+    {
+      "person_id": "Person_042",
+      "representative_face_id": "edf05439-a834-4a06-b206-d952fcb692c1",
+      "photo_count": 1,
+      "face_count": 1,
+      "first_seen": "2026-03-11T14:25:31",
+      "last_seen": "2026-03-11T14:25:31",
+      "avg_score": 0.6478673219680786,
+      "avg_similarity": 0.200282484292984,
+      "avg_quality": 0.5439,
+      "high_quality_face_count": 1,
+      "sample_photo_ids": [
+        "photo_024"
+      ],
+      "pose_counts": {
+        "frontal": 1
+      },
+      "label": "Person"
+    },
+    {
+      "person_id": "Person_043",
+      "representative_face_id": "f27643ce-0d09-4c3d-a7b8-1483def30892",
+      "photo_count": 1,
+      "face_count": 1,
+      "first_seen": "2026-03-11T14:25:33",
+      "last_seen": "2026-03-11T14:25:33",
+      "avg_score": 0.8589777946472168,
+      "avg_similarity": 0.3923386335372925,
+      "avg_quality": 0.6214,
+      "high_quality_face_count": 1,
+      "sample_photo_ids": [
+        "photo_029"
+      ],
+      "pose_counts": {
+        "left_profile": 1
+      },
+      "label": "Person"
+    },
+    {
+      "person_id": "Person_044",
+      "representative_face_id": "4df17445-76c9-48d4-82af-4cfd5d09ef91",
+      "photo_count": 1,
+      "face_count": 1,
+      "first_seen": "2026-03-11T14:25:57",
+      "last_seen": "2026-03-11T14:25:57",
+      "avg_score": 0.8661179542541504,
+      "avg_similarity": 0.18943879008293152,
+      "avg_quality": 0.6413,
+      "high_quality_face_count": 1,
+      "sample_photo_ids": [
+        "photo_049"
+      ],
+      "pose_counts": {
+        "frontal": 1
+      },
+      "label": "Person"
+    },
+    {
+      "person_id": "Person_045",
+      "representative_face_id": "4ee6dbdb-d433-463d-b461-35ba45c31a5a",
+      "photo_count": 2,
+      "face_count": 2,
+      "first_seen": "2026-03-11T14:37:18",
+      "last_seen": "2026-03-11T14:37:20",
+      "avg_score": 0.8657252490520477,
+      "avg_similarity": 0.709661066532135,
+      "avg_quality": 0.92845,
+      "high_quality_face_count": 2,
+      "sample_photo_ids": [
+        "photo_095",
+        "photo_096"
+      ],
+      "pose_counts": {
+        "frontal": 2
+      },
+      "label": "Person"
+    }
+  ],
+  "images": [
+    {
+      "image_hash": "d2beaf3e210759d59ce9759f12686b02dd269df4f7854cd1016d1032d44a833c",
+      "photo_id": "photo_001",
+      "filename": "IMG_20260122_152801.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/IMG_20260122_152801.jpg",
+      "source_hash": "d2beaf3e210759d59ce9759f12686b02dd269df4f7854cd1016d1032d44a833c",
+      "timestamp": "2026-01-22T15:28:13",
+      "location": {},
+      "width": 4368,
+      "height": 5824,
+      "faces": [],
+      "detection_seconds": 0.21171570802107453,
+      "embedding_seconds": 0.0
+    },
+    {
+      "image_hash": "1204612fb2a11ad1d51c79c76a8e4be5a0e7173aef0ed64a9931dfa0ebea5cce",
+      "photo_id": "photo_002",
+      "filename": "IMG_20260122_152808.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/IMG_20260122_152808.jpg",
+      "source_hash": "1204612fb2a11ad1d51c79c76a8e4be5a0e7173aef0ed64a9931dfa0ebea5cce",
+      "timestamp": "2026-01-22T15:28:15",
+      "location": {},
+      "width": 3072,
+      "height": 4096,
+      "faces": [],
+      "detection_seconds": 0.1735000000335276,
+      "embedding_seconds": 0.0
+    },
+    {
+      "image_hash": "6c5fb49fc86fe97965818f33e52158e2ca3c13f6a6de9817ec96f79d298a20a9",
+      "photo_id": "photo_003",
+      "filename": "IMG_20260122_154803.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/IMG_20260122_154803.jpg",
+      "source_hash": "6c5fb49fc86fe97965818f33e52158e2ca3c13f6a6de9817ec96f79d298a20a9",
+      "timestamp": "2026-01-22T15:48:10",
+      "location": {},
+      "width": 5824,
+      "height": 4368,
+      "faces": [],
+      "detection_seconds": 0.17034645902458578,
+      "embedding_seconds": 0.0
+    },
+    {
+      "image_hash": "6c96cfe208a315ae8be55f20fc9eae3229d692942145810eec7422effc97943e",
+      "photo_id": "photo_004",
+      "filename": "IMG_20260122_154825.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/IMG_20260122_154825.jpg",
+      "source_hash": "6c96cfe208a315ae8be55f20fc9eae3229d692942145810eec7422effc97943e",
+      "timestamp": "2026-01-22T15:48:33",
+      "location": {},
+      "width": 5824,
+      "height": 4368,
+      "faces": [],
+      "detection_seconds": 0.16905224998481572,
+      "embedding_seconds": 0.0
+    },
+    {
+      "image_hash": "37ea614acac358b52c3615294f68745f2b8961d7bb4ea7729e1235e03255f144",
+      "photo_id": "photo_005",
+      "filename": "IMG_20260122_155224.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/IMG_20260122_155224.jpg",
+      "source_hash": "37ea614acac358b52c3615294f68745f2b8961d7bb4ea7729e1235e03255f144",
+      "timestamp": "2026-01-22T15:52:31",
+      "location": {},
+      "width": 5824,
+      "height": 4368,
+      "faces": [],
+      "detection_seconds": 0.17792320804437622,
+      "embedding_seconds": 0.0
+    },
+    {
+      "image_hash": "3fb8c43661b837419f50f1380782bd418685c9a163e626ab9762beb32fcc63f4",
+      "photo_id": "photo_006",
+      "filename": "IMG_20260122_155307.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/IMG_20260122_155307.jpg",
+      "source_hash": "3fb8c43661b837419f50f1380782bd418685c9a163e626ab9762beb32fcc63f4",
+      "timestamp": "2026-01-22T15:53:14",
+      "location": {},
+      "width": 5824,
+      "height": 4368,
+      "faces": [],
+      "detection_seconds": 0.16213041602168232,
+      "embedding_seconds": 0.0
+    },
+    {
+      "image_hash": "4420a00447252dd33aefd34d2404ed0ef8a1480df53e47150642c9d061f2d3d1",
+      "photo_id": "photo_007",
+      "filename": "IMG_20260122_165228.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/IMG_20260122_165228.jpg",
+      "source_hash": "4420a00447252dd33aefd34d2404ed0ef8a1480df53e47150642c9d061f2d3d1",
+      "timestamp": "2026-01-22T16:52:37",
+      "location": {},
+      "width": 5824,
+      "height": 4368,
+      "faces": [],
+      "detection_seconds": 0.16162629198515788,
+      "embedding_seconds": 0.0
+    },
+    {
+      "image_hash": "80737e8b125281db48ce1a6a8a439087b688ed2dbb5e34885278dacd9aecba32",
+      "photo_id": "photo_008",
+      "filename": "IMG_20260122_165231.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/IMG_20260122_165231.jpg",
+      "source_hash": "80737e8b125281db48ce1a6a8a439087b688ed2dbb5e34885278dacd9aecba32",
+      "timestamp": "2026-01-22T16:52:56",
+      "location": {},
+      "width": 5824,
+      "height": 4368,
+      "faces": [],
+      "detection_seconds": 0.1631896249600686,
+      "embedding_seconds": 0.0
+    },
+    {
+      "image_hash": "2f265f229adabd43bbe57d472e7216d4129425a1291ea28172607cb8c524d2ca",
+      "photo_id": "photo_009",
+      "filename": "IMG_20260122_165916.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/IMG_20260122_165916.jpg",
+      "source_hash": "2f265f229adabd43bbe57d472e7216d4129425a1291ea28172607cb8c524d2ca",
+      "timestamp": "2026-01-22T16:59:22",
+      "location": {},
+      "width": 4368,
+      "height": 5824,
+      "faces": [],
+      "detection_seconds": 0.16143024998018518,
+      "embedding_seconds": 0.0
+    },
+    {
+      "image_hash": "9037d8704a65abf88bcd15f4252fb617e08d7157d1506c05eb346e0935cf0d67",
+      "photo_id": "photo_010",
+      "filename": "IMG_20260122_165921.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/IMG_20260122_165921.jpg",
+      "source_hash": "9037d8704a65abf88bcd15f4252fb617e08d7157d1506c05eb346e0935cf0d67",
+      "timestamp": "2026-01-22T17:01:48",
+      "location": {},
+      "width": 4368,
+      "height": 5824,
+      "faces": [],
+      "detection_seconds": 0.16085962497163564,
+      "embedding_seconds": 0.0
+    },
+    {
+      "image_hash": "daf0ccac2cd1a855004eb9348defaa28bbf487bb22e9b9ab1a911710024fb428",
+      "photo_id": "photo_067",
+      "filename": "image_1769087019161.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/image_1769087019161.jpg",
+      "source_hash": "daf0ccac2cd1a855004eb9348defaa28bbf487bb22e9b9ab1a911710024fb428",
+      "timestamp": "2026-01-22T17:21:44",
+      "location": {},
+      "width": 2268,
+      "height": 4032,
+      "faces": [],
+      "detection_seconds": 0.16023187502287328,
+      "embedding_seconds": 0.0
+    },
+    {
+      "image_hash": "9c3ec41ff7d0d98a653d3703464f5505c33c64af3eaa6c7e605f676358f630b4",
+      "photo_id": "photo_057",
+      "filename": "IMG_20260201_114550.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/IMG_20260201_114550.jpg",
+      "source_hash": "9c3ec41ff7d0d98a653d3703464f5505c33c64af3eaa6c7e605f676358f630b4",
+      "timestamp": "2026-02-01T11:45:49",
+      "location": {},
+      "width": 3072,
+      "height": 4096,
+      "faces": [],
+      "detection_seconds": 0.16211987502174452,
+      "embedding_seconds": 0.0
+    },
+    {
+      "image_hash": "746497181f52680a627c3eb5d72c3a77df7589204a924f9b4c3968ee7ad8fc4a",
+      "photo_id": "photo_058",
+      "filename": "IMG_20260201_140729.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/IMG_20260201_140729.jpg",
+      "source_hash": "746497181f52680a627c3eb5d72c3a77df7589204a924f9b4c3968ee7ad8fc4a",
+      "timestamp": "2026-02-01T14:07:27",
+      "location": {},
+      "width": 3072,
+      "height": 4096,
+      "faces": [],
+      "detection_seconds": 0.16760129196336493,
+      "embedding_seconds": 0.0
+    },
+    {
+      "image_hash": "49a0e7e72ec09c7a3bb7717c9d6218f221ffed0344073340cd792d12426cf0f8",
+      "photo_id": "photo_059",
+      "filename": "IMG_20260201_162517.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/IMG_20260201_162517.jpg",
+      "source_hash": "49a0e7e72ec09c7a3bb7717c9d6218f221ffed0344073340cd792d12426cf0f8",
+      "timestamp": "2026-02-01T16:25:16",
+      "location": {},
+      "width": 3072,
+      "height": 4096,
+      "faces": [],
+      "detection_seconds": 0.15890525002032518,
+      "embedding_seconds": 0.0
+    },
+    {
+      "image_hash": "b1a4a701819fddbe0006dff8c8cb245609a5679499b05d192bca3df6a9f6f413",
+      "photo_id": "photo_060",
+      "filename": "IMG_20260201_200739.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/IMG_20260201_200739.jpg",
+      "source_hash": "b1a4a701819fddbe0006dff8c8cb245609a5679499b05d192bca3df6a9f6f413",
+      "timestamp": "2026-02-01T20:07:36",
+      "location": {},
+      "width": 3072,
+      "height": 4096,
+      "faces": [],
+      "detection_seconds": 0.16373299999395385,
+      "embedding_seconds": 0.0
+    },
+    {
+      "image_hash": "66e2792ee46b9f7448f6813662400c87a6eff1f343e7dbfe5c3875d00ebf227f",
+      "photo_id": "photo_061",
+      "filename": "IMG_20260201_202726.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/IMG_20260201_202726.jpg",
+      "source_hash": "66e2792ee46b9f7448f6813662400c87a6eff1f343e7dbfe5c3875d00ebf227f",
+      "timestamp": "2026-02-01T20:27:24",
+      "location": {},
+      "width": 3072,
+      "height": 4096,
+      "faces": [],
+      "detection_seconds": 0.17159675003495067,
+      "embedding_seconds": 0.0
+    },
+    {
+      "image_hash": "8698ed78a2191782253b762aeb38db28f8f4acce749276b52f45bd2d04a13151",
+      "photo_id": "photo_062",
+      "filename": "IMG_20260209_112455.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/IMG_20260209_112455.jpg",
+      "source_hash": "8698ed78a2191782253b762aeb38db28f8f4acce749276b52f45bd2d04a13151",
+      "timestamp": "2026-02-09T11:24:53",
+      "location": {},
+      "width": 3072,
+      "height": 4096,
+      "faces": [],
+      "detection_seconds": 0.18659816699801013,
+      "embedding_seconds": 0.0
+    },
+    {
+      "image_hash": "df8692eafca47ce8ed59443065bae5133580313fccc4e9d61219b06158e6abb9",
+      "photo_id": "photo_063",
+      "filename": "IMG_20260217_212603.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/IMG_20260217_212603.jpg",
+      "source_hash": "df8692eafca47ce8ed59443065bae5133580313fccc4e9d61219b06158e6abb9",
+      "timestamp": "2026-02-17T21:26:13",
+      "location": {},
+      "width": 3072,
+      "height": 4436,
+      "faces": [],
+      "detection_seconds": 0.18248554202727973,
+      "embedding_seconds": 0.0
+    },
+    {
+      "image_hash": "670ac4ff4b69a9a5018867c3f19ce2eee9fef974e69ec2ae608efb6a59046fe1",
+      "photo_id": "photo_064",
+      "filename": "IMG_20260223_100826.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/IMG_20260223_100826.jpg",
+      "source_hash": "670ac4ff4b69a9a5018867c3f19ce2eee9fef974e69ec2ae608efb6a59046fe1",
+      "timestamp": "2026-02-23T10:08:25",
+      "location": {},
+      "width": 3072,
+      "height": 4096,
+      "faces": [],
+      "detection_seconds": 0.19004695804324,
+      "embedding_seconds": 0.0
+    },
+    {
+      "image_hash": "e93adbd5052bfebef1871b1828cf54351507e727cb29fb74c4fb2d97e2d62c26",
+      "photo_id": "photo_065",
+      "filename": "IMG_20260223_102753.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/IMG_20260223_102753.jpg",
+      "source_hash": "e93adbd5052bfebef1871b1828cf54351507e727cb29fb74c4fb2d97e2d62c26",
+      "timestamp": "2026-02-23T10:27:52",
+      "location": {},
+      "width": 3072,
+      "height": 4096,
+      "faces": [
+        {
+          "face_id": "0e69f25b-189a-474c-afb7-3fab509f77d9",
+          "person_id": "Person_001",
+          "score": 0.7548588514328003,
+          "similarity": 0.0,
+          "faiss_id": 0,
+          "bbox": [
+            1044,
+            1727,
+            1151,
+            1955
+          ],
+          "bbox_xywh": {
+            "x": 1044,
+            "y": 1727,
+            "w": 107,
+            "h": 228
+          },
+          "kps": [
+            [
+              530.4365234375,
+              851.5234375
+            ],
+            [
+              528.8883666992188,
+              851.1947021484375
+            ],
+            [
+              539.3707885742188,
+              872.0451049804688
+            ],
+            [
+              524.0299072265625,
+              890.146240234375
+            ],
+            [
+              524.3948974609375,
+              890.408935546875
+            ]
+          ],
+          "quality_score": 0.5348,
+          "quality_flags": [
+            "blurry",
+            "profile_face"
+          ],
+          "match_decision": "new_person",
+          "match_reason": "没有可复用候选",
+          "pose_yaw": 83.255997,
+          "pose_pitch": 79.66362,
+          "pose_roll": 101.01368,
+          "pose_bucket": "right_profile",
+          "eye_visibility_ratio": null,
+          "landmark_detected": true,
+          "landmark_source": "insightface-pose-fallback"
+        },
+        {
+          "face_id": "539c507d-50a7-4015-bbe5-353d36c1841a",
+          "person_id": "Person_002",
+          "score": 0.7269963622093201,
+          "similarity": 0.0,
+          "faiss_id": 1,
+          "bbox": [
+            720,
+            1467,
+            835,
+            1715
+          ],
+          "bbox_xywh": {
+            "x": 720,
+            "y": 1467,
+            "w": 115,
+            "h": 248
+          },
+          "kps": [
+            [
+              384.0496520996094,
+              731.8722534179688
+            ],
+            [
+              379.82537841796875,
+              732.9108276367188
+            ],
+            [
+              389.5800476074219,
+              758.1475830078125
+            ],
+            [
+              369.61932373046875,
+              775.2183837890625
+            ],
+            [
+              368.2312927246094,
+              776.3477783203125
+            ]
+          ],
+          "quality_score": 0.6503,
+          "quality_flags": [
+            "profile_face"
+          ],
+          "match_decision": "new_person",
+          "match_reason": "没有可复用候选",
+          "pose_yaw": 50.915638,
+          "pose_pitch": -10.248221,
+          "pose_roll": -5.534886,
+          "pose_bucket": "right_profile",
+          "eye_visibility_ratio": null,
+          "landmark_detected": true,
+          "landmark_source": "insightface-pose-fallback"
+        },
+        {
+          "face_id": "b15ec99a-be44-414d-b32f-ee5f839cc27a",
+          "person_id": "Person_003",
+          "score": 0.6691755652427673,
+          "similarity": 0.0,
+          "faiss_id": 2,
+          "bbox": [
+            2032,
+            1765,
+            2117,
+            1890
+          ],
+          "bbox_xywh": {
+            "x": 2032,
+            "y": 1765,
+            "w": 85,
+            "h": 125
+          },
+          "kps": [
+            [
+              958.3694458007812,
+              848.8189086914062
+            ],
+            [
+              962.9471435546875,
+              849.64013671875
+            ],
+            [
+              953.852294921875,
+              861.60302734375
+            ],
+            [
+              962.5243530273438,
+              872.6953735351562
+            ],
+            [
+              964.90673828125,
+              872.8170776367188
+            ]
+          ],
+          "quality_score": 0.5218,
+          "quality_flags": [
+            "blurry",
+            "profile_face"
+          ],
+          "match_decision": "new_person",
+          "match_reason": "没有可复用候选",
+          "pose_yaw": -56.674187,
+          "pose_pitch": -3.96066,
+          "pose_roll": -33.716522,
+          "pose_bucket": "left_profile",
+          "eye_visibility_ratio": null,
+          "landmark_detected": true,
+          "landmark_source": "insightface-pose-fallback"
+        }
+      ],
+      "detection_seconds": 0.1684602919849567,
+      "embedding_seconds": 0.42497050104429945
+    },
+    {
+      "image_hash": "8a54876186fe7d58b79ad35764cceb595ae0eba68d63bd4b83989ea1fc1f680c",
+      "photo_id": "photo_085",
+      "filename": "image_1771847740923.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/image_1771847740923.jpg",
+      "source_hash": "8a54876186fe7d58b79ad35764cceb595ae0eba68d63bd4b83989ea1fc1f680c",
+      "timestamp": "2026-02-23T19:55:39",
+      "location": {},
+      "width": 2160,
+      "height": 3840,
+      "faces": [],
+      "detection_seconds": 0.1785884170094505,
+      "embedding_seconds": 0.0
+    },
+    {
+      "image_hash": "fb8dae90e47995d6c056f3ff2365dc87ba1698f89dd4a7b0c747af6995f7c3bd",
+      "photo_id": "photo_086",
+      "filename": "image_1771850470163.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/image_1771850470163.jpg",
+      "source_hash": "fb8dae90e47995d6c056f3ff2365dc87ba1698f89dd4a7b0c747af6995f7c3bd",
+      "timestamp": "2026-02-23T20:41:08",
+      "location": {},
+      "width": 2160,
+      "height": 3840,
+      "faces": [],
+      "detection_seconds": 0.16500083298888057,
+      "embedding_seconds": 0.0
+    },
+    {
+      "image_hash": "f541bf39e7e3779f624e5ded95c7865129e562104e271090e3c1d810d29ca564",
+      "photo_id": "photo_087",
+      "filename": "image_1771941928708.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/image_1771941928708.jpg",
+      "source_hash": "f541bf39e7e3779f624e5ded95c7865129e562104e271090e3c1d810d29ca564",
+      "timestamp": "2026-02-24T21:50:55",
+      "location": {},
+      "width": 4352,
+      "height": 2684,
+      "faces": [],
+      "detection_seconds": 0.1647051660111174,
+      "embedding_seconds": 0.0
+    },
+    {
+      "image_hash": "1603f74054e02ad6ffcf6bb332c30e2de346ccdc294acb93409f360c408e85d5",
+      "photo_id": "photo_088",
+      "filename": "image_1771975337531.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/image_1771975337531.jpg",
+      "source_hash": "1603f74054e02ad6ffcf6bb332c30e2de346ccdc294acb93409f360c408e85d5",
+      "timestamp": "2026-02-25T07:22:15",
+      "location": {},
+      "width": 2160,
+      "height": 3840,
+      "faces": [],
+      "detection_seconds": 0.1892494999920018,
+      "embedding_seconds": 0.0
+    },
+    {
+      "image_hash": "338289b66054b9bad4667b95fcd142817d13afe65b94ffa7cb86c927211266e0",
+      "photo_id": "photo_089",
+      "filename": "image_1771975528112.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/image_1771975528112.jpg",
+      "source_hash": "338289b66054b9bad4667b95fcd142817d13afe65b94ffa7cb86c927211266e0",
+      "timestamp": "2026-02-25T07:25:26",
+      "location": {},
+      "width": 2160,
+      "height": 3840,
+      "faces": [],
+      "detection_seconds": 0.1624814579845406,
+      "embedding_seconds": 0.0
+    },
+    {
+      "image_hash": "c9b255ade657674fa937f68f1ab4e71b56ada29ed26f11484354e856d7b76f4d",
+      "photo_id": "photo_091",
+      "filename": "image_1771983141465.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/image_1771983141465.jpg",
+      "source_hash": "c9b255ade657674fa937f68f1ab4e71b56ada29ed26f11484354e856d7b76f4d",
+      "timestamp": "2026-02-25T09:32:19",
+      "location": {},
+      "width": 2160,
+      "height": 3840,
+      "faces": [],
+      "detection_seconds": 0.16468783398158848,
+      "embedding_seconds": 0.0
+    },
+    {
+      "image_hash": "9049fcdf88283a0a40528a8858e4eff37bbefffe621f171cb8d29b8bfcd6c7d1",
+      "photo_id": "photo_093",
+      "filename": "image_1772246153337.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/image_1772246153337.jpg",
+      "source_hash": "9049fcdf88283a0a40528a8858e4eff37bbefffe621f171cb8d29b8bfcd6c7d1",
+      "timestamp": "2026-02-28T10:35:52",
+      "location": {},
+      "width": 2160,
+      "height": 3840,
+      "faces": [],
+      "detection_seconds": 0.16387408302398399,
+      "embedding_seconds": 0.0
+    },
+    {
+      "image_hash": "befba5f52c9bbea87fdce6b8b36700c58873b915113acb9b16faf0fde43914c0",
+      "photo_id": "photo_075",
+      "filename": "image_1769999406328.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/image_1769999406328.jpg",
+      "source_hash": "befba5f52c9bbea87fdce6b8b36700c58873b915113acb9b16faf0fde43914c0",
+      "timestamp": "2026-03-11T14:22:56",
+      "location": {},
+      "width": 1279,
+      "height": 1706,
+      "faces": [],
+      "detection_seconds": 0.15624433400807902,
+      "embedding_seconds": 0.0
+    },
+    {
+      "image_hash": "bdafc35d1db8df3ea9d7db066ee373f684286f7a75f45f93de99d81613dd87fe",
+      "photo_id": "photo_070",
+      "filename": "image_1769176579652.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/image_1769176579652.jpg",
+      "source_hash": "bdafc35d1db8df3ea9d7db066ee373f684286f7a75f45f93de99d81613dd87fe",
+      "timestamp": "2026-03-11T14:22:57",
+      "location": {},
+      "width": 2880,
+      "height": 2267,
+      "faces": [
+        {
+          "face_id": "6cd5688b-3999-4406-bb96-3462e2bd0fd3",
+          "person_id": "Person_004",
+          "score": 0.8882899880409241,
+          "similarity": 0.0779978334903717,
+          "faiss_id": 3,
+          "bbox": [
+            1546,
+            756,
+            1663,
+            894
+          ],
+          "bbox_xywh": {
+            "x": 1546,
+            "y": 756,
+            "w": 117,
+            "h": 138
+          },
+          "kps": [
+            [
+              1052.7459716796875,
+              535.6618041992188
+            ],
+            [
+              1089.0877685546875,
+              535.6236572265625
+            ],
+            [
+              1071.2392578125,
+              554.7343139648438
+            ],
+            [
+              1056.9915771484375,
+              572.0674438476562
+            ],
+            [
+              1084.8197021484375,
+              571.9772338867188
+            ]
+          ],
+          "quality_score": 0.721,
+          "quality_flags": [],
+          "match_decision": "new_person_from_ambiguity",
+          "match_reason": "候选存在但不够稳: best=0.078, mean=0.078, support=1, quality=0.721",
+          "pose_yaw": -0.38709775532069973,
+          "pose_pitch": 0.7500424834767699,
+          "pose_roll": 1.8514044013612545,
+          "pose_bucket": "frontal",
+          "eye_visibility_ratio": 0.986267,
+          "landmark_detected": true,
+          "landmark_source": "mediapipe-face-landmarker"
+        },
+        {
+          "face_id": "277f191d-f4c8-4c69-9deb-be679a954ea5",
+          "person_id": "Person_005",
+          "score": 0.8776599168777466,
+          "similarity": 0.0452192947268486,
+          "faiss_id": 4,
+          "bbox": [
+            1340,
+            724,
+            1467,
+            889
+          ],
+          "bbox_xywh": {
+            "x": 1340,
+            "y": 724,
+            "w": 127,
+            "h": 165
+          },
+          "kps": [
+            [
+              917.8701782226562,
+              525.9082641601562
+            ],
+            [
+              956.0821533203125,
+              533.4498901367188
+            ],
+            [
+              933.10302734375,
+              551.983154296875
+            ],
+            [
+              914.8119506835938,
+              564.033447265625
+            ],
+            [
+              944.6565551757812,
+              570.0430908203125
+            ]
+          ],
+          "quality_score": 0.7882,
+          "quality_flags": [],
+          "match_decision": "new_person_from_ambiguity",
+          "match_reason": "候选存在但不够稳: best=0.045, mean=0.045, support=1, quality=0.788",
+          "pose_yaw": 0.863085350459796,
+          "pose_pitch": 5.764770867976973,
+          "pose_roll": -9.433698508905008,
+          "pose_bucket": "frontal",
+          "eye_visibility_ratio": 0.984295,
+          "landmark_detected": true,
+          "landmark_source": "mediapipe-face-landmarker"
+        },
+        {
+          "face_id": "bc347c11-226c-4a00-9853-94ada98ddae6",
+          "person_id": "Person_006",
+          "score": 0.8301244974136353,
+          "similarity": 0.049905240535736084,
+          "faiss_id": 5,
+          "bbox": [
+            1071,
+            661,
+            1194,
+            801
+          ],
+          "bbox_xywh": {
+            "x": 1071,
+            "y": 661,
+            "w": 123,
+            "h": 140
+          },
+          "kps": [
+            [
+              740.8600463867188,
+              471.92083740234375
+            ],
+            [
+              777.340087890625,
+              476.254638671875
+            ],
+            [
+              758.4347534179688,
+              490.36004638671875
+            ],
+            [
+              741.0150756835938,
+              507.202880859375
+            ],
+            [
+              769.3887329101562,
+              510.7058410644531
+            ]
+          ],
+          "quality_score": 0.8449,
+          "quality_flags": [],
+          "match_decision": "new_person_from_ambiguity",
+          "match_reason": "候选存在但不够稳: best=0.050, mean=0.050, support=1, quality=0.845",
+          "pose_yaw": 2.3227336983519957,
+          "pose_pitch": -1.13843779610434,
+          "pose_roll": -6.8025936553788995,
+          "pose_bucket": "frontal",
+          "eye_visibility_ratio": 0.961945,
+          "landmark_detected": true,
+          "landmark_source": "mediapipe-face-landmarker"
+        }
+      ],
+      "detection_seconds": 0.1573192499927245,
+      "embedding_seconds": 0.13852662488352507
+    },
+    {
+      "image_hash": "1e9fafec122548389d946f3ffb540999ab4e8e3ebfccb80ba819acb7450e21f5",
+      "photo_id": "photo_073",
+      "filename": "image_1769415639130.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/image_1769415639130.jpg",
+      "source_hash": "1e9fafec122548389d946f3ffb540999ab4e8e3ebfccb80ba819acb7450e21f5",
+      "timestamp": "2026-03-11T14:22:57",
+      "location": {},
+      "width": 918,
+      "height": 2082,
+      "faces": [],
+      "detection_seconds": 0.15772883302997798,
+      "embedding_seconds": 0.0
+    },
+    {
+      "image_hash": "e637c9b77d4ed8166356df77b71988f5c3a6117b55a9c7c644e653bedd1a7637",
+      "photo_id": "photo_074",
+      "filename": "image_1769481737578.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/image_1769481737578.jpg",
+      "source_hash": "e637c9b77d4ed8166356df77b71988f5c3a6117b55a9c7c644e653bedd1a7637",
+      "timestamp": "2026-03-11T14:22:57",
+      "location": {},
+      "width": 1260,
+      "height": 1578,
+      "faces": [],
+      "detection_seconds": 0.15645104099530727,
+      "embedding_seconds": 0.0
+    },
+    {
+      "image_hash": "c98a7b7632c5d20a3fe04d23cbac3ffd51be9d4b39a8a2c5382642a3ed7f4772",
+      "photo_id": "photo_076",
+      "filename": "image_1770123139063.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/image_1770123139063.jpg",
+      "source_hash": "c98a7b7632c5d20a3fe04d23cbac3ffd51be9d4b39a8a2c5382642a3ed7f4772",
+      "timestamp": "2026-03-11T14:22:58",
+      "location": {},
+      "width": 1706,
+      "height": 1279,
+      "faces": [
+        {
+          "face_id": "ee3dccac-7dc2-45dd-a8bd-0c8c5d07077e",
+          "person_id": "Person_007",
+          "score": 0.8463691473007202,
+          "similarity": 0.124677374958992,
+          "faiss_id": 6,
+          "bbox": [
+            987,
+            426,
+            1113,
+            592
+          ],
+          "bbox_xywh": {
+            "x": 987,
+            "y": 426,
+            "w": 126,
+            "h": 166
+          },
+          "kps": [
+            [
+              1021.425537109375,
+              501.5243225097656
+            ],
+            [
+              1079.160888671875,
+              503.2409362792969
+            ],
+            [
+              1049.5146484375,
+              532.4373779296875
+            ],
+            [
+              1025.2744140625,
+              557.3919677734375
+            ],
+            [
+              1068.8751220703125,
+              559.1700439453125
+            ]
+          ],
+          "quality_score": 0.59,
+          "quality_flags": [
+            "blurry"
+          ],
+          "match_decision": "new_person_from_ambiguity",
+          "match_reason": "候选存在但不够稳: best=0.125, mean=0.125, support=1, quality=0.590",
+          "pose_yaw": -2.1407717797572086,
+          "pose_pitch": -5.133413967716495,
+          "pose_roll": 0.6574528282397138,
+          "pose_bucket": "frontal",
+          "eye_visibility_ratio": 0.92966,
+          "landmark_detected": true,
+          "landmark_source": "mediapipe-face-landmarker"
+        },
+        {
+          "face_id": "80801cf6-2095-4a7c-8ed2-5d3465580e41",
+          "person_id": "Person_008",
+          "score": 0.829103946685791,
+          "similarity": 0.19841817021369934,
+          "faiss_id": 7,
+          "bbox": [
+            629,
+            469,
+            729,
+            598
+          ],
+          "bbox_xywh": {
+            "x": 629,
+            "y": 469,
+            "w": 100,
+            "h": 129
+          },
+          "kps": [
+            [
+              662.0225830078125,
+              523.880126953125
+            ],
+            [
+              705.9094848632812,
+              527.497802734375
+            ],
+            [
+              686.3036499023438,
+              547.6204223632812
+            ],
+            [
+              665.7700805664062,
+              566.9266967773438
+            ],
+            [
+              699.2184448242188,
+              569.6824951171875
+            ]
+          ],
+          "quality_score": 0.5964,
+          "quality_flags": [],
+          "match_decision": "new_person_from_ambiguity",
+          "match_reason": "候选存在但不够稳: best=0.198, mean=0.198, support=1, quality=0.596",
+          "pose_yaw": 3.0204361007331695,
+          "pose_pitch": -0.35127700290673014,
+          "pose_roll": -1.8954458223544937,
+          "pose_bucket": "frontal",
+          "eye_visibility_ratio": 0.974467,
+          "landmark_detected": true,
+          "landmark_source": "mediapipe-face-landmarker"
+        }
+      ],
+      "detection_seconds": 0.1574177499860525,
+      "embedding_seconds": 0.08020437497179955
+    },
+    {
+      "image_hash": "a310c9cb909e6a7284cd2eea2b29ee76d8de2e8642794cb1fe5b12a222bb1c35",
+      "photo_id": "photo_079",
+      "filename": "image_1770651273027.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/image_1770651273027.jpg",
+      "source_hash": "a310c9cb909e6a7284cd2eea2b29ee76d8de2e8642794cb1fe5b12a222bb1c35",
+      "timestamp": "2026-03-11T14:22:59",
+      "location": {},
+      "width": 1707,
+      "height": 1280,
+      "faces": [
+        {
+          "face_id": "3a167bbc-1a2d-48c1-9ccf-11b1383f5deb",
+          "person_id": "Person_009",
+          "score": 0.8940114974975586,
+          "similarity": 0.11897096782922745,
+          "faiss_id": 8,
+          "bbox": [
+            1257,
+            414,
+            1318,
+            491
+          ],
+          "bbox_xywh": {
+            "x": 1257,
+            "y": 414,
+            "w": 61,
+            "h": 77
+          },
+          "kps": [
+            [
+              1275.27587890625,
+              442.22576904296875
+            ],
+            [
+              1302.6968994140625,
+              441.9437255859375
+            ],
+            [
+              1289.2398681640625,
+              457.2003173828125
+            ],
+            [
+              1276.2578125,
+              467.8378601074219
+            ],
+            [
+              1301.408203125,
+              467.6996154785156
+            ]
+          ],
+          "quality_score": 0.7902,
+          "quality_flags": [
+            "small_face"
+          ],
+          "match_decision": "new_person_from_ambiguity",
+          "match_reason": "候选存在但不够稳: best=0.119, mean=0.119, support=1, quality=0.790",
+          "pose_yaw": 3.908624147905587,
+          "pose_pitch": -2.9246930483395683,
+          "pose_roll": 1.937049528533136,
+          "pose_bucket": "frontal",
+          "eye_visibility_ratio": 0.902512,
+          "landmark_detected": true,
+          "landmark_source": "mediapipe-face-landmarker"
+        },
+        {
+          "face_id": "0fe3e587-6ab6-4a11-90e4-1ed5757d4b16",
+          "person_id": "Person_010",
+          "score": 0.8939287662506104,
+          "similarity": 0.08203315734863281,
+          "faiss_id": 9,
+          "bbox": [
+            460,
+            403,
+            522,
+            481
+          ],
+          "bbox_xywh": {
+            "x": 460,
+            "y": 403,
+            "w": 62,
+            "h": 78
+          },
+          "kps": [
+            [
+              476.92681884765625,
+              432.109130859375
+            ],
+            [
+              505.9556579589844,
+              432.3348388671875
+            ],
+            [
+              491.73114013671875,
+              447.8140869140625
+            ],
+            [
+              480.5292053222656,
+              462.598876953125
+            ],
+            [
+              502.2621154785156,
+              462.7393493652344
+            ]
+          ],
+          "quality_score": 0.7978,
+          "quality_flags": [
+            "small_face"
+          ],
+          "match_decision": "new_person_from_ambiguity",
+          "match_reason": "候选存在但不够稳: best=0.082, mean=0.082, support=1, quality=0.798",
+          "pose_yaw": 1.0990462666219114,
+          "pose_pitch": -3.490524808899671,
+          "pose_roll": -1.5145653322996422,
+          "pose_bucket": "frontal",
+          "eye_visibility_ratio": 0.955827,
+          "landmark_detected": true,
+          "landmark_source": "mediapipe-face-landmarker"
+        },
+        {
+          "face_id": "5169cfd8-1570-4fb7-8df7-5e92a629b70a",
+          "person_id": "Person_011",
+          "score": 0.8853486776351929,
+          "similarity": 0.15222792327404022,
+          "faiss_id": 10,
+          "bbox": [
+            847,
+            503,
+            897,
+            562
+          ],
+          "bbox_xywh": {
+            "x": 847,
+            "y": 503,
+            "w": 50,
+            "h": 59
+          },
+          "kps": [
+            [
+              860.3773803710938,
+              525.5890502929688
+            ],
+            [
+              883.8441772460938,
+              526.6387939453125
+            ],
+            [
+              872.2125854492188,
+              538.93212890625
+            ],
+            [
+              862.1719970703125,
+              546.7283325195312
+            ],
+            [
+              881.5768432617188,
+              547.5265502929688
+            ]
+          ],
+          "quality_score": 0.7813,
+          "quality_flags": [
+            "small_face"
+          ],
+          "match_decision": "new_person_from_ambiguity",
+          "match_reason": "候选存在但不够稳: best=0.152, mean=0.152, support=1, quality=0.781",
+          "pose_yaw": 2.5191071805429615,
+          "pose_pitch": -3.388511271003307,
+          "pose_roll": -1.7235143555497807,
+          "pose_bucket": "frontal",
+          "eye_visibility_ratio": 0.956979,
+          "landmark_detected": true,
+          "landmark_source": "mediapipe-face-landmarker"
+        },
+        {
+          "face_id": "845e079a-99e6-400c-afd8-4b6651157c39",
+          "person_id": "Person_012",
+          "score": 0.8759087920188904,
+          "similarity": 0.16566234827041626,
+          "faiss_id": 11,
+          "bbox": [
+            1446,
+            431,
+            1513,
+            519
+          ],
+          "bbox_xywh": {
+            "x": 1446,
+            "y": 431,
+            "w": 67,
+            "h": 88
+          },
+          "kps": [
+            [
+              1469.5546875,
+              466.64190673828125
+            ],
+            [
+              1499.441650390625,
+              470.4151916503906
+            ],
+            [
+              1484.803466796875,
+              483.60552978515625
+            ],
+            [
+              1468.632568359375,
+              494.794189453125
+            ],
+            [
+              1493.6141357421875,
+              497.8941955566406
+            ]
+          ],
+          "quality_score": 0.7997,
+          "quality_flags": [],
+          "match_decision": "new_person_from_ambiguity",
+          "match_reason": "候选存在但不够稳: best=0.166, mean=0.166, support=1, quality=0.800",
+          "pose_yaw": 7.172848295692158,
+          "pose_pitch": 1.7540767578542735,
+          "pose_roll": -2.2672871110516217,
+          "pose_bucket": "frontal",
+          "eye_visibility_ratio": 0.916334,
+          "landmark_detected": true,
+          "landmark_source": "mediapipe-face-landmarker"
+        },
+        {
+          "face_id": "e9852e64-45f1-442b-b959-62a624b237fd",
+          "person_id": "Person_006",
+          "score": 0.8655514717102051,
+          "similarity": 0.48770755529403687,
+          "faiss_id": 12,
+          "bbox": [
+            1038,
+            434,
+            1093,
+            497
+          ],
+          "bbox_xywh": {
+            "x": 1038,
+            "y": 434,
+            "w": 55,
+            "h": 63
+          },
+          "kps": [
+            [
+              1053.5726318359375,
+              456.1431884765625
+            ],
+            [
+              1078.3736572265625,
+              456.40887451171875
+            ],
+            [
+              1066.40283203125,
+              468.7850646972656
+            ],
+            [
+              1056.5755615234375,
+              480.74530029296875
+            ],
+            [
+              1075.3905029296875,
+              480.95611572265625
+            ]
+          ],
+          "quality_score": 0.7822,
+          "quality_flags": [
+            "small_face"
+          ],
+          "match_decision": "cluster_merge_match",
+          "match_reason": "簇支持合并: best=0.587, top2_mean=0.586, support=10; source=Person_013; target=Person_006",
+          "pose_yaw": 2.7937032235163004,
+          "pose_pitch": -4.799701062709097,
+          "pose_roll": -0.7058951358803106,
+          "pose_bucket": "frontal",
+          "eye_visibility_ratio": 0.958897,
+          "landmark_detected": true,
+          "landmark_source": "mediapipe-face-landmarker",
+          "cluster_merge_reason": "簇支持合并: best=0.587, top2_mean=0.586, support=10; source=Person_013; target=Person_006"
+        },
+        {
+          "face_id": "442a0c21-bd67-498b-b605-00d660c12524",
+          "person_id": "Person_014",
+          "score": 0.8155087828636169,
+          "similarity": 0.01743657886981964,
+          "faiss_id": 13,
+          "bbox": [
+            669,
+            500,
+            720,
+            561
+          ],
+          "bbox_xywh": {
+            "x": 669,
+            "y": 500,
+            "w": 51,
+            "h": 61
+          },
+          "kps": [
+            [
+              683.41357421875,
+              522.0062866210938
+            ],
+            [
+              706.6409301757812,
+              520.763671875
+            ],
+            [
+              695.6063232421875,
+              534.5781860351562
+            ],
+            [
+              687.3677978515625,
+              546.7112426757812
+            ],
+            [
+              704.8998413085938,
+              545.7237548828125
+            ]
+          ],
+          "quality_score": 0.7732,
+          "quality_flags": [
+            "small_face"
+          ],
+          "match_decision": "new_person_from_ambiguity",
+          "match_reason": "候选存在但不够稳: best=0.017, mean=0.017, support=1, quality=0.773",
+          "pose_yaw": 0.21980171742720628,
+          "pose_pitch": -2.910742636927078,
+          "pose_roll": 1.3595756517615913,
+          "pose_bucket": "frontal",
+          "eye_visibility_ratio": 0.983153,
+          "landmark_detected": true,
+          "landmark_source": "mediapipe-face-landmarker"
+        }
+      ],
+      "detection_seconds": 0.15463775000534952,
+      "embedding_seconds": 0.24806724797235802
+    },
+    {
+      "image_hash": "fa306706e8d68d9a75a52b2dcc594f074b8329fbc81ede7b90ad5e6ac4c6665f",
+      "photo_id": "photo_080",
+      "filename": "image_1770651363602.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/image_1770651363602.jpg",
+      "source_hash": "fa306706e8d68d9a75a52b2dcc594f074b8329fbc81ede7b90ad5e6ac4c6665f",
+      "timestamp": "2026-03-11T14:22:59",
+      "location": {},
+      "width": 1706,
+      "height": 1279,
+      "faces": [
+        {
+          "face_id": "2c623270-855c-4731-9b4a-3c865669b1c0",
+          "person_id": "Person_015",
+          "score": 0.9012714624404907,
+          "similarity": 0.4545764923095703,
+          "faiss_id": 14,
+          "bbox": [
+            827,
+            445,
+            887,
+            527
+          ],
+          "bbox_xywh": {
+            "x": 827,
+            "y": 445,
+            "w": 60,
+            "h": 82
+          },
+          "kps": [
+            [
+              841.9315185546875,
+              474.8673095703125
+            ],
+            [
+              869.8287963867188,
+              473.35894775390625
+            ],
+            [
+              855.9954833984375,
+              488.4747009277344
+            ],
+            [
+              846.3047485351562,
+              506.2584228515625
+            ],
+            [
+              866.8963623046875,
+              505.1290283203125
+            ]
+          ],
+          "quality_score": 0.7728,
+          "quality_flags": [
+            "small_face"
+          ],
+          "match_decision": "new_person_from_ambiguity",
+          "match_reason": "候选存在但不够稳: best=0.455, mean=0.455, support=1, quality=0.773",
+          "pose_yaw": -0.052724678193494,
+          "pose_pitch": -5.732177497783324,
+          "pose_roll": 4.922644768860472,
+          "pose_bucket": "frontal",
+          "eye_visibility_ratio": 0.970933,
+          "landmark_detected": true,
+          "landmark_source": "mediapipe-face-landmarker"
+        },
+        {
+          "face_id": "b0f589e8-2553-4bb8-833a-a9c27614339d",
+          "person_id": "Person_006",
+          "score": 0.892856776714325,
+          "similarity": 0.5762073397636414,
+          "faiss_id": 15,
+          "bbox": [
+            1186,
+            467,
+            1244,
+            541
+          ],
+          "bbox_xywh": {
+            "x": 1186,
+            "y": 467,
+            "w": 58,
+            "h": 74
+          },
+          "kps": [
+            [
+              1202.2415771484375,
+              495.1719970703125
+            ],
+            [
+              1227.966064453125,
+              494.386474609375
+            ],
+            [
+              1215.385986328125,
+              506.9020080566406
+            ],
+            [
+              1205.2054443359375,
+              521.384033203125
+            ],
+            [
+              1226.0909423828125,
+              520.7670288085938
+            ]
+          ],
+          "quality_score": 0.7878,
+          "quality_flags": [
+            "small_face"
+          ],
+          "match_decision": "strong_match",
+          "match_reason": "强匹配: best=0.576, margin=0.219, support=1",
+          "pose_yaw": 0.7398977466671156,
+          "pose_pitch": -6.311754502200813,
+          "pose_roll": 1.4738141727359546,
+          "pose_bucket": "frontal",
+          "eye_visibility_ratio": 0.973925,
+          "landmark_detected": true,
+          "landmark_source": "mediapipe-face-landmarker",
+          "cluster_merge_reason": "簇支持合并: best=0.587, top2_mean=0.586, support=10; source=Person_013; target=Person_006"
+        },
+        {
+          "face_id": "18794ed4-5d39-4988-ba01-a816a3c09eb6",
+          "person_id": "Person_016",
+          "score": 0.8891623020172119,
+          "similarity": 0.15188544988632202,
+          "faiss_id": 16,
+          "bbox": [
+            1382,
+            420,
+            1443,
+            500
+          ],
+          "bbox_xywh": {
+            "x": 1382,
+            "y": 420,
+            "w": 61,
+            "h": 80
+          },
+          "kps": [
+            [
+              1396.9017333984375,
+              452.6904602050781
+            ],
+            [
+              1424.311767578125,
+              452.1122131347656
+            ],
+            [
+              1409.3067626953125,
+              464.84320068359375
+            ],
+            [
+              1398.8751220703125,
+              478.2939147949219
+            ],
+            [
+              1421.4173583984375,
+              477.8648986816406
+            ]
+          ],
+          "quality_score": 0.7787,
+          "quality_flags": [
+            "small_face"
+          ],
+          "match_decision": "new_person_from_ambiguity",
+          "match_reason": "候选存在但不够稳: best=0.152, mean=0.152, support=1, quality=0.779",
+          "pose_yaw": -5.94018657533403,
+          "pose_pitch": -6.418417807039271,
+          "pose_roll": 0.11991033381045132,
+          "pose_bucket": "frontal",
+          "eye_visibility_ratio": 0.944547,
+          "landmark_detected": true,
+          "landmark_source": "mediapipe-face-landmarker"
+        },
+        {
+          "face_id": "53b9eaf6-97cc-4a0d-b765-7c4dec9e647b",
+          "person_id": "Person_017",
+          "score": 0.8808266520500183,
+          "similarity": 0.09741580486297607,
+          "faiss_id": 17,
+          "bbox": [
+            644,
+            457,
+            704,
+            536
+          ],
+          "bbox_xywh": {
+            "x": 644,
+            "y": 457,
+            "w": 60,
+            "h": 79
+          },
+          "kps": [
+            [
+              663.0704956054688,
+              485.54071044921875
+            ],
+            [
+              690.5158081054688,
+              486.49957275390625
+            ],
+            [
+              677.32373046875,
+              500.8182373046875
+            ],
+            [
+              664.4541625976562,
+              514.0675048828125
+            ],
+            [
+              686.2376098632812,
+              514.904296875
+            ]
+          ],
+          "quality_score": 0.7673,
+          "quality_flags": [
+            "small_face"
+          ],
+          "match_decision": "new_person_from_ambiguity",
+          "match_reason": "候选存在但不够稳: best=0.097, mean=0.097, support=1, quality=0.767",
+          "pose_yaw": 3.0207147980482416,
+          "pose_pitch": 1.903642416538011,
+          "pose_roll": 1.4830064366477296,
+          "pose_bucket": "frontal",
+          "eye_visibility_ratio": 0.947996,
+          "landmark_detected": true,
+          "landmark_source": "mediapipe-face-landmarker"
+        },
+        {
+          "face_id": "45bbc2f6-e966-4e37-8aee-de71fc98611f",
+          "person_id": "Person_018",
+          "score": 0.877348780632019,
+          "similarity": 0.19761493802070618,
+          "faiss_id": 18,
+          "bbox": [
+            1022,
+            478,
+            1081,
+            547
+          ],
+          "bbox_xywh": {
+            "x": 1022,
+            "y": 478,
+            "w": 59,
+            "h": 69
+          },
+          "kps": [
+            [
+              1041.86865234375,
+              499.4789733886719
+            ],
+            [
+              1067.359375,
+              501.2776794433594
+            ],
+            [
+              1055.3526611328125,
+              513.1133422851562
+            ],
+            [
+              1043.6851806640625,
+              526.7758178710938
+            ],
+            [
+              1062.9136962890625,
+              528.1980590820312
+            ]
+          ],
+          "quality_score": 0.7498,
+          "quality_flags": [
+            "small_face"
+          ],
+          "match_decision": "new_person_from_ambiguity",
+          "match_reason": "候选存在但不够稳: best=0.198, mean=0.198, support=1, quality=0.750",
+          "pose_yaw": 6.41993107761984,
+          "pose_pitch": -8.180637850165898,
+          "pose_roll": -5.884843754121282,
+          "pose_bucket": "frontal",
+          "eye_visibility_ratio": 0.954803,
+          "landmark_detected": true,
+          "landmark_source": "mediapipe-face-landmarker"
+        },
+        {
+          "face_id": "b79ca81f-7487-46cd-ac52-9753361d3e54",
+          "person_id": "Person_019",
+          "score": 0.8282371759414673,
+          "similarity": 0.17885300517082214,
+          "faiss_id": 19,
+          "bbox": [
+            443,
+            470,
+            504,
+            542
+          ],
+          "bbox_xywh": {
+            "x": 443,
+            "y": 470,
+            "w": 61,
+            "h": 72
+          },
+          "kps": [
+            [
+              460.4930725097656,
+              492.6087341308594
+            ],
+            [
+              487.5508117675781,
+              493.3238830566406
+            ],
+            [
+              473.6881103515625,
+              507.31005859375
+            ],
+            [
+              463.0028381347656,
+              521.5428466796875
+            ],
+            [
+              483.720458984375,
+              522.1270751953125
+            ]
+          ],
+          "quality_score": 0.7443,
+          "quality_flags": [
+            "small_face"
+          ],
+          "match_decision": "new_person_from_ambiguity",
+          "match_reason": "候选存在但不够稳: best=0.179, mean=0.179, support=1, quality=0.744",
+          "pose_yaw": 1.5264260055953325,
+          "pose_pitch": -5.3650158177247,
+          "pose_roll": 0.26013238419039963,
+          "pose_bucket": "frontal",
+          "eye_visibility_ratio": 0.984196,
+          "landmark_detected": true,
+          "landmark_source": "mediapipe-face-landmarker"
+        }
+      ],
+      "detection_seconds": 0.16070487501565367,
+      "embedding_seconds": 0.25829649897059426
+    },
+    {
+      "image_hash": "c07bb6ad9719f3cb11217b194e79cdd1c11ca326c04077c19be1411aa379de8e",
+      "photo_id": "photo_077",
+      "filename": "image_1770196616478.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/image_1770196616478.jpg",
+      "source_hash": "c07bb6ad9719f3cb11217b194e79cdd1c11ca326c04077c19be1411aa379de8e",
+      "timestamp": "2026-03-11T14:23:00",
+      "location": {},
+      "width": 1280,
+      "height": 2772,
+      "faces": [],
+      "detection_seconds": 0.20208283298416063,
+      "embedding_seconds": 0.0
+    },
+    {
+      "image_hash": "a2dfaed99a86104164db35b95fc68c700a4ab39b38b4c0ae0e459294e8eca856",
+      "photo_id": "photo_081",
+      "filename": "image_1770686446919.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/image_1770686446919.jpg",
+      "source_hash": "a2dfaed99a86104164db35b95fc68c700a4ab39b38b4c0ae0e459294e8eca856",
+      "timestamp": "2026-03-11T14:23:00",
+      "location": {},
+      "width": 1706,
+      "height": 1279,
+      "faces": [
+        {
+          "face_id": "d1b38a55-2711-47d6-93f1-ac22b9aa5cfd",
+          "person_id": "Person_009",
+          "score": 0.8639578223228455,
+          "similarity": 0.6084231734275818,
+          "faiss_id": 20,
+          "bbox": [
+            1079,
+            397,
+            1160,
+            502
+          ],
+          "bbox_xywh": {
+            "x": 1079,
+            "y": 397,
+            "w": 81,
+            "h": 105
+          },
+          "kps": [
+            [
+              1093.4493408203125,
+              442.5686950683594
+            ],
+            [
+              1129.007080078125,
+              439.6498107910156
+            ],
+            [
+              1108.580078125,
+              463.3474426269531
+            ],
+            [
+              1101.1600341796875,
+              481.0220031738281
+            ],
+            [
+              1125.7335205078125,
+              478.8037414550781
+            ]
+          ],
+          "quality_score": 0.8389,
+          "quality_flags": [],
+          "match_decision": "strong_match",
+          "match_reason": "强匹配: best=0.608, margin=0.391, support=1",
+          "pose_yaw": -14.328916140087102,
+          "pose_pitch": 14.09983604529258,
+          "pose_roll": 1.8488722222868266,
+          "pose_bucket": "frontal",
+          "eye_visibility_ratio": 0.832842,
+          "landmark_detected": true,
+          "landmark_source": "mediapipe-face-landmarker"
+        },
+        {
+          "face_id": "5ff7b263-d00e-413c-840b-0f3766ca2c4c",
+          "person_id": "Person_012",
+          "score": 0.8606440424919128,
+          "similarity": 0.4507657289505005,
+          "faiss_id": 21,
+          "bbox": [
+            1357,
+            410,
+            1447,
+            520
+          ],
+          "bbox_xywh": {
+            "x": 1357,
+            "y": 410,
+            "w": 90,
+            "h": 110
+          },
+          "kps": [
+            [
+              1375.427490234375,
+              456.7181091308594
+            ],
+            [
+              1413.485107421875,
+              459.0047607421875
+            ],
+            [
+              1387.9073486328125,
+              477.6210632324219
+            ],
+            [
+              1375.241455078125,
+              492.44342041015625
+            ],
+            [
+              1407.6998291015625,
+              494.35174560546875
+            ]
+          ],
+          "quality_score": 0.686,
+          "quality_flags": [],
+          "match_decision": "cluster_merge_match",
+          "match_reason": "激进双单脸合并: best=0.451, top2_mean=0.451, support=0; source=Person_020; target=Person_012",
+          "pose_yaw": -13.022473891605484,
+          "pose_pitch": -1.2284987036398476,
+          "pose_roll": -3.34945399876539,
+          "pose_bucket": "frontal",
+          "eye_visibility_ratio": 0.883251,
+          "landmark_detected": true,
+          "landmark_source": "mediapipe-face-landmarker",
+          "cluster_merge_reason": "激进双单脸合并: best=0.451, top2_mean=0.451, support=0; source=Person_020; target=Person_012"
+        },
+        {
+          "face_id": "5db04fc3-b9c0-4f08-a605-cd6480ee0ae3",
+          "person_id": "Person_006",
+          "score": 0.8605031371116638,
+          "similarity": 0.6997503638267517,
+          "faiss_id": 22,
+          "bbox": [
+            368,
+            410,
+            473,
+            540
+          ],
+          "bbox_xywh": {
+            "x": 368,
+            "y": 410,
+            "w": 105,
+            "h": 130
+          },
+          "kps": [
+            [
+              398.5269775390625,
+              463.6463317871094
+            ],
+            [
+              446.69964599609375,
+              462.55474853515625
+            ],
+            [
+              425.098876953125,
+              483.3271789550781
+            ],
+            [
+              404.6632385253906,
+              507.5599365234375
+            ],
+            [
+              444.2821044921875,
+              506.6514892578125
+            ]
+          ],
+          "quality_score": 0.6948,
+          "quality_flags": [],
+          "match_decision": "strong_match",
+          "match_reason": "强匹配: best=0.700, margin=0.255, support=2",
+          "pose_yaw": 2.928996702545324,
+          "pose_pitch": -2.6472667593047388,
+          "pose_roll": 1.8817701555968103,
+          "pose_bucket": "frontal",
+          "eye_visibility_ratio": 0.966312,
+          "landmark_detected": true,
+          "landmark_source": "mediapipe-face-landmarker",
+          "cluster_merge_reason": "簇支持合并: best=0.587, top2_mean=0.586, support=10; source=Person_013; target=Person_006"
+        },
+        {
+          "face_id": "956395eb-c53e-46a6-a49f-1a306a5c1b2e",
+          "person_id": "Person_011",
+          "score": 0.8601694107055664,
+          "similarity": 0.7350350618362427,
+          "faiss_id": 23,
+          "bbox": [
+            870,
+            519,
+            945,
+            613
+          ],
+          "bbox_xywh": {
+            "x": 870,
+            "y": 519,
+            "w": 75,
+            "h": 94
+          },
+          "kps": [
+            [
+              890.6420288085938,
+              557.912353515625
+            ],
+            [
+              926.3050537109375,
+              555.9891967773438
+            ],
+            [
+              910.0980834960938,
+              576.2562866210938
+            ],
+            [
+              895.6107177734375,
+              591.8154907226562
+            ],
+            [
+              923.81298828125,
+              590.2919921875
+            ]
+          ],
+          "quality_score": 0.7859,
+          "quality_flags": [],
+          "match_decision": "strong_match",
+          "match_reason": "强匹配: best=0.735, margin=0.601, support=1",
+          "pose_yaw": 1.7971185999952328,
+          "pose_pitch": 0.1874241038824803,
+          "pose_roll": 3.7300637051610037,
+          "pose_bucket": "frontal",
+          "eye_visibility_ratio": 0.961912,
+          "landmark_detected": true,
+          "landmark_source": "mediapipe-face-landmarker"
+        },
+        {
+          "face_id": "33fcb96b-8d46-4207-b996-269450aafec4",
+          "person_id": "Person_010",
+          "score": 0.8428711891174316,
+          "similarity": 0.7494982481002808,
+          "faiss_id": 24,
+          "bbox": [
+            641,
+            360,
+            749,
+            504
+          ],
+          "bbox_xywh": {
+            "x": 641,
+            "y": 360,
+            "w": 108,
+            "h": 144
+          },
+          "kps": [
+            [
+              671.4884643554688,
+              415.4797668457031
+            ],
+            [
+              721.03076171875,
+              414.18017578125
+            ],
+            [
+              697.4281005859375,
+              444.5929870605469
+            ],
+            [
+              677.9783935546875,
+              468.6487121582031
+            ],
+            [
+              716.8921508789062,
+              467.54083251953125
+            ]
+          ],
+          "quality_score": 0.7316,
+          "quality_flags": [],
+          "match_decision": "strong_match",
+          "match_reason": "强匹配: best=0.749, margin=0.213, support=1",
+          "pose_yaw": 1.549519899170445,
+          "pose_pitch": -0.9160328543035468,
+          "pose_roll": 1.8862034872812041,
+          "pose_bucket": "frontal",
+          "eye_visibility_ratio": 0.945844,
+          "landmark_detected": true,
+          "landmark_source": "mediapipe-face-landmarker"
+        },
+        {
+          "face_id": "17114b8d-0dd7-47f3-88ff-758bee1435ec",
+          "person_id": "Person_014",
+          "score": 0.8324499726295471,
+          "similarity": 0.565029501914978,
+          "faiss_id": 25,
+          "bbox": [
+            1107,
+            513,
+            1195,
+            628
+          ],
+          "bbox_xywh": {
+            "x": 1107,
+            "y": 513,
+            "w": 88,
+            "h": 115
+          },
+          "kps": [
+            [
+              1141.92236328125,
+              559.2151489257812
+            ],
+            [
+              1179.7384033203125,
+              557.8213500976562
+            ],
+            [
+              1167.1705322265625,
+              583.9359130859375
+            ],
+            [
+              1147.8990478515625,
+              605.5386962890625
+            ],
+            [
+              1173.94970703125,
+              604.4486694335938
+            ]
+          ],
+          "quality_score": 0.7158,
+          "quality_flags": [],
+          "match_decision": "strong_match",
+          "match_reason": "强匹配: best=0.565, margin=0.479, support=1",
+          "pose_yaw": 15.4304724202308,
+          "pose_pitch": 5.320805906237925,
+          "pose_roll": -0.10052805340811034,
+          "pose_bucket": "frontal",
+          "eye_visibility_ratio": 0.780723,
+          "landmark_detected": true,
+          "landmark_source": "mediapipe-face-landmarker"
+        }
+      ],
+      "detection_seconds": 0.15892033296404406,
+      "embedding_seconds": 0.2633447910193354
+    },
+    {
+      "image_hash": "bb26897a462c28f7077c7297d93e9600252f634cca7b791502615fbd348d3240",
+      "photo_id": "photo_082",
+      "filename": "image_1770862508147.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/image_1770862508147.jpg",
+      "source_hash": "bb26897a462c28f7077c7297d93e9600252f634cca7b791502615fbd348d3240",
+      "timestamp": "2026-03-11T14:23:00",
+      "location": {},
+      "width": 1509,
+      "height": 1280,
+      "faces": [],
+      "detection_seconds": 0.15640312497271225,
+      "embedding_seconds": 0.0
+    },
+    {
+      "image_hash": "ba12b227ef8b61efa2471c72ab082c65e3053847300e45d8e0daef549756137c",
+      "photo_id": "photo_083",
+      "filename": "image_1771077299630.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/image_1771077299630.jpg",
+      "source_hash": "ba12b227ef8b61efa2471c72ab082c65e3053847300e45d8e0daef549756137c",
+      "timestamp": "2026-03-11T14:23:01",
+      "location": {},
+      "width": 2800,
+      "height": 1840,
+      "faces": [],
+      "detection_seconds": 0.16771650000009686,
+      "embedding_seconds": 0.0
+    },
+    {
+      "image_hash": "b5ea74a13e7d7d1df38f66e97c89af22b19ad1a9b47ac7c3f5936ea8f12d37cc",
+      "photo_id": "photo_084",
+      "filename": "image_1771077301754.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/image_1771077301754.jpg",
+      "source_hash": "b5ea74a13e7d7d1df38f66e97c89af22b19ad1a9b47ac7c3f5936ea8f12d37cc",
+      "timestamp": "2026-03-11T14:23:02",
+      "location": {},
+      "width": 2800,
+      "height": 1840,
+      "faces": [],
+      "detection_seconds": 0.1623547080089338,
+      "embedding_seconds": 0.0
+    },
+    {
+      "image_hash": "caee4788913dde2648d25bfec4f294380e6dcbdb44b7866b779205a5ea201873",
+      "photo_id": "photo_071",
+      "filename": "image_1769176589575.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/image_1769176589575.jpg",
+      "source_hash": "caee4788913dde2648d25bfec4f294380e6dcbdb44b7866b779205a5ea201873",
+      "timestamp": "2026-03-11T14:23:16",
+      "location": {},
+      "width": 4032,
+      "height": 3024,
+      "faces": [
+        {
+          "face_id": "9c4527a5-5391-43ce-b19d-3b99abf78575",
+          "person_id": "Person_004",
+          "score": 0.8970203399658203,
+          "similarity": 0.7907188534736633,
+          "faiss_id": 26,
+          "bbox": [
+            2502,
+            504,
+            2868,
+            946
+          ],
+          "bbox_xywh": {
+            "x": 2502,
+            "y": 504,
+            "w": 366,
+            "h": 442
+          },
+          "kps": [
+            [
+              1235.642822265625,
+              313.9094543457031
+            ],
+            [
+              1318.7315673828125,
+              315.13800048828125
+            ],
+            [
+              1275.69580078125,
+              358.6396179199219
+            ],
+            [
+              1246.6016845703125,
+              396.5019226074219
+            ],
+            [
+              1308.4959716796875,
+              397.395263671875
+            ]
+          ],
+          "quality_score": 0.6474,
+          "quality_flags": [
+            "blurry"
+          ],
+          "match_decision": "strong_match",
+          "match_reason": "强匹配: best=0.791, margin=0.685, support=1",
+          "pose_yaw": -0.860039724595373,
+          "pose_pitch": 0.6915547561928991,
+          "pose_roll": 1.4518235477956616,
+          "pose_bucket": "frontal",
+          "eye_visibility_ratio": 0.981774,
+          "landmark_detected": true,
+          "landmark_source": "mediapipe-face-landmarker"
+        },
+        {
+          "face_id": "171f7ac7-7af9-47fa-8f76-8ab098831531",
+          "person_id": "Person_005",
+          "score": 0.8962790966033936,
+          "similarity": 0.9012854099273682,
+          "faiss_id": 27,
+          "bbox": [
+            1880,
+            411,
+            2269,
+            929
+          ],
+          "bbox_xywh": {
+            "x": 1880,
+            "y": 411,
+            "w": 389,
+            "h": 518
+          },
+          "kps": [
+            [
+              947.2695922851562,
+              292.4565124511719
+            ],
+            [
+              1032.653076171875,
+              305.96343994140625
+            ],
+            [
+              982.9775390625,
+              347.1959533691406
+            ],
+            [
+              941.7200927734375,
+              379.22222900390625
+            ],
+            [
+              1009.6333618164062,
+              390.3843688964844
+            ]
+          ],
+          "quality_score": 0.7567,
+          "quality_flags": [],
+          "match_decision": "strong_match",
+          "match_reason": "强匹配: best=0.901, margin=0.694, support=1",
+          "pose_yaw": 1.5102379357982822,
+          "pose_pitch": 6.914739165023677,
+          "pose_roll": -10.241295331887144,
+          "pose_bucket": "frontal",
+          "eye_visibility_ratio": 0.991461,
+          "landmark_detected": true,
+          "landmark_source": "mediapipe-face-landmarker"
+        },
+        {
+          "face_id": "96e4de1c-2a17-4185-b3df-f52613bfe400",
+          "person_id": "Person_006",
+          "score": 0.8623218536376953,
+          "similarity": 0.8859760761260986,
+          "faiss_id": 28,
+          "bbox": [
+            1039,
+            272,
+            1429,
+            683
+          ],
+          "bbox_xywh": {
+            "x": 1039,
+            "y": 272,
+            "w": 390,
+            "h": 411
+          },
+          "kps": [
+            [
+              550.548095703125,
+              185.9596405029297
+            ],
+            [
+              635.0662231445312,
+              196.0872802734375
+            ],
+            [
+              590.4318237304688,
+              227.37391662597656
+            ],
+            [
+              546.5496826171875,
+              267.79669189453125
+            ],
+            [
+              617.3323364257812,
+              276.79998779296875
+            ]
+          ],
+          "quality_score": 0.7183,
+          "quality_flags": [],
+          "match_decision": "strong_match",
+          "match_reason": "强匹配: best=0.886, margin=0.462, support=1",
+          "pose_yaw": 2.549517909757742,
+          "pose_pitch": -0.467680137004786,
+          "pose_roll": -7.7735223821094275,
+          "pose_bucket": "frontal",
+          "eye_visibility_ratio": 0.943615,
+          "landmark_detected": true,
+          "landmark_source": "mediapipe-face-landmarker"
+        }
+      ],
+      "detection_seconds": 0.15307066700188443,
+      "embedding_seconds": 0.12914033292327076
+    },
+    {
+      "image_hash": "9c77457a6adbddd793b36c2146d103964cd4a697e3316b0ba3d4f87e371310e4",
+      "photo_id": "photo_072",
+      "filename": "image_1769176607594.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/image_1769176607594.jpg",
+      "source_hash": "9c77457a6adbddd793b36c2146d103964cd4a697e3316b0ba3d4f87e371310e4",
+      "timestamp": "2026-03-11T14:23:21",
+      "location": {},
+      "width": 3213,
+      "height": 5712,
+      "faces": [],
+      "detection_seconds": 0.1503286249935627,
+      "embedding_seconds": 0.0
+    },
+    {
+      "image_hash": "cc3f01e4d703dadc3c856d67e428fe7cb86164473aefaf1a028ff26ab64075a9",
+      "photo_id": "photo_090",
+      "filename": "image_1771977068331.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/image_1771977068331.jpg",
+      "source_hash": "cc3f01e4d703dadc3c856d67e428fe7cb86164473aefaf1a028ff26ab64075a9",
+      "timestamp": "2026-03-11T14:23:23",
+      "location": {},
+      "width": 1125,
+      "height": 1500,
+      "faces": [
+        {
+          "face_id": "2792831a-f859-45c5-a161-8782c9b65f43",
+          "person_id": "Person_021",
+          "score": 0.8832539319992065,
+          "similarity": 0.18063762784004211,
+          "faiss_id": 29,
+          "bbox": [
+            572,
+            306,
+            675,
+            447
+          ],
+          "bbox_xywh": {
+            "x": 572,
+            "y": 306,
+            "w": 103,
+            "h": 141
+          },
+          "kps": [
+            [
+              603.937255859375,
+              359.49908447265625
+            ],
+            [
+              651.9988403320312,
+              359.61322021484375
+            ],
+            [
+              630.6940307617188,
+              382.2409973144531
+            ],
+            [
+              608.9511108398438,
+              413.6686096191406
+            ],
+            [
+              644.3510131835938,
+              413.9030456542969
+            ]
+          ],
+          "quality_score": 0.5218,
+          "quality_flags": [
+            "blurry",
+            "low_contrast"
+          ],
+          "match_decision": "new_person_from_ambiguity",
+          "match_reason": "候选存在但不够稳: best=0.181, mean=0.170, support=2, quality=0.522",
+          "pose_yaw": 6.814242835459625,
+          "pose_pitch": -8.497813806965137,
+          "pose_roll": -1.792960716972347,
+          "pose_bucket": "frontal",
+          "eye_visibility_ratio": 0.9267,
+          "landmark_detected": true,
+          "landmark_source": "mediapipe-face-landmarker"
+        },
+        {
+          "face_id": "0299ea3d-c631-4119-81f6-c7cd02d990cb",
+          "person_id": "Person_022",
+          "score": 0.8776342868804932,
+          "similarity": 0.2352588176727295,
+          "faiss_id": 30,
+          "bbox": [
+            236,
+            387,
+            338,
+            515
+          ],
+          "bbox_xywh": {
+            "x": 236,
+            "y": 387,
+            "w": 102,
+            "h": 128
+          },
+          "kps": [
+            [
+              263.3153991699219,
+              440.03106689453125
+            ],
+            [
+              310.9628601074219,
+              439.5594787597656
+            ],
+            [
+              287.5402526855469,
+              456.7069091796875
+            ],
+            [
+              268.7077941894531,
+              484.2170715332031
+            ],
+            [
+              306.11785888671875,
+              484.0264892578125
+            ]
+          ],
+          "quality_score": 0.5588,
+          "quality_flags": [
+            "blurry"
+          ],
+          "match_decision": "new_person_from_ambiguity",
+          "match_reason": "候选存在但不够稳: best=0.235, mean=0.186, support=3, quality=0.559",
+          "pose_yaw": 0.7609941536344899,
+          "pose_pitch": -12.521872667423633,
+          "pose_roll": 0.20345563053338298,
+          "pose_bucket": "frontal",
+          "eye_visibility_ratio": 0.997965,
+          "landmark_detected": true,
+          "landmark_source": "mediapipe-face-landmarker"
+        },
+        {
+          "face_id": "05d5815f-2d83-45e2-afa2-f2da908f252c",
+          "person_id": "Person_006",
+          "score": 0.823591947555542,
+          "similarity": 0.6836338043212891,
+          "faiss_id": 31,
+          "bbox": [
+            859,
+            323,
+            954,
+            447
+          ],
+          "bbox_xywh": {
+            "x": 859,
+            "y": 323,
+            "w": 95,
+            "h": 124
+          },
+          "kps": [
+            [
+              885.3905639648438,
+              368.6164855957031
+            ],
+            [
+              929.887451171875,
+              366.8663024902344
+            ],
+            [
+              909.0152587890625,
+              384.5105285644531
+            ],
+            [
+              891.4780883789062,
+              413.55352783203125
+            ],
+            [
+              925.0656127929688,
+              412.2431640625
+            ]
+          ],
+          "quality_score": 0.4955,
+          "quality_flags": [
+            "blurry"
+          ],
+          "match_decision": "strong_match",
+          "match_reason": "强匹配: best=0.684, margin=0.234, support=3",
+          "pose_yaw": 1.9942291211966192,
+          "pose_pitch": -12.612102363580787,
+          "pose_roll": 1.0809245452379455,
+          "pose_bucket": "frontal",
+          "eye_visibility_ratio": 0.975496,
+          "landmark_detected": true,
+          "landmark_source": "mediapipe-face-landmarker",
+          "cluster_merge_reason": "簇支持合并: best=0.587, top2_mean=0.586, support=10; source=Person_013; target=Person_006"
+        }
+      ],
+      "detection_seconds": 0.15424070798326284,
+      "embedding_seconds": 0.12759712600382045
+    },
+    {
+      "image_hash": "6e37707e66279a637a8c209039b9e0b1eccb9fd4dd9a29b4564906509dfe5d59",
+      "photo_id": "photo_092",
+      "filename": "image_1771985312499.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/image_1771985312499.jpg",
+      "source_hash": "6e37707e66279a637a8c209039b9e0b1eccb9fd4dd9a29b4564906509dfe5d59",
+      "timestamp": "2026-03-11T14:23:25",
+      "location": {},
+      "width": 1500,
+      "height": 1125,
+      "faces": [
+        {
+          "face_id": "98e23265-2a4d-4ee0-a872-5477b374d14b",
+          "person_id": "Person_006",
+          "score": 0.9078153967857361,
+          "similarity": 0.7406197786331177,
+          "faiss_id": 32,
+          "bbox": [
+            943,
+            183,
+            1020,
+            275
+          ],
+          "bbox_xywh": {
+            "x": 943,
+            "y": 183,
+            "w": 77,
+            "h": 92
+          },
+          "kps": [
+            [
+              964.1151733398438,
+              216.53140258789062
+            ],
+            [
+              999.326416015625,
+              215.375244140625
+            ],
+            [
+              982.3573608398438,
+              229.60964965820312
+            ],
+            [
+              969.2149047851562,
+              251.1024169921875
+            ],
+            [
+              995.696044921875,
+              250.18174743652344
+            ]
+          ],
+          "quality_score": 0.7251,
+          "quality_flags": [],
+          "match_decision": "strong_match",
+          "match_reason": "强匹配: best=0.741, margin=0.315, support=4",
+          "pose_yaw": 0.8806080376932269,
+          "pose_pitch": -9.263828632252626,
+          "pose_roll": 2.1983272844680894,
+          "pose_bucket": "frontal",
+          "eye_visibility_ratio": 0.932701,
+          "landmark_detected": true,
+          "landmark_source": "mediapipe-face-landmarker",
+          "cluster_merge_reason": "簇支持合并: best=0.587, top2_mean=0.586, support=10; source=Person_013; target=Person_006"
+        },
+        {
+          "face_id": "a3aa180b-c560-4f51-b215-4be88199ae28",
+          "person_id": "Person_021",
+          "score": 0.8901170492172241,
+          "similarity": 0.7777665257453918,
+          "faiss_id": 33,
+          "bbox": [
+            520,
+            170,
+            603,
+            279
+          ],
+          "bbox_xywh": {
+            "x": 520,
+            "y": 170,
+            "w": 83,
+            "h": 109
+          },
+          "kps": [
+            [
+              545.4046020507812,
+              209.12387084960938
+            ],
+            [
+              582.9436645507812,
+              209.9722900390625
+            ],
+            [
+              564.554931640625,
+              228.86659240722656
+            ],
+            [
+              549.2069702148438,
+              252.13067626953125
+            ],
+            [
+              576.5491333007812,
+              252.8360595703125
+            ]
+          ],
+          "quality_score": 0.6656,
+          "quality_flags": [],
+          "match_decision": "strong_match",
+          "match_reason": "强匹配: best=0.778, margin=0.621, support=1",
+          "pose_yaw": 2.665284897489621,
+          "pose_pitch": -5.131169867609917,
+          "pose_roll": -1.686539738075527,
+          "pose_bucket": "frontal",
+          "eye_visibility_ratio": 0.974244,
+          "landmark_detected": true,
+          "landmark_source": "mediapipe-face-landmarker"
+        },
+        {
+          "face_id": "06ecbd56-d65d-4f6b-9226-96eac4443ea3",
+          "person_id": "Person_022",
+          "score": 0.8596303462982178,
+          "similarity": 0.681756317615509,
+          "faiss_id": 34,
+          "bbox": [
+            758,
+            240,
+            832,
+            336
+          ],
+          "bbox_xywh": {
+            "x": 758,
+            "y": 240,
+            "w": 74,
+            "h": 96
+          },
+          "kps": [
+            [
+              775.6989135742188,
+              283.0516357421875
+            ],
+            [
+              808.3208618164062,
+              279.82965087890625
+            ],
+            [
+              792.1065673828125,
+              294.93048095703125
+            ],
+            [
+              782.3035278320312,
+              315.41436767578125
+            ],
+            [
+              806.7199096679688,
+              312.83905029296875
+            ]
+          ],
+          "quality_score": 0.682,
+          "quality_flags": [],
+          "match_decision": "strong_match",
+          "match_reason": "强匹配: best=0.682, margin=0.452, support=1",
+          "pose_yaw": -5.246139642550685,
+          "pose_pitch": -10.308926574115056,
+          "pose_roll": 5.686613492545126,
+          "pose_bucket": "frontal",
+          "eye_visibility_ratio": 0.984818,
+          "landmark_detected": true,
+          "landmark_source": "mediapipe-face-landmarker"
+        }
+      ],
+      "detection_seconds": 0.15489970799535513,
+      "embedding_seconds": 0.1742541259736754
+    },
+    {
+      "image_hash": "fc444c7310b8b730b679f3e4ac0e4e012ad76220069c5825e467a41eeef3a3d6",
+      "photo_id": "photo_011",
+      "filename": "IMG_20260123_104607.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/IMG_20260123_104607.jpg",
+      "source_hash": "fc444c7310b8b730b679f3e4ac0e4e012ad76220069c5825e467a41eeef3a3d6",
+      "timestamp": "2026-03-11T14:25:15",
+      "location": {},
+      "width": 5824,
+      "height": 4368,
+      "faces": [],
+      "detection_seconds": 0.1511716659879312,
+      "embedding_seconds": 0.0
+    },
+    {
+      "image_hash": "74fe63a4b3ac5e387504c48da3120780d35723009a86f6dbf5a6c2f3284228b1",
+      "photo_id": "photo_017",
+      "filename": "IMG_20260123_115637_3.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/IMG_20260123_115637_3.jpg",
+      "source_hash": "74fe63a4b3ac5e387504c48da3120780d35723009a86f6dbf5a6c2f3284228b1",
+      "timestamp": "2026-03-11T14:25:16",
+      "location": {},
+      "width": 4096,
+      "height": 3072,
+      "faces": [],
+      "detection_seconds": 0.14594691700767726,
+      "embedding_seconds": 0.0
+    },
+    {
+      "image_hash": "127b08f9965ffe7bce6081d281c5b8fd612a52ec30a7917934b893ee2cb9bec0",
+      "photo_id": "photo_013",
+      "filename": "IMG_20260123_114740.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/IMG_20260123_114740.jpg",
+      "source_hash": "127b08f9965ffe7bce6081d281c5b8fd612a52ec30a7917934b893ee2cb9bec0",
+      "timestamp": "2026-03-11T14:25:17",
+      "location": {},
+      "width": 4096,
+      "height": 3072,
+      "faces": [],
+      "detection_seconds": 0.14723337499890476,
+      "embedding_seconds": 0.0
+    },
+    {
+      "image_hash": "6bf92b931ae17476a6bf2d01b7a2a5ac276761ee744be62427e22a85c3bd22dd",
+      "photo_id": "photo_014",
+      "filename": "IMG_20260123_114801.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/IMG_20260123_114801.jpg",
+      "source_hash": "6bf92b931ae17476a6bf2d01b7a2a5ac276761ee744be62427e22a85c3bd22dd",
+      "timestamp": "2026-03-11T14:25:18",
+      "location": {},
+      "width": 4368,
+      "height": 5824,
+      "faces": [],
+      "detection_seconds": 0.15135383396409452,
+      "embedding_seconds": 0.0
+    },
+    {
+      "image_hash": "c08b9a917ecd9eccf906eb50abd9ceec9ba4a1d0b6370ab8fd2b897cf5f66487",
+      "photo_id": "photo_015",
+      "filename": "IMG_20260123_115636.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/IMG_20260123_115636.jpg",
+      "source_hash": "c08b9a917ecd9eccf906eb50abd9ceec9ba4a1d0b6370ab8fd2b897cf5f66487",
+      "timestamp": "2026-03-11T14:25:18",
+      "location": {},
+      "width": 4096,
+      "height": 3072,
+      "faces": [],
+      "detection_seconds": 0.15090495796175674,
+      "embedding_seconds": 0.0
+    },
+    {
+      "image_hash": "8d49bc5b5bb97ab2ba48242e926b8a6a278935d470d7fbfd7a739822281ac932",
+      "photo_id": "photo_012",
+      "filename": "IMG_20260123_104631.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/IMG_20260123_104631.jpg",
+      "source_hash": "8d49bc5b5bb97ab2ba48242e926b8a6a278935d470d7fbfd7a739822281ac932",
+      "timestamp": "2026-03-11T14:25:19",
+      "location": {},
+      "width": 4368,
+      "height": 5824,
+      "faces": [],
+      "detection_seconds": 0.14742549997754395,
+      "embedding_seconds": 0.0
+    },
+    {
+      "image_hash": "b5f4ac20328e0da425d4273609c1ae693d9268a62b7a5c63c82469fa6727a357",
+      "photo_id": "photo_018",
+      "filename": "IMG_20260123_115942.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/IMG_20260123_115942.jpg",
+      "source_hash": "b5f4ac20328e0da425d4273609c1ae693d9268a62b7a5c63c82469fa6727a357",
+      "timestamp": "2026-03-11T14:25:19",
+      "location": {},
+      "width": 3072,
+      "height": 4096,
+      "faces": [
+        {
+          "face_id": "d1a72b7d-5b2f-491e-b92c-688f059a9bbc",
+          "person_id": "Person_023",
+          "score": 0.7822756767272949,
+          "similarity": 0.08380389213562012,
+          "faiss_id": 35,
+          "bbox": [
+            849,
+            32,
+            2790,
+            2363
+          ],
+          "bbox_xywh": {
+            "x": 849,
+            "y": 32,
+            "w": 1941,
+            "h": 2331
+          },
+          "kps": [
+            [
+              692.1409301757812,
+              421.822265625
+            ],
+            [
+              1140.6754150390625,
+              409.9532775878906
+            ],
+            [
+              964.7721557617188,
+              706.2026977539062
+            ],
+            [
+              741.9995727539062,
+              871.8154907226562
+            ],
+            [
+              1086.4754638671875,
+              857.998779296875
+            ]
+          ],
+          "quality_score": 0.9779,
+          "quality_flags": [],
+          "match_decision": "new_person_from_ambiguity",
+          "match_reason": "候选存在但不够稳: best=0.084, mean=0.056, support=2, quality=0.978",
+          "pose_yaw": 8.842654653589484,
+          "pose_pitch": 16.97522091135438,
+          "pose_roll": 1.6555119353853962,
+          "pose_bucket": "frontal",
+          "eye_visibility_ratio": 0.875297,
+          "landmark_detected": true,
+          "landmark_source": "mediapipe-face-landmarker"
+        }
+      ],
+      "detection_seconds": 0.14844595902832225,
+      "embedding_seconds": 0.05743854201864451
+    },
+    {
+      "image_hash": "d403092d054c3276a7e8e0e9d8ff65bc9d46dfa99aa68695b05d2cef66633923",
+      "photo_id": "photo_019",
+      "filename": "IMG_20260123_122242.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/IMG_20260123_122242.jpg",
+      "source_hash": "d403092d054c3276a7e8e0e9d8ff65bc9d46dfa99aa68695b05d2cef66633923",
+      "timestamp": "2026-03-11T14:25:26",
+      "location": {},
+      "width": 4368,
+      "height": 5824,
+      "faces": [
+        {
+          "face_id": "ee840c2b-0b8a-4091-9e04-08c6ac5e5426",
+          "person_id": "Person_024",
+          "score": 0.8076815009117126,
+          "similarity": 0.18265193700790405,
+          "faiss_id": 36,
+          "bbox": [
+            2885,
+            158,
+            3177,
+            510
+          ],
+          "bbox_xywh": {
+            "x": 2885,
+            "y": 158,
+            "w": 292,
+            "h": 352
+          },
+          "kps": [
+            [
+              971.2976684570312,
+              98.88404846191406
+            ],
+            [
+              1014.81689453125,
+              104.20685577392578
+            ],
+            [
+              987.1934204101562,
+              128.98910522460938
+            ],
+            [
+              974.4176025390625,
+              144.1373291015625
+            ],
+            [
+              1004.3538208007812,
+              148.34564208984375
+            ]
+          ],
+          "quality_score": 0.5744,
+          "quality_flags": [
+            "blurry"
+          ],
+          "match_decision": "new_person_from_ambiguity",
+          "match_reason": "候选存在但不够稳: best=0.183, mean=0.166, support=2, quality=0.574",
+          "pose_yaw": -9.584863839931902,
+          "pose_pitch": 13.28992871101862,
+          "pose_roll": -6.569783733547243,
+          "pose_bucket": "frontal",
+          "eye_visibility_ratio": 0.919397,
+          "landmark_detected": true,
+          "landmark_source": "mediapipe-face-landmarker"
+        },
+        {
+          "face_id": "834abb11-2ad5-4367-a2d1-de3670546f42",
+          "person_id": "Person_025",
+          "score": 0.7813085913658142,
+          "similarity": 0.1693834364414215,
+          "faiss_id": 37,
+          "bbox": [
+            1968,
+            175,
+            2230,
+            472
+          ],
+          "bbox_xywh": {
+            "x": 1968,
+            "y": 175,
+            "w": 262,
+            "h": 297
+          },
+          "kps": [
+            [
+              689.4840087890625,
+              103.43209838867188
+            ],
+            [
+              720.6378784179688,
+              104.36597442626953
+            ],
+            [
+              707.7603759765625,
+              129.5717315673828
+            ],
+            [
+              684.3776245117188,
+              138.9615020751953
+            ],
+            [
+              704.555419921875,
+              140.14756774902344
+            ]
+          ],
+          "quality_score": 0.5703,
+          "quality_flags": [
+            "blurry"
+          ],
+          "match_decision": "new_person_from_ambiguity",
+          "match_reason": "候选存在但不够稳: best=0.169, mean=0.163, support=2, quality=0.570",
+          "pose_yaw": 13.173371994275847,
+          "pose_pitch": 29.115302608255988,
+          "pose_roll": -9.229188827741163,
+          "pose_bucket": "frontal",
+          "eye_visibility_ratio": 0.791055,
+          "landmark_detected": true,
+          "landmark_source": "mediapipe-face-landmarker"
+        },
+        {
+          "face_id": "04c85b09-caa9-4434-9af2-b46600a985f1",
+          "person_id": "Person_026",
+          "score": 0.761925995349884,
+          "similarity": 0.3075920641422272,
+          "faiss_id": 38,
+          "bbox": [
+            24,
+            0,
+            351,
+            389
+          ],
+          "bbox_xywh": {
+            "x": 24,
+            "y": 0,
+            "w": 327,
+            "h": 389
+          },
+          "kps": [
+            [
+              54.028072357177734,
+              40.277687072753906
+            ],
+            [
+              101.104248046875,
+              32.733089447021484
+            ],
+            [
+              92.08757019042969,
+              70.35592651367188
+            ],
+            [
+              71.60472869873047,
+              102.42916107177734
+            ],
+            [
+              101.25616455078125,
+              96.17963409423828
+            ]
+          ],
+          "quality_score": 0.4308,
+          "quality_flags": [
+            "blurry",
+            "edge_clipped",
+            "profile_face"
+          ],
+          "match_decision": "new_person_from_ambiguity",
+          "match_reason": "候选存在但不够稳: best=0.308, mean=0.308, support=1, quality=0.431",
+          "pose_yaw": 20.41039220076912,
+          "pose_pitch": 8.473626328948974,
+          "pose_roll": 7.969559836895457,
+          "pose_bucket": "right_profile",
+          "eye_visibility_ratio": 0.720449,
+          "landmark_detected": true,
+          "landmark_source": "mediapipe-face-landmarker"
+        }
+      ],
+      "detection_seconds": 0.1662365829688497,
+      "embedding_seconds": 0.16033320897258818
+    },
+    {
+      "image_hash": "d1786d9204ffe634fa045a773c8e97d069c9f940fc523c4cd3d922ecfd8211bc",
+      "photo_id": "photo_020",
+      "filename": "IMG_20260123_122244.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/IMG_20260123_122244.jpg",
+      "source_hash": "d1786d9204ffe634fa045a773c8e97d069c9f940fc523c4cd3d922ecfd8211bc",
+      "timestamp": "2026-03-11T14:25:26",
+      "location": {},
+      "width": 4368,
+      "height": 5824,
+      "faces": [
+        {
+          "face_id": "997b2f83-9386-446e-979b-aa0ea838c316",
+          "person_id": "Person_024",
+          "score": 0.8400395512580872,
+          "similarity": 0.7105416059494019,
+          "faiss_id": 39,
+          "bbox": [
+            3116,
+            121,
+            3389,
+            454
+          ],
+          "bbox_xywh": {
+            "x": 3116,
+            "y": 121,
+            "w": 273,
+            "h": 333
+          },
+          "kps": [
+            [
+              1048.47802734375,
+              80.41877746582031
+            ],
+            [
+              1086.7083740234375,
+              98.23848724365234
+            ],
+            [
+              1056.84375,
+              114.07486724853516
+            ],
+            [
+              1038.9493408203125,
+              120.05299377441406
+            ],
+            [
+              1067.319580078125,
+              134.0126953125
+            ]
+          ],
+          "quality_score": 0.5223,
+          "quality_flags": [
+            "blurry",
+            "low_contrast"
+          ],
+          "match_decision": "strong_match",
+          "match_reason": "强匹配: best=0.711, margin=0.362, support=1",
+          "pose_yaw": -4.005868419193895,
+          "pose_pitch": 19.287292054327928,
+          "pose_roll": -21.179624528405554,
+          "pose_bucket": "frontal",
+          "eye_visibility_ratio": 0.95107,
+          "landmark_detected": true,
+          "landmark_source": "mediapipe-face-landmarker"
+        },
+        {
+          "face_id": "5c27eec7-6840-4e42-84a3-00ac529ba43d",
+          "person_id": "Person_026",
+          "score": 0.7191731333732605,
+          "similarity": 0.6012304425239563,
+          "faiss_id": 40,
+          "bbox": [
+            55,
+            0,
+            381,
+            278
+          ],
+          "bbox_xywh": {
+            "x": 55,
+            "y": 0,
+            "w": 326,
+            "h": 278
+          },
+          "kps": [
+            [
+              58.499534606933594,
+              2.2541556358337402
+            ],
+            [
+              108.26593780517578,
+              -3.086514472961426
+            ],
+            [
+              96.2267074584961,
+              32.5908088684082
+            ],
+            [
+              77.13999938964844,
+              64.00202178955078
+            ],
+            [
+              110.26582336425781,
+              59.53486633300781
+            ]
+          ],
+          "quality_score": 0.3748,
+          "quality_flags": [
+            "blurry",
+            "edge_clipped",
+            "low_contrast",
+            "profile_face"
+          ],
+          "match_decision": "strong_match",
+          "match_reason": "强匹配: best=0.601, margin=0.353, support=1",
+          "pose_yaw": 46.588894,
+          "pose_pitch": 5.348774,
+          "pose_roll": -9.580231,
+          "pose_bucket": "right_profile",
+          "eye_visibility_ratio": null,
+          "landmark_detected": true,
+          "landmark_source": "insightface-pose-fallback"
+        },
+        {
+          "face_id": "872c3f71-d9cc-4168-8d2e-30661ac78608",
+          "person_id": "Person_025",
+          "score": 0.6929702162742615,
+          "similarity": 0.594312310218811,
+          "faiss_id": 41,
+          "bbox": [
+            1997,
+            76,
+            2285,
+            347
+          ],
+          "bbox_xywh": {
+            "x": 1997,
+            "y": 76,
+            "w": 288,
+            "h": 271
+          },
+          "kps": [
+            [
+              689.6813354492188,
+              64.87879943847656
+            ],
+            [
+              730.18798828125,
+              67.06525421142578
+            ],
+            [
+              709.9713134765625,
+              91.21623992919922
+            ],
+            [
+              691.985595703125,
+              99.82186889648438
+            ],
+            [
+              718.3240966796875,
+              101.91055297851562
+            ]
+          ],
+          "quality_score": 0.5178,
+          "quality_flags": [
+            "blurry",
+            "low_contrast"
+          ],
+          "match_decision": "strong_match",
+          "match_reason": "强匹配: best=0.594, margin=0.341, support=1",
+          "pose_yaw": -17.81852,
+          "pose_pitch": -4.968667,
+          "pose_roll": -10.477585,
+          "pose_bucket": "frontal",
+          "eye_visibility_ratio": null,
+          "landmark_detected": true,
+          "landmark_source": "insightface-pose-fallback"
+        }
+      ],
+      "detection_seconds": 0.16471462504705414,
+      "embedding_seconds": 0.15817325096577406
+    },
+    {
+      "image_hash": "5ff6af2098db414d026215f8c5faaeb7b2304987eb0ebb149d83485d57e3b2fc",
+      "photo_id": "photo_022",
+      "filename": "IMG_20260123_122422.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/IMG_20260123_122422.jpg",
+      "source_hash": "5ff6af2098db414d026215f8c5faaeb7b2304987eb0ebb149d83485d57e3b2fc",
+      "timestamp": "2026-03-11T14:25:26",
+      "location": {},
+      "width": 4368,
+      "height": 5824,
+      "faces": [
+        {
+          "face_id": "0e8b29a3-f777-4026-b5fe-7869dac85d01",
+          "person_id": "Person_027",
+          "score": 0.7870776057243347,
+          "similarity": 0.18129843473434448,
+          "faiss_id": 42,
+          "bbox": [
+            1756,
+            748,
+            2724,
+            1872
+          ],
+          "bbox_xywh": {
+            "x": 1756,
+            "y": 748,
+            "w": 968,
+            "h": 1124
+          },
+          "kps": [
+            [
+              612.9451904296875,
+              359.1984558105469
+            ],
+            [
+              710.4359130859375,
+              372.610595703125
+            ],
+            [
+              591.61376953125,
+              439.0423278808594
+            ],
+            [
+              605.6092529296875,
+              505.7334899902344
+            ],
+            [
+              679.5128784179688,
+              514.5025634765625
+            ]
+          ],
+          "quality_score": 0.7336,
+          "quality_flags": [
+            "blurry",
+            "profile_face"
+          ],
+          "match_decision": "new_person_from_ambiguity",
+          "match_reason": "候选存在但不够稳: best=0.181, mean=0.148, support=2, quality=0.734",
+          "pose_yaw": -48.613789,
+          "pose_pitch": -6.726714,
+          "pose_roll": 3.797765,
+          "pose_bucket": "left_profile",
+          "eye_visibility_ratio": null,
+          "landmark_detected": true,
+          "landmark_source": "insightface-pose-fallback"
+        },
+        {
+          "face_id": "84a6ae94-b4ff-4f51-967a-6778763b47cd",
+          "person_id": "Person_028",
+          "score": 0.7605739831924438,
+          "similarity": 0.20198242366313934,
+          "faiss_id": 43,
+          "bbox": [
+            1288,
+            489,
+            1753,
+            1072
+          ],
+          "bbox_xywh": {
+            "x": 1288,
+            "y": 489,
+            "w": 465,
+            "h": 583
+          },
+          "kps": [
+            [
+              439.5561218261719,
+              230.504150390625
+            ],
+            [
+              475.18243408203125,
+              229.1032257080078
+            ],
+            [
+              434.8607482910156,
+              270.9427490234375
+            ],
+            [
+              452.6200866699219,
+              308.2222595214844
+            ],
+            [
+              476.2318115234375,
+              305.3919372558594
+            ]
+          ],
+          "quality_score": 0.5883,
+          "quality_flags": [
+            "blurry",
+            "low_contrast"
+          ],
+          "match_decision": "new_person_from_ambiguity",
+          "match_reason": "候选存在但不够稳: best=0.202, mean=0.184, support=2, quality=0.588",
+          "pose_yaw": 1.938467,
+          "pose_pitch": -2.153196,
+          "pose_roll": -10.422009,
+          "pose_bucket": "frontal",
+          "eye_visibility_ratio": null,
+          "landmark_detected": true,
+          "landmark_source": "insightface-pose-fallback"
+        }
+      ],
+      "detection_seconds": 0.14642920799087733,
+      "embedding_seconds": 0.09051424899371341
+    },
+    {
+      "image_hash": "ba0382b92acda43a88738c3bd6426d4fde3afb3b6b7374ef2a6b7292d170bc26",
+      "photo_id": "photo_023",
+      "filename": "IMG_20260123_122558.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/IMG_20260123_122558.jpg",
+      "source_hash": "ba0382b92acda43a88738c3bd6426d4fde3afb3b6b7374ef2a6b7292d170bc26",
+      "timestamp": "2026-03-11T14:25:27",
+      "location": {},
+      "width": 5824,
+      "height": 4368,
+      "faces": [
+        {
+          "face_id": "d14f8cf3-4bd2-4249-a8e9-f684ddb7dedf",
+          "person_id": "Person_029",
+          "score": 0.8222730159759521,
+          "similarity": 0.20127858221530914,
+          "faiss_id": 44,
+          "bbox": [
+            1382,
+            108,
+            1632,
+            344
+          ],
+          "bbox_xywh": {
+            "x": 1382,
+            "y": 108,
+            "w": 250,
+            "h": 236
+          },
+          "kps": [
+            [
+              495.5128173828125,
+              70.66239166259766
+            ],
+            [
+              525.2755737304688,
+              74.28275299072266
+            ],
+            [
+              512.7756958007812,
+              93.0849380493164
+            ],
+            [
+              490.20550537109375,
+              98.05772399902344
+            ],
+            [
+              509.838623046875,
+              101.34025573730469
+            ]
+          ],
+          "quality_score": 0.5194,
+          "quality_flags": [
+            "blurry",
+            "low_contrast",
+            "profile_face",
+            "underexposed"
+          ],
+          "match_decision": "new_person_from_ambiguity",
+          "match_reason": "候选存在但不够稳: best=0.201, mean=0.201, support=1, quality=0.519",
+          "pose_yaw": 30.642023,
+          "pose_pitch": -47.258209,
+          "pose_roll": 2.278011,
+          "pose_bucket": "right_profile",
+          "eye_visibility_ratio": null,
+          "landmark_detected": true,
+          "landmark_source": "insightface-pose-fallback"
+        },
+        {
+          "face_id": "d58e8066-c8cb-406b-b59d-80e7e216da53",
+          "person_id": "Person_030",
+          "score": 0.766707181930542,
+          "similarity": 0.25110313296318054,
+          "faiss_id": 45,
+          "bbox": [
+            2109,
+            35,
+            2295,
+            254
+          ],
+          "bbox_xywh": {
+            "x": 2109,
+            "y": 35,
+            "w": 186,
+            "h": 219
+          },
+          "kps": [
+            [
+              703.302734375,
+              32.927001953125
+            ],
+            [
+              725.5245971679688,
+              34.8408203125
+            ],
+            [
+              705.2011108398438,
+              46.05854797363281
+            ],
+            [
+              703.3563232421875,
+              62.20527648925781
+            ],
+            [
+              719.7816162109375,
+              63.39080810546875
+            ]
+          ],
+          "quality_score": 0.5474,
+          "quality_flags": [
+            "blurry",
+            "low_contrast",
+            "profile_face"
+          ],
+          "match_decision": "new_person_from_ambiguity",
+          "match_reason": "候选存在但不够稳: best=0.251, mean=0.251, support=1, quality=0.547",
+          "pose_yaw": -46.60374169074653,
+          "pose_pitch": -7.337751631536532,
+          "pose_roll": -6.986349966417881,
+          "pose_bucket": "left_profile",
+          "eye_visibility_ratio": 0.557927,
+          "landmark_detected": true,
+          "landmark_source": "mediapipe-face-landmarker"
+        }
+      ],
+      "detection_seconds": 0.18737712496658787,
+      "embedding_seconds": 0.09583541605388746
+    },
+    {
+      "image_hash": "86b1dc83d88af50a2c8e646dfe469d1142e890aa001bcb72b0c0de035509eca7",
+      "photo_id": "photo_021",
+      "filename": "IMG_20260123_122414.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/IMG_20260123_122414.jpg",
+      "source_hash": "86b1dc83d88af50a2c8e646dfe469d1142e890aa001bcb72b0c0de035509eca7",
+      "timestamp": "2026-03-11T14:25:28",
+      "location": {},
+      "width": 4368,
+      "height": 5824,
+      "faces": [
+        {
+          "face_id": "837adf95-6592-4392-8e7d-5b02d5aba997",
+          "person_id": "Person_027",
+          "score": 0.8510682582855225,
+          "similarity": 0.7518202066421509,
+          "faiss_id": 46,
+          "bbox": [
+            1963,
+            3242,
+            2221,
+            3584
+          ],
+          "bbox_xywh": {
+            "x": 1963,
+            "y": 3242,
+            "w": 258,
+            "h": 342
+          },
+          "kps": [
+            [
+              654.975341796875,
+              1112.1512451171875
+            ],
+            [
+              682.5007934570312,
+              1117.9542236328125
+            ],
+            [
+              652.5172729492188,
+              1137.19091796875
+            ],
+            [
+              656.781005859375,
+              1155.1856689453125
+            ],
+            [
+              676.3961791992188,
+              1159.150634765625
+            ]
+          ],
+          "quality_score": 0.5594,
+          "quality_flags": [
+            "blurry",
+            "profile_face"
+          ],
+          "match_decision": "strong_match",
+          "match_reason": "强匹配: best=0.752, margin=0.601, support=1",
+          "pose_yaw": -43.29116600630051,
+          "pose_pitch": 6.702046972254609,
+          "pose_roll": -5.114335991293154,
+          "pose_bucket": "left_profile",
+          "eye_visibility_ratio": 0.451194,
+          "landmark_detected": true,
+          "landmark_source": "mediapipe-face-landmarker"
+        },
+        {
+          "face_id": "3345e406-4c57-439a-a60e-591137ce9ef2",
+          "person_id": "Person_031",
+          "score": 0.7721692323684692,
+          "similarity": 0.4551061987876892,
+          "faiss_id": 47,
+          "bbox": [
+            2930,
+            3004,
+            3132,
+            3249
+          ],
+          "bbox_xywh": {
+            "x": 2930,
+            "y": 3004,
+            "w": 202,
+            "h": 245
+          },
+          "kps": [
+            [
+              972.8457641601562,
+              1017.97509765625
+            ],
+            [
+              996.5541381835938,
+              1017.6951293945312
+            ],
+            [
+              976.4429321289062,
+              1034.0194091796875
+            ],
+            [
+              975.7395629882812,
+              1050.32568359375
+            ],
+            [
+              993.8822021484375,
+              1049.7076416015625
+            ]
+          ],
+          "quality_score": 0.5412,
+          "quality_flags": [
+            "blurry",
+            "low_contrast",
+            "profile_face"
+          ],
+          "match_decision": "new_person_from_ambiguity",
+          "match_reason": "候选存在但不够稳: best=0.455, mean=0.455, support=1, quality=0.541",
+          "pose_yaw": -31.827179,
+          "pose_pitch": -1.869274,
+          "pose_roll": -12.930507,
+          "pose_bucket": "left_profile",
+          "eye_visibility_ratio": null,
+          "landmark_detected": true,
+          "landmark_source": "insightface-pose-fallback"
+        },
+        {
+          "face_id": "a8a525e0-eb42-4cec-b403-13cdb87de119",
+          "person_id": "Person_032",
+          "score": 0.7608266472816467,
+          "similarity": 0.1434001624584198,
+          "faiss_id": 48,
+          "bbox": [
+            2435,
+            2706,
+            2542,
+            2856
+          ],
+          "bbox_xywh": {
+            "x": 2435,
+            "y": 2706,
+            "w": 107,
+            "h": 150
+          },
+          "kps": [
+            [
+              807.4783325195312,
+              908.6224365234375
+            ],
+            [
+              817.9125366210938,
+              910.262939453125
+            ],
+            [
+              806.08544921875,
+              918.9100341796875
+            ],
+            [
+              808.0232543945312,
+              928.9124145507812
+            ],
+            [
+              815.1110229492188,
+              929.7685546875
+            ]
+          ],
+          "quality_score": 0.4654,
+          "quality_flags": [
+            "blurry",
+            "low_contrast"
+          ],
+          "match_decision": "new_person_from_ambiguity",
+          "match_reason": "候选存在但不够稳: best=0.143, mean=0.143, support=1, quality=0.465",
+          "pose_yaw": -0.003338,
+          "pose_pitch": -2.048294,
+          "pose_roll": -13.556678,
+          "pose_bucket": "frontal",
+          "eye_visibility_ratio": null,
+          "landmark_detected": true,
+          "landmark_source": "insightface-pose-fallback"
+        },
+        {
+          "face_id": "6969a0c5-1187-471b-9104-8b8a62ebc95d",
+          "person_id": "Person_033",
+          "score": 0.760333776473999,
+          "similarity": 0.17778629064559937,
+          "faiss_id": 49,
+          "bbox": [
+            1422,
+            3042,
+            1578,
+            3250
+          ],
+          "bbox_xywh": {
+            "x": 1422,
+            "y": 3042,
+            "w": 156,
+            "h": 208
+          },
+          "kps": [
+            [
+              473.7712097167969,
+              1026.56884765625
+            ],
+            [
+              486.1960144042969,
+              1027.8717041015625
+            ],
+            [
+              469.5914611816406,
+              1039.56884765625
+            ],
+            [
+              475.8885498046875,
+              1053.9964599609375
+            ],
+            [
+              484.28021240234375,
+              1054.436279296875
+            ]
+          ],
+          "quality_score": 0.5988,
+          "quality_flags": [
+            "blurry",
+            "profile_face"
+          ],
+          "match_decision": "new_person_from_ambiguity",
+          "match_reason": "候选存在但不够稳: best=0.178, mean=0.178, support=1, quality=0.599",
+          "pose_yaw": -46.857643,
+          "pose_pitch": -1.912503,
+          "pose_roll": -5.052518,
+          "pose_bucket": "left_profile",
+          "eye_visibility_ratio": null,
+          "landmark_detected": true,
+          "landmark_source": "insightface-pose-fallback"
+        },
+        {
+          "face_id": "5da4370b-de38-4fe3-8831-e320488a8035",
+          "person_id": "Person_034",
+          "score": 0.731453001499176,
+          "similarity": 0.1438218057155609,
+          "faiss_id": 50,
+          "bbox": [
+            3507,
+            2781,
+            3685,
+            3003
+          ],
+          "bbox_xywh": {
+            "x": 3507,
+            "y": 2781,
+            "w": 178,
+            "h": 222
+          },
+          "kps": [
+            [
+              1164.9927978515625,
+              945.5263061523438
+            ],
+            [
+              1190.11962890625,
+              947.5204467773438
+            ],
+            [
+              1171.712646484375,
+              959.8050537109375
+            ],
+            [
+              1165.235595703125,
+              971.4694213867188
+            ],
+            [
+              1185.454345703125,
+              972.7786254882812
+            ]
+          ],
+          "quality_score": 0.5235,
+          "quality_flags": [
+            "blurry",
+            "underexposed",
+            "low_contrast"
+          ],
+          "match_decision": "new_person_from_ambiguity",
+          "match_reason": "候选存在但不够稳: best=0.144, mean=0.144, support=1, quality=0.523",
+          "pose_yaw": -16.883582215045728,
+          "pose_pitch": 8.437790145317711,
+          "pose_roll": -6.377976848785383,
+          "pose_bucket": "frontal",
+          "eye_visibility_ratio": 0.82065,
+          "landmark_detected": true,
+          "landmark_source": "mediapipe-face-landmarker"
+        },
+        {
+          "face_id": "df524e8f-e291-4128-98ad-5122585b1b7c",
+          "person_id": "Person_035",
+          "score": 0.701637864112854,
+          "similarity": 0.0,
+          "faiss_id": 51,
+          "bbox": [
+            2851,
+            2724,
+            2970,
+            2882
+          ],
+          "bbox_xywh": {
+            "x": 2851,
+            "y": 2724,
+            "w": 119,
+            "h": 158
+          },
+          "kps": [
+            [
+              945.9403076171875,
+              915.0758666992188
+            ],
+            [
+              960.3228759765625,
+              917.3714599609375
+            ],
+            [
+              946.141357421875,
+              925.7872924804688
+            ],
+            [
+              944.841064453125,
+              935.885986328125
+            ],
+            [
+              955.2980346679688,
+              937.4141235351562
+            ]
+          ],
+          "quality_score": 0.4586,
+          "quality_flags": [
+            "blurry",
+            "low_contrast",
+            "profile_face"
+          ],
+          "match_decision": "new_person",
+          "match_reason": "没有可复用候选",
+          "pose_yaw": -35.73301637163057,
+          "pose_pitch": 8.349755565005331,
+          "pose_roll": -9.330680309709571,
+          "pose_bucket": "left_profile",
+          "eye_visibility_ratio": 0.521836,
+          "landmark_detected": true,
+          "landmark_source": "mediapipe-face-landmarker"
+        },
+        {
+          "face_id": "4d4749d0-cb84-4880-8b54-cf20498c32ec",
+          "person_id": "Person_036",
+          "score": 0.6926109194755554,
+          "similarity": 0.0,
+          "faiss_id": 52,
+          "bbox": [
+            4125,
+            2611,
+            4254,
+            2762
+          ],
+          "bbox_xywh": {
+            "x": 4125,
+            "y": 2611,
+            "w": 129,
+            "h": 151
+          },
+          "kps": [
+            [
+              1372.1287841796875,
+              878.5377197265625
+            ],
+            [
+              1390.3245849609375,
+              880.4401245117188
+            ],
+            [
+              1378.727294921875,
+              887.6929931640625
+            ],
+            [
+              1370.7791748046875,
+              896.2374267578125
+            ],
+            [
+              1385.423583984375,
+              897.69970703125
+            ]
+          ],
+          "quality_score": 0.4619,
+          "quality_flags": [
+            "blurry",
+            "underexposed",
+            "low_contrast"
+          ],
+          "match_decision": "new_person",
+          "match_reason": "没有可复用候选",
+          "pose_yaw": 3.342861963366769,
+          "pose_pitch": -1.07081439161836,
+          "pose_roll": -11.865494673978912,
+          "pose_bucket": "frontal",
+          "eye_visibility_ratio": 0.943203,
+          "landmark_detected": true,
+          "landmark_source": "mediapipe-face-landmarker"
+        },
+        {
+          "face_id": "fdb94f6e-6a50-42e5-ae4f-55553a49a4ec",
+          "person_id": "Person_037",
+          "score": 0.6139659285545349,
+          "similarity": 0.0,
+          "faiss_id": 53,
+          "bbox": [
+            3220,
+            2656,
+            3337,
+            2809
+          ],
+          "bbox_xywh": {
+            "x": 3220,
+            "y": 2656,
+            "w": 117,
+            "h": 153
+          },
+          "kps": [
+            [
+              1067.095458984375,
+              892.5804443359375
+            ],
+            [
+              1079.9287109375,
+              895.281982421875
+            ],
+            [
+              1066.2972412109375,
+              902.6144409179688
+            ],
+            [
+              1065.80029296875,
+              912.3035888671875
+            ],
+            [
+              1074.887451171875,
+              914.1281127929688
+            ]
+          ],
+          "quality_score": 0.4621,
+          "quality_flags": [
+            "blurry",
+            "low_contrast",
+            "profile_face"
+          ],
+          "match_decision": "new_person",
+          "match_reason": "没有可复用候选",
+          "pose_yaw": -28.479684032959764,
+          "pose_pitch": -5.249982141667884,
+          "pose_roll": -6.072689735811639,
+          "pose_bucket": "left_profile",
+          "eye_visibility_ratio": 0.609994,
+          "landmark_detected": true,
+          "landmark_source": "mediapipe-face-landmarker"
+        },
+        {
+          "face_id": "7517b401-958b-4023-80a1-51a75652bd91",
+          "person_id": "Person_032",
+          "score": 0.6031242609024048,
+          "similarity": 0.5884896134590163,
+          "faiss_id": 54,
+          "bbox": [
+            1053,
+            2842,
+            1137,
+            2968
+          ],
+          "bbox_xywh": {
+            "x": 1053,
+            "y": 2842,
+            "w": 84,
+            "h": 126
+          },
+          "kps": [
+            [
+              351.8166809082031,
+              952.8308715820312
+            ],
+            [
+              357.9227600097656,
+              954.0708618164062
+            ],
+            [
+              349.0540466308594,
+              960.48779296875
+            ],
+            [
+              351.23028564453125,
+              968.6939086914062
+            ],
+            [
+              355.4803771972656,
+              969.36279296875
+            ]
+          ],
+          "quality_score": 0.496,
+          "quality_flags": [
+            "blurry",
+            "profile_face"
+          ],
+          "match_decision": "strong_match",
+          "match_reason": "强匹配: best=0.588, margin=0.034, support=1",
+          "pose_yaw": -18.002496150140445,
+          "pose_pitch": -6.430219609267715,
+          "pose_roll": 12.970521769641165,
+          "pose_bucket": "left_profile",
+          "eye_visibility_ratio": 0.981135,
+          "landmark_detected": true,
+          "landmark_source": "mediapipe-face-landmarker"
+        }
+      ],
+      "detection_seconds": 0.15280270797666162,
+      "embedding_seconds": 0.38452804199187085
+    },
+    {
+      "image_hash": "014c1343cd15d6cd842472e560a2b772e65907a474bedcbaf157428c2ba24ba7",
+      "photo_id": "photo_025",
+      "filename": "IMG_20260123_122723.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/IMG_20260123_122723.jpg",
+      "source_hash": "014c1343cd15d6cd842472e560a2b772e65907a474bedcbaf157428c2ba24ba7",
+      "timestamp": "2026-03-11T14:25:29",
+      "location": {},
+      "width": 4368,
+      "height": 5824,
+      "faces": [],
+      "detection_seconds": 0.16368016705382615,
+      "embedding_seconds": 0.0
+    },
+    {
+      "image_hash": "1ddb476cb28e726f4628fd748fa97ffda41c679df1593fb8888018000206f0e0",
+      "photo_id": "photo_024",
+      "filename": "IMG_20260123_122625.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/IMG_20260123_122625.jpg",
+      "source_hash": "1ddb476cb28e726f4628fd748fa97ffda41c679df1593fb8888018000206f0e0",
+      "timestamp": "2026-03-11T14:25:31",
+      "location": {},
+      "width": 4368,
+      "height": 5824,
+      "faces": [
+        {
+          "face_id": "4c68ea37-1ebf-45c3-b058-df84950931cc",
+          "person_id": "Person_038",
+          "score": 0.9111922383308411,
+          "similarity": 0.18415886163711548,
+          "faiss_id": 55,
+          "bbox": [
+            2688,
+            2160,
+            2883,
+            2409
+          ],
+          "bbox_xywh": {
+            "x": 2688,
+            "y": 2160,
+            "w": 195,
+            "h": 249
+          },
+          "kps": [
+            [
+              900.2066040039062,
+              745.8853149414062
+            ],
+            [
+              930.304931640625,
+              745.8282470703125
+            ],
+            [
+              913.7369384765625,
+              762.4508056640625
+            ],
+            [
+              903.0606079101562,
+              774.2155151367188
+            ],
+            [
+              928.4864501953125,
+              774.017822265625
+            ]
+          ],
+          "quality_score": 0.5866,
+          "quality_flags": [
+            "blurry"
+          ],
+          "match_decision": "new_person_from_ambiguity",
+          "match_reason": "候选存在但不够稳: best=0.184, mean=0.184, support=1, quality=0.587",
+          "pose_yaw": -2.6771643641782874,
+          "pose_pitch": 7.892741866541964,
+          "pose_roll": 2.3894774548984667,
+          "pose_bucket": "frontal",
+          "eye_visibility_ratio": 0.98516,
+          "landmark_detected": true,
+          "landmark_source": "mediapipe-face-landmarker"
+        },
+        {
+          "face_id": "13898e1f-9fea-4e8f-aed2-015cf1e8875d",
+          "person_id": "Person_039",
+          "score": 0.846514880657196,
+          "similarity": 0.2250758558511734,
+          "faiss_id": 56,
+          "bbox": [
+            330,
+            2095,
+            565,
+            2388
+          ],
+          "bbox_xywh": {
+            "x": 330,
+            "y": 2095,
+            "w": 235,
+            "h": 293
+          },
+          "kps": [
+            [
+              146.7576446533203,
+              725.739013671875
+            ],
+            [
+              177.64512634277344,
+              725.3709716796875
+            ],
+            [
+              171.58143615722656,
+              745.4688720703125
+            ],
+            [
+              152.24656677246094,
+              764.6956787109375
+            ],
+            [
+              174.87899780273438,
+              764.5173950195312
+            ]
+          ],
+          "quality_score": 0.5508,
+          "quality_flags": [
+            "blurry",
+            "low_contrast",
+            "profile_face"
+          ],
+          "match_decision": "new_person_from_ambiguity",
+          "match_reason": "候选存在但不够稳: best=0.225, mean=0.225, support=1, quality=0.551",
+          "pose_yaw": 30.877997721866834,
+          "pose_pitch": 3.614111176439705,
+          "pose_roll": -2.5891020707456707,
+          "pose_bucket": "right_profile",
+          "eye_visibility_ratio": 0.563851,
+          "landmark_detected": true,
+          "landmark_source": "mediapipe-face-landmarker"
+        },
+        {
+          "face_id": "8628c854-5605-42b5-86ce-bbecc3d3b347",
+          "person_id": "Person_040",
+          "score": 0.8429611921310425,
+          "similarity": 0.16864246129989624,
+          "faiss_id": 57,
+          "bbox": [
+            3181,
+            2491,
+            3440,
+            2822
+          ],
+          "bbox_xywh": {
+            "x": 3181,
+            "y": 2491,
+            "w": 259,
+            "h": 331
+          },
+          "kps": [
+            [
+              1060.4410400390625,
+              857.492431640625
+            ],
+            [
+              1095.1805419921875,
+              861.2462768554688
+            ],
+            [
+              1067.6451416015625,
+              877.6362915039062
+            ],
+            [
+              1063.1346435546875,
+              897.731689453125
+            ],
+            [
+              1091.758056640625,
+              900.26904296875
+            ]
+          ],
+          "quality_score": 0.5882,
+          "quality_flags": [
+            "blurry",
+            "profile_face"
+          ],
+          "match_decision": "new_person_from_ambiguity",
+          "match_reason": "候选存在但不够稳: best=0.169, mean=0.151, support=2, quality=0.588",
+          "pose_yaw": -21.26172968599687,
+          "pose_pitch": 8.143691178529776,
+          "pose_roll": -6.769786410082375,
+          "pose_bucket": "left_profile",
+          "eye_visibility_ratio": 0.644242,
+          "landmark_detected": true,
+          "landmark_source": "mediapipe-face-landmarker"
+        },
+        {
+          "face_id": "d70dd7e1-cd52-4022-801e-6c8d2c258995",
+          "person_id": "Person_041",
+          "score": 0.8400129675865173,
+          "similarity": 0.18160684406757355,
+          "faiss_id": 58,
+          "bbox": [
+            3039,
+            2137,
+            3267,
+            2385
+          ],
+          "bbox_xywh": {
+            "x": 3039,
+            "y": 2137,
+            "w": 228,
+            "h": 248
+          },
+          "kps": [
+            [
+              1014.54638671875,
+              745.460693359375
+            ],
+            [
+              1033.4237060546875,
+              739.0277709960938
+            ],
+            [
+              1024.043701171875,
+              759.9230346679688
+            ],
+            [
+              1033.861083984375,
+              770.6826782226562
+            ],
+            [
+              1047.159912109375,
+              764.921630859375
+            ]
+          ],
+          "quality_score": 0.558,
+          "quality_flags": [
+            "blurry"
+          ],
+          "match_decision": "new_person_from_ambiguity",
+          "match_reason": "候选存在但不够稳: best=0.182, mean=0.172, support=2, quality=0.558",
+          "pose_yaw": -17.147119675297688,
+          "pose_pitch": -3.517796179922779,
+          "pose_roll": 26.18553332821566,
+          "pose_bucket": "frontal",
+          "eye_visibility_ratio": 0.814355,
+          "landmark_detected": true,
+          "landmark_source": "mediapipe-face-landmarker"
+        },
+        {
+          "face_id": "edf05439-a834-4a06-b206-d952fcb692c1",
+          "person_id": "Person_042",
+          "score": 0.6478673219680786,
+          "similarity": 0.200282484292984,
+          "faiss_id": 59,
+          "bbox": [
+            3808,
+            2324,
+            3968,
+            2510
+          ],
+          "bbox_xywh": {
+            "x": 3808,
+            "y": 2324,
+            "w": 160,
+            "h": 186
+          },
+          "kps": [
+            [
+              1281.777099609375,
+              788.5514526367188
+            ],
+            [
+              1302.4229736328125,
+              791.7935180664062
+            ],
+            [
+              1295.3275146484375,
+              802.6441040039062
+            ],
+            [
+              1280.328369140625,
+              812.5148315429688
+            ],
+            [
+              1295.0208740234375,
+              815.250244140625
+            ]
+          ],
+          "quality_score": 0.5439,
+          "quality_flags": [
+            "blurry",
+            "low_contrast"
+          ],
+          "match_decision": "new_person_from_ambiguity",
+          "match_reason": "候选存在但不够稳: best=0.200, mean=0.200, support=1, quality=0.544",
+          "pose_yaw": 16.644127,
+          "pose_pitch": -2.879793,
+          "pose_roll": -2.767019,
+          "pose_bucket": "frontal",
+          "eye_visibility_ratio": null,
+          "landmark_detected": true,
+          "landmark_source": "insightface-pose-fallback"
+        }
+      ],
+      "detection_seconds": 0.1592537080287002,
+      "embedding_seconds": 0.21759754203958437
+    },
+    {
+      "image_hash": "aa11c638c161ea96cbe37ebca6e9624985e55291a0cf15398f8bc792e7be0319",
+      "photo_id": "photo_028",
+      "filename": "IMG_20260123_124530.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/IMG_20260123_124530.jpg",
+      "source_hash": "aa11c638c161ea96cbe37ebca6e9624985e55291a0cf15398f8bc792e7be0319",
+      "timestamp": "2026-03-11T14:25:31",
+      "location": {},
+      "width": 4368,
+      "height": 5824,
+      "faces": [],
+      "detection_seconds": 0.15482108300784603,
+      "embedding_seconds": 0.0
+    },
+    {
+      "image_hash": "5ea79f8f85c3a973b495c638e9a9c59a21e07070195698fa9cbcf44cdbdff50c",
+      "photo_id": "photo_026",
+      "filename": "IMG_20260123_124404.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/IMG_20260123_124404.jpg",
+      "source_hash": "5ea79f8f85c3a973b495c638e9a9c59a21e07070195698fa9cbcf44cdbdff50c",
+      "timestamp": "2026-03-11T14:25:32",
+      "location": {},
+      "width": 4368,
+      "height": 5824,
+      "faces": [],
+      "detection_seconds": 0.1547970839892514,
+      "embedding_seconds": 0.0
+    },
+    {
+      "image_hash": "77bd7673f1bb78840fe524a0ef3121e4cac072ff1c4f1c1b1f67070e4311dae3",
+      "photo_id": "photo_030",
+      "filename": "IMG_20260123_124759.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/IMG_20260123_124759.jpg",
+      "source_hash": "77bd7673f1bb78840fe524a0ef3121e4cac072ff1c4f1c1b1f67070e4311dae3",
+      "timestamp": "2026-03-11T14:25:32",
+      "location": {},
+      "width": 4368,
+      "height": 5824,
+      "faces": [],
+      "detection_seconds": 0.15606929099885747,
+      "embedding_seconds": 0.0
+    },
+    {
+      "image_hash": "c0dcd80712ab79b41cfb653eed76779b74121e3512f9d25d2be8e9eff7534849",
+      "photo_id": "photo_027",
+      "filename": "IMG_20260123_124432.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/IMG_20260123_124432.jpg",
+      "source_hash": "c0dcd80712ab79b41cfb653eed76779b74121e3512f9d25d2be8e9eff7534849",
+      "timestamp": "2026-03-11T14:25:33",
+      "location": {},
+      "width": 4368,
+      "height": 5824,
+      "faces": [],
+      "detection_seconds": 0.1567807089886628,
+      "embedding_seconds": 0.0
+    },
+    {
+      "image_hash": "76bb7f167621eba9b2e73179c7b77801e7a2d02fe485360321b0167c58c03a78",
+      "photo_id": "photo_029",
+      "filename": "IMG_20260123_124641.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/IMG_20260123_124641.jpg",
+      "source_hash": "76bb7f167621eba9b2e73179c7b77801e7a2d02fe485360321b0167c58c03a78",
+      "timestamp": "2026-03-11T14:25:33",
+      "location": {},
+      "width": 4368,
+      "height": 5824,
+      "faces": [
+        {
+          "face_id": "f27643ce-0d09-4c3d-a7b8-1483def30892",
+          "person_id": "Person_043",
+          "score": 0.8589777946472168,
+          "similarity": 0.3923386335372925,
+          "faiss_id": 60,
+          "bbox": [
+            1885,
+            1227,
+            2108,
+            1524
+          ],
+          "bbox_xywh": {
+            "x": 1885,
+            "y": 1227,
+            "w": 223,
+            "h": 297
+          },
+          "kps": [
+            [
+              630.819580078125,
+              445.14801025390625
+            ],
+            [
+              659.8944702148438,
+              442.2762756347656
+            ],
+            [
+              640.8510131835938,
+              463.0400695800781
+            ],
+            [
+              638.2271728515625,
+              479.1882019042969
+            ],
+            [
+              661.79150390625,
+              476.5887756347656
+            ]
+          ],
+          "quality_score": 0.6214,
+          "quality_flags": [
+            "blurry",
+            "profile_face"
+          ],
+          "match_decision": "new_person_from_ambiguity",
+          "match_reason": "候选存在但不够稳: best=0.392, mean=0.360, support=2, quality=0.621",
+          "pose_yaw": -23.45257,
+          "pose_pitch": -5.948369,
+          "pose_roll": -3.446285,
+          "pose_bucket": "left_profile",
+          "eye_visibility_ratio": null,
+          "landmark_detected": true,
+          "landmark_source": "insightface-pose-fallback"
+        }
+      ],
+      "detection_seconds": 0.17438458401011303,
+      "embedding_seconds": 0.047011292015668005
+    },
+    {
+      "image_hash": "825cd32c33d8a62f2f0c9d92b49944836d4c5ae5a4a9b2622f365eb3b7146c27",
+      "photo_id": "photo_031",
+      "filename": "IMG_20260123_132206.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/IMG_20260123_132206.jpg",
+      "source_hash": "825cd32c33d8a62f2f0c9d92b49944836d4c5ae5a4a9b2622f365eb3b7146c27",
+      "timestamp": "2026-03-11T14:25:45",
+      "location": {},
+      "width": 5824,
+      "height": 4368,
+      "faces": [],
+      "detection_seconds": 0.15754283301066607,
+      "embedding_seconds": 0.0
+    },
+    {
+      "image_hash": "27a68038619ee2c27f2a94f9c80bd8d5b449fef6bf678216da200c8f3353f19b",
+      "photo_id": "photo_032",
+      "filename": "IMG_20260123_132223.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/IMG_20260123_132223.jpg",
+      "source_hash": "27a68038619ee2c27f2a94f9c80bd8d5b449fef6bf678216da200c8f3353f19b",
+      "timestamp": "2026-03-11T14:25:45",
+      "location": {},
+      "width": 5824,
+      "height": 4368,
+      "faces": [],
+      "detection_seconds": 0.14824758301256225,
+      "embedding_seconds": 0.0
+    },
+    {
+      "image_hash": "83c8a83c9a3062c4f5d3c6ee25a0e15c21b6e067f950b983a1f6a64a5dc0612c",
+      "photo_id": "photo_035",
+      "filename": "IMG_20260123_164721.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/IMG_20260123_164721.jpg",
+      "source_hash": "83c8a83c9a3062c4f5d3c6ee25a0e15c21b6e067f950b983a1f6a64a5dc0612c",
+      "timestamp": "2026-03-11T14:25:46",
+      "location": {},
+      "width": 5824,
+      "height": 4368,
+      "faces": [],
+      "detection_seconds": 0.2390311670023948,
+      "embedding_seconds": 0.0
+    },
+    {
+      "image_hash": "4ff1e814ab10b28406b07e078cefd568ccc0aa30aaa8db67ad4cb51fef3f3ff6",
+      "photo_id": "photo_033",
+      "filename": "IMG_20260123_132231.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/IMG_20260123_132231.jpg",
+      "source_hash": "4ff1e814ab10b28406b07e078cefd568ccc0aa30aaa8db67ad4cb51fef3f3ff6",
+      "timestamp": "2026-03-11T14:25:47",
+      "location": {},
+      "width": 4368,
+      "height": 5824,
+      "faces": [],
+      "detection_seconds": 0.19233087496832013,
+      "embedding_seconds": 0.0
+    },
+    {
+      "image_hash": "470f72039559a7141cee7335424c6083c8dc65c20bbd5ac416676737d7bf1e7d",
+      "photo_id": "photo_038",
+      "filename": "IMG_20260123_171603.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/IMG_20260123_171603.jpg",
+      "source_hash": "470f72039559a7141cee7335424c6083c8dc65c20bbd5ac416676737d7bf1e7d",
+      "timestamp": "2026-03-11T14:25:50",
+      "location": {},
+      "width": 4368,
+      "height": 5824,
+      "faces": [
+        {
+          "face_id": "7e1957a7-fcb1-4272-b103-017ae97d036c",
+          "person_id": "Person_006",
+          "score": 0.8568258881568909,
+          "similarity": 0.6618645191192627,
+          "faiss_id": 61,
+          "bbox": [
+            1701,
+            2483,
+            2142,
+            3011
+          ],
+          "bbox_xywh": {
+            "x": 1701,
+            "y": 2483,
+            "w": 441,
+            "h": 528
+          },
+          "kps": [
+            [
+              605.389892578125,
+              875.2368774414062
+            ],
+            [
+              672.3057861328125,
+              877.4679565429688
+            ],
+            [
+              642.06591796875,
+              907.4265747070312
+            ],
+            [
+              611.4285278320312,
+              945.457763671875
+            ],
+            [
+              664.373291015625,
+              947.405517578125
+            ]
+          ],
+          "quality_score": 0.9472,
+          "quality_flags": [],
+          "match_decision": "strong_match",
+          "match_reason": "强匹配: best=0.662, margin=0.078, support=2",
+          "pose_yaw": 4.561605694159678,
+          "pose_pitch": -6.166742918983406,
+          "pose_roll": -1.345412516257531,
+          "pose_bucket": "frontal",
+          "eye_visibility_ratio": 0.942424,
+          "landmark_detected": true,
+          "landmark_source": "mediapipe-face-landmarker"
+        }
+      ],
+      "detection_seconds": 0.18839870899682865,
+      "embedding_seconds": 0.09864812501473352
+    },
+    {
+      "image_hash": "8c4a91f226ceffc7055c839484b7fb8b302024276a4eaa36bd1839e860500f35",
+      "photo_id": "photo_034",
+      "filename": "IMG_20260123_144859.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/IMG_20260123_144859.jpg",
+      "source_hash": "8c4a91f226ceffc7055c839484b7fb8b302024276a4eaa36bd1839e860500f35",
+      "timestamp": "2026-03-11T14:25:51",
+      "location": {},
+      "width": 5824,
+      "height": 4368,
+      "faces": [],
+      "detection_seconds": 0.18229629198322073,
+      "embedding_seconds": 0.0
+    },
+    {
+      "image_hash": "75f84d0ef0bbcd7eeaf94d6394e244b075eea7d8fdd545aa027e77be1020c057",
+      "photo_id": "photo_041",
+      "filename": "IMG_20260123_171615.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/IMG_20260123_171615.jpg",
+      "source_hash": "75f84d0ef0bbcd7eeaf94d6394e244b075eea7d8fdd545aa027e77be1020c057",
+      "timestamp": "2026-03-11T14:25:51",
+      "location": {},
+      "width": 4368,
+      "height": 5824,
+      "faces": [
+        {
+          "face_id": "94cf38c4-976b-4da7-833b-eb7808876cdb",
+          "person_id": "Person_006",
+          "score": 0.860943078994751,
+          "similarity": 0.9145890474319458,
+          "faiss_id": 62,
+          "bbox": [
+            1502,
+            2246,
+            1940,
+            2790
+          ],
+          "bbox_xywh": {
+            "x": 1502,
+            "y": 2246,
+            "w": 438,
+            "h": 544
+          },
+          "kps": [
+            [
+              544.19287109375,
+              804.6306762695312
+            ],
+            [
+              610.5569458007812,
+              809.4968872070312
+            ],
+            [
+              580.919189453125,
+              835.3175048828125
+            ],
+            [
+              549.69873046875,
+              875.249267578125
+            ],
+            [
+              599.7708129882812,
+              878.9514770507812
+            ]
+          ],
+          "quality_score": 0.9456,
+          "quality_flags": [],
+          "match_decision": "strong_match",
+          "match_reason": "强匹配: best=0.915, margin=0.334, support=3",
+          "pose_yaw": 5.6009433002663505,
+          "pose_pitch": -4.9602755454666285,
+          "pose_roll": -3.739102217417544,
+          "pose_bucket": "frontal",
+          "eye_visibility_ratio": 0.90939,
+          "landmark_detected": true,
+          "landmark_source": "mediapipe-face-landmarker"
+        }
+      ],
+      "detection_seconds": 0.20638925000093877,
+      "embedding_seconds": 0.045021291996818036
+    },
+    {
+      "image_hash": "4e218aa2281c603a5c0abf0819559b787eae94218bf37f98042cc711061a87a3",
+      "photo_id": "photo_043",
+      "filename": "IMG_20260123_171855.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/IMG_20260123_171855.jpg",
+      "source_hash": "4e218aa2281c603a5c0abf0819559b787eae94218bf37f98042cc711061a87a3",
+      "timestamp": "2026-03-11T14:25:51",
+      "location": {},
+      "width": 3072,
+      "height": 4096,
+      "faces": [],
+      "detection_seconds": 0.18397670902777463,
+      "embedding_seconds": 0.0
+    },
+    {
+      "image_hash": "17510b6a4a275d17e4529dad6f2a7598a5a97968d407036cc1078dfe49c528a7",
+      "photo_id": "photo_044",
+      "filename": "IMG_20260123_172038.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/IMG_20260123_172038.jpg",
+      "source_hash": "17510b6a4a275d17e4529dad6f2a7598a5a97968d407036cc1078dfe49c528a7",
+      "timestamp": "2026-03-11T14:25:51",
+      "location": {},
+      "width": 5824,
+      "height": 4368,
+      "faces": [],
+      "detection_seconds": 0.17435266700340435,
+      "embedding_seconds": 0.0
+    },
+    {
+      "image_hash": "f58168f8d547e7b00558ad98f54d1b3d85587f1a3805f4e5cc7cd1b830f8277c",
+      "photo_id": "photo_040",
+      "filename": "IMG_20260123_171609.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/IMG_20260123_171609.jpg",
+      "source_hash": "f58168f8d547e7b00558ad98f54d1b3d85587f1a3805f4e5cc7cd1b830f8277c",
+      "timestamp": "2026-03-11T14:25:54",
+      "location": {},
+      "width": 4368,
+      "height": 5824,
+      "faces": [
+        {
+          "face_id": "3e1a92db-7e8c-49f4-90b0-c447c0beb9f5",
+          "person_id": "Person_006",
+          "score": 0.8810620307922363,
+          "similarity": 0.9296176433563232,
+          "faiss_id": 63,
+          "bbox": [
+            972,
+            2356,
+            1455,
+            2914
+          ],
+          "bbox_xywh": {
+            "x": 972,
+            "y": 2356,
+            "w": 483,
+            "h": 558
+          },
+          "kps": [
+            [
+              369.8075866699219,
+              837.0645141601562
+            ],
+            [
+              443.51934814453125,
+              838.038818359375
+            ],
+            [
+              410.8466491699219,
+              866.8191528320312
+            ],
+            [
+              376.2410888671875,
+              911.1385498046875
+            ],
+            [
+              435.4485168457031,
+              911.8797607421875
+            ]
+          ],
+          "quality_score": 0.9419,
+          "quality_flags": [],
+          "match_decision": "strong_match",
+          "match_reason": "强匹配: best=0.930, margin=0.342, support=4",
+          "pose_yaw": 4.434577453457762,
+          "pose_pitch": -5.484797878129564,
+          "pose_roll": -1.9107501560665343,
+          "pose_bucket": "frontal",
+          "eye_visibility_ratio": 0.947397,
+          "landmark_detected": true,
+          "landmark_source": "mediapipe-face-landmarker"
+        }
+      ],
+      "detection_seconds": 0.17719166702590883,
+      "embedding_seconds": 0.06336670799646527
+    },
+    {
+      "image_hash": "3ec5d9c61b57ff881f53f12b1d6b5ddc78af2ad18b88ebd4f4592eb132d5401f",
+      "photo_id": "photo_045",
+      "filename": "IMG_20260123_174704.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/IMG_20260123_174704.jpg",
+      "source_hash": "3ec5d9c61b57ff881f53f12b1d6b5ddc78af2ad18b88ebd4f4592eb132d5401f",
+      "timestamp": "2026-03-11T14:25:55",
+      "location": {},
+      "width": 5824,
+      "height": 4368,
+      "faces": [],
+      "detection_seconds": 0.1741590829915367,
+      "embedding_seconds": 0.0
+    },
+    {
+      "image_hash": "84b5c50f8c26373415ac57e7299c09300d235e3215789bb4f4a2381a112c1e25",
+      "photo_id": "photo_046",
+      "filename": "IMG_20260123_205858.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/IMG_20260123_205858.jpg",
+      "source_hash": "84b5c50f8c26373415ac57e7299c09300d235e3215789bb4f4a2381a112c1e25",
+      "timestamp": "2026-03-11T14:25:56",
+      "location": {},
+      "width": 3072,
+      "height": 4096,
+      "faces": [],
+      "detection_seconds": 0.16814033302944154,
+      "embedding_seconds": 0.0
+    },
+    {
+      "image_hash": "907bf0432516489bd15c12e8203eb79f8fbb513e4e6d77d9cfe1efdbbffb0490",
+      "photo_id": "photo_047",
+      "filename": "IMG_20260123_220130.jpeg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/IMG_20260123_220130.jpeg",
+      "source_hash": "907bf0432516489bd15c12e8203eb79f8fbb513e4e6d77d9cfe1efdbbffb0490",
+      "timestamp": "2026-03-11T14:25:56",
+      "location": {},
+      "width": 3840,
+      "height": 2160,
+      "faces": [],
+      "detection_seconds": 0.17074987501837313,
+      "embedding_seconds": 0.0
+    },
+    {
+      "image_hash": "368a01dbf5651220eadcbb09970cab8036fedcd3bbea42a526a6e953f5eac3c4",
+      "photo_id": "photo_050",
+      "filename": "IMG_20260124_082354.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/IMG_20260124_082354.jpg",
+      "source_hash": "368a01dbf5651220eadcbb09970cab8036fedcd3bbea42a526a6e953f5eac3c4",
+      "timestamp": "2026-03-11T14:25:56",
+      "location": {},
+      "width": 3072,
+      "height": 4096,
+      "faces": [],
+      "detection_seconds": 0.14924383303150535,
+      "embedding_seconds": 0.0
+    },
+    {
+      "image_hash": "248868dc52255a0e4ab689d3d8cb2f460177786aa048f447795899050d577383",
+      "photo_id": "photo_048",
+      "filename": "IMG_20260123_220132.jpeg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/IMG_20260123_220132.jpeg",
+      "source_hash": "248868dc52255a0e4ab689d3d8cb2f460177786aa048f447795899050d577383",
+      "timestamp": "2026-03-11T14:25:57",
+      "location": {},
+      "width": 3840,
+      "height": 2160,
+      "faces": [],
+      "detection_seconds": 0.15112912497716025,
+      "embedding_seconds": 0.0
+    },
+    {
+      "image_hash": "82752e13858180627c8ae8d97a37aa1d90e8e9f31bb1c5f974899997d628e31c",
+      "photo_id": "photo_049",
+      "filename": "IMG_20260123_220134.jpeg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/IMG_20260123_220134.jpeg",
+      "source_hash": "82752e13858180627c8ae8d97a37aa1d90e8e9f31bb1c5f974899997d628e31c",
+      "timestamp": "2026-03-11T14:25:57",
+      "location": {},
+      "width": 3840,
+      "height": 2160,
+      "faces": [
+        {
+          "face_id": "4df17445-76c9-48d4-82af-4cfd5d09ef91",
+          "person_id": "Person_044",
+          "score": 0.8661179542541504,
+          "similarity": 0.18943879008293152,
+          "faiss_id": 64,
+          "bbox": [
+            1862,
+            982,
+            2039,
+            1191
+          ],
+          "bbox_xywh": {
+            "x": 1862,
+            "y": 982,
+            "w": 177,
+            "h": 209
+          },
+          "kps": [
+            [
+              947.2116088867188,
+              535.0592651367188
+            ],
+            [
+              984.8934326171875,
+              529.3408203125
+            ],
+            [
+              964.103759765625,
+              558.2941284179688
+            ],
+            [
+              958.251708984375,
+              574.822265625
+            ],
+            [
+              985.80615234375,
+              570.2544555664062
+            ]
+          ],
+          "quality_score": 0.6413,
+          "quality_flags": [
+            "blurry"
+          ],
+          "match_decision": "new_person_from_ambiguity",
+          "match_reason": "候选存在但不够稳: best=0.189, mean=0.189, support=1, quality=0.641",
+          "pose_yaw": -14.898333700156021,
+          "pose_pitch": 9.743891432271187,
+          "pose_roll": 8.94879170636535,
+          "pose_bucket": "frontal",
+          "eye_visibility_ratio": 0.849606,
+          "landmark_detected": true,
+          "landmark_source": "mediapipe-face-landmarker"
+        }
+      ],
+      "detection_seconds": 0.14183308294741437,
+      "embedding_seconds": 0.03945345798274502
+    },
+    {
+      "image_hash": "986fa198cbb3712f5cfaa386732a79e0c70fe006df4d397bed950a8626422a73",
+      "photo_id": "photo_051",
+      "filename": "IMG_20260124_105735.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/IMG_20260124_105735.jpg",
+      "source_hash": "986fa198cbb3712f5cfaa386732a79e0c70fe006df4d397bed950a8626422a73",
+      "timestamp": "2026-03-11T14:26:00",
+      "location": {},
+      "width": 3072,
+      "height": 4096,
+      "faces": [],
+      "detection_seconds": 0.15072566695744172,
+      "embedding_seconds": 0.0
+    },
+    {
+      "image_hash": "fee81093f70fbc6e26c423086333335ba9caa24c8f97c26a0207cc858a9dc810",
+      "photo_id": "photo_052",
+      "filename": "IMG_20260124_135143.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/IMG_20260124_135143.jpg",
+      "source_hash": "fee81093f70fbc6e26c423086333335ba9caa24c8f97c26a0207cc858a9dc810",
+      "timestamp": "2026-03-11T14:26:17",
+      "location": {},
+      "width": 4368,
+      "height": 5824,
+      "faces": [],
+      "detection_seconds": 0.14363079197937623,
+      "embedding_seconds": 0.0
+    },
+    {
+      "image_hash": "9580741ed86ce9719def5e6bbf1b6b7b151ea98acadb0487f7e24b7df2a80f25",
+      "photo_id": "photo_055",
+      "filename": "IMG_20260124_135208.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/IMG_20260124_135208.jpg",
+      "source_hash": "9580741ed86ce9719def5e6bbf1b6b7b151ea98acadb0487f7e24b7df2a80f25",
+      "timestamp": "2026-03-11T14:26:19",
+      "location": {},
+      "width": 4368,
+      "height": 5824,
+      "faces": [],
+      "detection_seconds": 0.1405583749874495,
+      "embedding_seconds": 0.0
+    },
+    {
+      "image_hash": "8ae74df37a936267e863796751ae1cef419b0eb3f0195cd19ef8cb94f8e2b24c",
+      "photo_id": "photo_056",
+      "filename": "IMG_20260125_092104_1.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/IMG_20260125_092104_1.jpg",
+      "source_hash": "8ae74df37a936267e863796751ae1cef419b0eb3f0195cd19ef8cb94f8e2b24c",
+      "timestamp": "2026-03-11T14:27:37",
+      "location": {},
+      "width": 3072,
+      "height": 4096,
+      "faces": [],
+      "detection_seconds": 0.14554462500382215,
+      "embedding_seconds": 0.0
+    },
+    {
+      "image_hash": "0bee7f7a808a847719158988a513312251d695cb0888faa90ab4a14f9103ba32",
+      "photo_id": "photo_094",
+      "filename": "screenshot_20260124_195819.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/screenshot_20260124_195819.jpg",
+      "source_hash": "0bee7f7a808a847719158988a513312251d695cb0888faa90ab4a14f9103ba32",
+      "timestamp": "2026-03-11T14:37:17",
+      "location": {},
+      "width": 1260,
+      "height": 2844,
+      "faces": [],
+      "detection_seconds": 0.1492601249483414,
+      "embedding_seconds": 0.0
+    },
+    {
+      "image_hash": "75cd595dddebdd69863a50464212391dc07975cbb9377cc695e591d00a010de7",
+      "photo_id": "photo_097",
+      "filename": "screenshot_20260124_220934.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/screenshot_20260124_220934.jpg",
+      "source_hash": "75cd595dddebdd69863a50464212391dc07975cbb9377cc695e591d00a010de7",
+      "timestamp": "2026-03-11T14:37:17",
+      "location": {},
+      "width": 1260,
+      "height": 2844,
+      "faces": [],
+      "detection_seconds": 0.14737912500277162,
+      "embedding_seconds": 0.0
+    },
+    {
+      "image_hash": "bfbbbf08a1cb6cdc3e6ad07ac01f6483cce7baaf3e580e2ace89883da7e730d5",
+      "photo_id": "photo_095",
+      "filename": "screenshot_20260124_214802.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/screenshot_20260124_214802.jpg",
+      "source_hash": "bfbbbf08a1cb6cdc3e6ad07ac01f6483cce7baaf3e580e2ace89883da7e730d5",
+      "timestamp": "2026-03-11T14:37:18",
+      "location": {},
+      "width": 1260,
+      "height": 2844,
+      "faces": [
+        {
+          "face_id": "b3363704-6656-4360-b1f7-4ed52f440afb",
+          "person_id": "Person_045",
+          "score": 0.8394778370857239,
+          "similarity": 0.44761431217193604,
+          "faiss_id": 65,
+          "bbox": [
+            553,
+            203,
+            673,
+            362
+          ],
+          "bbox_xywh": {
+            "x": 553,
+            "y": 203,
+            "w": 120,
+            "h": 159
+          },
+          "kps": [
+            [
+              395.1257019042969,
+              175.9878692626953
+            ],
+            [
+              432.2919616699219,
+              178.31639099121094
+            ],
+            [
+              411.0130310058594,
+              198.64622497558594
+            ],
+            [
+              397.406982421875,
+              217.87261962890625
+            ],
+            [
+              424.4614562988281,
+              219.79730224609375
+            ]
+          ],
+          "quality_score": 0.8921,
+          "quality_flags": [],
+          "match_decision": "new_person_from_ambiguity",
+          "match_reason": "候选存在但不够稳: best=0.448, mean=0.414, support=5, quality=0.892",
+          "pose_yaw": -2.0363499749750136,
+          "pose_pitch": 6.986017507005639,
+          "pose_roll": -3.6687424235622204,
+          "pose_bucket": "frontal",
+          "eye_visibility_ratio": 0.967198,
+          "landmark_detected": true,
+          "landmark_source": "mediapipe-face-landmarker"
+        }
+      ],
+      "detection_seconds": 0.15365929098334163,
+      "embedding_seconds": 0.04046699998434633
+    },
+    {
+      "image_hash": "f32aff022e9c8994a1c7033ea27b2badcf9099be46dce1e3cb0d65eed1fc6cd0",
+      "photo_id": "photo_096",
+      "filename": "screenshot_20260124_215419.jpg",
+      "path": "/Users/ziyan/Downloads/caizhengsheng/screenshot_20260124_215419.jpg",
+      "source_hash": "f32aff022e9c8994a1c7033ea27b2badcf9099be46dce1e3cb0d65eed1fc6cd0",
+      "timestamp": "2026-03-11T14:37:20",
+      "location": {},
+      "width": 1260,
+      "height": 2844,
+      "faces": [
+        {
+          "face_id": "4ee6dbdb-d433-463d-b461-35ba45c31a5a",
+          "person_id": "Person_045",
+          "score": 0.8919726610183716,
+          "similarity": 0.971707820892334,
+          "faiss_id": 66,
+          "bbox": [
+            491,
+            834,
+            710,
+            1103
+          ],
+          "bbox_xywh": {
+            "x": 491,
+            "y": 834,
+            "w": 219,
+            "h": 269
+          },
+          "kps": [
+            [
+              367.5818176269531,
+              619.664794921875
+            ],
+            [
+              436.1734619140625,
+              622.761962890625
+            ],
+            [
+              398.1330871582031,
+              660.00146484375
+            ],
+            [
+              373.0536804199219,
+              693.2898559570312
+            ],
+            [
+              426.5556335449219,
+              695.6824951171875
+            ]
+          ],
+          "quality_score": 0.9648,
+          "quality_flags": [],
+          "match_decision": "strong_match",
+          "match_reason": "强匹配: best=0.972, margin=0.526, support=1",
+          "pose_yaw": -1.60634011293174,
+          "pose_pitch": 7.30774446544599,
+          "pose_roll": -4.051330069481488,
+          "pose_bucket": "frontal",
+          "eye_visibility_ratio": 0.976269,
+          "landmark_detected": true,
+          "landmark_source": "mediapipe-face-landmarker"
+        }
+      ],
+      "detection_seconds": 0.15048354194732383,
+      "embedding_seconds": 0.038331791991367936
+    }
+  ]
+}

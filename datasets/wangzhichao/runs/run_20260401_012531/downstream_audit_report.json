@@ -1,0 +1,156 @@
+{
+  "metadata": {
+    "downstream_engine": "profile_agent",
+    "audit_mode": "selective_profile_domain_rules_facts_only",
+    "audit_status": "skipped_init_failure",
+    "audit_error_type": "RuntimeError",
+    "audit_error_message": "downstream_runtime_unhealthy:missing_required_files"
+  },
+  "summary": {
+    "total_audited_tags": 0,
+    "challenged_count": 0,
+    "accepted_count": 0,
+    "downgraded_count": 0,
+    "rejected_count": 0,
+    "not_audited_count": 5
+  },
+  "backflow": {
+    "album_id": "source_20260401_013943",
+    "storage_saved": false,
+    "audit_failure": {
+      "error_type": "RuntimeError",
+      "error_message": "downstream_runtime_unhealthy:missing_required_files"
+    },
+    "protagonist": {
+      "official_output_applied": false,
+      "merged_output": {
+        "agent_type": "protagonist",
+        "tags": []
+      },
+      "actions": []
+    },
+    "relationship": {
+      "official_output_applied": false,
+      "merged_output": {
+        "agent_type": "relationship",
+        "tags": []
+      },
+      "actions": []
+    },
+    "profile": {
+      "official_output_applied": false,
+      "merged_output": {
+        "agent_type": "profile",
+        "tags": []
+      },
+      "field_actions": []
+    }
+  },
+  "protagonist": {
+    "extractor_output": {},
+    "critic_output": {
+      "challenges": []
+    },
+    "judge_output": {
+      "decisions": [],
+      "hard_cases": []
+    },
+    "audit_flags": [],
+    "not_audited": [
+      {
+        "target_id": "primary_decision",
+        "reason": "audit_runtime_failure"
+      }
+    ]
+  },
+  "relationship": {
+    "extractor_output": {},
+    "critic_output": {
+      "challenges": []
+    },
+    "judge_output": {
+      "decisions": [],
+      "hard_cases": []
+    },
+    "audit_flags": [],
+    "not_audited": [
+      {
+        "person_id": "Person_001",
+        "reason": "audit_runtime_failure"
+      },
+      {
+        "person_id": "Person_002",
+        "reason": "audit_runtime_failure"
+      },
+      {
+        "person_id": "Person_003",
+        "reason": "audit_runtime_failure"
+      },
+      {
+        "person_id": "Person_104",
+        "reason": "audit_runtime_failure"
+      }
+    ]
+  },
+  "profile": {
+    "extractor_output": {},
+    "critic_output": {
+      "challenges": []
+    },
+    "judge_output": {
+      "decisions": [],
+      "hard_cases": []
+    },
+    "audit_flags": [],
+    "not_audited": []
+  },
+  "feedback_loop": {
+    "protagonist_rerun_applied": false,
+    "relationship_rerun_applied": false,
+    "audit_rounds": [
+      {
+        "stage": "initial",
+        "summary": {
+          "total_audited_tags": 0,
+          "challenged_count": 0,
+          "accepted_count": 0,
+          "downgraded_count": 0,
+          "rejected_count": 0,
+          "not_audited_count": 5
+        },
+        "backflow": {
+          "album_id": "source_20260401_013943",
+          "storage_saved": false,
+          "audit_failure": {
+            "error_type": "RuntimeError",
+            "error_message": "downstream_runtime_unhealthy:missing_required_files"
+          },
+          "protagonist": {
+            "official_output_applied": false,
+            "merged_output": {
+              "agent_type": "protagonist",
+              "tags": []
+            },
+            "actions": []
+          },
+          "relationship": {
+            "official_output_applied": false,
+            "merged_output": {
+              "agent_type": "relationship",
+              "tags": []
+            },
+            "actions": []
+          },
+          "profile": {
+            "official_output_applied": false,
+            "merged_output": {
+              "agent_type": "profile",
+              "tags": []
+            },
+            "field_actions": []
+          }
+        }
+      }
+    ]
+  }
+}

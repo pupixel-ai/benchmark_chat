@@ -290,6 +290,43 @@ class FacePrecisionTests(unittest.TestCase):
             {"supported_cluster_merge", "singleton_bridge_cluster_merge", "strong_cluster_merge"},
         )
 
+    def test_decide_cluster_merge_allows_aggressive_merge_for_two_high_quality_singletons(self) -> None:
+        score = 0.4522
+        embeddings = {
+            1: np.asarray([1.0, 0.0], dtype=np.float32),
+            2: np.asarray([score, float(np.sqrt(1 - score**2))], dtype=np.float32),
+        }
+        decision = decide_cluster_merge(
+            "Person_001",
+            [
+                {
+                    "faiss_id": 1,
+                    "image_id": "img-001",
+                    "quality_score": 0.99,
+                    "score": 0.86,
+                    "pose_bucket": "frontal",
+                    "match_decision": "new_person",
+                }
+            ],
+            "Person_005",
+            [
+                {
+                    "faiss_id": 2,
+                    "image_id": "img-005",
+                    "quality_score": 0.75,
+                    "score": 0.83,
+                    "pose_bucket": "frontal",
+                    "match_decision": "new_person_from_ambiguity",
+                }
+            ],
+            embedding_lookup=lambda faiss_id: embeddings.get(faiss_id),
+            strong_threshold=0.50,
+            high_quality_threshold=0.40,
+        )
+        self.assertIsNotNone(decision)
+        assert decision is not None
+        self.assertEqual(decision.decision, "aggressive_singleton_cluster_merge")
+
 
 if __name__ == "__main__":
     unittest.main()

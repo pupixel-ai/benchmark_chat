@@ -18,10 +18,6 @@ from config import (
     MAX_UPLOAD_PHOTOS,
     TASK_VERSION_V0315,
     TASK_VERSION_V0317,
-    TASK_VERSION_V0317_HEAVY,
-    TASK_VERSION_V0321_2,
-    TASK_VERSION_V0321_3,
-    TASK_VERSION_V0323,
     VLM_CACHE_FLUSH_EVERY_N,
     VLM_CACHE_FLUSH_INTERVAL_SECONDS,
     VLM_ENABLE_PRIORITY_SCHEDULING,
@@ -55,20 +51,6 @@ try:
 except ModuleNotFoundError:  # pragma: no cover - dependency-light test envs
     VLMAnalyzer = None  # type: ignore[assignment]
 
-try:
-    from services.v0321_2.pipeline import V03212PipelineFamily
-except ModuleNotFoundError:  # pragma: no cover - dependency-light test envs
-    V03212PipelineFamily = None  # type: ignore[assignment]
-
-try:
-    from services.v0321_3.pipeline import V03213PipelineFamily
-except ModuleNotFoundError:  # pragma: no cover - dependency-light test envs
-    V03213PipelineFamily = None  # type: ignore[assignment]
-
-try:
-    from services.v0323.pipeline import V0323PipelineFamily
-except ModuleNotFoundError:  # pragma: no cover - dependency-light test envs
-    V0323PipelineFamily = None  # type: ignore[assignment]
 
 if TYPE_CHECKING:
     from backend.face_review_store import FaceReviewStore
@@ -341,157 +323,6 @@ class MemoryPipelineService:
                 }
             )
 
-        if self.task_version in {TASK_VERSION_V0321_2, TASK_VERSION_V0321_3, TASK_VERSION_V0323}:
-            self._clear_legacy_outputs_for_revision_first_family()
-            if self.task_version == TASK_VERSION_V0321_2:
-                memory = self._run_v0321_2_family(
-                    photos=photos_for_vlm,
-                    face_output=face_output,
-                    primary_person_id=primary_person_id,
-                    cached_photo_ids=cached_photo_ids,
-                    dedupe_report=dedupe_report,
-                    vlm_results=vlm.results,
-                    progress_callback=progress_callback,
-                )
-            elif self.task_version == TASK_VERSION_V0321_3:
-                memory = self._run_v0321_3_family(
-                    photos=photos_for_vlm,
-                    face_output=face_output,
-                    primary_person_id=primary_person_id,
-                    cached_photo_ids=cached_photo_ids,
-                    dedupe_report=dedupe_report,
-                    vlm_results=vlm.results,
-                    progress_callback=progress_callback,
-                )
-            else:
-                memory = self._run_v0323_family(
-                    photos=photos_for_vlm,
-                    face_output=face_output,
-                    primary_person_id=primary_person_id,
-                    cached_photo_ids=cached_photo_ids,
-                    dedupe_report=dedupe_report,
-                    vlm_results=vlm.results,
-                    progress_callback=progress_callback,
-                )
-            if self.task_version == TASK_VERSION_V0323:
-                lp1_events = list(memory.get("lp1_events", []) or [])
-                lp2_relationships = list(memory.get("lp2_relationships", []) or [])
-                profile_payload = dict(memory.get("lp3_profile", {}) or {})
-                profile_markdown = str(profile_payload.get("report_markdown") or "")
-                detailed_output = {
-                    "task_id": self.task_id,
-                    "version": self.task_version,
-                    "generated_at": datetime.now().isoformat(),
-                    "summary": {
-                        "task_version": self.task_version,
-                        "pipeline_family": memory.get("pipeline_family"),
-                        "total_uploaded": self._count_uploaded_files(),
-                        "loaded_images": len(photos),
-                        "failed_images": len(self.failed_images),
-                        "face_processed_images": len(face_ready_photos),
-                        "vlm_processed_images": len(vlm.results),
-                        "total_faces": face_output.get("metrics", {}).get("total_faces", 0),
-                        "total_persons": face_output.get("metrics", {}).get("total_persons", 0),
-                        "primary_person_id": primary_person_id,
-                        "event_count": len(lp1_events),
-                        "fact_count": len(lp1_events),
-                        "relationship_count": len(lp2_relationships),
-                        "observation_count": len(memory.get("vp1_observations", []) or []),
-                        "claim_count": 0,
-                        "profile_delta_count": len(dict(profile_payload.get("structured") or {})),
-                        "profile_version": 1 if profile_payload else 0,
-                        "profile_generation_mode": memory.get("summary", {}).get("profile_generation_mode"),
-                    },
-                    "face_recognition": face_payload,
-                    "face_report": self._build_face_report(face_payload),
-                    "failed_images": self.failed_images,
-                    "warnings": self.warnings,
-                    "facts": lp1_events,
-                    "relationships": lp2_relationships,
-                    "profile_markdown": profile_markdown,
-                    "memory_contract": None,
-                    "llm_chunk_artifacts": {},
-                    "dedupe_report": dedupe_report,
-                    "memory": memory,
-                    "artifacts": {},
-                }
-
-                result_path = self.output_dir / "result.json"
-                save_json(detailed_output, str(result_path))
-                detailed_output["artifacts"]["result_url"] = self._public_url(result_path)
-                detailed_output["artifacts"]["face_output_url"] = self._public_url(self.cache_dir / "face_recognition_output.json")
-                detailed_output["artifacts"]["vlm_cache_url"] = self._public_url(self.vlm_cache_path)
-                detailed_output["artifacts"]["vlm_failures_url"] = self._public_url(self.vlm_failures_path) if self.vlm_failures_path.exists() else None
-                detailed_output["artifacts"]["dedupe_report_url"] = self._public_url(self.dedupe_report_path) if self.dedupe_report_path.exists() else None
-                for artifact_key, artifact_value in memory.get("artifacts", {}).items():
-                    if artifact_key.endswith("_url"):
-                        detailed_output["artifacts"][artifact_key] = artifact_value
-                self.asset_store.sync_task_directory(self.task_id, self.task_dir)
-                return detailed_output
-            delta_profile_revision = dict(memory.get("delta_profile_revision", {}) or {})
-            delta_profile_markdown = str(memory.get("delta_profile_markdown") or "")
-            full_profile_revision = dict(memory.get("profile_revision", {}) or {})
-            full_profile_markdown = str(memory.get("profile_markdown") or "")
-            profile_revision = full_profile_revision or delta_profile_revision
-            profile_markdown = full_profile_markdown or delta_profile_markdown
-            event_revisions = list(memory.get("delta_event_revisions", []) or memory.get("event_revisions", []) or [])
-            relationship_revisions = list(
-                memory.get("delta_relationship_revisions", []) or memory.get("relationship_revisions", []) or []
-            )
-            atomic_evidence = list(memory.get("delta_atomic_evidence", []) or memory.get("atomic_evidence", []) or [])
-            profile_buckets = dict(delta_profile_revision.get("buckets", {}) or {})
-
-            detailed_output = {
-                "task_id": self.task_id,
-                "version": self.task_version,
-                "generated_at": datetime.now().isoformat(),
-                "summary": {
-                    "task_version": self.task_version,
-                    "pipeline_family": memory.get("pipeline_family"),
-                    "total_uploaded": self._count_uploaded_files(),
-                    "loaded_images": len(photos),
-                    "failed_images": len(self.failed_images),
-                    "face_processed_images": len(face_ready_photos),
-                    "vlm_processed_images": len(vlm.results),
-                    "total_faces": face_output.get("metrics", {}).get("total_faces", 0),
-                    "total_persons": face_output.get("metrics", {}).get("total_persons", 0),
-                    "primary_person_id": primary_person_id,
-                    "event_count": len(event_revisions),
-                    "fact_count": len(event_revisions),
-                    "relationship_count": len(relationship_revisions),
-                    "observation_count": len(atomic_evidence),
-                    "claim_count": 0,
-                    "profile_delta_count": sum(len(bucket.get("values", [])) for bucket in profile_buckets.values()),
-                    "profile_version": int(profile_revision.get("version") or 0),
-                    "profile_generation_mode": memory.get("summary", {}).get("profile_generation_mode") or profile_revision.get("generation_mode"),
-                },
-                "face_recognition": face_payload,
-                "face_report": self._build_face_report(face_payload),
-                "failed_images": self.failed_images,
-                "warnings": self.warnings,
-                "facts": event_revisions,
-                "relationships": relationship_revisions,
-                "profile_markdown": profile_markdown,
-                "memory_contract": None,
-                "llm_chunk_artifacts": {},
-                "dedupe_report": dedupe_report,
-                "memory": memory,
-                "artifacts": {},
-            }
-
-            result_path = self.output_dir / "result.json"
-            save_json(detailed_output, str(result_path))
-            detailed_output["artifacts"]["result_url"] = self._public_url(result_path)
-            detailed_output["artifacts"]["face_output_url"] = self._public_url(self.cache_dir / "face_recognition_output.json")
-            detailed_output["artifacts"]["vlm_cache_url"] = self._public_url(self.vlm_cache_path)
-            detailed_output["artifacts"]["vlm_failures_url"] = self._public_url(self.vlm_failures_path) if self.vlm_failures_path.exists() else None
-            detailed_output["artifacts"]["dedupe_report_url"] = self._public_url(self.dedupe_report_path) if self.dedupe_report_path.exists() else None
-            for artifact_key, artifact_value in memory.get("artifacts", {}).items():
-                if artifact_key.endswith("_url"):
-                    detailed_output["artifacts"][artifact_key] = artifact_value
-            self.asset_store.sync_task_directory(self.task_id, self.task_dir)
-            return detailed_output
-
         facts = []
         relationships = []
         profile_markdown = ""
@@ -682,170 +513,8 @@ class MemoryPipelineService:
 
         return detailed_output
 
-    def _run_v0321_2_family(
-        self,
-        *,
-        photos: List,
-        face_output: Dict[str, object],
-        primary_person_id: Optional[str],
-        cached_photo_ids: set[str],
-        dedupe_report: Dict[str, object],
-        vlm_results: List[Dict[str, object]],
-        progress_callback: Optional[Callable[[str, Dict], None]],
-    ) -> Dict[str, object]:
-        self._notify(
-            progress_callback,
-            "llm",
-            {
-                "message": "v0321.2 revision-first 链路启动",
-                "pipeline_family": "v0321_2",
-                "substage": "event_draft",
-                "candidate_count": 0,
-                "filtered_count": 0,
-                "processed_candidates": 0,
-                "percent": None,
-                "runtime_seconds": 0.0,
-            },
-        )
-        family_cls = V03212PipelineFamily
-        if family_cls is None:
-            from services.v0321_2.pipeline import V03212PipelineFamily as family_cls
-        llm_processor_cls = LLMProcessor
-        if llm_processor_cls is None:
-            from services.llm_processor import LLMProcessor as llm_processor_cls
-        return family_cls(
-            task_id=self.task_id,
-            task_dir=self.task_dir,
-            user_id=self.user_id,
-            asset_store=self.asset_store,
-            llm_processor=llm_processor_cls(task_version=self.task_version),
-            public_url_builder=self._public_url,
-        ).run(
-            photos=photos,
-            face_output=face_output,
-            primary_person_id=primary_person_id,
-            vlm_results=vlm_results,
-            cached_photo_ids=cached_photo_ids,
-            dedupe_report=dedupe_report,
-            progress_callback=lambda stage, payload: self._notify(
-                progress_callback,
-                "memory" if stage == "v0321_2" else stage,
-                payload,
-            ),
-        )
-
-    def _run_v0321_3_family(
-        self,
-        *,
-        photos: List,
-        face_output: Dict[str, object],
-        primary_person_id: Optional[str],
-        cached_photo_ids: set[str],
-        dedupe_report: Dict[str, object],
-        vlm_results: List[Dict[str, object]],
-        progress_callback: Optional[Callable[[str, Dict], None]],
-    ) -> Dict[str, object]:
-        self._notify(
-            progress_callback,
-            "llm",
-            {
-                "message": "v0321.3 revision-first 链路启动",
-                "pipeline_family": "v0321_3",
-                "substage": "event_draft",
-                "candidate_count": 0,
-                "filtered_count": 0,
-                "processed_candidates": 0,
-                "percent": None,
-                "runtime_seconds": 0.0,
-            },
-        )
-        family_cls = V03213PipelineFamily
-        if family_cls is None:
-            from services.v0321_3.pipeline import V03213PipelineFamily as family_cls
-        llm_processor_cls = LLMProcessor
-        if llm_processor_cls is None:
-            from services.llm_processor import LLMProcessor as llm_processor_cls
-        return family_cls(
-            task_id=self.task_id,
-            task_dir=self.task_dir,
-            user_id=self.user_id,
-            asset_store=self.asset_store,
-            llm_processor=llm_processor_cls(task_version=self.task_version),
-            public_url_builder=self._public_url,
-        ).run(
-            photos=photos,
-            face_output=face_output,
-            primary_person_id=primary_person_id,
-            vlm_results=vlm_results,
-            cached_photo_ids=cached_photo_ids,
-            dedupe_report=dedupe_report,
-            progress_callback=lambda stage, payload: self._notify(
-                progress_callback,
-                "memory" if stage == "v0321_3" else stage,
-                payload,
-            ),
-        )
-
-    def _run_v0323_family(
-        self,
-        *,
-        photos: List,
-        face_output: Dict[str, object],
-        primary_person_id: Optional[str],
-        cached_photo_ids: set[str],
-        dedupe_report: Dict[str, object],
-        vlm_results: List[Dict[str, object]],
-        progress_callback: Optional[Callable[[str, Dict], None]],
-    ) -> Dict[str, object]:
-        self._notify(
-            progress_callback,
-            "llm",
-            {
-                "message": "v0323 LP snapshot 链路启动",
-                "pipeline_family": "v0323",
-                "substage": "lp1_batch",
-                "batch_index": 0,
-                "batch_count": 0,
-                "event_count": 0,
-                "percent": None,
-                "runtime_seconds": 0.0,
-            },
-        )
-        family_cls = V0323PipelineFamily
-        if family_cls is None:
-            from services.v0323.pipeline import V0323PipelineFamily as family_cls
-        llm_processor_cls = LLMProcessor
-        if llm_processor_cls is None:
-            from services.llm_processor import LLMProcessor as llm_processor_cls
-        return family_cls(
-            task_id=self.task_id,
-            task_dir=self.task_dir,
-            user_id=self.user_id,
-            asset_store=self.asset_store,
-            llm_processor=llm_processor_cls(task_version=self.task_version),
-            public_url_builder=self._public_url,
-        ).run(
-            photos=photos,
-            face_output=face_output,
-            primary_person_id=primary_person_id,
-            vlm_results=vlm_results,
-            cached_photo_ids=cached_photo_ids,
-            dedupe_report=dedupe_report,
-            progress_callback=lambda stage, payload: self._notify(
-                progress_callback,
-                "memory" if stage == "v0323" else stage,
-                payload,
-            ),
-        )
-
     def _supports_memory_graph(self) -> bool:
-        return self.task_version in {
-            TASK_VERSION_V0317,
-            TASK_VERSION_V0317_HEAVY,
-            TASK_VERSION_V0321_2,
-            TASK_VERSION_V0321_3,
-            TASK_VERSION_V0323,
-        }
+        return self.task_version == TASK_VERSION_V0317
 
     def _run_face_recognition(
         self,
@@ -1381,13 +1050,7 @@ class MemoryPipelineService:
             "识别与画框统一使用方向归一化后的工作图，避免展示翻转与坐标错位",
             f"最小人脸尺寸阈值调整为 {FACE_MIN_SIZE}px，提升小脸检出能力",
         ]
-        if self.task_version in {
-            TASK_VERSION_V0315,
-            TASK_VERSION_V0317,
-            TASK_VERSION_V0317_HEAVY,
-            TASK_VERSION_V0321_2,
-            TASK_VERSION_V0321_3,
-        }:
+        if self.task_version in {TASK_VERSION_V0315, TASK_VERSION_V0317}:
             return [
                 *base_items,
                 "MediaPipe Face Landmarker 为每张脸补充 pose 诊断，MediaPipe 失败时回退到 InsightFace pose",

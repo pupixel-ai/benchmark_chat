@@ -23,15 +23,15 @@ class BundleEntry:
 
 REQUIRED_FILE_SPECS: tuple[tuple[str, str, str], ...] = (
     ("cache/face_recognition_output.json", "face/face_recognition_output.json", "face"),
-    ("v0323/vp1_observations.json", "vlm/vp1_observations.json", "vlm"),
-    ("v0323/lp1_events_compact.json", "lp1/lp1_events_compact.json", "lp1"),
+    ("output/vp1_observations.json", "vlm/vp1_observations.json", "vlm"),
+    ("output/lp1_events_compact.json", "lp1/lp1_events_compact.json", "lp1"),
 )
 
 OPTIONAL_FILE_SPECS: tuple[tuple[str, str, str], ...] = (
     ("cache/face_recognition_state.json", "face/face_recognition_state.json", "face"),
     ("cache/vlm_failures.jsonl", "vlm/vlm_failures.jsonl", "vlm"),
-    ("v0323/lp1_batch_outputs.jsonl", "lp1/lp1_batch_outputs.jsonl", "lp1"),
-    ("v0323/lp1_parse_failures.json", "lp1/lp1_parse_failures.json", "lp1"),
+    ("output/lp1_batch_outputs.jsonl", "lp1/lp1_batch_outputs.jsonl", "lp1"),
+    ("output/lp1_parse_failures.json", "lp1/lp1_parse_failures.json", "lp1"),
 )
 
 OPTIONAL_DIRECTORY_SPECS: tuple[tuple[str, str, str], ...] = (

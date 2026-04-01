@@ -1,0 +1,2578 @@
+{
+  "metadata": {
+    "generated_at": "2026-03-20T11:02:46.104206",
+    "version": "2.0",
+    "total_events": 65,
+    "total_relationships": 1,
+    "models": {
+      "vlm": "google/gemini-3.1-flash-lite-preview",
+      "llm": "google/gemini-2.5-flash",
+      "face": "InsightFace/buffalo_l"
+    }
+  },
+  "events": [
+    {
+      "event_id": "EVT_001",
+      "date": "2023-12-24",
+      "time_range": "17:08 - 22:47",
+      "duration": "",
+      "title": "平安夜居家欢聚与节日妆点",
+      "type": "其他",
+      "participants": [
+        "Person_001",
+        "Person_002 (隐形拍摄者)",
+        "Person_003 (用户本人)",
+        "Person_004",
+        "Person_005"
+      ],
+      "location": "私密居家",
+      "description": "照片显示【主角】在平安夜当天从化妆准备，到与朋友布置房间、制作热红酒，再到深夜在家中与同伴共同观看蜡笔小新动画的过程。期间展示了大量美妆产品、圣诞装饰、以及家庭影院设备。出现自拍视角（Photo_052, Person_002），他拍视角（Photo_054, Person_001, Person_002, 隐形拍摄者为User）。",
+      "photo_count": 8,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "注重仪式感，尤其在节日会精心布置和庆祝",
+          "享受慢生活，喜好居家观影与宠物互动",
+          "对精致妆容有较高需求，拥有大量美妆产品",
+          "深夜活动（化妆、观影）与夜生活节奏"
+        ],
+        "aesthetic": [
+          "偏爱暖色调、温馨氛围",
+          "注重个人物品的堆叠与陈设（美妆产品、节日布置）",
+          "对动漫/怀旧内容有偏好（蜡笔小新）"
+        ],
+        "socioeconomic": [
+          "消费倾向于居家舒适型（羊羔绒沙发）与节日主题装饰",
+          "具备一定经济能力（拥有投影仪和高层住宅）"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_002",
+      "date": "2023-12-24",
+      "time_range": "18:02 - 21:37",
+      "duration": "",
+      "title": "平安夜城市漫游与节日探店",
+      "type": "其他",
+      "participants": [
+        "Person_001",
+        "Person_002",
+        "Person_003 (用户)",
+        "Person_01"
+      ],
+      "location": "都市户外/商业区",
+      "description": "平安夜当天，【主角】与朋友在商业区合影，随后相继探访花店、餐厅、创意市集和美食摊位，记录了城市节日氛围。出现他拍视角（Photo_040, Photo_039）和自拍视角（Photo_041）。",
+      "photo_count": 9,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "热衷于社交，积极参与节日庆祝活动",
+          "关注城市中的创意与文创市集（降魔灯笼，钩针饰品，德式面包）",
+          "乐于记录生活中的美好瞬间（频繁拍照）",
+          "对独特事物和新兴文化有好奇心（猫咪卖艺）"
+        ],
+        "aesthetic": [
+          "偏爱节日装饰与温暖氛围",
+          "对个性化手工艺品有兴趣（钩针编织、民俗文创）",
+          "审美偏向童趣与艺术感"
+        ],
+        "socioeconomic": [
+          "消费趋向节日消费与个性化体验",
+          "具备一定的消费能力，能够参与城市多元化活动"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_003",
+      "date": "2023-12-20",
+      "time_range": "19:12 - 22:19",
+      "duration": "",
+      "title": "节日前的火锅宵夜与通勤",
+      "type": "其他",
+      "participants": [],
+      "location": "餐饮场所/都市户外",
+      "description": "照片显示【主角】在火锅店用餐，随后拍摄了乘坐红色机动三轮车的场景。均为自拍视角。",
+      "photo_count": 2,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "享受辛辣美食，偏爱火锅等多人聚餐形式",
+          "夜晚活动频繁，生活节奏可能较晚",
+          "出入场所多样，适应不同交通工具（机动三轮车）"
+        ],
+        "aesthetic": [
+          "对市井生活和地方特色有观察力"
+        ],
+        "socioeconomic": [
+          "消费趋向平价餐饮与地方交通工具"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_004",
+      "date": "2024-03-03",
+      "time_range": "18:02 - 14:03",
+      "duration": "",
+      "title": "视力检查与配镜准备",
+      "type": "其他",
+      "participants": [],
+      "location": "交通工具内部/户外",
+      "description": "照片显示【主角】手持视力处方单，记录了屈光度数据。自拍视角。",
+      "photo_count": 2,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "关注个人健康，重视视力保健",
+          "生活细致，会记录重要的个人健康信息",
+          "有配镜需求或近期将眼镜升级"
+        ],
+        "aesthetic": [],
+        "socioeconomic": []
+      }
+    },
+    {
+      "event_id": "EVT_005",
+      "date": "2023-12-25",
+      "time_range": "2023-12-25 23:55",
+      "duration": "",
+      "title": "圣诞节朋友聚会",
+      "type": "其他",
+      "participants": [
+        "Person_006"
+      ],
+      "location": "圣诞灯饰背景的室内商业空间",
+      "description": "【主角】拍摄Person_006在圣诞灯饰背景下比V手势的俏皮瞬间，画面叠加Merry Christmas字样。他拍视角。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "积极参与节日社交活动",
+          "乐于捕捉和分享朋友的生动瞬间",
+          "性格开朗，能够与朋友轻松搞怪互动"
+        ],
+        "aesthetic": [
+          "重视照片的节日氛围和装饰效果"
+        ],
+        "socioeconomic": []
+      }
+    },
+    {
+      "event_id": "EVT_006",
+      "date": "2024-03-08",
+      "time_range": "13:00 - 13:30",
+      "duration": "",
+      "title": "成都日式茶泡饭与文创探店",
+      "type": "其他",
+      "participants": [],
+      "location": "餐饮场所/都市户外/文创店铺",
+      "description": "【主角】先是在日式茶泡饭专门店用餐，随后探访了具有特色装修风格的文创杂货店和生活方式店。均为自拍视角。",
+      "photo_count": 4,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "热爱美食，偏好精致的日式餐饮体验",
+          "热衷于探访特色小店和文创空间",
+          "享受城市漫步和休闲时光",
+          "可能在3月8日妇女节期间进行自我犒赏的消费行为"
+        ],
+        "aesthetic": [
+          "欣赏日式美学与自然风格（木质、绿植）",
+          "对艺术装置和手工艺品有偏好"
+        ],
+        "socioeconomic": [
+          "消费趋向体验型消费与品质生活"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_007",
+      "date": "2024-03-08",
+      "time_range": "2024-03-08 14:26",
+      "duration": "",
+      "title": "成都街头通勤与街景记录",
+      "type": "其他",
+      "participants": [
+        "Person_008",
+        "Person_007",
+        "Person_029"
+      ],
+      "location": "都市户外",
+      "description": "【主角】在成都万科大厦外拍摄街头行人与路牌。自拍视角。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "关注城市日常生活，具备观察力",
+          "可能处于通勤或公务活动中"
+        ],
+        "aesthetic": [
+          "记录城市建筑与细节"
+        ],
+        "socioeconomic": []
+      }
+    },
+    {
+      "event_id": "EVT_008",
+      "date": "2024-03-08",
+      "time_range": "20:28 - 20:28",
+      "duration": "",
+      "title": "成都砂锅聚餐",
+      "type": "其他",
+      "participants": [],
+      "location": "餐饮场所",
+      "description": "【主角】俯视餐桌，记录了四道砂锅菜肴和两碗米饭的摆盘，用餐过程中有至少一人相伴。均为自拍视角。",
+      "photo_count": 3,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "偏爱家常川菜，尤其钟爱砂锅类菜品",
+          "享受多人聚餐的社交氛围",
+          "具备日常化的餐饮消费习惯"
+        ],
+        "aesthetic": [
+          "对食物和餐具的呈现有一定观察力"
+        ],
+        "socioeconomic": [
+          "消费趋向平价、社区型餐饮"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_009",
+      "date": "2024-03-08",
+      "time_range": "21:20 - 21:48",
+      "duration": "",
+      "title": "深夜商场散步与宠物店探访",
+      "type": "其他",
+      "participants": [
+        "Person_001",
+        "Person_002",
+        "Person_003"
+      ],
+      "location": "商业区/宠物店",
+      "description": "【主角】在大型商场内步行，随后探访宠物用品店和猫舍，近距离观察猫咪。均为自拍视角。",
+      "photo_count": 4,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "享受夜间独处时光，具有较强的独立性",
+          "对宠物有强烈兴趣，关注宠物用品和猫咪",
+          "购物行为具有目的性（选购宠物用品或宠物）",
+          "关注宠物细节（禁止逗玩，猫咪档案）"
+        ],
+        "aesthetic": [
+          "喜爱猫咪和宠物相关物品"
+        ],
+        "socioeconomic": [
+          "可能拥有宠物或正在考虑养宠物",
+          "乐于在夜间进行休闲消费"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_010",
+      "date": "2024-03-12",
+      "time_range": "20:40 - 21:05",
+      "duration": "",
+      "title": "火锅店亲密聚餐与玫瑰花合影",
+      "type": "其他",
+      "participants": [
+        "Person_009"
+      ],
+      "location": "餐厅/火锅店",
+      "description": "【主角】与Person_009在火锅店用餐，Person_009手捧白玫瑰配合拍摄，【主角】拍摄了其正在用餐的特写。出现自拍视角（Photo_175，Person_009被拍）和他拍视角（Photo_176，Person_009被拍）。",
+      "photo_count": 2,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "注重社交仪式感，会在节庆或特殊场合送花",
+          "乐于在用餐时记录朋友的瞬间",
+          "对个人形象有管理（头发造型，美甲）"
+        ],
+        "aesthetic": [
+          "偏爱浪漫和庆祝氛围"
+        ],
+        "socioeconomic": [
+          "消费趋向社交型餐饮和礼品消费"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_011",
+      "date": "2024-03-14",
+      "time_range": "14:18 - 14:53",
+      "duration": "",
+      "title": "双流区简餐与城市景观",
+      "type": "其他",
+      "participants": [],
+      "location": "餐饮场所/都市户外",
+      "description": "【主角】在面食店用餐，随后在乘车途中拍摄了路边的树木景观和宣传标语。均为自拍视角。",
+      "photo_count": 4,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "偏好川味面食作为简餐选择",
+          "日常出行频繁，习惯在移动过程中记录所见",
+          "对城市景观和文化符号（宣传板）有观察力"
+        ],
+        "aesthetic": [
+          "记录日常朴素的场景"
+        ],
+        "socioeconomic": [
+          "消费趋向平价餐饮和公共交通/自驾通勤"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_012",
+      "date": "2024-03-14",
+      "time_range": "18:26 - 18:28",
+      "duration": "",
+      "title": "猫咪居家陪伴与行李箱",
+      "type": "其他",
+      "participants": [],
+      "location": "私密居家",
+      "description": "【主角】在家中与一只长毛猫亲密互动，猫咪或卧或坐在【主角】身边，同时旁边放置着行李箱。均为自拍视角。",
+      "photo_count": 3,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "爱猫人士，与宠物关系亲密",
+          "居家生活舒适，享受宠物陪伴",
+          "可能刚结束旅行或即将出行（行李箱出现）"
+        ],
+        "aesthetic": [
+          "喜爱捕捉宠物可爱的瞬间"
+        ],
+        "socioeconomic": [
+          "生活稳定，为宠物提供舒适的居家环境"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_013",
+      "date": "2024-03-16",
+      "time_range": "15:17 - 15:32",
+      "duration": "",
+      "title": "丽江高原风光与玉湖村探访",
+      "type": "其他",
+      "participants": [],
+      "location": "高原户外/景区内",
+      "description": "【主角】拍摄了玉龙雪山脚下的草甸、玉湖村景区示意图和两张景区门票，以及沿途的高原山路景色。均为自拍视角。",
+      "photo_count": 4,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "热爱旅行，尤其偏爱自然风光和高原景色",
+          "注重旅行规划（拍摄景区导览图）",
+          "乐于记录旅行中的细节和美好瞬间",
+          "对个人形象有管理（美甲）"
+        ],
+        "aesthetic": [
+          "欣赏开阔雄伟的自然景观",
+          "有风景摄影的倾向"
+        ],
+        "socioeconomic": [
+          "具备旅行的经济能力和闲暇时间"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_014",
+      "date": "2024-03-22",
+      "time_range": "15:30 - 23:56",
+      "duration": "",
+      "title": "小区桃花盛开与猫咪休憩",
+      "type": "其他",
+      "participants": [],
+      "location": "住宅小区/居家",
+      "description": "【主角】仰拍小区内的盛开桃花，随后在家中拍摄藏匿于购物袋间的猫咪。均为自拍视角。",
+      "photo_count": 2,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "热爱生活，善于发现身边的美好（赏花）",
+          "爱猫人士，享受宠物陪伴和居家休闲",
+          "生活细致，会捕捉宠物的可爱瞬间"
+        ],
+        "aesthetic": [
+          "偏爱自然花卉和可爱的宠物形象"
+        ],
+        "socioeconomic": []
+      }
+    },
+    {
+      "event_id": "EVT_015",
+      "date": "2024-03-24",
+      "time_range": "14:12 - 21:58",
+      "duration": "",
+      "title": "成都春糖音乐节体验",
+      "type": "其他",
+      "participants": [
+        "Person_010 (表演者)",
+        "Person_011",
+        "Person_012",
+        "Person_013",
+        "Person_015"
+      ],
+      "location": "户外音乐节场地",
+      "description": "【主角】从音乐节入口处、观看舞台大屏幕上的表演者（Person_010）、观众区（Person_011, Person_012, Person_013）、到抓拍朋友（Person_015）以及舞台本身，多角度记录了音乐节。出现自拍视角和隐形拍摄者视角（User在拍摄Person_015）。",
+      "photo_count": 6,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "热爱音乐，积极参与户外音乐节等大型社交活动",
+          "即便阴雨天气也尽情享受活动，适应能力强",
+          "乐于记录活动现场氛围和朋友瞬间",
+          "对赞助商和品牌活动有敏感度"
+        ],
+        "aesthetic": [
+          "欣赏舞台设计和视觉效果",
+          "偏爱潮流、放松的音乐节穿搭和氛围"
+        ],
+        "socioeconomic": [
+          "消费趋向体验型社交活动"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_016",
+      "date": "2024-03-24",
+      "time_range": "22:41 - 22:41",
+      "duration": "",
+      "title": "深夜雨天城市夜行",
+      "type": "其他",
+      "participants": [],
+      "location": "移动车辆内部",
+      "description": "【主角】从车内拍摄窗外雨滴覆盖的城市夜景和模糊的交通灯光。均为自拍视角。",
+      "photo_count": 2,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "夜间出行频繁，可能生活节奏偏晚",
+          "善于观察和捕捉城市氛围感",
+          "享受独处时的沉静时刻"
+        ],
+        "aesthetic": [
+          "偏爱都市夜景和雨天氛围",
+          "对模糊、朦胧的视觉效果有兴趣"
+        ],
+        "socioeconomic": []
+      }
+    },
+    {
+      "event_id": "EVT_017",
+      "date": "2024-03-31",
+      "time_range": "10:29 - 13:01",
+      "duration": "",
+      "title": "早午餐外带与食堂用餐",
+      "type": "其他",
+      "participants": [],
+      "location": "都市户外/食堂",
+      "description": "【主角】手持炸物和饮品在户外步行，随后在食堂用餐，拍摄了肉末土豆盖饭和餐盘上的丰盛食物。均为自拍视角。",
+      "photo_count": 3,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "生活节奏快，常选择外带或食堂用餐",
+          "饮食习惯注重碳水和蛋白质搭配",
+          "在快餐也能注意饮食平衡"
+        ],
+        "aesthetic": [
+          "对食物的呈现有一定关注"
+        ],
+        "socioeconomic": [
+          "消费趋向便捷、经济实惠的餐饮"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_018",
+      "date": "2024-04-05",
+      "time_range": "15:32 - 16:01",
+      "duration": "",
+      "title": "清明下午茶与兰州牛肉面",
+      "type": "其他",
+      "participants": [
+        "Person_001"
+      ],
+      "location": "休闲区/餐饮场所",
+      "description": "【主角】在户外休闲区享用好利来点心，随后在兰州牛肉面店用餐，并拍摄了餐桌上的两份兰州牛肉面和奶茶。出现自拍视角，另有一张为他拍（Photo_100，Person_001被拍）。",
+      "photo_count": 3,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "享受休闲下午茶时光",
+          "喜欢尝试不同地域的特色美食（兰州牛肉面）",
+          "乐于与朋友分享美食体验"
+        ],
+        "aesthetic": [
+          "对食物的摆盘和品牌有关注"
+        ],
+        "socioeconomic": [
+          "消费趋向休闲餐饮和特色美食"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_019",
+      "date": "2024-03-31",
+      "time_range": "2024-03-31 20:04",
+      "duration": "",
+      "title": "居家外卖晚餐与影音休闲",
+      "type": "其他",
+      "participants": [],
+      "location": "私密居家",
+      "description": "【主角】拍摄桌面摆放的烤串、土豆、日式盖饭、意面和雪碧等外卖餐品。自拍视角。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "偏爱外卖，尤其喜爱快餐与慰藉性美食（烧烤、日料）",
+          "享受居家独处时的影音娱乐",
+          "注重个人生活品质（丰富的外卖选择）"
+        ],
+        "aesthetic": [
+          "对美食有视觉记录欲望"
+        ],
+        "socioeconomic": [
+          "消费趋向外卖平台和影音娱乐设备"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_020",
+      "date": "2024-04-05",
+      "time_range": "16:51 - 17:57",
+      "duration": "",
+      "title": "购物采买与影院观影",
+      "type": "其他",
+      "participants": [],
+      "location": "购物中心/电影院",
+      "description": "【主角】手持名创优品婴儿柔纸巾，随后在影院观看宫崎骏动画电影《你想活出怎样的人生》。均为自拍视角。",
+      "photo_count": 2,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "生活细致，近期可能关注母婴用品或有育儿需求",
+          "对艺术电影（宫崎骏）有鉴赏能力和兴趣",
+          "享受节假日的休闲娱乐活动"
+        ],
+        "aesthetic": [
+          "对动画艺术和视觉美学有追求"
+        ],
+        "socioeconomic": [
+          "消费趋向生活必需品与文化娱乐产品",
+          "具备一定的购买能力"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_021",
+      "date": "2024-04-18",
+      "time_range": "2024-04-18 13:01",
+      "duration": "",
+      "title": "午间居家用餐与追剧",
+      "type": "其他",
+      "participants": [
+        "Person_016 (剧中人物)"
+      ],
+      "location": "私人书房/卧室",
+      "description": "【主角】拍摄桌面上的外卖餐盒和华为笔记本电脑，屏幕上正播放《田耕纪》剧集。自拍视角。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "生活习惯倾向于居家办公或学习",
+          "利用碎片时间进行休闲娱乐（用餐时看剧）",
+          "对古装剧有偏好"
+        ],
+        "aesthetic": [
+          "关注影视内容",
+          "对科技产品有使用（华为笔记本）"
+        ],
+        "socioeconomic": [
+          "消费趋向外卖餐饮和视频平台订阅"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_022",
+      "date": "2024-05-11",
+      "time_range": "17:16 - 19:07",
+      "duration": "",
+      "title": "生日庆典与聚餐",
+      "type": "其他",
+      "participants": [],
+      "location": "餐厅/甜品店",
+      "description": "【主角】分别在“炙景台”和“芝井台/灵景台”两家餐厅拍摄了生日布置、肉制蛋糕和点燃蜡烛的瞬间。均为自拍视角。",
+      "photo_count": 5,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "热衷于社交，积极参与朋友的生日庆祝",
+          "重视仪式感，会精心准备或选择有氛围感的场所",
+          "乐于记录生活中的重要时刻"
+        ],
+        "aesthetic": [
+          "偏爱温馨、庆典氛围的装饰和场景",
+          "对美食（蛋糕、烤肉）和精致摆盘有兴趣"
+        ],
+        "socioeconomic": [
+          "消费趋向社交型餐饮和礼品消费",
+          "具备一定的消费能力"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_023",
+      "date": "2024-05-12",
+      "time_range": "2024-05-12 00:19",
+      "duration": "",
+      "title": "深夜居家宵夜与影音休闲",
+      "type": "其他",
+      "participants": [
+        "Person_017 (视频人物)"
+      ],
+      "location": "私人住宅内部",
+      "description": "【主角】拍摄桌面上的外卖餐盒和华为笔记本电脑，屏幕上正播放视频内容。自拍视角。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "享受深夜独处，偏好外卖作为宵夜选择",
+          "习惯在用餐时观看视频，进行多任务处理",
+          "注重个人生活便捷性"
+        ],
+        "aesthetic": [
+          "对影视内容有兴趣",
+          "对科技产品有使用（华为笔记本）"
+        ],
+        "socioeconomic": [
+          "消费趋向外卖餐饮和视频平台"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_024",
+      "date": "2024-05-12",
+      "time_range": "14:16 - 19:05",
+      "duration": "",
+      "title": "户外餐厅生日聚会与庆典",
+      "type": "其他",
+      "participants": [
+        "Person_018",
+        "Person_001",
+        "Person_020",
+        "Person_019",
+        "Person_021",
+        "Person_022",
+        "Person_023",
+        "Person_024"
+      ],
+      "location": "半开放式露台餐厅/休闲餐厅",
+      "description": "【主角】在户外餐厅拍摄了蛋糕、花束和多位朋友（Person_018, Person_001, Person_020, Person_019, Person_021, Person_022, Person_023, Person_024）的合影与互动。出现自拍视角和隐形拍摄者视角。",
+      "photo_count": 7,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "社交活跃，朋友众多，定期聚会",
+          "重视生活中的重要纪念日，并精心策划庆祝活动",
+          "乐于记录和分享与朋友的欢乐时光",
+          "对礼物和花束有品味，关注花艺品牌"
+        ],
+        "aesthetic": [
+          "偏爱温馨浪漫的庆祝氛围和精致的餐桌布置",
+          "对户外绿植和自然光线有偏好"
+        ],
+        "socioeconomic": [
+          "消费趋向中高档餐厅和特色花店",
+          "具备组织和参与高质量社交活动的能力"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_025",
+      "date": "2024-05-12",
+      "time_range": "2024-05-12 17:19",
+      "duration": "",
+      "title": "精品礼品展示与生活品味",
+      "type": "其他",
+      "participants": [],
+      "location": "室内个人桌面空间",
+      "description": "【主角】拍摄桌面上的白色礼品盒，内含保温杯和毛绒兔子玩偶。自拍视角。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "注重生活品质，偏好有设计感和联名文创的物品",
+          "乐于分享和记录具有个性化特征的商品"
+        ],
+        "aesthetic": [
+          "对极简主义和卡通可爱风格有偏好（保温杯、兔子玩偶）"
+        ],
+        "socioeconomic": [
+          "消费趋向精品文创和高品质生活用品"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_026",
+      "date": "2024-05-12",
+      "time_range": "22:38 - 22:38",
+      "duration": "",
+      "title": "夜晚居家猫咪陪伴",
+      "type": "其他",
+      "participants": [],
+      "location": "住宅卧室",
+      "description": "【主角】在床上拍摄怀抱长毛猫或猫咪依偎在身边的场景。均为自拍视角。",
+      "photo_count": 2,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "爱猫人士，与宠物关系亲密，享受宠物带来的慰藉",
+          "居家休闲生活，注重个人空间舒适度",
+          "有进行自我修饰的习惯（指甲油）"
+        ],
+        "aesthetic": [
+          "偏爱毛绒可爱的小动物"
+        ],
+        "socioeconomic": [
+          "生活稳定，为宠物提供舒适的居家环境"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_027",
+      "date": "2024-05-14",
+      "time_range": "12:34 - 13:32",
+      "duration": "",
+      "title": "居家办公/学习与健康简餐",
+      "type": "其他",
+      "participants": [],
+      "location": "室内办公桌",
+      "description": "【主角】拍摄桌面上的轻食餐盒、库迪咖啡和华为笔记本电脑，屏幕上播放视频内容。随后又展示了另一份高蛋白低碳水的外卖餐。均为自拍视角。",
+      "photo_count": 2,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "生活习惯倾向于居家办公或学习",
+          "注重健康饮食和体脂管理（轻食、高蛋白低碳水）",
+          "利用午休时间进行多任务处理（用餐、观看视频）"
+        ],
+        "aesthetic": [
+          "对科技产品有使用（华为笔记本）"
+        ],
+        "socioeconomic": [
+          "消费趋向外卖健康餐和咖啡",
+          "可能处于职场或学生群体，生活规律"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_028",
+      "date": "2025-02-05",
+      "time_range": "2025-02-05 11:13",
+      "duration": "",
+      "title": "自贡灯会艺术探索",
+      "type": "其他",
+      "participants": [],
+      "location": "室内会展空间",
+      "description": "【主角】拍摄大型孔雀主题的中式灯雕艺术装置。自拍视角。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "对传统文化和艺术活动有兴趣",
+          "乐于探索文化展览和节庆活动",
+          "善于捕捉艺术品的细节和整体美感"
+        ],
+        "aesthetic": [
+          "欣赏中式灯雕艺术和华丽的装饰风格",
+          "对视觉效果有较高要求"
+        ],
+        "socioeconomic": [
+          "消费趋向文化体验和旅游活动"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_029",
+      "date": "2025-06-26",
+      "time_range": "17:39 - 17:42",
+      "duration": "",
+      "title": "成都城市地标与艺术探索",
+      "type": "其他",
+      "participants": [
+        "Person_001"
+      ],
+      "location": "商业综合体/艺术馆",
+      "description": "【主角】拍摄了成都高新区的人工湖与园林景观、商业综合体内的鱼群艺术装置，以及天府艺术公园艺术馆的挑高空间和红色悬挂装置。均为自拍视角。",
+      "photo_count": 3,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "热爱城市探索，对建筑美学和当代艺术有兴趣",
+          "享受独自参观和观察的时光",
+          "乐于记录城市地标和艺术作品"
+        ],
+        "aesthetic": [
+          "欣赏现代建筑的线条感和空间设计",
+          "对大型艺术装置有视觉偏好"
+        ],
+        "socioeconomic": [
+          "消费趋向文化艺术体验和城市休闲活动"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_030",
+      "date": "2025-06-27",
+      "time_range": "2025-06-27 10:18",
+      "duration": "",
+      "title": "居家整理与物品记录",
+      "type": "其他",
+      "participants": [],
+      "location": "个人居住区",
+      "description": "【主角】拍摄堆放在墙角的华为Mate 50产品专享礼包包装箱、黑色购物袋和窗台上的蓝色玩偶。自拍视角。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "居家生活细致，注重物品的收纳和整理",
+          "近期可能有购买电子产品或收到相关礼品",
+          "对品牌商品有一定的消费偏好（华为）"
+        ],
+        "aesthetic": [
+          "喜爱卡通玩偶作为装饰品"
+        ],
+        "socioeconomic": [
+          "具备一定的电子产品消费能力"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_031",
+      "date": "2025-06-27",
+      "time_range": "2025-06-27 12:35",
+      "duration": "",
+      "title": "成都特色肥肠聚餐",
+      "type": "其他",
+      "participants": [
+        "Person_001"
+      ],
+      "location": "特色餐饮店",
+      "description": "【主角】拍摄餐桌中心摆放的八道川式菜肴和木质饭桶，并捕捉了同伴（Person_001）的手臂。他拍视角。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "偏爱川菜，尤其钟爱肥肠等特色菜品",
+          "享受多人聚餐的社交氛围",
+          "具备生活化的餐饮消费习惯"
+        ],
+        "aesthetic": [
+          "对食物的呈现和地方特色有观察力"
+        ],
+        "socioeconomic": [
+          "消费趋向平价、社区型餐饮"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_032",
+      "date": "2025-06-27",
+      "time_range": "20:26 - 20:26",
+      "duration": "",
+      "title": "居家晚餐与影音休闲",
+      "type": "其他",
+      "participants": [
+        "Person_025 (视频人物)"
+      ],
+      "location": "家庭餐厅",
+      "description": "【主角】拍摄餐桌上的饭菜和平板电脑，屏幕上播放着视频内容（包含一个人物Person_025和疑似自然纪录片）。均为自拍视角。",
+      "photo_count": 2,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "享受居家独处，偏好通过观看视频寻求陪伴和娱乐",
+          "饮食习惯健康均衡（汇源果汁、红烧茄子）",
+          "具备生活化的饮食消费习惯"
+        ],
+        "aesthetic": [
+          "对影视内容有兴趣（古装剧、自然纪录片）"
+        ],
+        "socioeconomic": [
+          "消费趋向居家餐饮和视频平台订阅"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_033",
+      "date": "2025-06-28",
+      "time_range": "09:19 - 10:01",
+      "duration": "",
+      "title": "城市通勤与日常交通",
+      "type": "其他",
+      "participants": [
+        "Person_026",
+        "Person_027",
+        "Person_001"
+      ],
+      "location": "城市轨道交通/公路",
+      "description": "【主角】在地铁车厢内拍摄了乘客（Person_026, Person_027），随后在驾驶车辆时拍摄了迎面而来的电瓶车（Person_001）。均为自拍视角。",
+      "photo_count": 2,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "日常通勤，适应城市公共交通和自驾",
+          "对社会观察有兴趣，会记录陌生人的状态",
+          "关注路况和交通安全"
+        ],
+        "aesthetic": [
+          "纪实性摄影风格"
+        ],
+        "socioeconomic": [
+          "具备驾车或经常乘坐交通工具的经济能力"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_034",
+      "date": "2025-06-28",
+      "time_range": "10:05 - 14:14",
+      "duration": "",
+      "title": "崇州乡村探访与户外露营野餐",
+      "type": "其他",
+      "participants": [
+        "Person_001",
+        "Person_002"
+      ],
+      "location": "咖啡馆/园林/露营基地/农耕区",
+      "description": "【主角】拍摄了崇州市竹艺村附近的田园式咖啡馆、园林景致，露营基地的设备（护膝、帐篷）、农田景观、采摘后的瓜果（包含修枝剪），以及午餐野餐场景（Person_001, Person_002）。出现自拍视角和隐形拍摄者视角（User在拍摄Person_001和Person_002）。",
+      "photo_count": 13,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "热爱户外生活，积极参与露营、野餐和农产品采摘",
+          "对田园风光和乡村文创有兴趣，乐于探访特色店铺",
+          "注重生态农业和户外实用装备（护膝、露营桌）",
+          "享受慢节奏、放松的田园生活",
+          "可能具有园艺劳作经验（修枝剪，采摘成果）"
+        ],
+        "aesthetic": [
+          "欣赏自然景观和田园美学",
+          "对户外装备和工具设计有一定偏好",
+          "摄影风格倾向于纪实和生活化"
+        ],
+        "socioeconomic": [
+          "消费趋向户外休闲和乡村旅游",
+          "具备参与户外活动的经济能力和时间"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_035",
+      "date": "2025-06-28",
+      "time_range": "14:14 - 14:14",
+      "duration": "",
+      "title": "大邑县现代农业考察",
+      "type": "其他",
+      "participants": [],
+      "location": "农业种植区",
+      "description": "【主角】拍摄植保无人机在稻田上空作业和悬停的场景，以及青瓦屋檐下的同一无人机。均为自拍视角。",
+      "photo_count": 3,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "关注科技发展，对现代农业技术有兴趣",
+          "具有独立观察和记录的习惯",
+          "可能从事相关行业或研究，或仅仅是好奇心驱使"
+        ],
+        "aesthetic": [
+          "对工业设计和科技产品有偏好"
+        ],
+        "socioeconomic": []
+      }
+    },
+    {
+      "event_id": "EVT_036",
+      "date": "2025-06-28",
+      "time_range": "2025-06-28 14:32",
+      "duration": "",
+      "title": "居家休憩与窗边景致",
+      "type": "其他",
+      "participants": [],
+      "location": "居家室内",
+      "description": "【主角】拍摄室内木桌上的向日葵花束和儿童手绘图画，窗外是强烈的日光。自拍视角。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "享受居家生活，对窗外景观有观察力",
+          "对花卉和生活中的小景致有浓厚兴趣",
+          "可能与儿童有生活交集（手绘图画）"
+        ],
+        "aesthetic": [
+          "偏爱温馨、自然的居家装饰（向日葵）"
+        ],
+        "socioeconomic": []
+      }
+    },
+    {
+      "event_id": "EVT_037",
+      "date": "2025-06-28",
+      "time_range": "14:41 - 14:41",
+      "duration": "",
+      "title": "乡村田园观景与慢生活",
+      "type": "其他",
+      "participants": [],
+      "location": "乡村民宿/咖啡馆",
+      "description": "【主角】从室内透过玻璃窗拍摄窗外大面积的稻田景观和户外休息平台。均为自拍视角。",
+      "photo_count": 2,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "热爱自然风光，尤其偏爱田园景观",
+          "享受慢节奏的乡村生活和休憩时光",
+          "乐于探访具有设计感的乡村民宿或咖啡馆"
+        ],
+        "aesthetic": [
+          "欣赏开阔视野和自然光影",
+          "对与自然结合的建筑风格有偏好"
+        ],
+        "socioeconomic": [
+          "消费趋向乡村旅游和休闲体验"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_038",
+      "date": "2025-06-28",
+      "time_range": "2025-06-28 19:19",
+      "duration": "",
+      "title": "眉山冒菜聚餐",
+      "type": "其他",
+      "participants": [
+        "Person_001",
+        "Person_002"
+      ],
+      "location": "餐饮店铺",
+      "description": "【主角】拍摄餐桌上的川式红油菜肴和朋友（Person_001, Person_002），朋友在使用手机。他拍视角。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "享受社交聚餐，偏好川味美食（冒菜、冷锅串串）",
+          "乐于与朋友分享美食体验"
+        ],
+        "aesthetic": [
+          "对地方特色餐饮有兴趣"
+        ],
+        "socioeconomic": [
+          "消费趋向平价、生活化的餐饮"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_039",
+      "date": "2025-07-02",
+      "time_range": "2025-07-02 12:58",
+      "duration": "",
+      "title": "大熊猫基地科普参观",
+      "type": "其他",
+      "participants": [],
+      "location": "科普展馆",
+      "description": "【主角】在大屏幕前拍摄大熊猫华妮的产前监控影像和荣誉奖项列表。自拍视角。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "热爱动物，尤其钟爱大熊猫",
+          "对科普教育和动物保护议题有兴趣",
+          "乐于参观科普展馆，获取新知识"
+        ],
+        "aesthetic": [
+          "欣赏动物的可爱形象"
+        ],
+        "socioeconomic": [
+          "消费趋向科普旅游和文化体验"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_040",
+      "date": "2025-07-02",
+      "time_range": "2025-07-02 15:47",
+      "duration": "",
+      "title": "商业活动现场设备记录",
+      "type": "其他",
+      "participants": [],
+      "location": "活动发布空间",
+      "description": "【主角】拍摄专业摄影棚内，三脚架、灯架、人形立牌和背景幕布等直播录制设备。自拍视角。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "对媒体制作、活动策划有观察兴趣",
+          "关注专业设备和场景布置",
+          "具备一定的行业敏感度或好奇心"
+        ],
+        "aesthetic": [
+          "欣赏舞台设计和光影效果"
+        ],
+        "socioeconomic": [
+          "可能从事相关职业或对行业有兴趣"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_041",
+      "date": "2025-07-02",
+      "time_range": "2025-07-02 16:49",
+      "duration": "",
+      "title": "视频剪辑与内容创作",
+      "type": "其他",
+      "participants": [],
+      "location": "个人办公桌",
+      "description": "【主角】拍摄电脑屏幕上的剪映专业版界面，正在处理关于“田栩宁”的视频素材。自拍视角。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "热衷视频创作和剪辑，具备专业工具使用技能",
+          "关注社交媒体热点和网红话题",
+          "具备较强的学习能力和操作能力（剪映SVIP）"
+        ],
+        "aesthetic": [
+          "对数字媒体和内容创作有追求"
+        ],
+        "socioeconomic": [
+          "可能与数字媒体、内容创作或KOL行业相关",
+          "为软件订阅付费，具备一定的消费能力"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_042",
+      "date": "2025-08-05",
+      "time_range": "08:52 - 08:52",
+      "duration": "",
+      "title": "居家自制健康早餐",
+      "type": "其他",
+      "participants": [],
+      "location": "家庭厨房",
+      "description": "【主角】拍摄炉子上烹饪中的番茄肉末青菜汤面和美的电磁炉。均为自拍视角。",
+      "photo_count": 2,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "注重健康饮食，偏爱自制早餐",
+          "具备居家烹饪技能，生活自律",
+          "可能处于居家办公或休假状态，有充足时间备餐"
+        ],
+        "aesthetic": [
+          "对厨房用品和烹饪器具（美的电磁炉）有特定偏好"
+        ],
+        "socioeconomic": [
+          "具备稳定的居家生活条件，拥有Midea品牌厨电"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_043",
+      "date": "2025-08-20",
+      "time_range": "2025-08-20 13:11",
+      "duration": "",
+      "title": "成都精致下午茶",
+      "type": "其他",
+      "participants": [],
+      "location": "咖啡馆或特色餐厅",
+      "description": "【主角】拍摄深色木质桌面上的两杯特调饮品，装饰有鲜花和桌号牌。自拍视角。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "注重生活品质，享受精致的下午茶体验",
+          "积极参与社交活动，乐于与朋友分享美好时光",
+          "对餐饮环境和品牌有偏好（上海品牌）"
+        ],
+        "aesthetic": [
+          "欣赏饮品设计和餐桌布置",
+          "对小雏菊等装饰花卉有偏好"
+        ],
+        "socioeconomic": [
+          "消费趋向中高档餐饮和休闲体验"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_044",
+      "date": "2025-08-25",
+      "time_range": "20:16 - 20:59",
+      "duration": "",
+      "title": "居家麻辣烫与古装剧之夜",
+      "type": "其他",
+      "participants": [],
+      "location": "居民住宅餐厅/客厅",
+      "description": "【主角】拍摄麻辣烫外卖和平板电脑屏幕（播放古装剧），随后又拍摄了高层景观房内通过平板观看古装剧。均为自拍视角。",
+      "photo_count": 2,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "享受居家独处，偏爱外卖麻辣烫作为晚餐选择",
+          "热衷于观看古装剧，利用科技产品进行影音娱乐",
+          "具有夜间休闲习惯，享受高层住宅的静谧夜景"
+        ],
+        "aesthetic": [
+          "偏爱古装剧和城市夜景"
+        ],
+        "socioeconomic": [
+          "消费趋向外卖餐饮和视频平台订阅",
+          "居住环境可能为高层住宅，有一定经济条件"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_045",
+      "date": "2025-09-12",
+      "time_range": "16:38 - 19:38",
+      "duration": "",
+      "title": "甘肃丹霞与黄河之旅",
+      "type": "其他",
+      "participants": [],
+      "location": "丹霞地貌景区/山区公路/黄河河岸",
+      "description": "【主角】在移动交通工具中拍摄张掖丹霞地貌的山脉、甘肃永登县的山区公路，黄河石林国家地质公园的峡谷，以及兰州白塔山下黄河夜景。均为自拍视角。",
+      "photo_count": 4,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "热爱旅行，尤其偏爱西北地区的壮丽自然风光",
+          "具备自驾旅行的能力和探险精神",
+          "乐于记录旅行中的地貌奇观和城市夜景",
+          "享受独处时的广阔与宁静"
+        ],
+        "aesthetic": [
+          "欣赏丹霞地貌和黄土高原的雄浑之美",
+          "对夜景摄影有兴趣"
+        ],
+        "socioeconomic": [
+          "具备自驾旅行的经济能力和闲暇时间"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_046",
+      "date": "2025-09-12",
+      "time_range": "20:44 - 18:27",
+      "duration": "",
+      "title": "兰州烧烤与特色饮品",
+      "type": "其他",
+      "participants": [
+        "Person_001"
+      ],
+      "location": "烧烤店/特色饮品店/户外休息区",
+      "description": "【主角】在茹记烤肉店用餐，手持放哈奶茶，拍摄烤肉串和馒头片，同伴（Person_001）在对面玩手机。随后又拍摄了苦水制造的玫瑰柠檬茶和可可主角伴手礼，并在户外享用美团外卖。出现自拍视角和隐形拍摄者视角（User在拍摄Person_001）。",
+      "photo_count": 5,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "热爱社交，享受烧烤聚餐的轻松氛围",
+          "对地域特色美食和饮品有尝鲜欲望（放哈奶茶，苦水玫瑰柠檬茶，可可主角）",
+          "乐于记录和分享当地特色产品",
+          "有进行自我修饰的习惯（美甲）"
+        ],
+        "aesthetic": [
+          "对食物和饮品的包装、品牌有观察力"
+        ],
+        "socioeconomic": [
+          "消费趋向地方餐饮和特色旅游商品",
+          "具备一定的消费能力"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_047",
+      "date": "2025-10-30",
+      "time_range": "2025-10-30 20:38",
+      "duration": "",
+      "title": "餐厅搞怪自拍与朋友互动",
+      "type": "其他",
+      "participants": [
+        "Person_028"
+      ],
+      "location": "餐厅/咖啡厅室内卡座",
+      "description": "【主角】近距离拍摄坐在对面的Person_028，Person_028手持勺子遮挡眼睛，嘟嘴搞怪。他拍视角。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "性格开朗幽默，享受社交乐趣",
+          "乐于与朋友进行亲密互动和搞怪自拍",
+          "可能具有感染力，能带动身边气氛"
+        ],
+        "aesthetic": [
+          "对生活中的有趣瞬间有捕捉力"
+        ],
+        "socioeconomic": []
+      }
+    },
+    {
+      "event_id": "EVT_048",
+      "date": "2026-03-11",
+      "time_range": "14:03 - 14:03",
+      "duration": "",
+      "title": "户外花园独享绣球花海",
+      "type": "其他",
+      "participants": [
+        "Person_029 (User Himself)"
+      ],
+      "location": "户外植物园或私家花园",
+      "description": "【主角】坐在白色木质长条椅上，背景为茂密的粉白色绣球花丛。自拍视角。",
+      "photo_count": 2,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "热爱自然，享受户外独处时光",
+          "偏爱花卉（绣球花），注重景观的季节性美感",
+          "追求宁静和放松的生活状态"
+        ],
+        "aesthetic": [
+          "对清新、自然的审美有偏好",
+          "着装风格简洁（白色衬衫，淡紫色棒球帽）"
+        ],
+        "socioeconomic": []
+      }
+    },
+    {
+      "event_id": "EVT_049",
+      "date": "2026-03-11",
+      "time_range": "14:03 - 14:03",
+      "duration": "",
+      "title": "城市出行与时尚穿搭自拍",
+      "type": "其他",
+      "participants": [
+        "Person_001 (User Himself)"
+      ],
+      "location": "城市现代商业区写字楼或商场外围/室内摄影棚",
+      "description": "【主角】在纯白背景的室内空间和玻璃幕墙的商业区外，自拍展示黑色托特包和穿搭（白色T恤、深灰色长裤、金属表带腕表、心形耳饰），并配有‘超舒适大容量’文案。自拍视角。",
+      "photo_count": 2,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "注重个人形象和时尚穿搭",
+          "乐于通过自拍记录和分享生活细节和时尚单品",
+          "可能对时尚、包袋评测或社交平台分享有兴趣"
+        ],
+        "aesthetic": [
+          "偏爱简约、经典、实用的时尚风格（托特包、米兰尼斯表带）",
+          "对金属饰品有偏好",
+          "注重服装的材质和细节（重磅棉质T恤）"
+        ],
+        "socioeconomic": [
+          "具备一定的时尚消费能力",
+          "可能从事与时尚、社交媒体相关行业"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_050",
+      "date": "2026-03-11",
+      "time_range": "14:03 - 14:03",
+      "duration": "",
+      "title": "户外花卉人像摄影",
+      "type": "其他",
+      "participants": [
+        "Person_029 (用户本人)",
+        "Person_030",
+        "Person_031"
+      ],
+      "location": "植物园或花卉展示区/公园",
+      "description": "【主角】在绣球花丛中，或双手托花，或坐在长椅上，或侧身凝视，与花卉进行互动，并被拍摄。他拍视角。",
+      "photo_count": 4,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "热爱自然风光，尤其偏爱花卉（绣球花）",
+          "享受户外休闲和人像摄影，乐于摆拍",
+          "对园艺或花卉摄影有兴趣"
+        ],
+        "aesthetic": [
+          "偏爱清新、优雅的视觉风格",
+          "着装风格简洁（白色衬衫，淡紫色棒球帽）"
+        ],
+        "socioeconomic": []
+      }
+    },
+    {
+      "event_id": "EVT_051",
+      "date": "2026-03-11",
+      "time_range": "14:03 - 14:03",
+      "duration": "",
+      "title": "居家物品整理与收纳",
+      "type": "其他",
+      "participants": [],
+      "location": "室内储备区/室内桌面",
+      "description": "【主角】拍摄多包堆叠的红油凉皮、手机贴膜辅助安装托架、ShowSee剃须刀开箱，以及运动鞋垫和包装袋。均为自拍视角。",
+      "photo_count": 4,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "居家生活细致，注重物品的整理和收纳",
+          "可能偏爱速食，但对品质有要求（铭优小馋）",
+          "关注电子产品配件和个人护理用品（手机贴膜、剃须刀、鞋垫）",
+          "具有实用主义消费观"
+        ],
+        "aesthetic": [
+          "对物品的包装和细节有观察力"
+        ],
+        "socioeconomic": [
+          "消费趋向生活必需品和实用型电子配件"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_052",
+      "date": "2026-03-11",
+      "time_range": "2026-03-11 14:03",
+      "duration": "",
+      "title": "珠宝金饰选购",
+      "type": "其他",
+      "participants": [],
+      "location": "珠宝零售店/金店柜台",
+      "description": "【主角】拍摄左手佩戴的金饰手链、红绳串饰和黄金戒指。自拍视角。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "关注流行趋势和奢侈品（金饰）",
+          "可能在为重要场合（婚庆、纪念日）选购饰品",
+          "乐于通过饰品进行自我表达或犒赏"
+        ],
+        "aesthetic": [
+          "偏爱传统金饰和个性化串饰搭配",
+          "注重饰品的材质和设计细节"
+        ],
+        "socioeconomic": [
+          "具备一定的奢侈品消费能力"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_053",
+      "date": "2026-03-11",
+      "time_range": "14:03 - 14:03",
+      "duration": "",
+      "title": "新购珍珠金链展示",
+      "type": "其他",
+      "participants": [],
+      "location": "室内桌面或平放表面",
+      "description": "【主角】俯拍放置在浅灰色压纹人造革表面或浅色木纹桌面上的双层珍珠金属项链。均为自拍视角。",
+      "photo_count": 2,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "关注时尚配饰，乐于记录和展示新购物品",
+          "有开箱和产品展示的习惯",
+          "生活有条理，环境整洁"
+        ],
+        "aesthetic": [
+          "偏爱珍珠与金属结合的轻奢风格",
+          "注重饰品的材质和设计细节"
+        ],
+        "socioeconomic": [
+          "具备一定的时尚消费能力"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_054",
+      "date": "2026-03-11",
+      "time_range": "2026-03-11 14:03",
+      "duration": "",
+      "title": "美妆产品展示",
+      "type": "其他",
+      "participants": [],
+      "location": "公共场所休息区或美妆专柜周边",
+      "description": "【主角】手持一盒未开封的“小魔书”假睫毛。自拍视角。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "注重个人形象，对美妆产品有兴趣",
+          "可能正在尝试新的妆容风格（假睫毛）",
+          "有购物和产品评估的习惯"
+        ],
+        "aesthetic": [
+          "关注美妆潮流和产品细节"
+        ],
+        "socioeconomic": [
+          "具备一定的美妆产品消费能力"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_055",
+      "date": "2026-03-11",
+      "time_range": "2026-03-11 14:03",
+      "duration": "",
+      "title": "猫咪窗边休憩与居家陪伴",
+      "type": "其他",
+      "participants": [],
+      "location": "家庭卧室窗边/宠物休息区",
+      "description": "【主角】拍摄金渐层长毛猫紧贴窗边围栏，与毛绒玩偶一同休憩的场景。自拍视角。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "爱猫人士，对宠物细心照料，提供舒适生活环境",
+          "享受居家休闲时光，注重生活中的温馨细节",
+          "对儿童玩具或卡通形象有兴趣（Sanrio玩偶）"
+        ],
+        "aesthetic": [
+          "偏爱可爱、治愈系的物品和形象"
+        ],
+        "socioeconomic": [
+          "生活稳定，愿意为宠物投入时间和金钱"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_056",
+      "date": "2026-03-11",
+      "time_range": "2026-03-11 14:03",
+      "duration": "",
+      "title": "旅途中的休闲出行",
+      "type": "其他",
+      "participants": [
+        "Person_001 (User Himself)"
+      ],
+      "location": "公共交通工具内部",
+      "description": "【主角】手持黄色纸杯，身着碎花长裙和休闲拖鞋，肩背草编包，在列车或大巴车厢内。自拍视角。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "享受旅行和休闲出行，偏好轻松舒适的穿着",
+          "生活习惯轻便，携带必需品即可",
+          "可能正在进行短途旅行或前往度假目的地"
+        ],
+        "aesthetic": [
+          "偏爱度假风穿搭和自然材质（草编包）"
+        ],
+        "socioeconomic": []
+      }
+    },
+    {
+      "event_id": "EVT_057",
+      "date": "2026-03-11",
+      "time_range": "2026-03-11 14:03",
+      "duration": "",
+      "title": "家居用品开箱与品质追求",
+      "type": "其他",
+      "participants": [],
+      "location": "住宅卧室或居家整理空间",
+      "description": "【主角】拍摄平铺的白色真丝枕套和其包装膜，可见A类婴幼儿用品标准标签。自拍视角。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "注重生活品质，对家居用品有高要求（真丝），关注婴幼儿用品标准",
+          "生活细致，拆箱物品注重细节",
+          "可能正在为自己或家人置办家居用品"
+        ],
+        "aesthetic": [
+          "偏爱柔软、高品质的家居材质",
+          "对刺绣图案（蝴蝶）有兴趣"
+        ],
+        "socioeconomic": [
+          "具备一定的消费能力，愿意为品质买单"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_058",
+      "date": "2026-03-11",
+      "time_range": "14:03 - 14:03",
+      "duration": "",
+      "title": "个人形象管理与美妆护肤",
+      "type": "其他",
+      "participants": [
+        "Person_027 (User Himself)",
+        "Person_032"
+      ],
+      "location": "室内拍摄空间/窗边桌面",
+      "description": "【主角】自拍展示带有星月元素的美甲和金色手镯，以及深蓝色美甲（Person_032）。同时拍摄护肤品涂抹在手腕上的油润感，和眼霜产品细节。出现自拍视角和隐形拍摄者视角（User拍摄Person_032）。",
+      "photo_count": 4,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "极度重视个人形象管理，关注美妆、护肤和配饰搭配",
+          "热衷于尝试新的美甲款式和护肤产品，有测评分享的习惯",
+          "可能与美妆博主或内容创作有关联（小红书水印）",
+          "性格自信，乐于展示自我"
+        ],
+        "aesthetic": [
+          "偏爱轻奢时尚风格（雕花手镯），注重精致感",
+          "对星月、克莱因蓝等设计元素有偏好",
+          "关注产品成分和宣传卖点"
+        ],
+        "socioeconomic": [
+          "具备较高的美妆护肤品消费能力",
+          "可能从事与时尚、美妆内容创作相关职业"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_059",
+      "date": "2026-03-11",
+      "time_range": "2026-03-11 14:04",
+      "duration": "",
+      "title": "康莱德酒店主题下午茶",
+      "type": "其他",
+      "participants": [
+        "Person_033"
+      ],
+      "location": "康莱德酒店主题下午茶区",
+      "description": "【主角】拍摄 Person_033 在圣诞装饰背景下，与巧克力摇摇马、胡桃夹子等装饰物一同出现在酒店下午茶场景。他拍视角。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "注重生活品质，享受高端酒店的下午茶体验",
+          "积极参与社交活动，乐于与朋友分享美好时光",
+          "对节日氛围和仪式感有追求",
+          "对个人形象有管理（妆容、穿着）"
+        ],
+        "aesthetic": [
+          "偏爱精致、有设计感的酒店主题装饰",
+          "对复古元素（胡桃夹子）有偏好"
+        ],
+        "socioeconomic": [
+          "具备中高档消费能力，享受品质生活"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_060",
+      "date": "2026-03-11",
+      "time_range": "2026-03-11 14:04",
+      "duration": "",
+      "title": "社交媒体情绪表达与自我反思",
+      "type": "其他",
+      "participants": [],
+      "location": "数字化社交媒体界面（小红书App客户端）",
+      "description": "【主角】拍摄小红书界面，展示一张牛皮纸底色、带有手绘涂鸦的数字海报，配有关于“comfort zone”和“lonely moment”的文字。自拍视角。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "内省，思考个人成长和自我突破",
+          "利用社交媒体（小红书）表达情感和观点",
+          "可能经历生活中的蛰伏期或挑战"
+        ],
+        "aesthetic": [
+          "偏爱手绘涂鸦和温暖复古的风格"
+        ],
+        "socioeconomic": [
+          "活跃于社交媒体平台，可能具有一定影响力"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_061",
+      "date": "2026-03-11",
+      "time_range": "14:04 - 14:04",
+      "duration": "",
+      "title": "温馨礼品与花束展示",
+      "type": "其他",
+      "participants": [
+        "Person_029 (User Himself)"
+      ],
+      "location": "室内起居空间/落地窗咖啡厅/玻璃窗咖啡馆",
+      "description": "【主角】在家中拍摄泰迪熊和淡紫色玫瑰花束礼品，或在落地窗咖啡厅、玻璃窗咖啡馆手持咖啡，桌面摆放带有“JUST FOR YOU”字样的花束礼盒。均为他拍视角。User本人（Person_029）出镜。",
+      "photo_count": 5,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "注重生活中的仪式感，享受收到或展示礼物的时刻",
+          "热爱花卉，偏爱淡紫色玫瑰等浪漫元素",
+          "喜欢在有自然景观的咖啡厅进行休闲",
+          "享受慢节奏、放松的生活状态"
+        ],
+        "aesthetic": [
+          "偏爱温馨、浪漫的视觉风格",
+          "对花艺和包装设计有品味",
+          "着装简洁（白色衬衫，淡紫色棒球帽）"
+        ],
+        "socioeconomic": [
+          "具备一定的消费能力，享受品质生活和社交体验"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_062",
+      "date": "2026-03-11",
+      "time_range": "14:07 - 14:07",
+      "duration": "",
+      "title": "餐厅生日庆典与花艺美食",
+      "type": "其他",
+      "participants": [
+        "Person_022"
+      ],
+      "location": "Belloco餐厅/慢悠花店相关空间/甜品店",
+      "description": "【主角】在Belloco餐厅拍摄石锅盖饭，以及在At leisure florist 慢悠花店相关空间拍摄朋友（Person_022）手持花束，和蛋糕、鲜花礼盒等布置。出现自拍视角和隐形拍摄者视角（User在拍摄Person_022）。",
+      "photo_count": 5,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "社交活跃，积极参与朋友的生日庆祝",
+          "重视仪式感，会选择精心布置的场所，并准备特殊蛋糕和花艺",
+          "乐于记录和分享与朋友的欢乐时光",
+          "对美食（石锅盖饭、意面）和花艺有品味"
+        ],
+        "aesthetic": [
+          "偏爱温馨、浪漫的庆祝氛围和精致的餐桌布置",
+          "对品牌的细节有关注（慢悠花店，Belloco）",
+          "着装风格清新可爱（红白格纹吊带连衣裙）"
+        ],
+        "socioeconomic": [
+          "消费趋向中高档餐饮和特色花店",
+          "具备组织和参与高质量社交活动的能力"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_063",
+      "date": "2026-03-11",
+      "time_range": "2026-03-11 14:07",
+      "duration": "",
+      "title": "居家练字与猫咪陪伴",
+      "type": "其他",
+      "participants": [],
+      "location": "私人书房或居家办公区域",
+      "description": "【主角】拍摄桌面上趴在练字临摹纸上的猫咪和环形LED台灯，以及联想拯救者电脑。自拍视角。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "爱猫人士，享受宠物陪伴和居家休闲",
+          "注重个人学习和修养（练字）",
+          "可能使用高性能的电脑（联想拯救者）"
+        ],
+        "aesthetic": [
+          "对文房用品和科技产品有偏好",
+          "喜欢传统文化（书法）"
+        ],
+        "socioeconomic": [
+          "生活稳定，为宠物提供舒适居家环境",
+          "具备购买高性能电子产品的能力"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_064",
+      "date": "",
+      "time_range": "2026-03-11T14:07",
+      "duration": "",
+      "title": "生日礼物准备与仪式感",
+      "type": "其他",
+      "participants": [],
+      "location": "室内休息区或礼品接收现场",
+      "description": "【主角】拍摄桌面上的心形红色蛋糕、Foko餐具套装和印有'FLOWER'字样的白色手提袋。自拍视角。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "注重生活中的仪式感，尤其在生日等重要场合",
+          "精心准备礼品，关注礼品的品质和包装",
+          "可能在为自己或朋友准备庆祝活动"
+        ],
+        "aesthetic": [
+          "偏爱精致、有设计感的礼品包装",
+          "对品牌商品有关注（Foko餐具）"
+        ],
+        "socioeconomic": [
+          "具备一定的购买能力，愿意为礼品投入"
+        ]
+      }
+    },
+    {
+      "event_id": "EVT_065",
+      "date": "",
+      "time_range": "2026-03-11T14:07",
+      "duration": "",
+      "title": "高端品牌礼品馈赠与接收",
+      "type": "其他",
+      "participants": [],
+      "location": "室内休息区或礼品接收现场",
+      "description": "【主角】拍摄泰迪熊玩偶、干燥玫瑰花束、Razer绿色礼盒和SK-II Pitera礼盒。自拍视角。",
+      "photo_count": 1,
+      "confidence": 0.5,
+      "reason": "",
+      "narrative": "",
+      "social_interaction": {},
+      "lifestyle_tags": [],
+      "social_slices": [],
+      "persona_evidence": {
+        "behavioral": [
+          "注重社交礼仪，对礼品选择有独到见解（精准针对受众）",
+          "对科技外设（Razer）和高端护肤品（SK-II）有兴趣",
+          "可能与游戏、电竞或美妆行业有关联"
+        ],
+        "aesthetic": [
+          "欣赏品牌设计和精美包装",
+          "偏爱实用性和高品质的礼物"
+        ],
+        "socioeconomic": [
+          "具备购买高端品牌礼品的经济能力",
+          "可能对游戏和美妆有投入"
+        ]
+      }
+    }
+  ],
+  "relationships": [
+    {
+      "person_id": "Person_022",
+      "relationship_type": "friend",
+      "intimacy_score": 0.205,
+      "status": "growing",
+      "confidence": 0.7,
+      "reason": "The co-occurrence is low overall (0.2/month average), but the trend shows a significant increase (3x) in the latter half of the period, suggesting the relationship is developing. The events are both birthday celebrations, one of which includes 'intimate mutual photo-taking,' indicating a level of closeness beyond a mere acquaintance. However, the overall low frequency and lack of exclusive 1-on-1 interactions prevent it from being classified as 'close_friend' or 'bestie' yet. The intimacy score is also relatively low, but the shared celebratory events and upward trend point towards a 'growing' friendship.",
+      "shared_events": [
+        {
+          "event_id": "EVT_024",
+          "date": "2024-05-12",
+          "narrative": "【主角】与多位朋友在户外餐厅庆祝生日，关系亲密且重视社交礼仪和生活仪式感。"
+        },
+        {
+          "event_id": "EVT_062",
+          "date": "2026-03-11",
+          "narrative": "【主角】在餐厅与朋友（Person_022）共同庆祝生日，享受美食与花艺布置，展现其社交活跃和对仪式感的重视。"
+        }
+      ],
+      "evidence": {
+        "photo_count": 4,
+        "time_span": "668天",
+        "time_span_days": 668,
+        "scenes": [
+          "带有庭院或露台设计的休闲餐厅",
+          "At leisure florist 慢悠花店（或其相关合作空间）",
+          "室内餐饮空间",
+          "带有花艺布置的特色甜品店或餐厅内部"
+        ],
+        "interaction_behavior": [
+          "共同庆祝生日",
+          "共同庆祝生日/亲密互拍"
+        ],
+        "weekend_frequency": "低",
+        "with_user_only": false,
+        "sample_scenes": [
+          {
+            "timestamp": "2024-05-12T19:00:55",
+            "scene": "带有庭院或露台设计的休闲餐厅",
+            "summary": "2024年5月12日19:00，【主角】在半室外半开放式的木质露台环境拍摄，五位女性友人围绕生日蛋糕进行合影，核心事件为庆祝生日。",
+            "activity": "生日聚会庆祝",
+            "social_context": "女性好友聚会"
+          },
+          {
+            "timestamp": "2026-03-11T14:07:54",
+            "scene": "At leisure florist 慢悠花店（或其相关合作空间）",
+            "summary": "2026年3月11日14:07，在光线柔和的室内空间，【主角】正在进行近距离拍摄，画面重点记录了Person_022手持两束鲜花进行庆贺的状态。",
+            "activity": "花束赠送或庆贺活动",
+            "social_context": "社交约会或纪念庆典"
+          },
+          {
+            "timestamp": "2026-03-11T14:07:56",
+            "scene": "室内餐饮空间",
+            "summary": "2026年3月11日14:07，在一处室内餐饮空间背景下，【主角】平视拍摄正手持花束进行摆拍的Person_022，记录其在聚会过程中的互动瞬间。",
+            "activity": "聚会/摆拍",
+            "social_context": "和朋友"
+          },
+          {
+            "timestamp": "2026-03-11T14:07:57",
+            "scene": "带有花艺布置的特色甜品店或餐厅内部",
+            "summary": "2026年3月11日14:07，【主角】在室内餐厅或甜品店中，捕捉到Person_022手捧生日蛋糕的特写瞬间，现场充满仪式感氛围。",
+            "activity": "庆祝生日/纪念日",
+            "social_context": "朋友/恋人聚会"
+          }
+        ],
+        "contact_types": [
+          "no_contact",
+          "no_contact",
+          "no_contact",
+          "no_contact"
+        ],
+        "rela_events": [
+          {
+            "event_id": "EVT_024",
+            "date": "2024-05-12",
+            "title": "户外餐厅生日聚会与庆典",
+            "location": "半开放式露台餐厅/休闲餐厅",
+            "photo_count": 7,
+            "description": "【主角】在户外餐厅拍摄了蛋糕、花束和多位朋友（Person_018, Person_001, Person_020, Person_019, Person_021, Person_022, Person_023, Person_024）的合影与互动。出现自拍视角和隐形拍摄者视角。",
+            "participants": [
+              "Person_018",
+              "Person_001",
+              "Person_020",
+              "Person_019",
+              "Person_021",
+              "Person_022",
+              "Person_023",
+              "Person_024"
+            ],
+            "narrative_synthesis": "【主角】与多位朋友在户外餐厅庆祝生日，关系亲密且重视社交礼仪和生活仪式感。",
+            "social_dynamics": [
+              {
+                "target_id": "Person_018",
+                "interaction_type": "共同庆祝生日",
+                "social_clue": "与【主角】近距离坐，共同观看蛋糕和献花，关系亲近",
+                "relation_hypothesis": "密友/家人",
+                "confidence": 0.9
+              },
+              {
+                "target_id": "Person_001",
+                "interaction_type": "共同庆祝生日",
+                "social_clue": "与【主角】近距离站立，在庆生场合，暗示是亲密同伴",
+                "relation_hypothesis": "密友/家人",
+                "confidence": 0.9
+              },
+              {
+                "target_id": "Person_020",
+                "interaction_type": "共同庆祝生日",
+                "social_clue": "与Person_019一同坐，在庆生场合专注于手机，显示关系放松且熟悉",
+                "relation_hypothesis": "朋友",
+                "confidence": 0.85
+              },
+              {
+                "target_id": "Person_019",
+                "interaction_type": "共同庆祝生日",
+                "social_clue": "与Person_020一同坐，在庆生场合专注于手机，显示关系放松且熟悉；在合影中处于中心位置。",
+                "relation_hypothesis": "朋友",
+                "confidence": 0.85
+              },
+              {
+                "target_id": "Person_021",
+                "interaction_type": "共同庆祝生日",
+                "social_clue": "在合影中与众人站位亲密，比V手势",
+                "relation_hypothesis": "朋友",
+                "confidence": 0.9
+              },
+              {
+                "target_id": "Person_022",
+                "interaction_type": "共同庆祝生日",
+                "social_clue": "在合影中与众人站位亲密，比V手势",
+                "relation_hypothesis": "朋友",
+                "confidence": 0.9
+              },
+              {
+                "target_id": "Person_023",
+                "interaction_type": "共同庆祝生日",
+                "social_clue": "在合影中与众人站位亲密，比V手势",
+                "relation_hypothesis": "朋友",
+                "confidence": 0.9
+              },
+              {
+                "target_id": "Person_024",
+                "interaction_type": "共同庆祝生日",
+                "social_clue": "在合影中与众人站位亲密，面带微笑",
+                "relation_hypothesis": "朋友",
+                "confidence": 0.9
+              }
+            ]
+          },
+          {
+            "event_id": "EVT_062",
+            "date": "2026-03-11",
+            "title": "餐厅生日庆典与花艺美食",
+            "location": "Belloco餐厅/慢悠花店相关空间/甜品店",
+            "photo_count": 5,
+            "description": "【主角】在Belloco餐厅拍摄石锅盖饭，以及在At leisure florist 慢悠花店相关空间拍摄朋友（Person_022）手持花束，和蛋糕、鲜花礼盒等布置。出现自拍视角和隐形拍摄者视角（User在拍摄Person_022）。",
+            "participants": [
+              "Person_022"
+            ],
+            "narrative_synthesis": "【主角】在餐厅与朋友（Person_022）共同庆祝生日，享受美食与花艺布置，展现其社交活跃和对仪式感的重视。",
+            "social_dynamics": [
+              {
+                "target_id": "Person_022",
+                "interaction_type": "共同庆祝生日/亲密互拍",
+                "social_clue": "手持花束并比心、手捧蛋糕，面带微笑，显示被庆生者，与【主角】关系亲密",
+                "relation_hypothesis": "密友",
+                "confidence": 0.95
+              },
+              {
+                "target_id": "未知人数",
+                "interaction_type": "共同用餐/庆祝",
+                "social_clue": "餐厅菜品多样，且有生日蛋糕和鲜花，暗示多人聚餐",
+                "relation_hypothesis": "朋友/家人",
+                "confidence": 0.9
+              }
+            ]
+          }
+        ],
+        "monthly_frequency": 0.2,
+        "trend_detail": {
+          "first_half_freq": 0.1,
+          "second_half_freq": 0.3,
+          "direction": "up",
+          "change_ratio": 3.0
+        },
+        "co_appearing_persons": [],
+        "anomalies": []
+      }
+    }
+  ],
+  "face_db": {
+    "Person_001": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2023-12-24T21:17:01",
+      "last_seen": "2023-12-24T21:17:01",
+      "avg_confidence": 0.8279966115951538
+    },
+    "Person_002": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2023-12-24T22:44:05",
+      "last_seen": "2023-12-24T22:44:05",
+      "avg_confidence": 0.7885777950286865
+    },
+    "Person_003": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2023-12-25T00:45:26",
+      "last_seen": "2023-12-25T00:45:26",
+      "avg_confidence": 0.8586909174919128
+    },
+    "Person_004": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2023-12-25T00:45:26",
+      "last_seen": "2023-12-25T00:45:26",
+      "avg_confidence": 0.7890639305114746
+    },
+    "Person_005": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2023-12-25T00:45:26",
+      "last_seen": "2023-12-25T00:45:26",
+      "avg_confidence": 0.7461740970611572
+    },
+    "Person_006": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2023-12-25T23:55:38",
+      "last_seen": "2023-12-25T23:55:38",
+      "avg_confidence": 0.8303233981132507
+    },
+    "Person_007": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2024-03-08T14:26:02",
+      "last_seen": "2024-03-08T14:26:02",
+      "avg_confidence": 0.7856326103210449
+    },
+    "Person_008": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2024-03-08T14:26:02",
+      "last_seen": "2024-03-08T14:26:02",
+      "avg_confidence": 0.6183687448501587
+    },
+    "Person_009": {
+      "name": "Person",
+      "photo_count": 2,
+      "first_seen": "2024-03-12T20:40:25",
+      "last_seen": "2024-03-12T21:05:50",
+      "avg_confidence": 0.8219043612480164
+    },
+    "Person_010": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2024-03-24T15:27:23",
+      "last_seen": "2024-03-24T15:27:23",
+      "avg_confidence": 0.8120013177394867
+    },
+    "Person_011": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2024-03-24T15:33:06",
+      "last_seen": "2024-03-24T15:33:06",
+      "avg_confidence": 0.6869890093803406
+    },
+    "Person_012": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2024-03-24T15:33:06",
+      "last_seen": "2024-03-24T15:33:06",
+      "avg_confidence": 0.6334528923034668
+    },
+    "Person_013": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2024-03-24T15:33:06",
+      "last_seen": "2024-03-24T15:33:06",
+      "avg_confidence": 0.6132742762565613
+    },
+    "Person_014": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2024-03-24T16:52:59",
+      "last_seen": "2024-03-24T16:52:59",
+      "avg_confidence": 0.7560616731643677
+    },
+    "Person_015": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2024-03-24T18:13:08",
+      "last_seen": "2024-03-24T18:13:08",
+      "avg_confidence": 0.7133636474609375
+    },
+    "Person_016": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2024-04-18T13:01:28",
+      "last_seen": "2024-04-18T13:01:28",
+      "avg_confidence": 0.8014349341392517
+    },
+    "Person_017": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2024-05-12T00:19:25",
+      "last_seen": "2024-05-12T00:19:25",
+      "avg_confidence": 0.7363283634185791
+    },
+    "Person_018": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2024-05-12T14:16:25",
+      "last_seen": "2024-05-12T14:16:25",
+      "avg_confidence": 0.7852416038513184
+    },
+    "Person_019": {
+      "name": "Person",
+      "photo_count": 2,
+      "first_seen": "2024-05-12T14:17:28",
+      "last_seen": "2024-05-12T19:00:55",
+      "avg_confidence": 0.8863127827644348
+    },
+    "Person_020": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2024-05-12T14:17:28",
+      "last_seen": "2024-05-12T14:17:28",
+      "avg_confidence": 0.773678183555603
+    },
+    "Person_021": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2024-05-12T19:00:55",
+      "last_seen": "2024-05-12T19:00:55",
+      "avg_confidence": 0.9029784202575684
+    },
+    "Person_022": {
+      "name": "Person",
+      "photo_count": 4,
+      "first_seen": "2024-05-12T19:00:55",
+      "last_seen": "2026-03-11T14:07:57",
+      "avg_confidence": 0.8383347988128662
+    },
+    "Person_023": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2024-05-12T19:00:55",
+      "last_seen": "2024-05-12T19:00:55",
+      "avg_confidence": 0.8846944570541382
+    },
+    "Person_024": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2024-05-12T19:00:55",
+      "last_seen": "2024-05-12T19:00:55",
+      "avg_confidence": 0.881751298904419
+    },
+    "Person_025": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2025-06-27T20:26:02",
+      "last_seen": "2025-06-27T20:26:02",
+      "avg_confidence": 0.8192933797836304
+    },
+    "Person_026": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2025-06-28T09:19:03",
+      "last_seen": "2025-06-28T09:19:03",
+      "avg_confidence": 0.7300868034362793
+    },
+    "Person_027": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2025-06-28T09:19:03",
+      "last_seen": "2025-06-28T09:19:03",
+      "avg_confidence": 0.6935645937919617
+    },
+    "Person_028": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2025-10-30T20:38:54",
+      "last_seen": "2025-10-30T20:38:54",
+      "avg_confidence": 0.8357431888580322
+    },
+    "Person_029": {
+      "name": "Primary",
+      "photo_count": 8,
+      "first_seen": "2026-03-11T14:03:51",
+      "last_seen": "2026-03-11T14:04:10",
+      "avg_confidence": 0.7984286844730377
+    },
+    "Person_030": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:03:53",
+      "last_seen": "2026-03-11T14:03:53",
+      "avg_confidence": 0.6513563394546509
+    },
+    "Person_031": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:03:54",
+      "last_seen": "2026-03-11T14:03:54",
+      "avg_confidence": 0.7189345359802246
+    },
+    "Person_032": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:03:59",
+      "last_seen": "2026-03-11T14:03:59",
+      "avg_confidence": 0.8735003471374512
+    },
+    "Person_033": {
+      "name": "Person",
+      "photo_count": 1,
+      "first_seen": "2026-03-11T14:04:01",
+      "last_seen": "2026-03-11T14:04:01",
+      "avg_confidence": 0.7760121822357178
+    }
+  }
+}

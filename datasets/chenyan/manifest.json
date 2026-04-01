@@ -1,0 +1,14 @@
+{
+  "user_name": "chenyan",
+  "source_dir_prefix": "05_chenyan_incomplete",
+  "imported_at": "2026-03-28T04:50:40.046249",
+  "source_origin": "/Users/vigar07/Desktop/data/output_user_v1",
+  "has_vlm": false,
+  "has_gt": true,
+  "source_files": {
+    "face": "05_chenyan_incomplete_face_recognition_output.json",
+    "vlm": null,
+    "events": "05_chenyan_incomplete_events.json",
+    "gt": "05_chenyan_incomplete_gt.jsonl"
+  }
+}

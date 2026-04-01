@@ -2,31 +2,29 @@
 图片预处理模块
 """
 import os
-import re
-import tempfile
 from datetime import datetime
 from typing import Dict, List, Tuple, Optional
-from zipfile import ZipFile
 from PIL import Image, ExifTags, ImageDraw, ImageFont, ImageOps
-from pillow_heif import register_heif_opener
-import exifread
+try:
+    from pillow_heif import register_heif_opener
+except ModuleNotFoundError:  # pragma: no cover - optional dependency in test env
+    register_heif_opener = None
+try:
+    import exifread
+except ModuleNotFoundError:  # pragma: no cover - optional dependency in test env
+    exifread = None
 from models import Photo
 from config import CACHE_DIR, MAX_IMAGE_SIZE, JPEG_QUALITY, AMAP_API_KEY, PROJECT_ROOT
 from utils import compress_image, file_sha256, normalized_exif_bytes
 
 # 注册HEIC格式支持
-register_heif_opener()
+if register_heif_opener is not None:
+    register_heif_opener()
 
 
 DEDUP_BURST_WINDOW_SECONDS = 5
 DEDUP_HASH_SIZE = 8
 DEDUP_MAX_DISTANCE = 4
-FILENAME_DATETIME_PATTERNS = (
-    re.compile(r"(?<!\d)(20\d{2})(\d{2})(\d{2})[_-]?(\d{2})(\d{2})(\d{2})(?:\d{3})?(?!\d)"),
-    re.compile(
-        r"(?<!\d)(20\d{2})[-_.](\d{2})[-_.](\d{2})(?:[ T_:-]+|[ _-]at[ _-])(\d{2})[-_.:](\d{2})[-_.:](\d{2})(?!\d)"
-    ),
-)
 
 
 class ImageProcessor:
@@ -46,7 +44,7 @@ class ImageProcessor:
         os.makedirs(self.face_dir, exist_ok=True)
 
     def list_supported_photos(self, photo_dir: str) -> List[str]:
-        supported_formats = {'.jpg', '.jpeg', '.png', '.heic', '.heif', '.livp', '.webp'}
+        supported_formats = {'.jpg', '.jpeg', '.png', '.heic', '.heif', '.webp'}
         photo_files = []
 
         for filename in sorted(os.listdir(photo_dir)):
@@ -120,7 +118,7 @@ class ImageProcessor:
 
         return photos, errors
 
-    def convert_to_jpeg(self, photos: List[Photo], *, normalize_live_photos: bool = False) -> List[Photo]:
+    def convert_to_jpeg(self, photos: List[Photo]) -> List[Photo]:
         """
         为人脸识别准备工作图。
         原始上传文件保持不变；仅在 HEIC 或带方向标签的图片上生成标准朝向的 JPEG 工作图。
@@ -133,11 +131,7 @@ class ImageProcessor:
         """
         for photo in photos:
             photo.original_path = photo.path
-            lower_filename = photo.filename.lower()
-            is_live_like_source = lower_filename.endswith(('.heic', '.heif', '.livp'))
-            needs_working_copy = lower_filename.endswith(('.heic', '.heif', '.livp'))
-            if normalize_live_photos and is_live_like_source:
-                needs_working_copy = True
+            needs_working_copy = photo.filename.lower().endswith(('.heic', '.heif'))
 
             if not needs_working_copy:
                 try:
@@ -154,7 +148,7 @@ class ImageProcessor:
                 jpeg_filename = f"face_input_{photo.photo_id}.jpg"
                 jpeg_path = os.path.join(self.jpeg_dir, jpeg_filename)
 
-                image = self._open_working_image(photo.path)
+                image = Image.open(photo.path)
                 normalized = ImageOps.exif_transpose(image)
                 exif = normalized_exif_bytes(normalized)
                 working = normalized.convert("RGB")
@@ -171,50 +165,6 @@ class ImageProcessor:
                 continue
 
         return photos
-
-    def _open_working_image(self, image_path: str) -> Image.Image:
-        lower_path = image_path.lower()
-        if lower_path.endswith(".livp"):
-            extracted = self._extract_livp_still(image_path)
-            if extracted is not None:
-                return extracted
-        return Image.open(image_path)
-
-    def _extract_livp_still(self, image_path: str) -> Optional[Image.Image]:
-        try:
-            with ZipFile(image_path) as archive:
-                candidate_names = sorted(
-                    name
-                    for name in archive.namelist()
-                    if not name.endswith("/")
-                    and os.path.splitext(name)[1].lower() in {".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"}
-                )
-                for name in candidate_names:
-                    suffix = os.path.splitext(name)[1].lower() or ".jpg"
-                    with archive.open(name) as handle:
-                        payload = handle.read()
-                    if not payload:
-                        continue
-                    temp_file = tempfile.NamedTemporaryFile(suffix=suffix, delete=False)
-                    temp_path = temp_file.name
-                    try:
-                        temp_file.write(payload)
-                        temp_file.flush()
-                        temp_file.close()
-                        with Image.open(temp_path) as image:
-                            return image.copy()
-                    finally:
-                        try:
-                            temp_file.close()
-                        except Exception:
-                            pass
-                        try:
-                            os.unlink(temp_path)
-                        except FileNotFoundError:
-                            pass
-        except Exception:
-            return None
-        return None
 
     def preprocess(self, photos: List[Photo]) -> List[Photo]:
         """
@@ -353,7 +303,7 @@ class ImageProcessor:
             with Image.open(image_path) as source:
                 normalized = ImageOps.exif_transpose(source).convert("L")
                 resized = normalized.resize((DEDUP_HASH_SIZE, DEDUP_HASH_SIZE), Image.Resampling.LANCZOS)
-                pixels = list(resized.getdata())
+                pixels = list(resized.tobytes())
         except Exception:
             return None
 
@@ -404,32 +354,36 @@ class ImageProcessor:
 
         try:
             # 使用 exifread 读取（支持HEIC）
-            with open(image_path, 'rb') as f:
-                tags = exifread.process_file(f, details=False)
+            if exifread is not None:
+                with open(image_path, 'rb') as f:
+                    tags = exifread.process_file(f, details=False)
+            else:
+                tags = {}
 
-                # 读取时间
-                for tag_name in ("EXIF DateTimeOriginal", "EXIF DateTimeDigitized", "Image DateTime"):
-                    parsed_datetime = self._parse_exif_datetime_value(tags.get(tag_name))
-                    if parsed_datetime is not None:
-                        exif_data["datetime"] = parsed_datetime
-                        break
+            # 读取时间
+            datetime_str = str(tags.get('Image DateTime', ''))
+            if datetime_str:
+                try:
+                    exif_data["datetime"] = datetime.strptime(datetime_str, "%Y:%m:%d %H:%M:%S")
+                except:
+                    pass
 
-                # 读取GPS信息
-                lat_tag = tags.get('GPS GPSLatitude')
-                lat_ref_tag = tags.get('GPS GPSLatitudeRef')
-                lon_tag = tags.get('GPS GPSLongitude')
-                lon_ref_tag = tags.get('GPS GPSLongitudeRef')
+            # 读取GPS信息
+            lat_tag = tags.get('GPS GPSLatitude')
+            lat_ref_tag = tags.get('GPS GPSLatitudeRef')
+            lon_tag = tags.get('GPS GPSLongitude')
+            lon_ref_tag = tags.get('GPS GPSLongitudeRef')
 
-                if lat_tag and lat_ref_tag and lon_tag and lon_ref_tag:
-                    try:
-                        lat = self._convert_dms_to_decimal(lat_tag.values, str(lat_ref_tag))
-                        lon = self._convert_dms_to_decimal(lon_tag.values, str(lon_ref_tag))
+            if lat_tag and lat_ref_tag and lon_tag and lon_ref_tag:
+                try:
+                    lat = self._convert_dms_to_decimal(lat_tag.values, str(lat_ref_tag))
+                    lon = self._convert_dms_to_decimal(lon_tag.values, str(lon_ref_tag))
 
-                        # 逆地理编码获取地址
-                        address = self._reverse_geocode(lon, lat)
-                        exif_data["location"] = {"lat": lat, "lng": lon, "name": address}
-                    except Exception as e:
-                        pass
+                    # 逆地理编码获取地址
+                    address = self._reverse_geocode(lon, lat)
+                    exif_data["location"] = {"lat": lat, "lng": lon, "name": address}
+                except Exception as e:
+                    pass
 
         except Exception as e:
             pass
@@ -437,12 +391,6 @@ class ImageProcessor:
         # exifread 对 WebP 等容器格式支持有限，补一层 Pillow 回退
         if "datetime" not in exif_data or "location" not in exif_data:
             self._read_exif_with_pillow(image_path, exif_data)
-
-        # 很多截图/AI图没有 EXIF，但文件名里仍包含原始拍摄或导出时间
-        if "datetime" not in exif_data:
-            filename_datetime = self._parse_datetime_from_filename(os.path.basename(image_path))
-            if filename_datetime is not None:
-                exif_data["datetime"] = filename_datetime
 
         # 如果EXIF中没有时间，使用文件修改时间
         if "datetime" not in exif_data:
@@ -467,13 +415,12 @@ class ImageProcessor:
                 }
 
                 if "datetime" not in exif_data:
-                    parsed_datetime = (
-                        self._parse_exif_datetime_value(mapped.get("DateTimeOriginal"))
-                        or self._parse_exif_datetime_value(mapped.get("DateTimeDigitized"))
-                        or self._parse_exif_datetime_value(mapped.get("DateTime"))
-                    )
-                    if parsed_datetime is not None:
-                        exif_data["datetime"] = parsed_datetime
+                    datetime_str = mapped.get("DateTimeOriginal") or mapped.get("DateTime")
+                    if datetime_str:
+                        try:
+                            exif_data["datetime"] = datetime.strptime(str(datetime_str), "%Y:%m:%d %H:%M:%S")
+                        except Exception:
+                            pass
 
                 if "location" not in exif_data:
                     gps_info = mapped.get("GPSInfo")
@@ -495,34 +442,6 @@ class ImageProcessor:
                             exif_data["location"] = {"lat": lat, "lng": lon, "name": address}
         except Exception:
             pass
-
-    def _parse_exif_datetime_value(self, raw_value: object) -> Optional[datetime]:
-        text = str(raw_value or "").strip().replace("\x00", "")
-        if not text:
-            return None
-        for fmt in ("%Y:%m:%d %H:%M:%S", "%Y-%m-%d %H:%M:%S"):
-            try:
-                return datetime.strptime(text[:19], fmt)
-            except Exception:
-                continue
-        return None
-
-    def _parse_datetime_from_filename(self, filename: str) -> Optional[datetime]:
-        stem = os.path.splitext(os.path.basename(filename or ""))[0]
-        if not stem:
-            return None
-
-        for pattern in FILENAME_DATETIME_PATTERNS:
-            match = pattern.search(stem)
-            if not match:
-                continue
-            try:
-                year, month, day, hour, minute, second = [int(part) for part in match.groups()]
-                return datetime(year, month, day, hour, minute, second)
-            except ValueError:
-                continue
-
-        return None
 
     def _reverse_geocode(self, lng: float, lat: float) -> str:
         """

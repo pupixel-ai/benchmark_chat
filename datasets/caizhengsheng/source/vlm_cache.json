@@ -1,0 +1,5156 @@
+{
+  "metadata": {
+    "total_photos": 86,
+    "model": "google/gemini-3.1-flash-lite-preview",
+    "schema_version": "v1"
+  },
+  "photos": [
+    {
+      "photo_id": "photo_001",
+      "filename": "IMG_20260122_152801.jpg",
+      "timestamp": "2026-01-22T15:28:13",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026年1月22日15:28，在室外林荫道下，【主角】正处于移动状态，仰拍向上方交织的枯树枝剪影与明亮的蓝色天空。",
+        "people": [],
+        "relations": [
+          {
+            "subject": "【主角】",
+            "relation": "仰望并拍摄",
+            "object": "树木群体"
+          },
+          {
+            "subject": "树木",
+            "relation": "遮挡",
+            "object": "部分天空"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "处于冬日凋零状态的落叶乔木林",
+            "光照为下午低角度暖黄色侧逆光",
+            "背景可见蓝天",
+            "远端可见中式古典建筑的朱红色建筑构件与屋顶瓦片"
+          ],
+          "location_detected": "具有古典庭院气质的公园或宫廷遗址景观区域（推测为北京地区北方植被景观）",
+          "location_type": "室外"
+        },
+        "event": {
+          "activity": "户外漫步与视觉记录",
+          "social_context": "独自或与其同行者处于动态行进中",
+          "mood": "宁静、清冷",
+          "story_hints": [
+            "冬日午后的园林写生或日常散步记录",
+            "拍摄视角对向远方红墙建筑，暗示处于历史文化古迹周边"
+          ]
+        },
+        "details": [
+          "左下角水印示：设备为 HUAWEI Pura70 Pro+",
+          "画面远端中心可见明显的朱红色中国传统建筑门廊或牌楼顶部结构"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_003",
+      "filename": "IMG_20260122_154803.jpg",
+      "timestamp": "2026-01-22T15:48:10",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026-01-22 15:48，天气晴朗，光线斜射，【主角】身处北京雍和宫，正以此视角记录冬季枯木与传统古建筑群及香火缭绕的参拜现场。",
+        "people": [],
+        "relations": [
+          {
+            "subject": "枯树",
+            "relation": "positioned_above",
+            "object": "寺庙建筑"
+          },
+          {
+            "subject": "香火烟雾",
+            "relation": "drifting_in",
+            "object": "庭院空间"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "中式古典建筑（红墙、琉璃瓦）",
+            "冬季枯木枝桠",
+            "空气中可见香火缭绕的白烟",
+            "清晰的蓝天背景",
+            "低角度光照"
+          ],
+          "location_detected": "北京雍和宫",
+          "location_type": "室外"
+        },
+        "event": {
+          "activity": "参观/祈福",
+          "social_context": "公共空间",
+          "mood": "庄严、宁静",
+          "story_hints": [
+            "正值冬季下午，游客正在祈福或参观",
+            "画面中香烟袅袅，符合春节前夕或重大节庆日的传统祈福场景"
+          ]
+        },
+        "details": [
+          "画面下方可见华为Pura70 Pro+ XMAGE水印",
+          "建筑牌匾疑似带有藏传佛教建筑风格特征"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_002",
+      "filename": "IMG_20260122_152808.jpg",
+      "timestamp": "2026-01-22T15:28:15",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026年1月22日15:28，【主角】置身于北方冬季典型的落叶乔木林下，正处于仰拍视角，观察寒冬午后的清冽景观。",
+        "people": [],
+        "relations": [
+          {
+            "subject": "Camera_Lens",
+            "relation": "looking_up_at",
+            "object": "Bare_Trees"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "落叶乔木（疑为银杏或其他阔叶落叶乔木）",
+            "天空晴朗无云，呈高饱和度浅蓝色",
+            "冬季午后低角度侧逆光",
+            "树干表面粗糙，有明显的深褐色纹理",
+            "环境极其空旷，无明显人为建筑遮挡"
+          ],
+          "location_detected": "城市公园或高等院校内部林荫大道",
+          "location_type": "室外"
+        },
+        "event": {
+          "activity": "户外散步/风景记录",
+          "social_context": "独自",
+          "mood": "宁静、清冷、疏离",
+          "story_hints": [
+            "拍摄日期为冬季中旬，光影展现出强烈的寒冷季节特质",
+            "极简的构图暗示【主角】在此时期的观察状态或心境较为沉静"
+          ]
+        },
+        "details": [
+          "HUAWEI Pura70 Pro+ | XMAGE 水印",
+          "树木处于无叶休眠状态，枝干交错密集，呈现典型北方冬季景观特征"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_006",
+      "filename": "IMG_20260122_155307.jpg",
+      "timestamp": "2026-01-22T15:53:14",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026年1月22日15时53分，天气晴朗，【主角】在北京故宫博物院仰拍中和宫建筑顶部，记录其琉璃瓦屋面细节及蓝底金字匾额。",
+        "people": [],
+        "relations": [
+          {
+            "subject": "中和宫匾额",
+            "relation": "悬挂于",
+            "object": "中和宫正殿梁枋"
+          },
+          {
+            "subject": "琉璃瓦",
+            "relation": "覆盖在",
+            "object": "中和宫屋顶"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "金色琉璃瓦屋檐",
+            "蓝底金字‘中和宫’匾额",
+            "彩画梁枋",
+            "晴朗无云的蓝天",
+            "明显的侧逆光，强调建筑肌理"
+          ],
+          "location_detected": "北京故宫博物院中和宫",
+          "location_type": "室外"
+        },
+        "event": {
+          "activity": "参观/建筑摄影",
+          "social_context": "独自/旅游",
+          "mood": "庄重、宁静",
+          "story_hints": [
+            "冬日午后参观故宫，处于建筑群核心区域。",
+            "拍摄视角偏重于历史建筑的细节考究。"
+          ]
+        },
+        "details": [
+          "中和宫牌匾",
+          "清代皇家建筑彩绘纹样",
+          "Huawei Pura70 Pro+ XMAGE影像系统水印"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_004",
+      "filename": "IMG_20260122_154825.jpg",
+      "timestamp": "2026-01-22T15:48:33",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026年1月22日15时48分，明媚晴天，【主角】在北京雍和宫内进行游览，此时正处于景区内焚香区域旁，视野焦点落于铜狮雕塑与古建筑群。",
+        "people": [],
+        "relations": [
+          {
+            "subject": "铜狮雕像",
+            "relation": "placed_on",
+            "object": "石基座"
+          },
+          {
+            "subject": "香烟",
+            "relation": "drifting_towards",
+            "object": "古树及建筑"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "蔚蓝晴空",
+            "枯枝古树",
+            "古代宫殿式建筑",
+            "铜制狮子雕塑",
+            "香火产生的烟雾",
+            "大面积红墙",
+            "高色温下午斜射光"
+          ],
+          "location_detected": "北京雍和宫",
+          "location_type": "室外"
+        },
+        "event": {
+          "activity": "参观及礼佛祈福",
+          "social_context": "游客聚集区",
+          "mood": "庄重、宁静",
+          "story_hints": [
+            "冬季午后的礼佛活动",
+            "典型的旅游观光或宗教祈福场景"
+          ]
+        },
+        "details": [
+          "HUAWEI Pura70 Pro+ XMAGE 水印",
+          "画面右侧大型精雕铜狮",
+          "画面左侧祭祀焚香产生的烟团"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_005",
+      "filename": "IMG_20260122_155224.jpg",
+      "timestamp": "2026-01-22T15:52:31",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026年1月22日15:52，天气晴朗，【主角】在北京故宫博物院院内仰拍传统古建筑顶角与枯木，记录这一时刻的光影与建筑细部。",
+        "people": [],
+        "relations": [
+          {
+            "subject": "古建筑檐角",
+            "relation": "悬挂于",
+            "object": "风铃/垂饰"
+          },
+          {
+            "subject": "枯树枝",
+            "relation": "映衬于",
+            "object": "红墙建筑背景"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "金色琉璃瓦建筑檐角",
+            "朱红色梁柱及其彩绘构件",
+            "冬季枯木枝桠",
+            "明亮的蓝色晴空",
+            "背景建筑处于修缮维护状态（可见脚手架）"
+          ],
+          "location_detected": "北京故宫博物院",
+          "location_type": "室外"
+        },
+        "event": {
+          "activity": "参观/摄影",
+          "social_context": "独自",
+          "mood": "宁静、古朴",
+          "story_hints": [
+            "冬日午后故宫的建筑采风记录",
+            "正在进行翻修维护的区域历史遗迹考察"
+          ]
+        },
+        "details": [
+          "檐角挂有铜制风铃或装饰垂坠",
+          "建筑彩绘呈现典型的和玺彩画风格",
+          "画面底部可见HUAWEI Pura70 Pro+ XMAGE水印"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_007",
+      "filename": "IMG_20260122_165228.jpg",
+      "timestamp": "2026-01-22T16:52:37",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026年1月22日16:52，【主角】置身于北京圆明园遗址公园的地下通道墙面浮雕前，正记录这一具有历史纪念意义的视觉文化空间。",
+        "people": [],
+        "relations": [
+          {
+            "subject": "【主角】",
+            "relation": "recording",
+            "object": "历史浮雕墙"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "石质浮雕墙面",
+            "刻有汉字诗词与历史纪事（咸丰十年1860年）",
+            "冷色调顶灯照明",
+            "浅色水磨石地面",
+            "装饰性古典卷草纹样浮雕"
+          ],
+          "location_detected": "北京圆明园遗址公园（遗址地下通道）",
+          "location_type": "室内"
+        },
+        "event": {
+          "activity": "参观/走访",
+          "social_context": "独自",
+          "mood": "庄重、肃穆",
+          "story_hints": [
+            "历史遗址的纪念性空间浏览，关注点在于圆明园焚毁的历史刻印",
+            "【主角】可能正在进行历史文化教育或主题参观活动"
+          ]
+        },
+        "details": [
+          "浮雕文字包含：日天琳宇、澹泊宁静、水木明瑟、山高水长、月地云居、鸿慈永祐、汇芳书院、长春仙馆、万方安和、武陵春色",
+          "历史记录文字：1860年，咸丰十年，10月6日英法联军占领圆明园，10月18日洗劫并火烧圆明园",
+          "拍摄设备：HUAWEI Pura70 Pro+"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_008",
+      "filename": "IMG_20260122_165231.jpg",
+      "timestamp": "2026-01-22T16:52:56",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026年1月22日16:52，【主角】处于北京地铁圆明园站内，正经过以“1860”历史为主题的文化墙区域进行记录。",
+        "people": [],
+        "relations": [
+          {
+            "subject": "文化墙雕塑",
+            "relation": "装饰于",
+            "object": "地铁站墙面"
+          },
+          {
+            "subject": "监控摄像头",
+            "relation": "安装于",
+            "object": "金属格栅吊顶"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "设有格栅式层叠吊顶",
+            "墙面嵌入大型历史文化石雕",
+            "刻有“1860”字样及“山高水长”、“平湖秋月”等诗词碑文",
+            "地面铺设灰色水磨石地板",
+            "明亮的条形荧光灯照明"
+          ],
+          "location_detected": "北京地铁4号线圆明园站内通道",
+          "location_type": "室内"
+        },
+        "event": {
+          "activity": "通勤或参观途中的拍摄记录",
+          "social_context": "独自",
+          "mood": "平静、具有历史沉重感",
+          "story_hints": [
+            "这是北京地铁站台特有的文化景观，拍摄者可能对圆明园历史或地铁站设计感兴趣"
+          ]
+        },
+        "details": [
+          "墙面浮雕上明确标注的“1860”年份（指圆明园被毁年份）",
+          "下方的文字介绍明确提及“咸丰十年”与圆明园历史相关信息",
+          "画面左下角可见【主角】衣物/配饰边缘（深色纹理织物）",
+          "左上方可见华为Pura70 Pro+ XMAGE水印"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_009",
+      "filename": "IMG_20260122_165916.jpg",
+      "timestamp": "2026-01-22T16:59:22",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026年1月22日下午16:59，【主角】置身于一处局部积雪的坡地公园，正处于漫步或驻足观察的状态，此时正值日落时分，天空呈现暖黄色调。",
+        "people": [],
+        "relations": [
+          {
+            "subject": "积雪",
+            "relation": "覆盖在",
+            "object": "草坡"
+          },
+          {
+            "subject": "树木",
+            "relation": "分布于",
+            "object": "坡地边缘"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "局部融雪的草坡",
+            "干枯的乔木与常绿松树",
+            "地表可见圆形井盖",
+            "大型花岗岩石块",
+            "低角度暖黄色地平线光线（日落）",
+            "阴影区与光照区对比强烈"
+          ],
+          "location_detected": "城市近郊公共公园或绿地",
+          "location_type": "室外"
+        },
+        "event": {
+          "activity": "散步/个人独处",
+          "social_context": "独自",
+          "mood": "宁静、清冷",
+          "story_hints": [
+            "冬日傍晚的公园，环境人迹罕至，可能为【主角】的独处时光或归途视角"
+          ]
+        },
+        "details": [
+          "HUAWEI Pura70 Pro+ XMAGE影像系统水印",
+          "地表可见的金属圆形下水道井盖",
+          "积雪覆盖程度推断前方可能有降雪天气或人工降雪后的维护状态"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_010",
+      "filename": "IMG_20260122_165921.jpg",
+      "timestamp": "2026-01-22T17:01:48",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026年1月22日下午17:01，天气晴冷，夕阳余晖笼罩的城市公园坡地，【主角】正处于户外步行移动的状态，拍摄记录下积雪消融中的残冬黄昏景象。",
+        "people": [],
+        "relations": [
+          {
+            "subject": "积雪",
+            "relation": "覆盖于",
+            "object": "坡地地表"
+          },
+          {
+            "subject": "树木",
+            "relation": "生长于",
+            "object": "坡地边缘"
+          },
+          {
+            "subject": "夕阳",
+            "relation": "照射在",
+            "object": "背景树林与远方天际地平线"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "微弱的橘黄色夕阳余晖",
+            "覆盖残雪与枯草的斜坡",
+            "冬季落叶后的乔木群",
+            "地表可见圆形金属井盖",
+            "岩石与枯枝杂陈的自然地貌"
+          ],
+          "location_detected": "城市近郊公共公园或绿地",
+          "location_type": "室外"
+        },
+        "event": {
+          "activity": "户外散步/景观记录",
+          "social_context": "独自",
+          "mood": "宁静、清冷、疏离",
+          "story_hints": [
+            "拍摄时间接近日落，处于冬日黄昏的尾声",
+            "积雪状态显示近期内未有大规模降雪，为环境清冷的冬日"
+          ]
+        },
+        "details": [
+          "HUAWEI Pura70 Pro+ XMAGE 影像水印",
+          "地表圆形金属下水道/检修井盖"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_067",
+      "filename": "image_1769087019161.jpg",
+      "timestamp": "2026-01-22T17:21:44",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026年1月22日17时21分，【主角】置身于一处被大雪覆盖的户外湖泊/公园区域，正蹲在积雪表面进行手写文字创作，记录彼时的冬日雪景。",
+        "people": [
+          {
+            "person_id": "Person_001",
+            "appearance": "男性，青壮年体型，仅可见背影及侧面轮廓，佩戴深蓝色冷帽。",
+            "clothing": "身着Camel（骆驼）品牌拼接色冲锋衣（灰白与深蓝拼接），下着浅灰色修身运动裤，足穿黑色阿迪达斯三条纹运动鞋，戴深色手套。",
+            "activity": "半蹲姿态，右手正在积雪表面划写文字。",
+            "interaction": "【主角】本人，主体视角。",
+            "contact_type": "no_contact",
+            "expression": "不可见"
+          }
+        ],
+        "relations": [
+          {
+            "subject": "Person_001",
+            "relation": "crouching_on",
+            "object": "积雪覆盖的冰面"
+          },
+          {
+            "subject": "Person_001",
+            "relation": "writing_on",
+            "object": "积雪层"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "大面积平整积雪",
+            "背景可见落叶乔木（柳树为主）",
+            "低位落日余晖，天色呈蓝紫色调",
+            "远处可见石桥护栏及树木阴影",
+            "气温极寒，冰雪覆盖"
+          ],
+          "location_detected": "推测为北方城市大型公园湖区（冰上）",
+          "location_type": "室外"
+        },
+        "event": {
+          "activity": "户外游玩/雪地写字",
+          "social_context": "独自或与同伴同行",
+          "mood": "宁静、清冷、具有仪式感",
+          "story_hints": [
+            "雪面上有明显的脚步移动轨迹，暗示主角此前在区域内有较长时间的停留。",
+            "文字内容模糊但明确呈现手写质感，可能是在记录特定感怀。"
+          ]
+        },
+        "details": [
+          "左侧帽檐饰有白色'KELA'字样刺绣",
+          "冲锋衣左胸口处印有白色'CAMEL'品牌Logo",
+          "雪地上留下的文字痕迹（形似“阿晨手写”或相似字样）",
+          "鞋底雪地压痕显示为运动鞋底纹"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_057",
+      "filename": "IMG_20260201_114550.jpg",
+      "timestamp": "2026-02-01T11:45:49",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026-02-01 11:45，天气多云，【主角】正站在一处处于规划或警戒状态的沙滩区域，拍摄远处的海岸线与防护设施。",
+        "people": [
+          {
+            "person_id": "Person_001",
+            "appearance": "性别不明，身着深色调长衣长裤，具体特征因距离过远无法辨识。",
+            "clothing": "深色系长款外套，非显眼颜色。",
+            "activity": "蹲在沙滩边缘，靠近水域处活动。",
+            "interaction": "与【主角】距离较远（目测超过50米）。",
+            "contact_type": "no_contact",
+            "expression": "无法观测"
+          },
+          {
+            "person_id": "Person_002",
+            "appearance": "性别不明，身着深色服装。",
+            "clothing": "深色外套，具体材质无法识别。",
+            "activity": "处于靠近红色救生高椅的沙滩位置。",
+            "interaction": "与【主角】距离较远。",
+            "contact_type": "no_contact",
+            "expression": "无法观测"
+          }
+        ],
+        "relations": [
+          {
+            "subject": "黄色警戒线",
+            "relation": "围住",
+            "object": "沙滩大范围区域"
+          },
+          {
+            "subject": "红色救生椅",
+            "relation": "矗立于",
+            "object": "沙滩中段"
+          },
+          {
+            "subject": "Person_001",
+            "relation": "位于",
+            "object": "滨海区域"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "黄色警戒绳索阵列",
+            "黑色金属支撑地杆",
+            "高耸的植被覆盖山脉",
+            "红色简易救生椅",
+            "阴天散射光",
+            "淡黄色细沙"
+          ],
+          "location_detected": "滨海度假区或人工规划海滩",
+          "location_type": "室外"
+        },
+        "event": {
+          "activity": "环境考察或海滩区域维护",
+          "social_context": "独自",
+          "mood": "冷静、肃穆",
+          "story_hints": [
+            "沙滩上密集的黄色警戒线提示该区域处于被限制或施工规划阶段",
+            "拍摄视角聚焦于维护设施，或在进行现场记录工作"
+          ]
+        },
+        "details": [
+          "海滩上规律分布的黄色警戒线地桩",
+          "远景左侧的山坡处现代建筑群",
+          "红色救生高椅标识"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_058",
+      "filename": "IMG_20260201_140729.jpg",
+      "timestamp": "2026-02-01T14:07:27",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026年2月1日14:07，【主角】处于一个室内商业空间，其行为状态为通过第一视角拍摄地面的一条蓝色数据线，记录现场环境线索。",
+        "people": [],
+        "relations": [
+          {
+            "subject": "蓝色数据线",
+            "relation": "横跨于",
+            "object": "深色抛光石材地面"
+          },
+          {
+            "subject": "白色展示柜",
+            "relation": "倒影在",
+            "object": "深色抛光石材地面"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "深色极高光反射石材地面",
+            "白色极简主义风格展示柜",
+            "环形玻璃防护栏",
+            "黄色警示立牌",
+            "暖光灯带",
+            "展柜上印有深灰色狮子剪影图案"
+          ],
+          "location_detected": "疑似高档酒店大堂、高端商业展厅或商场中庭",
+          "location_type": "室内"
+        },
+        "event": {
+          "activity": "环境记录/路径勘察",
+          "social_context": "独自",
+          "mood": "冷静、秩序感",
+          "story_hints": [
+            "现场可能有临时的设备布线或正在进行小型活动布置",
+            "场地具有现代简约设计特征，可能为公共办公空间或高档会所区域"
+          ]
+        },
+        "details": [
+          "地面反射出的展柜下方狮子形象Logo",
+          "黄色警示牌上的警示标识",
+          "横穿地面的蓝色数据线（疑似RJ45网线或电源延展线）"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_059",
+      "filename": "IMG_20260201_162517.jpg",
+      "timestamp": "2026-02-01T16:25:16",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026年2月1日16:25，天气晴，【主角】位于三亚美高梅酒店（MGM）户外草坪广场，正处于一场半正式户外活动的观察视角，远景可见海边码头。",
+        "people": [
+          {
+            "person_id": "Person_001",
+            "appearance": "成年男性，身材匀称，黑色短发，穿着职业装。",
+            "clothing": "黑色修身西装套装，白色衬衫，深色皮鞋。",
+            "activity": "呈站立姿态，正走向右侧区域。",
+            "interaction": "与【主角】保持远距离，公共区域正常社交距离。",
+            "contact_type": "no_contact",
+            "expression": "不可见"
+          },
+          {
+            "person_id": "Person_002",
+            "appearance": "成年男性，身材高大，黑色西装装束。",
+            "clothing": "全黑色西装，剪裁修身，质感硬挺。",
+            "activity": "站立并向背景处走动。",
+            "interaction": "与【主角】无明确互动。",
+            "contact_type": "no_contact",
+            "expression": "不可见"
+          }
+        ],
+        "relations": [
+          {
+            "subject": "Person_001",
+            "relation": "walking_near",
+            "object": "Platform"
+          },
+          {
+            "subject": "MGM-Sign",
+            "relation": "placed_on",
+            "object": "Lawn"
+          },
+          {
+            "subject": "Platform",
+            "relation": "located_in",
+            "object": "Seaside-Resort"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "草坪面积辽阔",
+            "椰子树景观",
+            "大型白色MGM金属地标标识",
+            "灰色石材方砖铺地",
+            "晴天多云，斜射光线",
+            "远处可见海平线与远山轮廓"
+          ],
+          "location_detected": "三亚美高梅度假酒店 (MGM Grand Sanya) 户外广场",
+          "location_type": "室外"
+        },
+        "event": {
+          "activity": "户外仪式或社交活动准备阶段",
+          "social_context": "商务社交或高端度假场所",
+          "mood": "大气、开阔、平静",
+          "story_hints": [
+            "可能是高端酒店的露天婚礼筹备或户外商务酒会仪式现场",
+            "画面中出现的人员着装高度一致，具有明显的礼宾或工作人员特征"
+          ]
+        },
+        "details": [
+          "地面显著的MGM白色标志性艺术字体",
+          "舞台化的升高平台结构",
+          "画面右侧出现的着演出服或正装的疑似随行服务人员"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_060",
+      "filename": "IMG_20260201_200739.jpg",
+      "timestamp": "2026-02-01T20:07:36",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026年2月1日20时07分，夜间，【主角】身处高层露台，俯瞰下方户外灯光秀或演艺舞台场景，呈现出参与休闲娱乐活动的状态。",
+        "people": [],
+        "relations": [
+          {
+            "subject": "【主角】",
+            "relation": "observing",
+            "object": "户外舞台演出"
+          },
+          {
+            "subject": "玻璃护栏",
+            "relation": "separating",
+            "object": "【主角】与舞台区域"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "透明玻璃护栏",
+            "深紫色与暖黄色舞台射灯",
+            "棕榈树植被剪影",
+            "平整的路面或水池舞台基座",
+            "低照度夜间环境"
+          ],
+          "location_detected": "高层露台/空中酒吧",
+          "location_type": "室外"
+        },
+        "event": {
+          "activity": "观看户外表演/演出",
+          "social_context": "个人视角，可能处于社交场所内",
+          "mood": "轻松、观赏性氛围",
+          "story_hints": [
+            "现场可能存在某种灯光装置艺术或主题演出",
+            "由于拍摄高度较高，【主角】应处于建筑物的露台或观景平台上"
+          ]
+        },
+        "details": [
+          "画面右侧舞台上方可见悬挂的灯光器材",
+          "舞台中央可见疑似表演人员的模糊人影",
+          "画面中间存在强烈的舞台紫色光晕溢出"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_061",
+      "filename": "IMG_20260201_202726.jpg",
+      "timestamp": "2026-02-01T20:27:24",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026年2月1日20时27分，【主角】在室内高位俯瞰视角下，正在拍摄一场具有强烈视觉冲击的火舞表演。",
+        "people": [
+          {
+            "person_id": "Person_001",
+            "appearance": "成年男性，体型精瘦，黑色紧身衣着",
+            "clothing": "黑色紧身运动材质上衣与长裤，深色鞋履",
+            "activity": "双手持火轮进行旋转挥舞表演",
+            "interaction": "与【主角】处于远距离舞台表演关系",
+            "contact_type": "no_contact",
+            "expression": "无法识别（因强光与距离）"
+          },
+          {
+            "person_id": "Person_002",
+            "appearance": "成年男性，体型中等，黑色着装",
+            "clothing": "全黑色舞台服装",
+            "activity": "侧身站立，持火圈进行摆动表演",
+            "interaction": "与【主角】处于远距离舞台表演关系",
+            "contact_type": "no_contact",
+            "expression": "无法识别（因强光与距离）"
+          }
+        ],
+        "relations": [
+          {
+            "subject": "Person_001",
+            "relation": "holding",
+            "object": "火轮"
+          },
+          {
+            "subject": "Person_002",
+            "relation": "holding",
+            "object": "火圈"
+          },
+          {
+            "subject": "舞台灯光",
+            "relation": "illuminating",
+            "object": "表演区域"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "高亮的绿色染色灯光",
+            "舞台烟雾特效",
+            "顶部排列的黄色暖光射灯",
+            "深色玻璃隔断边缘可见",
+            "平整的铺装地面"
+          ],
+          "location_detected": "具有表演场地的室内空间（如酒吧、宴会厅或艺术演艺空间）",
+          "location_type": "室内"
+        },
+        "event": {
+          "activity": "表演观看",
+          "social_context": "公共表演活动",
+          "mood": "热烈、震撼",
+          "story_hints": [
+            "这是一场有组织的火舞艺术表演或庆典活动。",
+            "【主角】可能处于表演区上方的观景台或室内楼层。"
+          ]
+        },
+        "details": [
+          "现场布设了专业的干冰或烟雾机以增强光线可见度",
+          "灯光色温对比显著：核心区域为橙黄色火焰及暖调聚光灯，背景为强烈的化学绿色激光/染色光"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_062",
+      "filename": "IMG_20260209_112455.jpg",
+      "timestamp": "2026-02-09T11:24:53",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026-02-09 11:24，天气阴沉，【主角】正处于闹市区临街的一家Manner Coffee门店外，正拍摄该店外部标识及部分室内景象，记录其社交消费场景。",
+        "people": [
+          {
+            "person_id": "Person_001",
+            "appearance": "女性，目测20-30岁，深色中长发，体型纤细，背对镜头。",
+            "clothing": "深色系毛织卫衣或针织衫，质感柔软。",
+            "activity": "坐在室内靠窗位低头处理手机或餐食。",
+            "interaction": "与【主角】隔着玻璃幕墙，处于完全不同的内部空间。",
+            "contact_type": "no_contact",
+            "expression": "无法观测，背对镜头。"
+          }
+        ],
+        "relations": [
+          {
+            "subject": "商铺招牌",
+            "relation": "mounted_above",
+            "object": "玻璃门入口"
+          },
+          {
+            "subject": "Person_001",
+            "relation": "sitting_at",
+            "object": "靠窗木质餐桌"
+          },
+          {
+            "subject": "婴儿车",
+            "relation": "standing_near",
+            "object": "店铺右手侧玻璃幕墙"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "浅木色方形Manner Coffee立体招牌",
+            "大面积玻璃落地幕墙",
+            "室内暖黄光辅助照明",
+            "浅色木质桌椅",
+            "灰色水泥质感外立面",
+            "阴天，室外光线漫反射，无明显阴影"
+          ],
+          "location_detected": "Manner Coffee 连锁门店（具体城市不详）",
+          "location_type": "室外"
+        },
+        "event": {
+          "activity": "咖啡馆外打卡或途径留影",
+          "social_context": "独自",
+          "mood": "平淡、日常",
+          "story_hints": [
+            "【主角】可能正在进行探店活动或寻找休息场所",
+            "店门口停放的米白色婴儿车暗示周边客群多为年轻家庭或社区居民"
+          ]
+        },
+        "details": [
+          "Manner Coffee 品牌Logo及标准字",
+          "门前立式广告牌（印有咖啡宣传图文）",
+          "店铺玻璃上方的‘拉’字提示标签",
+          "入口右侧米色婴儿车，带米色防晒罩"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_063",
+      "filename": "IMG_20260217_212603.jpg",
+      "timestamp": "2026-02-17T21:26:13",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026年02月17日21:26，【主角】处于户外开阔地带，正仰拍观察夜空燃放的低空烟花。",
+        "people": [],
+        "relations": [
+          {
+            "subject": "烟花",
+            "relation": "燃放于",
+            "object": "夜空"
+          },
+          {
+            "subject": "烟花",
+            "relation": "背景位于",
+            "object": "低矮建筑群上方"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "黑色夜空",
+            "橘红色放射状烟花轨迹",
+            "远景处低矮平层建筑",
+            "建筑窗户透出的微弱灯光",
+            "无云夜空，能见度良好"
+          ],
+          "location_detected": "居民区或农村空旷地带",
+          "location_type": "室外"
+        },
+        "event": {
+          "activity": "观赏烟花",
+          "social_context": "推测为独自或小群体社交",
+          "mood": "庆典氛围，节庆欢愉",
+          "story_hints": [
+            "2026年春节期间的庆祝活动",
+            "位于较少光污染的住宅区附近"
+          ]
+        },
+        "details": [
+          "HUAWEI Pura70 Pro+ 拍摄水印",
+          "底部装饰纹样印有“金马献瑞 万事亨通”及“2026”字样"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_064",
+      "filename": "IMG_20260223_100826.jpg",
+      "timestamp": "2026-02-23T10:08:25",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026-02-23 10:08，天气晴朗，【主角】位于广东陆丰市南塘镇泓锋客运站外的露天水泥广场，正拍摄该客运站的外立面建筑。",
+        "people": [
+          {
+            "person_id": "Person_001",
+            "appearance": "中年男性，身形偏瘦，坐姿，细节不可辩",
+            "clothing": "深色系外套，深色长裤",
+            "activity": "独坐在客运站门口的塑料椅上休息",
+            "interaction": "与【主角】保持远距离公共空间",
+            "contact_type": "no_contact",
+            "expression": "不可见"
+          }
+        ],
+        "relations": [
+          {
+            "subject": "白色SUV",
+            "relation": "停放于",
+            "object": "广场左侧"
+          },
+          {
+            "subject": "Person_001",
+            "relation": "位于",
+            "object": "客运站大门口右侧"
+          },
+          {
+            "subject": "客运站建筑",
+            "relation": "装饰有",
+            "object": "海豚壁画"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "露天水泥地面",
+            "海豚图案墙绘",
+            "蓝色天空",
+            "背后可见郁郁葱葱的树林",
+            "两辆停放的摩托车"
+          ],
+          "location_detected": "陆丰市南塘镇泓锋客运站",
+          "location_type": "室外"
+        },
+        "event": {
+          "activity": "旅行/交通转运",
+          "social_context": "独自",
+          "mood": "平静、空旷",
+          "story_hints": [
+            "此处可能为【主角】旅途中的一个交通枢纽点",
+            "客运站建筑风格显得陈旧，具有典型的镇级交通站点特征"
+          ]
+        },
+        "details": [
+          "招牌文字：不忘初心，牢记使命；陆丰市南塘镇泓锋客运站",
+          "电话：8285869",
+          "白色SUV车牌号：粤NFQ816"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_065",
+      "filename": "IMG_20260223_102753.jpg",
+      "timestamp": "2026-02-23T10:27:52",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026-02-23 10:27，晴朗天气下，【主角】在客运站或路边停车场区域，记录下同行人员整理车辆后备箱准备出发的过程。",
+        "people": [
+          {
+            "person_id": "Person_001",
+            "appearance": "男性，约20-30岁，短发，脸型轮廓清晰，体型中等。",
+            "clothing": "黑色连帽软壳外套，搭配黑色休闲长裤，脚穿黑白拼色运动鞋（疑似Nike Dunk）。",
+            "activity": "侧身站立，关注后备箱内部物品。",
+            "interaction": "与Person_003保持近距离沟通。",
+            "contact_type": "no_contact",
+            "expression": "神情专注，略带严肃。"
+          },
+          {
+            "person_id": "Person_002",
+            "appearance": "男性，约20-30岁，短发，体型偏瘦。",
+            "clothing": "深红色暗纹翻领夹克，内搭黑色上衣，斜挎军绿色极简风帆布包，下穿黑色阔腿裤，白色圆头运动鞋。",
+            "activity": "双手抱胸，站立观看。",
+            "interaction": "站在后方观察同伴整理行李。",
+            "contact_type": "no_contact",
+            "expression": "神态自然，处于放松的观看状态。"
+          },
+          {
+            "person_id": "Person_003",
+            "appearance": "男性，约20-30岁，短发，体型匀称。",
+            "clothing": "白色圆领长袖卫衣，白色长裤，浅灰色拼色运动鞋，一身全白化穿搭。",
+            "activity": "弯腰俯身，双手正在后备箱内调整行李物品。",
+            "interaction": "处于被同伴观察的中心位置。",
+            "contact_type": "no_contact",
+            "expression": "由于背对/侧对镜头，表情不可见。"
+          }
+        ],
+        "relations": [
+          {
+            "subject": "Person_003",
+            "relation": "loading",
+            "object": "SUV后备箱"
+          },
+          {
+            "subject": "Person_001",
+            "relation": "watching",
+            "object": "Person_003"
+          },
+          {
+            "subject": "Person_002",
+            "relation": "standing_near",
+            "object": "Person_001"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "露天碎石停车场",
+            "背景有浅蓝色调的客运站大楼",
+            "停驻的蓝色大型客车",
+            "强烈的斜射阳光，影子明显",
+            "灰色SUV车辆"
+          ],
+          "location_detected": "客运站广场或城际交通停车场",
+          "location_type": "室外"
+        },
+        "event": {
+          "activity": "户外出行/行李装载",
+          "social_context": "和朋友同行",
+          "mood": "轻松、有序",
+          "story_hints": [
+            "这可能是一次短途旅行的出发时刻",
+            "车辆后备箱装载了多个行李袋及红色塑料袋，显示有野营或回乡性质的物资准备"
+          ]
+        },
+        "details": [
+          "灰色SUV后备箱内可见多个杂物袋及红色塑料袋",
+          "背景建筑顶部的招牌文字由于透视模糊无法准确辨识",
+          "蓝色的客车车身部分可见'客运'字样"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_085",
+      "filename": "image_1771847740923.jpg",
+      "timestamp": "2026-02-23T19:55:39",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026-02-23 19:55，在室内办公或家庭书房环境中，【主角】正处于打印文档的状态，观察着打印机出纸口。",
+        "people": [],
+        "relations": [
+          {
+            "subject": "打印纸",
+            "relation": "正在从...输出",
+            "object": "HP LaserJet P1008 打印机"
+          },
+          {
+            "subject": "打印机",
+            "relation": "被放置在",
+            "object": "木质桌面"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "浅色木纹质感桌面",
+            "室内人工照明",
+            "近摄视角",
+            "打印机顶部有收纳纸张的缝隙"
+          ],
+          "location_detected": "家庭书房或小型办公区",
+          "location_type": "室内"
+        },
+        "event": {
+          "activity": "文档打印",
+          "social_context": "独自",
+          "mood": "专注的办公氛围",
+          "story_hints": [
+            "可能是正在进行文件整理或应对即时的办公任务",
+            "设备型号为较早期的型号，暗示环境可能属于居家或小型工作室"
+          ]
+        },
+        "details": [
+          "HP LaserJet P1008 激光打印机型号标识",
+          "标准A4白纸"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_087",
+      "filename": "image_1771941928708.jpg",
+      "timestamp": "2026-02-24T21:50:55",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026-02-24 21:50，在室内环境下，【主角】正在拍摄一张横线笔记本上的手写文字，记录阅读心得。",
+        "people": [],
+        "relations": [
+          {
+            "subject": "手写文字",
+            "relation": "记录于",
+            "object": "横线笔记本"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "横线笔记本纸张",
+            "黑色圆珠笔或中性笔字迹",
+            "冷光照射下的微弱阴影"
+          ],
+          "location_detected": "室内阅读区或桌面",
+          "location_type": "室内"
+        },
+        "event": {
+          "activity": "阅读摘抄/感悟记录",
+          "social_context": "独自",
+          "mood": "严肃、独立、具有内省感",
+          "story_hints": [
+            "【主角】近期可能在重温或研读历史小说《大明王朝1566》",
+            "【主角】正处于个人意志觉醒或面对外界承诺失信后的心理调试阶段"
+          ]
+        },
+        "details": [
+          "文字内容：'任何人都答应你的事都不算数，只有你自己能做主的事才算数——《大明王朝1566》'",
+          "拍摄设备：HUAWEI Pura70 Pro+",
+          "水印信息：金马献瑞 万事亨通 2026"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_086",
+      "filename": "image_1771850470163.jpg",
+      "timestamp": "2026-02-23T20:41:08",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026-02-23 20:41，【主角】身处深圳市某公安派出所值班接待室外的公共区域，正在对值班大厅内部进行观察拍摄。",
+        "people": [
+          {
+            "person_id": "Person_001",
+            "appearance": "性别男，中青年，深色短发，受限于距离及窗格遮挡，面部特征不可识别",
+            "clothing": "深色制式警用衬衫，袖口处有明显剪裁，深色系服装",
+            "activity": "坐于办公桌后处理公务",
+            "interaction": "与【主角】隔着接待台，处于公共办公距离",
+            "contact_type": "no_contact",
+            "expression": "不可见"
+          }
+        ],
+        "relations": [
+          {
+            "subject": "Person_001",
+            "relation": "sitting_at",
+            "object": "办公桌"
+          },
+          {
+            "subject": "空闲座椅",
+            "relation": "placed_on",
+            "object": "地面"
+          },
+          {
+            "subject": "【主角】",
+            "relation": "looking_at",
+            "object": "值班接待室"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "灰色大理石抛光地面",
+            "浅灰色大理石墙面",
+            "正上方格栅天花板",
+            "LED冷白调吸顶灯",
+            "黑色金属材质接待高脚圆凳",
+            "警务标识（中华人民共和国警徽）"
+          ],
+          "location_detected": "深圳市公安局某派出所值班接待室",
+          "location_type": "室内"
+        },
+        "event": {
+          "activity": "到访警务场所",
+          "social_context": "独自",
+          "mood": "严肃、清冷",
+          "story_hints": [
+            "深夜到访派出所，可能涉及报案、咨询或办理相关行政手续",
+            "接待室无人排队，处于相对空闲的时段"
+          ]
+        },
+        "details": [
+          "“值班接待室”灯箱标识",
+          "墙面“禁止吸烟”标识",
+          "Desk旁放置有红色瓶装物（疑似消毒液或饮料）",
+          "桌面放置有电脑显示器及若干纸质文件"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_088",
+      "filename": "image_1771975337531.jpg",
+      "timestamp": "2026-02-25T07:22:15",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026年2月25日07:22，【主角】处于室外广场，正面对写字楼西塔入口，此时该建筑呈现春节后的装饰余韵，【主角】在观察人员稀少的晨间环境。",
+        "people": [
+          {
+            "person_id": "Person_001",
+            "appearance": "男性，学龄期儿童，身形瘦小",
+            "clothing": "深色系外套，深色长裤",
+            "activity": "处于画面左侧，正沿玻璃幕墙前方快步行走",
+            "interaction": "与【主角】距离较远，处于公共空间",
+            "contact_type": "no_contact",
+            "expression": "无法通过视觉辨别"
+          }
+        ],
+        "relations": [
+          {
+            "subject": "Person_001",
+            "relation": "moving_near",
+            "object": "西塔入口"
+          },
+          {
+            "subject": "垃圾桶",
+            "relation": "standing_on",
+            "object": "地砖广场"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "现代玻璃幕墙与不锈钢框架办公楼",
+            "入口上方悬挂红色中式灯笼",
+            "门贴画装饰（包含Q版生肖与金币元素）",
+            "广场地砖采用灰色石材铺设",
+            "路边设有黑色圆柱形金属垃圾桶",
+            "绿化带位于右下角",
+            "微弱晨光，天气阴天"
+          ],
+          "location_detected": "某大型写字楼西塔（West Tower）外广场",
+          "location_type": "室外"
+        },
+        "event": {
+          "activity": "通勤或过路",
+          "social_context": "独自",
+          "mood": "冷静、开阔",
+          "story_hints": [
+            "建筑物上的年节装饰表明春节刚结束不久",
+            "清晨七点左右人员罕至，符合写字楼早高峰前的状态"
+          ]
+        },
+        "details": [
+          "玻璃门上印有“西塔 WEST TOWER”字样",
+          "门贴广告文字包含“RICH”系列春节美陈宣发"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_089",
+      "filename": "image_1771975528112.jpg",
+      "timestamp": "2026-02-25T07:25:26",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026年2月25日07:25，早晨自然光线下，【主角】正处于某写字楼东塔（EAST TOWER）入口处，正准备进入建筑内部。",
+        "people": [],
+        "relations": [
+          {
+            "subject": "【主角】",
+            "relation": "approaching",
+            "object": "东塔入口"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "现代主义玻璃幕墙结构",
+            "地面反射环境光",
+            "室内外过渡区",
+            "玻璃门贴有彩绘装饰贴纸"
+          ],
+          "location_detected": "商务写字楼东塔（EAST TOWER）",
+          "location_type": "室外"
+        },
+        "event": {
+          "activity": "前往办公地点/工作场所",
+          "social_context": "独自",
+          "mood": "平稳，具有典型的职场晨光氛围",
+          "story_hints": [
+            "由于玻璃门上的“马到登大财”和钞票元素贴纸，推测当前处于农历新年后的开工期间",
+            "早晨7:25到达，属于职场高绩效人群的通勤时间"
+          ]
+        },
+        "details": [
+          "玻璃幕墙标示：EAST TOWER / 东塔",
+          "玻璃窗贴纸内容：卡通风格钞票图形、中文文字“马到登大财”、“RICH”字样"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_091",
+      "filename": "image_1771983141465.jpg",
+      "timestamp": "2026-02-25T09:32:19",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026-02-25 09:32，【主角】在疑似高档商业建筑的中庭区域，近距离拍摄一只用于节庆表演的黄色狮头道具，现场氛围带有典型的节庆或商业开业庆祝特征。",
+        "people": [],
+        "relations": [
+          {
+            "subject": "狮头道具",
+            "relation": "placed_near",
+            "object": "白色立柱"
+          },
+          {
+            "subject": "绿色盆栽",
+            "relation": "positioned_in_foreground",
+            "object": "狮头道具"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "黄色毛绒质感狮头道具",
+            "大面积落地窗",
+            "现代简约白色圆柱",
+            "大叶盆栽植物",
+            "室内自然光与室内顶灯混合照明",
+            "大理石复合地坪"
+          ],
+          "location_detected": "高层写字楼中庭或商业体大堂",
+          "location_type": "室内"
+        },
+        "event": {
+          "activity": "节庆活动观看或准备",
+          "social_context": "未知",
+          "mood": "庄重且具有节日庆典感",
+          "story_hints": [
+            "可能是企业节后复工的开工仪式",
+            "或者是商场举办的龙狮表演活动间隙"
+          ]
+        },
+        "details": [
+          "狮头材质包含高密度黄色长毛、亮片鳞片装饰",
+          "狮额处可见传统彩绘纹样及黑色装饰细节"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_093",
+      "filename": "image_1772246153337.jpg",
+      "timestamp": "2026-02-28T10:35:52",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026-02-28 10:35，画面位于室内厨房操作台，【主角】正俯拍视角记录一个放置在台面上的塑料购物袋，处于购物归来的状态。",
+        "people": [],
+        "relations": [
+          {
+            "subject": "塑料袋",
+            "relation": "placed_on",
+            "object": "石英石台面"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "米色带斑点石英石台面",
+            "白色墙面",
+            "顶部柔和漫反射光",
+            "购物袋呈现自然揉皱状态"
+          ],
+          "location_detected": "住宅厨房",
+          "location_type": "室内"
+        },
+        "event": {
+          "activity": "购物归来",
+          "social_context": "独自",
+          "mood": "平淡",
+          "story_hints": [
+            "塑料袋上印有“环保袋”字样，推测为超市或零售店提供的一次性购物袋",
+            "清晨时段购物，可能为家庭日常采购"
+          ]
+        },
+        "details": [
+          "塑料袋上绿色印刷有：“环保袋”及“笑脸”图形元素",
+          "桌面材质为细微花纹的石英石或人造大理石"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_075",
+      "filename": "image_1769999406328.jpg",
+      "timestamp": "2026-03-11T14:22:56",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026年3月11日14:22，午后阳光明媚，【主角】正处于城市街道的停车区域，由于视野中心聚焦于前方停放的一辆白色北汽新能源汽车，反映出【主角】此时可能正在寻找停车位或步行经过停车场。",
+        "people": [],
+        "relations": [
+          {
+            "subject": "白色新能源轿车",
+            "relation": "positioned_in",
+            "object": "露天停车区域"
+          },
+          {
+            "subject": "建筑物背景",
+            "relation": "situated_behind",
+            "object": "白色新能源轿车"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "午后散射光，光线清晰",
+            "沥青路面",
+            "背景有框架结构的大型建筑物",
+            "路边带有绿色植被",
+            "多辆轿车并排停放"
+          ],
+          "location_detected": "城市街区露天停车场",
+          "location_type": "室外"
+        },
+        "event": {
+          "activity": "户外出行/观察路况",
+          "social_context": "独自",
+          "mood": "中性/记录状态",
+          "story_hints": [
+            "可能正在核对或寻找特定车辆",
+            "反映了城市通勤或日常外出的场景"
+          ]
+        },
+        "details": [
+          "白色汽车车标为北汽（BAIC）标志",
+          "新能源专属绿色车牌，牌号：苏AJ A12238",
+          "车辆外观呈现典型城市家用纯电轿车特征"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_070",
+      "filename": "image_1769176579652.jpg",
+      "timestamp": "2026-03-11T14:22:57",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026年3月11日14:22，【主角】与两位友人在冰封湖面的公园景观带合影，正处于户外休闲场景的高潮时刻。",
+        "people": [
+          {
+            "person_id": "Person_006",
+            "appearance": "男性，青年，短发，椭圆形脸，体型中等。",
+            "clothing": "蓝色Kelme品牌针织帽，拼色蓝白色防风夹克（带有CAMEL品牌Logo），灰色针织束脚运动裤，黑色Adidas运动鞋。",
+            "activity": "直立站立，右手比出V字手势，左手自然下垂。",
+            "interaction": "站在队伍最左侧，与左侧的人保持社交距离。",
+            "contact_type": "no_contact",
+            "expression": "平视镜头，表情平和。"
+          },
+          {
+            "person_id": "Person_005",
+            "appearance": "男性，青年，短发，清瘦，佩戴白色毛绒耳罩。",
+            "clothing": "黑色短款羽绒服，黑白格纹围巾，黑色修身长裤，拼色平底板鞋。",
+            "activity": "直立站立，双臂自然下垂。",
+            "interaction": "处于三人组中心位置，与【主角】紧邻。",
+            "contact_type": "no_contact",
+            "expression": "目视前方，表情沉稳。"
+          },
+          {
+            "person_id": "Person_004",
+            "appearance": "男性，青年，短发，戴黑色窄框眼镜，长脸。",
+            "clothing": "米白色加绒连帽外套，浅蓝色宽松水洗牛仔裤，黑白配色运动鞋。",
+            "activity": "直立站立，右手比出V字手势。",
+            "interaction": "站在队伍最右侧，与【主角】隔着中间人。",
+            "contact_type": "no_contact",
+            "expression": "微笑着面对镜头。"
+          }
+        ],
+        "relations": [
+          {
+            "subject": "Person_006",
+            "relation": "standing_near",
+            "object": "Person_005"
+          },
+          {
+            "subject": "Person_005",
+            "relation": "standing_near",
+            "object": "Person_004"
+          },
+          {
+            "subject": "Person_006",
+            "relation": "placed_on",
+            "object": "frozen_lake_surface"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "大面积积雪覆盖的湖面",
+            "背景为干枯的柳树林",
+            "黄昏时刻的冷色调天空",
+            "地面可见多处散乱的脚印"
+          ],
+          "location_detected": "城市公园湖区或湿地公园",
+          "location_type": "室外"
+        },
+        "event": {
+          "activity": "户外休闲采风/合影",
+          "social_context": "和朋友",
+          "mood": "轻松、寒冷气候下的愉快",
+          "story_hints": [
+            "根据冰面状况与周围残雪，应处于初春或冬季末期。",
+            "三人均穿着防寒服饰，可能是结伴出行进行户外摄影。"
+          ]
+        },
+        "details": [
+          "Person_006所戴帽子明确印有Kelme品牌Logo",
+          "Person_006外套胸前可见CAMEL品牌Logo",
+          "Person_006穿着Adidas经典三杠运动鞋"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_073",
+      "filename": "image_1769415639130.jpg",
+      "timestamp": "2026-03-11T14:22:57",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026-03-11 14:22，【主角】正在使用地图导航软件查看前往玉环市第二人民医院的规划路线，当前处于叫车环节。",
+        "people": [],
+        "relations": [
+          {
+            "subject": "滴滴出行App界面",
+            "relation": "displaying",
+            "object": "玉环市第二人民医院路线规划"
+          },
+          {
+            "subject": "导航地图",
+            "relation": "showing",
+            "object": "吴坑线及周边地标"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "数字界面",
+            "地图导航App UI",
+            "实时路线规划信息"
+          ],
+          "location_detected": "浙江省台州市玉环市吴坑线附近",
+          "location_type": "室内"
+        },
+        "event": {
+          "activity": "叫车/查看路线",
+          "social_context": "独自",
+          "mood": "目的明确",
+          "story_hints": [
+            "【主角】可能需要前往医院，正在通过叫车软件进行出行规划。",
+            "目的地为玉环市第二人民医院（环保路），涉及医疗相关行程。"
+          ]
+        },
+        "details": [
+          "路线目的地：玉环市第二人民医院(环保路)",
+          "剩余行程路程：1.8公里",
+          "叫车费用：一口价8元",
+          "参考地理位置：浙江省台州市玉环市",
+          "地图路名：吴坑线",
+          "界面时间标识：2026-01-26 07:12:35 (注：EXIF时间与截屏界面时间显示不一致)"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_074",
+      "filename": "image_1769481737578.jpg",
+      "timestamp": "2026-03-11T14:22:57",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026-03-11 14:22，处于多场景下的室内用餐环境，【主角】在多次不同的高频聚餐活动中记录餐饮实况。",
+        "people": [],
+        "relations": [
+          {
+            "subject": "铜锅/烤鱼盘/铁锅",
+            "relation": "placed_on",
+            "object": "餐桌"
+          },
+          {
+            "subject": "餐具",
+            "relation": "placed_on",
+            "object": "餐桌细节"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "铜质炭火锅具",
+            "仿大理石纹桌面与木质桌面",
+            "烤鸭与中式热炒组合",
+            "光影斑驳的下午茶/午餐时段光照",
+            "多套餐具陈列"
+          ],
+          "location_detected": "中式正餐餐厅/连锁餐饮店",
+          "location_type": "室内"
+        },
+        "event": {
+          "activity": "用餐",
+          "social_context": "群体社交聚餐",
+          "mood": "轻松、丰富、烟火气息浓厚",
+          "story_hints": [
+            "菜品种类繁多，且跨度从老北京铜锅涮肉到川式烤鱼，推测为多人聚会或高频社交餐饮场景。",
+            "画面包含精致面食与地方特色小吃，体现出对区域性餐饮文化的消费偏好。"
+          ]
+        },
+        "details": [
+          "HUAWEI Pura70 Pro+ | XMAGE 水印",
+          "包含传统铜锅涮肉、川味烤鱼、老北京烤鸭、特色饼食与凉菜系列",
+          "餐桌摆盘呈现典型的中式围餐社交配置"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_076",
+      "filename": "image_1770123139063.jpg",
+      "timestamp": "2026-03-11T14:22:58",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026年2月3日20:41，【主角】在广东省深圳市龙岗区平湖街道山厦家园某商业或工业门店内拍摄，画面记录了Person_007与Person_008在店内完成工作任务后的打卡状态。",
+        "people": [
+          {
+            "person_id": "Person_007",
+            "appearance": "男性，青年，黑色短发，圆脸，佩戴黑色框架眼镜，中等身材。",
+            "clothing": "黑色圆领纯棉T恤，版型宽松，质感平整。",
+            "activity": "双手背于身后，目视镜头，站立。",
+            "interaction": "与【主角】保持社交距离，正面镜头。",
+            "contact_type": "no_contact",
+            "expression": "表情平静，无明显情绪起伏，较为职业化。"
+          },
+          {
+            "person_id": "Person_008",
+            "appearance": "男性，青年，寸头，脸型偏长，肤色较深，中等体型。",
+            "clothing": "黑色连帽冲锋衣/卫衣，内搭白色圆领衫，衣物材质为聚酯纤维，手上佩戴有白色防滑劳保工作手套。",
+            "activity": "双手置于腹部前方，正在整理手套或准备脱下，处于站立待命状态。",
+            "interaction": "与【主角】保持社交距离，处于Person_007左侧。",
+            "contact_type": "no_contact",
+            "expression": "表情中性，略显疲惫。"
+          }
+        ],
+        "relations": [
+          {
+            "subject": "Person_007",
+            "relation": "standing_near",
+            "object": "Person_008"
+          },
+          {
+            "subject": "Person_008",
+            "relation": "holding",
+            "object": "白色工作手套"
+          },
+          {
+            "subject": "Person_007",
+            "relation": "standing_in_front_of",
+            "object": "纸质包装箱"
+          },
+          {
+            "subject": "店铺门面",
+            "relation": "placed_with",
+            "object": "手写红色春联"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "室内场景",
+            "背景有大量堆叠的牛皮纸包装箱",
+            "门框左右两侧贴有红底黑字春联",
+            "门头上方有疑似手写横幅",
+            "左侧置有一盆大型室内盆栽",
+            "带有水印相机标识"
+          ],
+          "location_detected": "广东省深圳市龙岗区平湖街道山厦家园",
+          "location_type": "室内"
+        },
+        "event": {
+          "activity": "工作打卡",
+          "social_context": "同事/工友",
+          "mood": "平淡、职业化",
+          "story_hints": [
+            "两人可能为仓储或物流行业的工友，正在进行晚间工作的进出登记。",
+            "由于贴有春联且处于2月份，照片拍摄于春节前后的工作尾声。"
+          ]
+        },
+        "details": [
+          "水印时间：2026.02.03 20:41",
+          "水印地点：广东省深圳市龙岗区平湖街道山厦家园",
+          "白色防滑工作手套",
+          "门框左侧的大型绿植及右侧的红纸对联"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_079",
+      "filename": "image_1770651273027.jpg",
+      "timestamp": "2026-03-11T14:22:59",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026年3月11日14:22（水印显示13:58），【主角】与另外五名同伴在深圳市福田区深圳文华东方酒店大堂进行集体合影，全员呈一字排开列队站立，处于社交场合的集合留念阶段。",
+        "people": [
+          {
+            "person_id": "Person_010",
+            "appearance": "男性，青年，短发，眼镜，圆脸。",
+            "clothing": "黑色Champion连帽卫衣，黑色休闲裤，斜挎包。",
+            "activity": "双手自然垂放站立。",
+            "interaction": "与【主角】距离约2米，处于并排站立位。",
+            "contact_type": "no_contact",
+            "expression": "平淡，注视镜头。"
+          },
+          {
+            "person_id": "Person_014",
+            "appearance": "女性，青年，深色长发，自然眉眼。",
+            "clothing": "白色修身长袖上衣，深灰色牛仔裤，肩背黑色包袋。",
+            "activity": "双手交叉于腹部，手中拿着黑色外套。",
+            "interaction": "与【主角】距离约1.5米，处于社交距离。",
+            "contact_type": "no_contact",
+            "expression": "平静，直视前方。"
+          },
+          {
+            "person_id": "Person_011",
+            "appearance": "女性，青年，短发，脸型清瘦。",
+            "clothing": "黑色翻领休闲外套，内搭灰色上衣，黑色长裤。",
+            "activity": "双臂下垂，立正姿势。",
+            "interaction": "处于【主角】左侧。",
+            "contact_type": "no_contact",
+            "expression": "平视镜头。"
+          },
+          {
+            "person_id": "Person_006",
+            "appearance": "男性，青年，短发，轮廓分明。",
+            "clothing": "深蓝色圆领短袖，深色休闲长裤，背蓝色双肩包。",
+            "activity": "直立站姿，双手自然垂放。",
+            "interaction": "位于人群中心，与同伴保持社交距离。",
+            "contact_type": "no_contact",
+            "expression": "神态自然，直视镜头。"
+          },
+          {
+            "person_id": "Person_009",
+            "appearance": "男性，青年，短发，佩戴白色医用口罩。",
+            "clothing": "黑色运动外套，黑色内搭，黑色运动裤。",
+            "activity": "立正站立，直视镜头。",
+            "interaction": "位于【主角】右侧。",
+            "contact_type": "no_contact",
+            "expression": "遮挡，无法辨别。"
+          },
+          {
+            "person_id": "Person_012",
+            "appearance": "男性，中年趋向，短发，佩戴白色医用口罩。",
+            "clothing": "黑色夹克，内搭黑色T恤，黑色长裤，斜挎运动单肩包。",
+            "activity": "双腿略微分开站立。",
+            "interaction": "处于队列最右侧。",
+            "contact_type": "no_contact",
+            "expression": "遮挡，无法辨别。"
+          }
+        ],
+        "relations": [
+          {
+            "subject": "Person_010",
+            "relation": "standing_near",
+            "object": "Person_014"
+          },
+          {
+            "subject": "Person_014",
+            "relation": "standing_near",
+            "object": "Person_011"
+          },
+          {
+            "subject": "Person_011",
+            "relation": "standing_near",
+            "object": "Person_006"
+          },
+          {
+            "subject": "Person_006",
+            "relation": "standing_near",
+            "object": "Person_009"
+          },
+          {
+            "subject": "Person_009",
+            "relation": "standing_near",
+            "object": "Person_012"
+          },
+          {
+            "subject": "人群",
+            "relation": "standing_infront_of",
+            "object": "背景墙"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "浅色仿石纹砖背景墙",
+            "现代装饰立柱",
+            "暖色间接照明",
+            "木质底座景观摆件",
+            "地标定位地图插件",
+            "当日天气：室内环境不可见"
+          ],
+          "location_detected": "深圳文华东方酒店",
+          "location_type": "室内"
+        },
+        "event": {
+          "activity": "商务或社交线下集合/打卡",
+          "social_context": "群体协同活动",
+          "mood": "正式且规范化",
+          "story_hints": [
+            "基于“打卡”水印和统一穿搭风格，可能是某互联网社区、公司团建或专业社群的线下会面。",
+            "从着装差异（部分人佩戴口罩、部分未佩戴）推测可能存在健康防疫需求或个人审美差异。"
+          ]
+        },
+        "details": [
+          "Champion品牌Logo",
+          "深圳文华东方酒店地理位置标识",
+          "今日水印相机：打卡 13:58",
+          "右下角地图提示位于深圳福田皇岗西路"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_080",
+      "filename": "image_1770651363602.jpg",
+      "timestamp": "2026-03-11T14:22:59",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026年02月08日19:20，广东省深圳市福田区深业上城商场大宴会厅前，【主角】(Person_006)与五位同伴并排站立，共同完成下班打卡拍照。",
+        "people": [
+          {
+            "person_id": "Person_019",
+            "appearance": "男性，青年，黑色短发，体型精瘦",
+            "clothing": "黑色长袖衬衫，黑色长裤，黑色皮鞋",
+            "activity": "站立，双手在腹部前交叉",
+            "interaction": "与【主角】并排站立，间隔约30厘米",
+            "contact_type": "no_contact",
+            "expression": "嘴部微抿，表情严肃"
+          },
+          {
+            "person_id": "Person_017",
+            "appearance": "男性，青年，平头，脸型偏宽",
+            "clothing": "黑色运动夹克，黑色工装裤，灰色斜挎包",
+            "activity": "双手自然下垂",
+            "interaction": "与【主角】并排站立",
+            "contact_type": "no_contact",
+            "expression": "表情中性，直视前方"
+          },
+          {
+            "person_id": "Person_015",
+            "appearance": "男性，青年，戴细框眼镜，发际线略高",
+            "clothing": "黑色圆领重磅棉T恤，黑色长裤，肩挂单肩包",
+            "activity": "双手自然垂于腹部",
+            "interaction": "与【主角】并排站立",
+            "contact_type": "no_contact",
+            "expression": "表情平静，直视前方"
+          },
+          {
+            "person_id": "Person_018",
+            "appearance": "男性，青年，短发，脸型修长",
+            "clothing": "黑色连帽衫，深色长裤",
+            "activity": "站立，双手在胸前合拢",
+            "interaction": "与【主角】并排站立",
+            "contact_type": "no_contact",
+            "expression": "面无表情"
+          },
+          {
+            "person_id": "Person_006",
+            "appearance": "男性，青年，短发，体型匀称",
+            "clothing": "黑色翻领修身衬衫，银扣黑色皮带，深蓝色背包",
+            "activity": "正面对镜头站立，双手自然放松于身体两侧",
+            "interaction": "被同伴环绕在中间，处于团体右侧",
+            "contact_type": "no_contact",
+            "expression": "表情自然，眼神平和"
+          },
+          {
+            "person_id": "Person_016",
+            "appearance": "男性，青年，短发，体格健壮",
+            "clothing": "黑色修身夹克，深色修身长裤",
+            "activity": "站立，双手交叉握于腹部",
+            "interaction": "与【主角】并排站立，处于队伍最右侧",
+            "contact_type": "no_contact",
+            "expression": "眼神专注，直视镜头"
+          }
+        ],
+        "relations": [
+          {
+            "subject": "Person_006",
+            "relation": "standing_near",
+            "object": "Person_018"
+          },
+          {
+            "subject": "Person_006",
+            "relation": "standing_near",
+            "object": "Person_016"
+          },
+          {
+            "subject": "人群",
+            "relation": "standing_at",
+            "object": "GRAND BALLROOM"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "石纹肌理背景墙",
+            "深色木质门框",
+            "上方绿色安全出口指示灯",
+            "条纹状天花板灯带",
+            "地标文字：GRAND BALLROOM 大宴会厅"
+          ],
+          "location_detected": "广东省深圳市福田区深业上城商场",
+          "location_type": "室内"
+        },
+        "event": {
+          "activity": "下班打卡",
+          "social_context": "同事聚会/工作团队合影",
+          "mood": "严肃且具有仪式感",
+          "story_hints": [
+            "团队统一黑色系着装，可能是某企业内勤或活动安保人员下班合影",
+            "时间为周日晚上，暗示团队在周末仍有工作安排"
+          ]
+        },
+        "details": [
+          "今日水印相机时间戳：2026.02.08 19:20",
+          "背景墙显眼刻字：GRAND BALLROOM",
+          "下班打卡标签水印"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_077",
+      "filename": "image_1770196616478.jpg",
+      "timestamp": "2026-03-11T14:23:00",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026-03-11 14:23，【主角】正处于移动设备界面中，操作手机App尝试执行好友面对面扫码助力提现行为。",
+        "people": [],
+        "relations": [
+          {
+            "subject": "【主角】",
+            "relation": "interacting_with",
+            "object": "手机屏幕App界面"
+          },
+          {
+            "subject": "二维码",
+            "relation": "placed_on",
+            "object": "红色营销弹窗中心"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "高饱和度暖色调UI设计",
+            "营销活动弹窗",
+            "包含二维码的互动引导页面",
+            "顶部状态栏显示5G网络与71%电量"
+          ],
+          "location_detected": "移动设备数字空间",
+          "location_type": "室内"
+        },
+        "event": {
+          "activity": "手机App社交推广活动/营销游戏",
+          "social_context": "独自",
+          "mood": "忙碌且具有强目的性",
+          "story_hints": [
+            "【主角】极有可能在参与拼多多或其他电商平台的社交裂变拉新活动",
+            "该行为指向【主角】近期存在获取微额现金奖励的动机或对该类裂变机制的使用习惯"
+          ]
+        },
+        "details": [
+          "累计提现金额显示：87.66元",
+          "二维码引导文字：好友面对面扫码 有机会直接提现",
+          "操作指南图标：点微信右上角 > 扫描二维码 > 助力成功啦",
+          "活动倒计时：23:08",
+          "页面包含：'邀请好友'、'扫码助力'、'提现金'交互按钮"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_081",
+      "filename": "image_1770686446919.jpg",
+      "timestamp": "2026-03-11T14:23:00",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026年2月8日周日17℃多云的夜晚，【主角】与五位同伴在深圳文华东方酒店室内长廊并排站立，处于集体留影或集合状态。",
+        "people": [
+          {
+            "person_id": "Person_006",
+            "appearance": "男性，青年，短发，椭圆脸型，体型中等",
+            "clothing": "黑色重磅棉质圆领短袖T恤，胸口印有白色'POLICE'字样",
+            "activity": "站立，双眼微闭",
+            "interaction": "与同伴并排站立，处于队伍最左侧",
+            "contact_type": "no_contact",
+            "expression": "闭目，神态放松"
+          },
+          {
+            "person_id": "Person_010",
+            "appearance": "男性，青年，短发，戴细金属框眼镜，长脸型",
+            "clothing": "黑色棉质连帽卫衣，胸前有白色'Champion'拼写Logo",
+            "activity": "直立站立，双手自然垂于体侧",
+            "interaction": "站在【主角】右侧，保持社交距离",
+            "contact_type": "no_contact",
+            "expression": "平视镜头，表情严肃"
+          },
+          {
+            "person_id": "Person_011",
+            "appearance": "女性，青年，深色齐肩短发，圆润脸型",
+            "clothing": "黑色翻领夹克，袖口有双条纹装饰",
+            "activity": "站立，正面朝向镜头",
+            "interaction": "位于人群中间，与【主角】保持社交距离",
+            "contact_type": "no_contact",
+            "expression": "表情平静，无明显情绪波动"
+          },
+          {
+            "person_id": "Person_009",
+            "appearance": "男性，中年人，寸头，佩戴白色医用口罩",
+            "clothing": "深灰色圆领短袖，深色休闲裤",
+            "activity": "站立在后排，视线看向镜头方向",
+            "interaction": "位于人群中后方，与【主角】无物理接触",
+            "contact_type": "no_contact",
+            "expression": "被口罩遮挡，眼神从容"
+          },
+          {
+            "person_id": "Person_014",
+            "appearance": "女性，青年，长发扎起，脸型精瘦",
+            "clothing": "白色圆领T恤外搭黑色拉链开衫，下身穿灰褐色牛仔裤",
+            "activity": "双手交叉于腹部，身体微侧",
+            "interaction": "站在后排右侧中心，保持社交距离",
+            "contact_type": "no_contact",
+            "expression": "略显疲态，眼神空洞"
+          },
+          {
+            "person_id": "Person_012",
+            "appearance": "男性，中年，发际线后移，剃平头，方脸",
+            "clothing": "黑色纯色圆领短袖T恤，黑色长裤",
+            "activity": "站立，右手叉腰",
+            "interaction": "处于队伍最右侧，与【主角】相隔较远",
+            "contact_type": "no_contact",
+            "expression": "神态严谨，直视镜头"
+          }
+        ],
+        "relations": [
+          {
+            "subject": "Person_006",
+            "relation": "standing_near",
+            "object": "Person_010"
+          },
+          {
+            "subject": "Person_010",
+            "relation": "standing_near",
+            "object": "Person_011"
+          },
+          {
+            "subject": "Person_014",
+            "relation": "standing_near",
+            "object": "Person_009"
+          },
+          {
+            "subject": "Person_012",
+            "relation": "standing_near",
+            "object": "Person_014"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "高端室内酒店走廊",
+            "大理石纹路墙面与地面",
+            "暖黄色吸顶灯槽照明",
+            "左侧可见临时存放的纸箱",
+            "右侧可见白色金属衣架架子"
+          ],
+          "location_detected": "深圳文华东方酒店",
+          "location_type": "室内"
+        },
+        "event": {
+          "activity": "集体合影留念",
+          "social_context": "同事或跨部门项目组聚会",
+          "mood": "低调、严肃、疲劳",
+          "story_hints": [
+            "可能为酒店内举办的大型活动后的收尾阶段",
+            "着装风格较为随意，推测为下班后或非正式聚会"
+          ]
+        },
+        "details": [
+          "Champion品牌卫衣Logo",
+          "POLICE字样T恤",
+          "防伪水印：今日水滴 相机真实可验",
+          "时间记录：2026-02-08 00:04"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_082",
+      "filename": "image_1770862508147.jpg",
+      "timestamp": "2026-03-11T14:23:00",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026-03-11 14:23，【主角】处于手机高分辨率屏幕前，正在执行一次高参与度的网络购物凑单行为。",
+        "people": [],
+        "relations": [
+          {
+            "subject": "【主角】",
+            "relation": "interacting_with",
+            "object": "手机淘宝APP界面"
+          },
+          {
+            "subject": "商品页面",
+            "relation": "placed_on",
+            "object": "手机屏幕"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "高精度数码屏幕截图",
+            "覆盖式编辑图层",
+            "含有明显的购物流程引导标注"
+          ],
+          "location_detected": "数字空间（手机端淘宝）",
+          "location_type": "室内"
+        },
+        "event": {
+          "activity": "网络购物/凑单操作",
+          "social_context": "独自",
+          "mood": "专注且具备计划性",
+          "story_hints": [
+            "【主角】可能正在参与某种比价凑单或代购活动",
+            "这是一次带有明确计算（数量3*1182）的精细化消费行为"
+          ]
+        },
+        "details": [
+          "Fresh馥蕾诗红茶酵母酵母精华液（250ml/386元）",
+          "高密度G4进风口初效空气过滤棉（2.15元）",
+          "包含购物步骤解析图层（第一步：点客服；第二步：客服链接点商品；第三步：数量选3）",
+          "拼单计算提示：数量3*1182下50",
+          "左下角二维码"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_083",
+      "filename": "image_1771077299630.jpg",
+      "timestamp": "2026-03-11T14:23:01",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026年3月11日14:23，【主角】在移动设备上查看一份名为“表格_20260214 (5).csv”的工资考勤数据记录，处于工作核算或行政统计状态。",
+        "people": [],
+        "relations": [
+          {
+            "subject": "【主角】",
+            "relation": "viewing",
+            "object": "WPS Office文档界面"
+          },
+          {
+            "subject": "表格数据",
+            "relation": "displayed_on",
+            "object": "平板电脑屏幕"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "WPS Office应用界面",
+            "电子表格UI",
+            "平板电脑顶部状态栏（包含时间与功能图标）"
+          ],
+          "location_detected": "非特定空间（移动办公环境）",
+          "location_type": "室内"
+        },
+        "event": {
+          "activity": "考勤与薪酬工作核算",
+          "social_context": "独自",
+          "mood": "专注、客观",
+          "story_hints": [
+            "该文档呈现了团队成员（蔡政晟、梁卜尹、黄晓欣、彭文杰、林佳奇）的2026年2月考勤记录，涉及每日工时与加班费核算。",
+            "该文档可能与HR工作或团队管理职能相关。"
+          ]
+        },
+        "details": [
+          "文档名：表格_20260214 (5).csv",
+          "编辑软件：WPS Office",
+          "数据项：姓名、日期、原始上班/下班时间、修正后上班/下班时间、实际工时、加班时长、单日薪资",
+          "核心人员列表：蔡政晟、梁卜尹、黄晓欣、彭文杰、林佳奇",
+          "时间范围：2026年2月9日至2026年2月13日的考勤明细"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_084",
+      "filename": "image_1771077301754.jpg",
+      "timestamp": "2026-03-11T14:23:02",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026-03-11 14:23，【主角】正在移动端设备上浏览一份名为“表格_20260214(7).csv”的工资结算表，正处于查看办公数据的状态。",
+        "people": [],
+        "relations": [
+          {
+            "subject": "【主角】",
+            "relation": "正在操作",
+            "object": "WPS Office应用程序"
+          },
+          {
+            "subject": "工资结算表",
+            "relation": "显示在",
+            "object": "移动端屏幕"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "WPS Office操作界面",
+            "CSV文件格式",
+            "灰白极简数字办公环境"
+          ],
+          "location_detected": "数字化办公空间/设备屏幕",
+          "location_type": "室内"
+        },
+        "event": {
+          "activity": "办公数据核对",
+          "social_context": "独自",
+          "mood": "专注",
+          "story_hints": [
+            "该文档为2026年2月的薪资汇总，暗示【主角】可能从事行政或人事统计工作。",
+            "涉及蔡政晟、梁卜尹等五人的加班工时与薪资结算。"
+          ]
+        },
+        "details": [
+          "文档名：表格_20260214(7).csv",
+          "应用：WPS Office",
+          "核心数据：包含蔡政晟、梁卜尹、黄晓欣、彭文杰、林佳奇五人的总实际工时、加班时长及总薪资数据",
+          "系统时间显示：11:48（注：此处为设备状态栏系统时间，与照片拍摄时间存在时差，可能反映拍摄者未实时同步或屏幕截图背景）"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_071",
+      "filename": "image_1769176589575.jpg",
+      "timestamp": "2026-03-11T14:23:16",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026年3月11日下午14:23，三人于林间结冰湖畔进行户外合影，【主角】正处于画面的左侧，比出V字手势进行拍摄。",
+        "people": [
+          {
+            "person_id": "Person_006",
+            "appearance": "男性，青年时期，深色短发，内双眼皮，肤色自然偏黄，面部轮廓平直。",
+            "clothing": "蓝色Kelme品牌针织冷帽，深蓝与白色拼色防风外套（胸前带有Camel字样刺绣），佩戴黑色防风手套。",
+            "activity": "右手比出V字手势，站立面对镜头。",
+            "interaction": "与Person_005并肩站立，处于社交亲密距离。",
+            "contact_type": "no_contact",
+            "expression": "平淡且放松，微闭双唇。"
+          },
+          {
+            "person_id": "Person_005",
+            "appearance": "男性，青年，棕色短发，面部清秀，佩戴白色毛绒耳罩。",
+            "clothing": "黑色短款羽绒服，内搭格纹黑白相间围巾，佩戴黑色手套。",
+            "activity": "双手自然下垂站立，面向镜头。",
+            "interaction": "位于画面正中，被另外两人包围。",
+            "contact_type": "no_contact",
+            "expression": "温和，嘴角微扬。"
+          },
+          {
+            "person_id": "Person_004",
+            "appearance": "男性，青年，蓬松黑色卷发，佩戴圆框细边金属眼镜。",
+            "clothing": "白色连帽羽绒夹克，带有灰色毛绒领口，内搭高领针织衫。",
+            "activity": "左手比出V字手势，站立对镜头微笑。",
+            "interaction": "与Person_005并肩靠拢，处于社交亲密距离。",
+            "contact_type": "no_contact",
+            "expression": "友好开朗，自然露齿笑。"
+          }
+        ],
+        "relations": [
+          {
+            "subject": "Person_006",
+            "relation": "standing_near",
+            "object": "Person_005"
+          },
+          {
+            "subject": "Person_005",
+            "relation": "standing_near",
+            "object": "Person_004"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "结冰的湖面",
+            "背景有枯树林",
+            "傍晚低角度落日暖色调光线",
+            "积雪地面"
+          ],
+          "location_detected": "北方公园或森林景区（湖畔）",
+          "location_type": "室外"
+        },
+        "event": {
+          "activity": "户外休闲/合影",
+          "social_context": "和朋友",
+          "mood": "轻松、愉快",
+          "story_hints": [
+            "根据服饰（羽绒服、耳罩、围巾）与冰封湖面判断，此时为深冬或初春融雪期",
+            "三人组的服饰色彩搭配协调，可能为同行的挚友聚会"
+          ]
+        },
+        "details": [
+          "Person_006头戴Kelme品牌针织帽",
+          "Person_006外套胸前Camel品牌刺绣Logo"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_072",
+      "filename": "image_1769176607594.jpg",
+      "timestamp": "2026-03-11T14:23:21",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026年3月11日14:23，【主角】正伫立在结冰的湖畔边缘，面向黄昏落日与远处的岛屿景观，通过其拍摄视角记录着冰雪覆盖的余晖时刻。",
+        "people": [
+          {
+            "person_id": "Person_001",
+            "appearance": "男性或女性，佩戴蓝色针织帽，深色围巾遮住下颌部，体型中等偏瘦。",
+            "clothing": "身着米白色重磅拼接棒球夹克（背面带有蓝色花朵图案及黄色/绿色装饰条纹），材质为皮革与厚呢拼接。",
+            "activity": "站立，背对镜头，头部略微右偏，正处于静止观景状态。",
+            "interaction": "与【主角】重合（或即为【主角】视角中被拍摄者）。",
+            "contact_type": "no_contact",
+            "expression": "不可见"
+          }
+        ],
+        "relations": [
+          {
+            "subject": "Person_001",
+            "relation": "standing_at",
+            "object": "湖畔"
+          },
+          {
+            "subject": "Person_001",
+            "relation": "looking_at",
+            "object": "地平线落日"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "大面积结冰湖面",
+            "积雪深厚的湖岸硬化路面",
+            "极低纬度落日，天空呈现从橙红色到深蓝色的渐变",
+            "远端湖心岛上的建筑轮廓",
+            "裸露干枯的树枝枝桠"
+          ],
+          "location_detected": "推测为北方城市大型城市公园湖区（如北京颐和园昆明湖区域）",
+          "location_type": "室外"
+        },
+        "event": {
+          "activity": "户外游览/赏景",
+          "social_context": "个人或小团体出行",
+          "mood": "宁静、清冷、疏离",
+          "story_hints": [
+            "3月中旬湖面仍有大量冰层覆盖，暗示高纬度地区或该年气候偏冷",
+            "黄昏时分独自或与同行者静默赏景，具有明显的个人沉思属性"
+          ]
+        },
+        "details": [
+          "针织帽上的白色字母刺绣（疑似品牌Logo）",
+          "夹克背部的拼贴花卉艺术图案",
+          "远端冰面上几道细微的人影轨迹"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_090",
+      "filename": "image_1771977068331.jpg",
+      "timestamp": "2026-03-11T14:23:23",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026年2月25日07:46，于深圳市龙岗区深圳星河双子塔东塔广场，【主角】与另外两名表演者身着醒狮表演服并列站立，处于民俗文化活动前的准备阶段。",
+        "people": [
+          {
+            "person_id": "Person_022",
+            "appearance": "男性，中年，短发，圆脸，身材中等。",
+            "clothing": "传统红色醒狮表演服，配有明黄色腰封及饰有黄色长绒毛的下装。",
+            "activity": "双手背在身后，直立站立。",
+            "interaction": "与【主角】并排站立，间距约0.5米。",
+            "contact_type": "no_contact",
+            "expression": "神情平和，微笑。"
+          },
+          {
+            "person_id": "Person_021",
+            "appearance": "男性，青年，短发，长脸，身材高挑。",
+            "clothing": "传统红色醒狮表演服，印有“德艺”字样，荧光绿腰封，下穿印有火纹的长裤，脚穿白色运动鞋。",
+            "activity": "双手背在身后，直立站立。",
+            "interaction": "与【主角】并排站立，间距约0.5米。",
+            "contact_type": "no_contact",
+            "expression": "面部表情严肃，双唇闭合。"
+          },
+          {
+            "person_id": "Person_006",
+            "appearance": "男性，青年（【主角】），短发，五官端正，体型偏瘦。",
+            "clothing": "传统红色醒狮表演服，衣身印有醒狮图案及“德艺”汉字，配荧光绿腰封，下裤带有复杂的红、黑、白几何及火焰纹饰，脚穿黑色三条纹运动鞋。",
+            "activity": "双手背在身后，目视镜头，站姿挺拔。",
+            "interaction": "处于合影序列最右侧。",
+            "contact_type": "no_contact",
+            "expression": "平淡冷静，自然站立。"
+          }
+        ],
+        "relations": [
+          {
+            "subject": "Person_006",
+            "relation": "standing_near",
+            "object": "Person_021"
+          },
+          {
+            "subject": "Person_021",
+            "relation": "standing_near",
+            "object": "Person_022"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "灰色地砖铺设广场",
+            "背景有绿植与简易交通指示标志",
+            "阴天，环境光均匀且柔和",
+            "地面可见网格巡查水印信息"
+          ],
+          "location_detected": "深圳市龙岗区深圳星河双子塔东塔",
+          "location_type": "室外"
+        },
+        "event": {
+          "activity": "文化表演/醒狮巡演",
+          "social_context": "和同事/表演伙伴",
+          "mood": "严肃且具有仪式感",
+          "story_hints": [
+            "可能是当地民俗节庆或开业庆典的醒狮表演前夕。",
+            "表演者穿着统一制服，且衣服上印有“德艺”字样，可能属于同一个醒狮艺术团体。"
+          ]
+        },
+        "details": [
+          "服装印字：德艺",
+          "裤装细节：火纹印花",
+          "今日水印相机参数：2026-02-25 07:46 阴 20℃",
+          "地点标识：深圳市龙岗区深圳星河双子塔·东塔"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_092",
+      "filename": "image_1771985312499.jpg",
+      "timestamp": "2026-03-11T14:23:25",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026年2月25日10:05，阴天，气温24℃，【主角】在深圳市龙岗区星河WORLD·COCO Park的室外广场与另外两人并行站立，现场正在进行网格巡查活动。",
+        "people": [
+          {
+            "person_id": "Person_021",
+            "appearance": "男性，青年，平头，圆脸，中等体型",
+            "clothing": "黑色圆领重磅棉T恤，黑色运动长裤，鞋底为白色的黑白拼色运动鞋",
+            "activity": "双手下垂站立",
+            "interaction": "与【主角】紧邻，处于并排站立位置",
+            "contact_type": "no_contact",
+            "expression": "神情严肃，注视镜头"
+          },
+          {
+            "person_id": "Person_022",
+            "appearance": "男性，中年，短发，方脸，肤色较深，中等偏瘦体型",
+            "clothing": "深蓝色圆领T恤，黑色休闲裤，黑白配色的运动鞋，左手腕佩戴珠串装饰",
+            "activity": "双手在身前交叠",
+            "interaction": "处于【主角】与Person_021之间",
+            "contact_type": "no_contact",
+            "expression": "表情平静，略显疲态"
+          },
+          {
+            "person_id": "Person_006",
+            "appearance": "男性，青年，短发，椭圆形脸，标准体型",
+            "clothing": "黑色圆领棉质T恤，黑色运动长裤，黑色运动鞋",
+            "activity": "双手重叠于背后站立",
+            "interaction": "作为中心人物，与同行两人保持平行间距",
+            "contact_type": "no_contact",
+            "expression": "表情自然，直视镜头"
+          }
+        ],
+        "relations": [
+          {
+            "subject": "Person_021",
+            "relation": "standing_near",
+            "object": "Person_022"
+          },
+          {
+            "subject": "Person_022",
+            "relation": "standing_near",
+            "object": "Person_006"
+          },
+          {
+            "subject": "Person_006",
+            "relation": "standing_near",
+            "object": "Person_021"
+          },
+          {
+            "subject": "Person_006",
+            "relation": "placed_on",
+            "object": "广场地面"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "大型室外广场地砖",
+            "红色圆形鼓类装饰物",
+            "背景包含顺丰速运快递物流车辆",
+            "背景有零散行人及白色SUV",
+            "树木绿化带",
+            "阴天光照条件"
+          ],
+          "location_detected": "深圳市龙岗区星河WORLD·COCO Park",
+          "location_type": "室外"
+        },
+        "event": {
+          "activity": "网格巡查",
+          "social_context": "和同事",
+          "mood": "严肃且具有公务属性",
+          "story_hints": [
+            "该场景为公共区域的网格化管理巡查",
+            "三人统一穿着深色系便装，推测为负责该片区的社区工作者或安保人员"
+          ]
+        },
+        "details": [
+          "左下角水印包含具体GPS定位数据",
+          "画面背景右侧可见顺丰（SF）标识的物流货运载具",
+          "右手侧背景可见一名背双肩包的男性路人",
+          "左下方安置有鼓类祭祀或庆典装饰物"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_011",
+      "filename": "IMG_20260123_104607.jpg",
+      "timestamp": "2026-03-11T14:25:15",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026年3月11日14:25，天气晴朗，【主角】位于北京故宫角楼附近的护城河边，正拍摄护城河冰面融化与古建筑的景观。",
+        "people": [],
+        "relations": [
+          {
+            "subject": "冰面",
+            "relation": "覆盖于",
+            "object": "护城河"
+          },
+          {
+            "subject": "角楼",
+            "relation": "坐落于",
+            "object": "河岸边缘"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "大面积结冰的护城河",
+            "冰面可见大片半融化的雪层及裂纹",
+            "深蓝色晴空",
+            "远处古建筑（红墙金瓦角楼）",
+            "岸边树木多处于落叶后的枯枝状态"
+          ],
+          "location_detected": "北京故宫西北角楼护城河",
+          "location_type": "室外"
+        },
+        "event": {
+          "activity": "户外摄影/观光",
+          "social_context": "独自",
+          "mood": "宁静、疏离",
+          "story_hints": [
+            "春季初临的季节更迭期，北京地区护城河冰层处于消融阶段",
+            "拍摄视角处于游览步道，表现出对城市地标性建筑的常规纪录"
+          ]
+        },
+        "details": [
+          "左下角可见华为 Pura 70 Pro+ XMAGE 水印",
+          "光影呈现典型的午后偏侧光，阴影较短"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_017",
+      "filename": "IMG_20260123_115637_3.jpg",
+      "timestamp": "2026-03-11T14:25:16",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026年3月11日14:25，于国家博物馆“古代中国”展厅入口处，【主角】正处于参观行程的起点，正对陈列主题墙拍摄。",
+        "people": [],
+        "relations": [
+          {
+            "subject": "展示墙",
+            "relation": "安装在",
+            "object": "木纹材质墙面"
+          },
+          {
+            "subject": "时间轴显示屏",
+            "relation": "嵌入在",
+            "object": "展示墙下方"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "深色木纹装饰墙板",
+            "黑色立体浮雕字体（中文为“古代中国基本陈列”，英文为“ANCIENT CHINA”）",
+            "顶部排列有序的筒灯照明",
+            "底部为超宽幅蓝色数字化时间轴显示屏",
+            "室内光线充足，主要由顶部天花射灯提供照明"
+          ],
+          "location_detected": "中国国家博物馆“古代中国”展厅",
+          "location_type": "室内"
+        },
+        "event": {
+          "activity": "参观博物馆",
+          "social_context": "独自或正在进行公开参观",
+          "mood": "专注、学习",
+          "story_hints": [
+            "【主角】正在进行历史文化相关的实地探访或学习考察",
+            "拍摄位置位于展厅主入口，表明参观活动刚刚开始"
+          ]
+        },
+        "details": [
+          "显示屏上的历史时期标注：远古时期",
+          "展厅主要展项名称：古代中国基本陈列",
+          "设备信息水印：HUAWEI Pura70 Pro+ | XMAGE"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_013",
+      "filename": "IMG_20260123_114740.jpg",
+      "timestamp": "2026-03-11T14:25:17",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026年3月11日14时25分，【主角】置身于一间布满中国上世纪70-80年代生活陈设的复古主题展馆或博物馆内，正在静态记录当时的家庭空间布局。",
+        "people": [],
+        "relations": [
+          {
+            "subject": "美菱冰箱",
+            "relation": "placed_on",
+            "object": "金属复古电风扇"
+          },
+          {
+            "subject": "模范职工锦旗",
+            "relation": "hanging_on",
+            "object": "墙面"
+          },
+          {
+            "subject": "圆形餐桌",
+            "relation": "positioned_near",
+            "object": "深绿色折叠椅"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "复古木质橱柜",
+            "美菱(MEILING)品牌豆绿色冰箱",
+            "深红色绒面'模范职工'锦旗，标注一九八二年十二月",
+            "老式缝纫机",
+            "墨绿色军大衣式挂衣",
+            "白墙腰线以下为深绿色涂装",
+            "中式圆木桌及搪瓷托盘茶具"
+          ],
+          "location_detected": "复古主题博物馆或怀旧风格展厅",
+          "location_type": "室内"
+        },
+        "event": {
+          "activity": "参观/摄影",
+          "social_context": "独自",
+          "mood": "怀旧、肃静",
+          "story_hints": [
+            "该场景通过高度还原80年代家庭陈设，旨在唤起受众的集体记忆。",
+            "木柜上方粉笔标注'90x45x189'，暗示这些家具为展品或经专业测量的陈列品。"
+          ]
+        },
+        "details": [
+          "美菱(MEILING)标志",
+          "模范职工锦旗（一九八二年十二月）",
+          "白色墙面上标注手写家具尺寸信息",
+          "70年代风格日历"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_014",
+      "filename": "IMG_20260123_114801.jpg",
+      "timestamp": "2026-03-11T14:25:18",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026年3月11日14:25，【主角】正处于博物馆或相关展馆内，对着悬挂于赭红色背景墙上的“中华人民共和国第一枚金属国徽”实物进行平视拍摄。",
+        "people": [],
+        "relations": [
+          {
+            "subject": "中华人民共和国第一枚金属国徽",
+            "relation": "mounted_on",
+            "object": "赭红色背墙"
+          },
+          {
+            "subject": "透明玻璃护栏",
+            "relation": "positioned_in_front_of",
+            "object": "金属国徽"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "赭红色主色调墙面",
+            "金色立体雕刻文字",
+            "顶部线性射灯照明",
+            "透明落地玻璃保护围栏",
+            "地面反射光线"
+          ],
+          "location_detected": "中国国家博物馆或其他国家级主题展馆",
+          "location_type": "室内"
+        },
+        "event": {
+          "activity": "参观/观展",
+          "social_context": "个人参观",
+          "mood": "庄重、严肃",
+          "story_hints": [
+            "位于具有特殊历史教育意义的展区",
+            "【主角】可能正在进行主题游览或相关研究"
+          ]
+        },
+        "details": [
+          "墙面文字：中华人民共和国第一枚金属国徽",
+          "标注文字：注意玻璃 禁止攀爬",
+          "拍摄设备：HUAWEI Pura70 Pro+ XMAGE"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_015",
+      "filename": "IMG_20260123_115636.jpg",
+      "timestamp": "2026-03-11T14:25:18",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026年3月11日14:25，【主角】处于中国国家博物馆的“古代中国”基本陈列展厅内，仰拍视角正面对展厅主背景墙与实时历史时间轴屏。",
+        "people": [],
+        "relations": [
+          {
+            "subject": "展厅顶部射灯",
+            "relation": "illuminating",
+            "object": "深色木纹背景墙"
+          },
+          {
+            "subject": "电子时间轴屏幕",
+            "relation": "placed_below",
+            "object": "古代中国背景大字"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "深色横纹木质饰面墙体",
+            "顶部三组嵌入式长条形射灯，光线呈发散状投射",
+            "大尺寸LED电子显示屏，显示蓝底白字历史时间轴",
+            "顶板为白色烤漆吊顶"
+          ],
+          "location_detected": "中国国家博物馆-古代中国基本陈列厅",
+          "location_type": "室内"
+        },
+        "event": {
+          "activity": "参观/文化学习",
+          "social_context": "独自或参观团体",
+          "mood": "肃穆、求知",
+          "story_hints": [
+            "该展厅为中国国家博物馆的核心常设展，参观者可能正在进行历史研学或文化浏览。",
+            "拍摄时间处于下午工作时段，展厅内人员密度较低，适合进行深度历史资料记录。"
+          ]
+        },
+        "details": [
+          "墙面文字：古代中国基本陈列 / ANCIENT CHINA",
+          "电子屏内容：涵盖‘远古时期’及各类考古学文化（如红山文化、良渚文化、龙山文化等）的历史演进标识",
+          "左下角水印：HUAWEI Pura70 Pro+ XIMAGE"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_012",
+      "filename": "IMG_20260123_104631.jpg",
+      "timestamp": "2026-03-11T14:25:19",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026年3月11日14:25，天气晴朗，【主角】位于北京故宫角楼西北侧护城河边，正由北向南俯瞰冰封的河面与角楼建筑群。",
+        "people": [],
+        "relations": [
+          {
+            "subject": "故宫角楼",
+            "relation": "situated_above",
+            "object": "护城河"
+          },
+          {
+            "subject": "游客人群",
+            "relation": "standing_along",
+            "object": "护城河岸边"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "金色琉璃瓦屋顶",
+            "朱红色宫墙",
+            "半融化/冰封的护城河河面",
+            "高密度枯树枝影",
+            "午后强烈的侧逆光",
+            "蔚蓝无云天空"
+          ],
+          "location_detected": "北京故宫博物院神武门外护城河",
+          "location_type": "室外"
+        },
+        "event": {
+          "activity": "旅游/观光",
+          "social_context": "独自或群体观光",
+          "mood": "庄重、宁静",
+          "story_hints": [
+            "三月中旬北京气温回暖，护城河冰层处于消融边缘",
+            "拍摄位置位于典型热门打卡机位，侧重于展现建筑与季节光影"
+          ]
+        },
+        "details": [
+          "左下角水印显示拍摄设备为 HUAWEI Pura 70 Pro+",
+          "水印标注 XMAGE 影像标识"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_018",
+      "filename": "IMG_20260123_115942.jpg",
+      "timestamp": "2026-03-11T14:25:19",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026年3月11日14:25，【主角】在博物馆内拍摄了一尊北京猿人（Person_023）的复原雕像，视角紧贴雕像面部，完成了对人类进化史遗迹的记录。",
+        "people": [
+          {
+            "person_id": "Person_023",
+            "appearance": "男性，中年阶段古人类特征，眉骨突出，额头低平，颧骨宽大，保留原始毛发质感，面部呈泥塑/树脂工艺质感。",
+            "clothing": "无衣物，呈现原始人赤裸上半身状态。",
+            "activity": "静止的展示状态，处于半身像雕塑姿势。",
+            "interaction": "与【主角】近距离接触，处于拍摄聚焦中心。",
+            "contact_type": "no_contact",
+            "expression": "深沉、凝重，嘴角微抿。"
+          }
+        ],
+        "relations": [
+          {
+            "subject": "Person_023",
+            "relation": "is_displayed_in",
+            "object": "博物馆展示柜/展厅"
+          },
+          {
+            "subject": "【主角】",
+            "relation": "photographing",
+            "object": "Person_023"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "白色背景墙",
+            "左上侧可见汉字印刷说明文字“石和用火遗迹”",
+            "漫反射灯光",
+            "博物馆人工照明环境"
+          ],
+          "location_detected": "周口店北京人遗址博物馆（推断）",
+          "location_type": "室内"
+        },
+        "event": {
+          "activity": "博物馆参观",
+          "social_context": "独自",
+          "mood": "专注、学术性",
+          "story_hints": [
+            "此行可能与考古、历史文化调查或学校研学课题相关。",
+            "拍摄者对人类文明起源课题感兴趣。"
+          ]
+        },
+        "details": [
+          "左上角文字线索：石和用火遗迹",
+          "华为Pura70 Pro+ XMAGE水印"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_019",
+      "filename": "IMG_20260123_122242.jpg",
+      "timestamp": "2026-03-11T14:25:26",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026年3月11日14:25，于博物馆内展厅，【主角】正持手机进行拍摄，记录参观人群围绕“金缕玉衣”文物的现场。",
+        "people": [
+          {
+            "person_id": "Person_025",
+            "appearance": "男性，少年，短发，圆形脸型，体型中等偏瘦。",
+            "clothing": "红色圆领卫衣，正面印有白色大面积图案，材质为棉质混纺。",
+            "activity": "低头查看正在参与活动的物品/显示屏，姿态专注。",
+            "interaction": "与【主角】处于公共社交距离，位于展柜对面。",
+            "contact_type": "no_contact",
+            "expression": "神情专注，略显严肃。"
+          },
+          {
+            "person_id": "Person_024",
+            "appearance": "男性，少年，圆寸头，脸型偏圆，略显婴儿肥。",
+            "clothing": "深色系外套，材质疑似聚酯纤维。",
+            "activity": "直视前方展品，双手平举持手机拍摄。",
+            "interaction": "与【主角】处于公共社交距离，位于展柜另一侧。",
+            "contact_type": "no_contact",
+            "expression": "平淡，处于观察状态。"
+          }
+        ],
+        "relations": [
+          {
+            "subject": "Person_025",
+            "relation": "looking_at",
+            "object": "金缕玉衣"
+          },
+          {
+            "subject": "Person_024",
+            "relation": "looking_at",
+            "object": "金缕玉衣"
+          },
+          {
+            "subject": "金缕玉衣",
+            "relation": "placed_on",
+            "object": "白色展示台"
+          },
+          {
+            "subject": "观众",
+            "relation": "standing_near",
+            "object": "玻璃展柜"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "金缕玉衣文物主体",
+            "无反光玻璃展柜",
+            "白色陈列台面",
+            "展柜侧方配有文物介绍说明牌",
+            "室内暖黄环境光"
+          ],
+          "location_detected": "博物馆考古陈列展厅",
+          "location_type": "室内"
+        },
+        "event": {
+          "activity": "参观博物馆/文物鉴赏",
+          "social_context": "公共空间，与不特定人群共处一室",
+          "mood": "肃穆、知识性学习氛围",
+          "story_hints": [
+            "此处应为汉代文物专题展区，青少年正进行研学或家庭参观活动",
+            "拍摄者与周围观众均对文物本身表现出浓厚兴趣"
+          ]
+        },
+        "details": [
+          "金缕玉衣文物细节（玉片纹理与连接金属丝）",
+          "华为Pura 70 Pro+拍摄相机水印",
+          "展示柜旁的文物说明卡文字",
+          "观众手中持有的多部智能手机（拍摄行为普遍）"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_020",
+      "filename": "IMG_20260123_122244.jpg",
+      "timestamp": "2026-03-11T14:25:26",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026-03-11 14:25，在博物馆陈列展厅内，【主角】正俯身拍摄一件金缕玉衣文物，周围散布着正在浏览的游客。",
+        "people": [
+          {
+            "person_id": "Person_024",
+            "appearance": "男性，青少年，短发，椭圆形脸，深肤色",
+            "clothing": "深色连帽卫衣，材质不明",
+            "activity": "双手持手机在胸前进行拍摄",
+            "interaction": "与【主角】处于公共距离，位于展柜对面",
+            "contact_type": "no_contact",
+            "expression": "专注，神情严肃"
+          },
+          {
+            "person_id": "Person_025",
+            "appearance": "男性，青少年，黑色短发，圆脸",
+            "clothing": "红色卫衣，胸前印有白色英文字母及图形",
+            "activity": "低头专注于手中的智能手机",
+            "interaction": "与【主角】处于公共距离，位于展柜对面",
+            "contact_type": "no_contact",
+            "expression": "平静，注意力集中在屏幕上"
+          }
+        ],
+        "relations": [
+          {
+            "subject": "Person_024",
+            "relation": "looking_at",
+            "object": "金缕玉衣"
+          },
+          {
+            "subject": "Person_025",
+            "relation": "looking_at",
+            "object": "智能手机"
+          },
+          {
+            "subject": "金缕玉衣",
+            "relation": "placed_on",
+            "object": "白色陈列台"
+          },
+          {
+            "subject": "Person_024",
+            "relation": "standing_near",
+            "object": "Person_025"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "玻璃展柜",
+            "白色陈列底座",
+            "金缕玉衣文物",
+            "说明标签卡及二维码",
+            "漫反射陈列灯光"
+          ],
+          "location_detected": "博物馆考古陈列厅",
+          "location_type": "室内"
+        },
+        "event": {
+          "activity": "参观博物馆/文物鉴赏",
+          "social_context": "游客群体",
+          "mood": "安静，具有文化气息",
+          "story_hints": [
+            "此处为博物馆固定陈列，游客多为学生或家庭访客",
+            "金缕玉衣前的二维码标签显示该馆提供数字化导览"
+          ]
+        },
+        "details": [
+          "展柜旁放置的文物说明标签，包含二维码",
+          "HUAWEI Pura70 Pro+ XMAGE影像标识",
+          "Person_025 红色卫衣上的白色字母印花"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_022",
+      "filename": "IMG_20260123_122422.jpg",
+      "timestamp": "2026-03-11T14:25:26",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026年3月11日14:25，【主角】在博物馆陈列展厅内伫立，正聚焦拍摄一组陶俑阵列中的核心人物，深度记录历史文物的细节纹理。",
+        "people": [
+          {
+            "person_id": "Person_027",
+            "appearance": "陶俑，成年男性特征，头戴布冠，面部有侵蚀剥落痕迹，呈现古代塑造的写实风格容貌",
+            "clothing": "身着深褐色底漆配红色饰边的古制长袍，颈部有厚实围巾状装饰，材质呈现为烧制陶土",
+            "activity": "站立姿态，右臂微屈，手部半握",
+            "interaction": "处于【主角】镜头对焦中心，距离约0.8米",
+            "contact_type": "no_contact",
+            "expression": "神态肃穆，保留着古代匠人塑造的平静表情"
+          },
+          {
+            "person_id": "Person_028",
+            "appearance": "陶俑，成年男性特征，位于后排，面部特征因距离和光影略显模糊",
+            "clothing": "身着古制长袍，表面剥落严重，可见大面积的泥土色底漆",
+            "activity": "站立姿态，处于阵列边缘",
+            "interaction": "位于【主角】景深背景中，距离较远",
+            "contact_type": "no_contact",
+            "expression": "静默"
+          }
+        ],
+        "relations": [
+          {
+            "subject": "Person_027",
+            "relation": "standing_in_front_of",
+            "object": "room_display"
+          },
+          {
+            "subject": "Person_027",
+            "relation": "standing_near",
+            "object": "Person_028"
+          },
+          {
+            "subject": "【主角】",
+            "relation": "looking_and_focusing_at",
+            "object": "Person_027"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "陈列展柜",
+            "白色背景基座",
+            "柔和漫反射人工照明",
+            "陶俑矩阵排列"
+          ],
+          "location_detected": "博物馆陶俑展厅",
+          "location_type": "室内"
+        },
+        "event": {
+          "activity": "参观/拍摄文物",
+          "social_context": "独自",
+          "mood": "专注、静谧",
+          "story_hints": [
+            "属于文化遗址或历史博物馆的学术性参观",
+            "记录重点倾向于对古代雕塑艺术或历史残损文物的细致观察"
+          ]
+        },
+        "details": [
+          "HUAWEI Pura70 Pro+ XMAGE水印",
+          "陶俑表面的颜料剥落纹理",
+          "陈列柜的阶梯式结构"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_023",
+      "filename": "IMG_20260123_122558.jpg",
+      "timestamp": "2026-03-11T14:25:27",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026年3月11日14:25，【主角】在博物馆的展柜前驻足，通过玻璃倒影记录下正在认真观看东汉陶车文物的同伴。",
+        "people": [
+          {
+            "person_id": "Person_029",
+            "appearance": "男性，中年，短发，脸型略方，佩戴黑色细框眼镜。",
+            "clothing": "深色系立领外套，材质似聚酯纤维，版型规整。",
+            "activity": "侧身站立，头部微向展柜方向倾斜，观察文物细节。",
+            "interaction": "与【主角】通过玻璃反射进行视线重叠，处于社交友好距离。",
+            "contact_type": "no_contact",
+            "expression": "神态专注，面部肌肉放松。"
+          },
+          {
+            "person_id": "Person_030",
+            "appearance": "男性，青年或中年，发色黑，发际线清晰，脸型较长，佩戴深色边框眼镜。",
+            "clothing": "黑色针织衫或长袖T恤，领口简洁，材质柔软。",
+            "activity": "身体重心微前倾，专注凝视展柜内的陶车模型。",
+            "interaction": "与【主角】之间隔着博物馆展柜的玻璃，处于安静观察状态。",
+            "contact_type": "no_contact",
+            "expression": "目光下垂，表情严谨、肃穆。"
+          }
+        ],
+        "relations": [
+          {
+            "subject": "Person_029",
+            "relation": "standing_near",
+            "object": "Person_030"
+          },
+          {
+            "subject": "Person_029",
+            "relation": "looking_at",
+            "object": "陶车"
+          },
+          {
+            "subject": "Person_030",
+            "relation": "looking_at",
+            "object": "陶车"
+          },
+          {
+            "subject": "陶车",
+            "relation": "placed_on",
+            "object": "白色展台"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "博物馆展柜玻璃倒影",
+            "白色陈列底座",
+            "陶质东汉车马模型",
+            "白色标签说明牌",
+            "漫反射室内灯光"
+          ],
+          "location_detected": "博物馆展区",
+          "location_type": "室内"
+        },
+        "event": {
+          "activity": "参观博物馆/观看考古文物",
+          "social_context": "和朋友结伴参观",
+          "mood": "专注、知性",
+          "story_hints": [
+            "该场景为两人同行参观博物馆的日常瞬间",
+            "通过标签上的'东汉'和'1954年出土'字样，确认正在进行文化历史学习活动"
+          ]
+        },
+        "details": [
+          "标签文字：陶车，东汉（公元25年-220年），1954年四川成都市羊子山出土",
+          "左下角水印：HUAWEI Pura70 Pro+ | XMAGE"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_025",
+      "filename": "IMG_20260123_122723.jpg",
+      "timestamp": "2026-03-11T14:25:29",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026-03-11 14:25，于博物馆展厅内，【主角】正在近距离观察一件名为“击鼓说唱俑”的文物，视线聚焦于玻璃展柜内的陶塑。",
+        "people": [
+          {
+            "person_id": "Person_001",
+            "appearance": "女性，深色长发，佩戴黑色细框眼镜，发顶装饰有浅色花样发箍。",
+            "clothing": "米白色羽绒服/棉服，内里疑似可见浅灰色针织衣物。",
+            "activity": "近距离俯身观察展柜内文物，眼神专注，头部向左侧偏转。",
+            "interaction": "与【主角】处于同一侧视野，该人物为【主角】的同伴或同行者。",
+            "contact_type": "no_contact",
+            "expression": "专注、安静，呈日常社交情境下的沉思状态。"
+          }
+        ],
+        "relations": [
+          {
+            "subject": "Person_001",
+            "relation": "leaning_over_viewing",
+            "object": "击鼓说唱俑"
+          },
+          {
+            "subject": "击鼓说唱俑",
+            "relation": "placed_on",
+            "object": "白色方形展台"
+          },
+          {
+            "subject": "展柜玻璃",
+            "relation": "reflecting",
+            "object": "Person_001与拍摄者倒影"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "博物馆展厅",
+            "高透明度垂直展示柜",
+            "点状冷色直射顶灯",
+            "白色底座",
+            "汉代陶俑文物"
+          ],
+          "location_detected": "博物馆（根据展品推测为历史博物馆或四川博物院）",
+          "location_type": "室内"
+        },
+        "event": {
+          "activity": "文化参观/博物馆探访",
+          "social_context": "和朋友/同伴",
+          "mood": "安静、人文、专注",
+          "story_hints": [
+            "这是一次典型的周末或假期文化展览参观行程。",
+            "展品为著名的‘击鼓说唱俑’，显示【主角】对历史文物兴趣浓厚。"
+          ]
+        },
+        "details": [
+          "文物标注牌显示为‘击鼓说唱俑’",
+          "华为 Pura70 Pro+ XMAGE 手机拍摄水印",
+          "现代博物馆专业级冷光照明系统"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_021",
+      "filename": "IMG_20260123_122414.jpg",
+      "timestamp": "2026-03-11T14:25:28",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026-03-11 14:25，【主角】在西安秦始皇兵马俑博物馆内，居高临下拍摄了一组兵马俑阵列，画面呈现出庄严肃穆的展览空间氛围。",
+        "people": [
+          {
+            "person_id": "Person_032",
+            "appearance": "兵俑，陶制，面部呈凝重表情，带有历史剥落痕迹",
+            "clothing": "秦代铠甲与战袍",
+            "activity": "静止站立，纵队排列",
+            "interaction": "处于镜头前方展示队列",
+            "contact_type": "no_contact",
+            "expression": "严肃、肃穆"
+          },
+          {
+            "person_id": "Person_033",
+            "appearance": "兵俑，面部轮廓硬朗，线条清晰",
+            "clothing": "秦代战袍，可见衣褶细节",
+            "activity": "静止站立",
+            "interaction": "处于镜头近景区域",
+            "contact_type": "no_contact",
+            "expression": "凝重"
+          },
+          {
+            "person_id": "Person_027",
+            "appearance": "兵俑，面部保存较完整，五官匀称",
+            "clothing": "灰褐色陶质铠甲，带有残留彩绘痕迹",
+            "activity": "静止站立",
+            "interaction": "处于画面中景",
+            "contact_type": "no_contact",
+            "expression": "威严"
+          },
+          {
+            "person_id": "Person_031",
+            "appearance": "兵俑，面部特征带有明显秦人特征",
+            "clothing": "深褐色战袍",
+            "activity": "静止站立",
+            "interaction": "位于中后阵列",
+            "contact_type": "no_contact",
+            "expression": "平静"
+          },
+          {
+            "person_id": "Person_035",
+            "appearance": "兵俑，头部线条硬朗",
+            "clothing": "制式战袍",
+            "activity": "静止站立",
+            "interaction": "位于后方纵队",
+            "contact_type": "no_contact",
+            "expression": "肃穆"
+          },
+          {
+            "person_id": "Person_037",
+            "appearance": "兵俑，发髻清晰",
+            "clothing": "长袍",
+            "activity": "静止站立",
+            "interaction": "位于视野深处",
+            "contact_type": "no_contact",
+            "expression": "模糊"
+          },
+          {
+            "person_id": "Person_034",
+            "appearance": "兵俑，面部略有风化",
+            "clothing": "铠甲武装",
+            "activity": "静止站立",
+            "interaction": "处于右中侧视角",
+            "contact_type": "no_contact",
+            "expression": "庄严"
+          },
+          {
+            "person_id": "Person_036",
+            "appearance": "兵俑，头部轮廓可见",
+            "clothing": "战袍",
+            "activity": "静止站立",
+            "interaction": "位于画面边缘排尾",
+            "contact_type": "no_contact",
+            "expression": "不动如山"
+          }
+        ],
+        "relations": [
+          {
+            "subject": "Person_033",
+            "relation": "standing_near",
+            "object": "Person_027"
+          },
+          {
+            "subject": "Person_027",
+            "relation": "standing_near",
+            "object": "Person_031"
+          },
+          {
+            "subject": "Person_031",
+            "relation": "standing_near",
+            "object": "Person_034"
+          },
+          {
+            "subject": "兵马俑阵列",
+            "relation": "placed_on",
+            "object": "博物馆台基"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "大面积矩形暖白色顶灯",
+            "金属护栏",
+            "绿色'安全出口'标识牌",
+            "梯形陈列台基",
+            "博物馆灰调墙面"
+          ],
+          "location_detected": "秦始皇兵马俑博物馆",
+          "location_type": "室内"
+        },
+        "event": {
+          "activity": "参观博物馆",
+          "social_context": "游客视角",
+          "mood": "庄重、震撼",
+          "story_hints": [
+            "参观者在兵马俑博物馆进行文化考察",
+            "拍摄者利用华为Pura70 Pro+的XMAGE影像风格记录历史遗迹"
+          ]
+        },
+        "details": [
+          "HUAWEI Pura70 Pro+ | XMAGE 水印",
+          "展厅顶部的矩形排布漫反射光源",
+          "悬挂于远处的绿色安全出口指示牌"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_028",
+      "filename": "IMG_20260123_124530.jpg",
+      "timestamp": "2026-03-11T14:25:31",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026年3月11日14:25，【主角】在博物馆内参观，正对着名为《牛皮靴》的西汉时期出土文物进行注视并拍摄取证。",
+        "people": [],
+        "relations": [
+          {
+            "subject": "牛皮靴",
+            "relation": "placed_on",
+            "object": "白色陈列底座"
+          },
+          {
+            "subject": "展品说明牌",
+            "relation": "positioned_below",
+            "object": "白色陈列底座"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "博物馆展陈空间",
+            "暖黄色筒灯聚光灯",
+            "纯白色极简陈列台",
+            "暗色背景墙面"
+          ],
+          "location_detected": "博物馆/文物陈列室",
+          "location_type": "室内"
+        },
+        "event": {
+          "activity": "参观/观展",
+          "social_context": "独自",
+          "mood": "专注/静谧",
+          "story_hints": [
+            "参观者正在进行历史文化研学或展览打卡",
+            "拍摄对象为新疆罗布泊楼兰遗址出土文物"
+          ]
+        },
+        "details": [
+          "文物名称：牛皮靴",
+          "年代：西汉（公元前202年-公元8年）",
+          "出土来源：1934年新疆罗布泊楼兰遗址",
+          "拍摄设备：HUAWEI Pura70 Pro+"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_024",
+      "filename": "IMG_20260123_122625.jpg",
+      "timestamp": "2026-03-11T14:25:31",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026-03-11 14:25，于博物馆内展厅，【主角】正透过玻璃展柜拍摄前方展出的绿色釉陶楼阁模型，现场人群正在集体观看文物。",
+        "people": [
+          {
+            "person_id": "Person_038",
+            "appearance": "成年女性，黑发，圆脸，佩戴金属细框眼镜，体型中等。",
+            "clothing": "白色高领针织衫，材质似羊绒。",
+            "activity": "直视前方展品。",
+            "interaction": "与【主角】通过玻璃隔离，属于观展的公共距离。",
+            "contact_type": "no_contact",
+            "expression": "神情专注，略显平静。"
+          },
+          {
+            "person_id": "Person_039",
+            "appearance": "成年女性，深色长发，面部特征因玻璃折射部分模糊。",
+            "clothing": "浅色呢绒外套，内搭米色织物，佩戴毛绒质感帽子。",
+            "activity": "侧身站立，头部转向展品方向。",
+            "interaction": "与【主角】通过玻璃隔离，属于观展的公共距离。",
+            "contact_type": "no_contact",
+            "expression": "深思状，微张嘴。"
+          },
+          {
+            "person_id": "Person_040",
+            "appearance": "中年女性，黑短发，圆脸，佩戴黑色防护口罩。",
+            "clothing": "米白色绗缝羽绒服（带巨大毛领），挂有深蓝色挂绳证件牌。",
+            "activity": "双手捧着手机在胸前，疑似拍摄或查看信息。",
+            "interaction": "与【主角】距离较近，位于展柜前中央。",
+            "contact_type": "no_contact",
+            "expression": "目光下垂，处于专注手机状态。"
+          },
+          {
+            "person_id": "Person_041",
+            "appearance": "成年女性，黑发，深邃面部轮廓，佩戴深色挂绳。",
+            "clothing": "深色高领毛衣，叠穿深色大衣。",
+            "activity": "微微俯身，头向左倾斜观察展品细节。",
+            "interaction": "与【主角】通过玻璃隔离，属于观展的公共距离。",
+            "contact_type": "no_contact",
+            "expression": "好奇且专注。"
+          },
+          {
+            "person_id": "Person_042",
+            "appearance": "男性，短发，侧脸轮廓清晰。",
+            "clothing": "深色外套，质感厚重。",
+            "activity": "侧立于展柜右侧，向展品方向注视。",
+            "interaction": "与【主角】通过玻璃隔离，属于观展的公共距离。",
+            "contact_type": "no_contact",
+            "expression": "平静肃然。"
+          }
+        ],
+        "relations": [
+          {
+            "subject": "Person_038",
+            "relation": "standing_near",
+            "object": "展品"
+          },
+          {
+            "subject": "Person_040",
+            "relation": "holding",
+            "object": "手机"
+          },
+          {
+            "subject": "展品",
+            "relation": "placed_on",
+            "object": "木质展台"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "高透明度玻璃展柜",
+            "室内暖黄射灯照明",
+            "绿色釉陶楼阁模型",
+            "浅色调墙面",
+            "反射光晕明显"
+          ],
+          "location_detected": "博物馆展厅",
+          "location_type": "室内"
+        },
+        "event": {
+          "activity": "参观博物馆展览",
+          "social_context": "群体观展",
+          "mood": "安静、有序",
+          "story_hints": [
+            "这可能是一场关于中国古代建筑艺术或出土陶瓷文物的专题展览。",
+            "Person_040佩戴的蓝色挂绳证件暗示其可能是参观团成员或相关工作人员。"
+          ]
+        },
+        "details": [
+          "Person_040胸前佩戴的深蓝色挂绳工作牌/参观证",
+          "Person_040手中的黑边屏幕手机",
+          "展品为四层绿色釉陶楼阁"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_026",
+      "filename": "IMG_20260123_124404.jpg",
+      "timestamp": "2026-03-11T14:25:32",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026年3月11日14:25，【主角】处于室内博物馆展厅内，正在近距离拍摄一件陈列于玻璃柜中的青铜鼓文物。",
+        "people": [],
+        "relations": [
+          {
+            "subject": "青铜鼓",
+            "relation": "陈列于",
+            "object": "玻璃展柜"
+          },
+          {
+            "subject": "【主角】",
+            "relation": "拍摄",
+            "object": "青铜鼓"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "青铜质感文物",
+            "环状浮雕纹饰",
+            "顶部带有四只立体动物饰件",
+            "顶部中心太阳纹浮雕",
+            "低位聚光照明",
+            "透明玻璃展示罩"
+          ],
+          "location_detected": "博物馆（展厅）",
+          "location_type": "室内"
+        },
+        "event": {
+          "activity": "参观博物馆",
+          "social_context": "独自",
+          "mood": "专注、静谧",
+          "story_hints": [
+            "该文物为典型的东南亚/南方地区文化遗存，可能处于考古类专题博物馆。",
+            "拍摄视角为典型的仰拍或平视近摄，旨在捕捉青铜器的工艺细节。"
+          ]
+        },
+        "details": [
+          "文物顶部中心具有显著的十二芒太阳纹饰",
+          "边缘装饰有同心圆纹路与几何纹带",
+          "华为 Pura70 Pro+ XMAGE 影像标识水印"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_030",
+      "filename": "IMG_20260123_124759.jpg",
+      "timestamp": "2026-03-11T14:25:32",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026年3月11日14:25，【主角】处于室内环境，正在近距离拍摄一本线装古籍《齐民要术》的内页内容。",
+        "people": [],
+        "relations": [
+          {
+            "subject": "【主角】",
+            "relation": "recording",
+            "object": "《齐民要术》古籍"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "米黄色纸张",
+            "黑色木刻印刷体",
+            "线装书折痕",
+            "顶部均匀漫反射光线"
+          ],
+          "location_detected": "图书馆古籍阅览室或私人书房",
+          "location_type": "室内"
+        },
+        "event": {
+          "activity": "文献研究/阅读",
+          "social_context": "独自",
+          "mood": "专注、静谧",
+          "story_hints": [
+            "正在进行农学史或古代文献的深度研读",
+            "可能正在搜集有关中国古代精耕细作农业技术的资料"
+          ]
+        },
+        "details": [
+          "书籍名称：《齐民要术》卷一",
+          "可见篇目：序、耕田第一、种谷第二、种蒜第三等",
+          "印刷特征：典型的木刻本版式，每行书写规整",
+          "设备水印：HUAWEI Pura70 Pro+ | XMAGE"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_027",
+      "filename": "IMG_20260123_124432.jpg",
+      "timestamp": "2026-03-11T14:25:33",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026年3月11日14:25，【主角】在博物馆内参观，正驻足拍摄一件汉代鎏金神兽青铜牌饰及其说明展牌。",
+        "people": [],
+        "relations": [
+          {
+            "subject": "展品",
+            "relation": "mounted_on",
+            "object": "金属支架"
+          },
+          {
+            "subject": "展牌",
+            "relation": "placed_below",
+            "object": "展品"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "白色陈列柜台",
+            "灰色展墙底色",
+            "顶部射灯产生的垂直投影",
+            "博物馆室内光环境"
+          ],
+          "location_detected": "博物馆展厅",
+          "location_type": "室内"
+        },
+        "event": {
+          "activity": "参观/学习",
+          "social_context": "独自",
+          "mood": "专注",
+          "story_hints": [
+            "【主角】可能正在进行历史考古类研究或个人博物馆打卡之旅",
+            "被拍摄的文物出土于吉林榆树，暗示【主角】关注中国东北地区少数民族史或汉代边疆文物"
+          ]
+        },
+        "details": [
+          "文物名称：鎏金神兽青铜牌饰 (Gilded Bronze Plaque with Mythical Beast)",
+          "时期背景：汉代（公元前202年-公元220年）",
+          "出土信息：1980年吉林榆树老河深",
+          "展牌包含二维码导览入口",
+          "拍摄设备水印：HUAWEI Pura70 Pro+ | XMAGE"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_029",
+      "filename": "IMG_20260123_124641.jpg",
+      "timestamp": "2026-03-11T14:25:33",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026年3月11日14:25，【主角】在博物馆展厅内驻足，通过玻璃橱窗拍摄馆藏文物“陶骑马武士俑”。",
+        "people": [
+          {
+            "person_id": "Person_043",
+            "appearance": "陶俑，面部五官线条深邃，头戴兜鍪，属于古代男性武士形象特征。",
+            "clothing": "身穿古代窄袖武士袍，质感为烧制陶土，表面呈浅灰色。",
+            "activity": "骑马状态，右手呈现持缰姿态，坐姿端正。",
+            "interaction": "与【主角】隔着展示柜玻璃，处于被审视的陈列位置。",
+            "contact_type": "no_contact",
+            "expression": "神态肃穆，带有冷峻的平视表情。"
+          }
+        ],
+        "relations": [
+          {
+            "subject": "Person_043",
+            "relation": "sitting_on",
+            "object": "陶马"
+          },
+          {
+            "subject": "Person_043",
+            "relation": "displayed_in",
+            "object": "玻璃展柜"
+          },
+          {
+            "subject": "【主角】",
+            "relation": "looking_at",
+            "object": "Person_043"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "米白色展台底座",
+            "聚焦式展柜顶灯",
+            "玻璃反射影",
+            "无窗，受控光环境"
+          ],
+          "location_detected": "博物馆考古陈列厅",
+          "location_type": "室内"
+        },
+        "event": {
+          "activity": "文物参观",
+          "social_context": "独自",
+          "mood": "庄重、专注",
+          "story_hints": [
+            "这是一次针对古代军事文物的专题考察或个人文化参观。",
+            "展品铭牌标注有'1948年河北景县封氏墓群出土'，表明此处为中国历史博物馆或馆藏相关文物的专业机构。"
+          ]
+        },
+        "details": [
+          "文物名称：陶骑马武士俑",
+          "出土信息：1948年河北景县封氏墓群出土",
+          "拍摄设备水印：HUAWEI Pura 70 Pro+ | XMAGE"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_031",
+      "filename": "IMG_20260123_132206.jpg",
+      "timestamp": "2026-03-11T14:25:45",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026年3月11日14:25，天气晴朗，【主角】正处于中国国家博物馆正门外广场，正以仰视视角拍摄博物馆气势恢宏的古典主义复兴式建筑顶层边缘。",
+        "people": [],
+        "relations": [
+          {
+            "subject": "【主角】",
+            "relation": "looking_up_at",
+            "object": "中国国家博物馆主体结构"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "万里无云的深蓝色天空",
+            "光照充足的日光直射",
+            "巨大的石材立柱阵列",
+            "带有中式斗拱与雕刻装饰的簷下结构",
+            "右上角可见部分红色装饰构件"
+          ],
+          "location_detected": "中国国家博物馆（位于北京天安门广场东侧）",
+          "location_type": "室外"
+        },
+        "event": {
+          "activity": "参观/旅游观光",
+          "social_context": "未知（从视角推测为独自或跟随导览团）",
+          "mood": "庄重、开阔、平静",
+          "story_hints": [
+            "基于拍摄时间和主体，【主角】正在进行典型的政务区或文化地标参观活动",
+            "由于是下午两点半拍摄，【主角】可能是在前往下一展区或离开博物馆的路途间隙留影"
+          ]
+        },
+        "details": [
+          "左侧石墙上方清晰可见中文字样：中国国家博物馆",
+          "下方英文字样：NATIONAL MUSEUM OF CHINA",
+          "画面底部可见相机水印：HUAWEI Pura70 Pro+ | XMAGE"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_032",
+      "filename": "IMG_20260123_132223.jpg",
+      "timestamp": "2026-03-11T14:25:45",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026年3月11日14:25，天气晴朗，【主角】位于中国国家博物馆广场前，仰拍视角记录了博物馆主建筑上方两条明显的飞机凝结尾迹。",
+        "people": [],
+        "relations": [
+          {
+            "subject": "飞机凝结尾迹",
+            "relation": "crossing_above",
+            "object": "中国国家博物馆"
+          },
+          {
+            "subject": "建筑檐口",
+            "relation": "supporting",
+            "object": "国徽装饰"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "高饱和度湛蓝色天空",
+            "建筑顶部红色五角星国徽装饰",
+            "成排的垂直立柱结构",
+            "左侧可见部分针叶树冠",
+            "空中存在两条明显的平行飞行器凝结尾迹"
+          ],
+          "location_detected": "中国国家博物馆（北京）",
+          "location_type": "室外"
+        },
+        "event": {
+          "activity": "参观/观光",
+          "social_context": "独自或与其同行者在博物馆场地内",
+          "mood": "庄严、开阔、平静",
+          "story_hints": [
+            "午后时分的天气极佳，适合户外建筑考察或文化参访",
+            "航迹线暗示博物馆处于繁忙的空中航路视角范围内"
+          ]
+        },
+        "details": [
+          "外立面石材纹理",
+          "机身设备水印：HUAWEI Pura70 Pro+ | XMAGE",
+          "建筑顶部标志性的五角星浮雕与红旗雕饰"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_035",
+      "filename": "IMG_20260123_164721.jpg",
+      "timestamp": "2026-03-11T14:25:46",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026年3月11日14:25，于北京颐和园昆明湖畔，【主角】正处于户外开阔区域，镜头捕捉夕阳余晖下十七孔桥及冰封湖面的壮丽剪影。",
+        "people": [],
+        "relations": [
+          {
+            "subject": "夕阳",
+            "relation": "投射在",
+            "object": "冰封湖面"
+          },
+          {
+            "subject": "亭台建筑",
+            "relation": "位于",
+            "object": "湖岸背景处"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "落日余晖呈现强烈的星芒特效",
+            "冰封的湖面有积雪残留",
+            "背景可见中式古典建筑剪影",
+            "现场悬挂有若干景观旗帜",
+            "天空为渐变蓝到金色的黄昏色调",
+            "晴朗无云的冬末春初天气"
+          ],
+          "location_detected": "北京颐和园昆明湖",
+          "location_type": "室外"
+        },
+        "event": {
+          "activity": "户外摄影/观光",
+          "social_context": "独自或与同伴在景区游览",
+          "mood": "宁静、辽阔",
+          "story_hints": [
+            "该地点为著名的冬季打卡点，可能是在进行季节性景观记录",
+            "拍摄时间接近日落，暗示【主角】正在结束一天的园区行程"
+          ]
+        },
+        "details": [
+          "HUAWEI Pura70 Pro+ XMAGE 专属水印",
+          "十七孔桥与西堤建筑轮廓",
+          "湖面反射出的强烈阳光反射点"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_033",
+      "filename": "IMG_20260123_132231.jpg",
+      "timestamp": "2026-03-11T14:25:47",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026-03-11 14:25，天气晴朗，【主角】位于中国国家博物馆北门外广场，正在进行仰拍视角的实地取景访问。",
+        "people": [],
+        "relations": [
+          {
+            "subject": "建筑外墙",
+            "relation": "刻有",
+            "object": "中国国家博物馆文字标识"
+          },
+          {
+            "subject": "【主角】",
+            "relation": "拍摄于",
+            "object": "中国国家博物馆外部广场"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "浅米色仿古石材外墙",
+            "深棕色传统中式榫卯斗拱装饰",
+            "黑色金属边框方形窗户",
+            "晴空无云，高强度太阳直射光",
+            "左侧可见针叶树木枝尖"
+          ],
+          "location_detected": "中国国家博物馆（北京天安门广场东侧）",
+          "location_type": "室外"
+        },
+        "event": {
+          "activity": "参观/实地考察",
+          "social_context": "独自或与其同行者（未入镜）",
+          "mood": "宁静、庄重",
+          "story_hints": [
+            "当日行程涉及北京文博类场所参观",
+            "拍摄时间处于下午时段，符合博物馆正常开放参观流程"
+          ]
+        },
+        "details": [
+          "外墙汉字标文：中国国家博物馆",
+          "外墙英文标文：NATIONAL MUSEUM OF CHINA",
+          "顶部浮雕纹饰细节",
+          "左下角水印：HUAWEI Pura70 Pro+ | XMAGE"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_038",
+      "filename": "IMG_20260123_171603.jpg",
+      "timestamp": "2026-03-11T14:25:50",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026年3月11日14:25，于背景可见冰封湖面与远山的石桥上，【主角】在夕阳余晖中面对镜头比出剪刀手姿势，记录冬末春初的户外游览时刻。",
+        "people": [
+          {
+            "person_id": "Person_006",
+            "appearance": "男性，青年，黑色短发隐藏在针织帽下，面部轮廓清晰，皮肤呈自然肤色，体型适中。",
+            "clothing": "身穿米色羊毛呢材质拼皮棒球夹克，正面印有“COLORFUL FLOWERS”字样及黄色“A”图形；佩戴深蓝色Kelme品牌针织毛线帽，颈部系黑色围巾，手戴黑色防寒手套。",
+            "activity": "双手置于胸前及侧方，左手比出剪刀手势。",
+            "interaction": "独自站立，面对相机。",
+            "contact_type": "no_contact",
+            "expression": "平视镜头，面部表情自然沉稳。"
+          }
+        ],
+        "relations": [
+          {
+            "subject": "Person_006",
+            "relation": "standing_near",
+            "object": "石雕狮子柱"
+          },
+          {
+            "subject": "Person_006",
+            "relation": "standing_at",
+            "object": "石拱桥"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "冰封的湖面",
+            "远方低矮山丘",
+            "落日余晖呈现橙黄色渐变天空",
+            "传统中式石刻护栏及石狮子构件"
+          ],
+          "location_detected": "颐和园十七孔桥或类似皇家园林冰面地标",
+          "location_type": "室外"
+        },
+        "event": {
+          "activity": "户外游览/拍照",
+          "social_context": "独自",
+          "mood": "宁静、从容",
+          "story_hints": [
+            "根据冰封湖面判断，时值冬末，具备明显的季节地理特征。",
+            "服装风格倾向于运动潮流休闲，符合冬季户外旅游装扮。"
+          ]
+        },
+        "details": [
+          "针织帽正面可见 Kelme 品牌Logo及脚印图标",
+          "衣物饰有 COLORFUL FLOWERS 刺绣字样",
+          "画面底部可见 HUAWEI Pura70 Pro+ | XMAGE 水印"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_034",
+      "filename": "IMG_20260123_144859.jpg",
+      "timestamp": "2026-03-11T14:25:51",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026年3月11日14:25，于室内中式餐馆场景，【主角】正准备享用包含辣子鸡、番茄炒蛋、水煮鱼/肉片及青菜汤等丰盛午餐，记录了多人聚餐的餐桌全景。",
+        "people": [
+          {
+            "person_id": "Person_001",
+            "appearance": "性别不明，上半身穿着白色防风外套，衣料具防风涂层质感。",
+            "clothing": "白色防风外套，拉链处可见金属光泽。",
+            "activity": "站立或半坐姿势，位于餐桌上方。",
+            "interaction": "与【主角】处于同一社交圈，近距离共享餐桌。",
+            "contact_type": "no_contact",
+            "expression": "不可见"
+          },
+          {
+            "person_id": "Person_002",
+            "appearance": "仅可见下半身，穿着深灰色牛仔裤或运动裤。",
+            "clothing": "深灰色下装。",
+            "activity": "坐在一旁的木凳上。",
+            "interaction": "与【主角】同桌聚餐。",
+            "contact_type": "no_contact",
+            "expression": "不可见"
+          }
+        ],
+        "relations": [
+          {
+            "subject": "餐具",
+            "relation": "placed_on",
+            "object": "深色木纹餐桌"
+          },
+          {
+            "subject": "辣子鸡",
+            "relation": "sitting_at",
+            "object": "餐桌中央"
+          },
+          {
+            "subject": "Person_001",
+            "relation": "standing_near",
+            "object": "餐桌"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "深色实木餐桌，台面印有“宽窄”字样（推测为品牌名）",
+            "中式餐馆环境",
+            "暖黄色室内灯光",
+            "木质靠背凳",
+            "陶瓷餐具及白色汤匙"
+          ],
+          "location_detected": "疑似“宽窄巷子”系列主题川菜馆",
+          "location_type": "室内"
+        },
+        "event": {
+          "activity": "用餐",
+          "social_context": "和朋友",
+          "mood": "轻松、满足",
+          "story_hints": [
+            "多人聚餐，从菜品分量推测人数在3-4人左右。",
+            "菜色偏向川菜口味，可能是工作日的午间聚会或周末家庭聚餐。"
+          ]
+        },
+        "details": [
+          "桌面印制文字：宽窄",
+          "拍摄设备：HUAWEI Pura 70 Pro+",
+          "可见菜品：辣子鸡、番茄炒蛋、水煮鱼片/肉片、青菜汤、凉菜拼盘"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_041",
+      "filename": "IMG_20260123_171615.jpg",
+      "timestamp": "2026-03-11T14:25:51",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026年3月11日14:25，于背景为冰封湖面的石桥上，【主角】双手交叉于胸前站立，正处于户外游览的静止状态。",
+        "people": [
+          {
+            "person_id": "Person_006",
+            "appearance": "男性，青年，短发被针织帽包裹，圆脸，平眉，肤色呈现自然健康状态",
+            "clothing": "佩戴蓝色Kelme品牌针织帽及黑色围脖；身着卡其色拼接款棒球夹克，袖部带有彩色几何与字母贴布刺绣；内搭黑色运动裤",
+            "activity": "双手交叉抱在胸前，直视镜头站立",
+            "interaction": "独自站立于构图中心，与环境保持独立关系",
+            "contact_type": "no_contact",
+            "expression": "表情平静且专注，双唇微闭"
+          }
+        ],
+        "relations": [
+          {
+            "subject": "Person_006",
+            "relation": "standing_near",
+            "object": "石狮子雕塑"
+          },
+          {
+            "subject": "Person_006",
+            "relation": "standing_on",
+            "object": "石桥桥面"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "冰封的湖面",
+            "远景连绵山脉",
+            "具有历史感的传统石桥",
+            "石狮子栏杆雕塑",
+            "傍晚暖橙色与冷蓝色调的天空"
+          ],
+          "location_detected": "北京颐和园十七孔桥附近",
+          "location_type": "室外"
+        },
+        "event": {
+          "activity": "户外游览/观光",
+          "social_context": "独自/结伴（边缘可见同伴）",
+          "mood": "平静、寒冷",
+          "story_hints": [
+            "由于湖面处于结冰状态，拍摄时间可能接近冬末春初，气温较低",
+            "从服饰风格推测为休闲旅游场景"
+          ]
+        },
+        "details": [
+          "针织帽正面可见明显的白色‘KELME’品牌Logo",
+          "外套袖部有复杂的彩色‘COLORFUL’及花朵、字母拼贴装饰",
+          "左下角水印显示拍摄设备为HUAWEI Pura70 Pro+ XMAGE"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_043",
+      "filename": "IMG_20260123_171855.jpg",
+      "timestamp": "2026-03-11T14:25:51",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026-03-11 14:25，于北京颐和园昆明湖畔，【主角】正站在十七孔桥或类似古建石栏处，静观远处冰面上的游园活动。",
+        "people": [],
+        "relations": [
+          {
+            "subject": "石雕望柱",
+            "relation": "placed_on",
+            "object": "石质栏杆"
+          },
+          {
+            "subject": "冰面人群",
+            "relation": "standing_on",
+            "object": "昆明湖冰面"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "中式仿古石雕望柱",
+            "深灰色石栏杆",
+            "大面积结冰湖面，伴有不规则冰浪与积雪堆积",
+            "远处为枯树林与古典建筑远景",
+            "淡蓝色调天空，光线偏冷，呈现午后侧逆光效果"
+          ],
+          "location_detected": "北京颐和园昆明湖",
+          "location_type": "室外"
+        },
+        "event": {
+          "activity": "游览/观景",
+          "social_context": "独自或与同伴随行",
+          "mood": "宁静、清冷",
+          "story_hints": [
+            "即便在3月中旬，北方湖面仍维持结冰状态，属于典型的晚冬初春景观",
+            "冰面上散布大量远距离人群，推测为颐和园内的冰上游览项目或冰雪嘉年华末期节俗活动"
+          ]
+        },
+        "details": [
+          "石雕望柱顶部装饰为古典宝珠莲花座样式",
+          "远处冰面上疑似设有围挡或游乐设施标识"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_044",
+      "filename": "IMG_20260123_172038.jpg",
+      "timestamp": "2026-03-11T14:25:51",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026年3月11日14:25，于北京颐和园昆明湖畔，【主角】正处于户外开阔区域，拍摄处于冰封消融期的湖面及远处的佛香阁。",
+        "people": [],
+        "relations": [
+          {
+            "subject": "昆明湖冰面",
+            "relation": "situated_in_front_of",
+            "object": "万寿山与佛香阁"
+          },
+          {
+            "subject": "游客人群",
+            "relation": "scattered_across",
+            "object": "昆明湖冰面围栏区域"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "大面积结冰并伴随融化痕迹的湖面",
+            "背景为万寿山及佛香阁地标建筑",
+            "万里无云的晴朗天空",
+            "冷色调自然光"
+          ],
+          "location_detected": "北京颐和园昆明湖",
+          "location_type": "室外"
+        },
+        "event": {
+          "activity": "观光摄影",
+          "social_context": "独自",
+          "mood": "宁静、疏离",
+          "story_hints": [
+            "由于冰面虽有融化但仍维持活动，推测此时为冬春交替时期，季节性冰上活动即将结束。",
+            "拍摄时间临近下午三点，光线平稳，属于典型的建筑风景游览记录。"
+          ]
+        },
+        "details": [
+          "华为 Pura 70 Pro+ XMAGE 水印",
+          "冰面上存在防坠落或边界隔离栏杆",
+          "远处人群在冰面上呈远距离分散状分布"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_040",
+      "filename": "IMG_20260123_171609.jpg",
+      "timestamp": "2026-03-11T14:25:54",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026年3月11日下午14:25，在疑似颐和园昆明湖冰面附近的石桥上，【主角】站在石狮旁，面对镜头保持双臂交叉的姿态，背景呈现日落余晖下的冰封湖面。",
+        "people": [
+          {
+            "person_id": "Person_006",
+            "appearance": "男性，青年，圆脸，短发被冷帽遮住，自然肤色，无明显修饰痕迹。",
+            "clothing": "佩戴深蓝色Kelme品牌针织冷帽及黑色Kelme印花围脖；上身穿着米白色重磅毛呢拼接袖棒球夹克，袖口及衣身饰有高饱和度蓝色、黄色、红色拼贴花朵与字母刺绣；内搭疑似浅色打底；下身穿着深色运动长裤。",
+            "activity": "双手交叉抱胸，双脚并立，正视前方。",
+            "interaction": "与环境中的石雕建筑保持近距离接触。",
+            "contact_type": "no_contact",
+            "expression": "平视镜头，表情平静自然，情绪放松。"
+          }
+        ],
+        "relations": [
+          {
+            "subject": "Person_006",
+            "relation": "standing_near",
+            "object": "石狮雕塑"
+          },
+          {
+            "subject": "Person_006",
+            "relation": "standing_at",
+            "object": "石桥护栏"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "石质护栏及石狮雕刻",
+            "大面积冰封湖面",
+            "背景远山及低垂日落",
+            "冷光与落日光影叠加"
+          ],
+          "location_detected": "疑似北京颐和园昆明湖畔",
+          "location_type": "室外"
+        },
+        "event": {
+          "activity": "冬季观光/户外拍照",
+          "social_context": "独自",
+          "mood": "宁静、从容",
+          "story_hints": [
+            "冰面尚未完全融化，显示为初春时节的北方户外活动",
+            "着装具有明显的运动品牌标识且保暖性强"
+          ]
+        },
+        "details": [
+          "针织帽与围脖可见明显的KELME（卡尔美）品牌Logo",
+          "画面左下角水印标识：HUAWEI Pura70 Pro+ | XMAGE"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_045",
+      "filename": "IMG_20260123_174704.jpg",
+      "timestamp": "2026-03-11T14:25:55",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026年3月11日14:25，于北京颐和园昆明湖畔，【主角】正处于静止的观察状态，注视着湖面解冻期的冰凌景观与远处的玉泉山宝塔。",
+        "people": [],
+        "relations": [
+          {
+            "subject": "木质栈道",
+            "relation": "延伸向",
+            "object": "昆明湖湖心"
+          },
+          {
+            "subject": "垂柳枝条",
+            "relation": "遮挡于",
+            "object": "视野上部"
+          },
+          {
+            "subject": "远山",
+            "relation": "构成背景于",
+            "object": "湖面"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "由于春季气温回升，湖面呈现冰层破碎的冻融状态",
+            "前景有垂柳枝条悬垂，处于早春萌芽前夕",
+            "远景可见玉泉山玉峰塔轮廓",
+            "天空呈现明显的蓝橙色渐变色温",
+            "光线为落日前的散射光"
+          ],
+          "location_detected": "北京颐和园昆明湖畔",
+          "location_type": "室外"
+        },
+        "event": {
+          "activity": "户外风景观赏",
+          "social_context": "独自",
+          "mood": "宁静、清冷、思索",
+          "story_hints": [
+            "三月中旬北京正值冰雪消融的季节交替节点",
+            "拍摄位置指向颐和园核心水域，暗示【主角】在此进行独处的散步或摄影考察"
+          ]
+        },
+        "details": [
+          "左下角存有HUAWEI Pura 70 Pro+ XMAGE专属拍摄水印",
+          "画面中心可见未完全融化的湖冰纹理与明暗交替的冰裂带"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_046",
+      "filename": "IMG_20260123_205858.jpg",
+      "timestamp": "2026-03-11T14:25:56",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026年3月11日14:25，位于某酒店走廊内，【主角】正站在一台酒店送物机器人前方，准备领取配送的物品。",
+        "people": [],
+        "relations": [
+          {
+            "subject": "机器人",
+            "relation": "displaying_on_screen",
+            "object": "8107号房配送状态"
+          },
+          {
+            "subject": "【主角】",
+            "relation": "viewing",
+            "object": "机器人屏幕"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "白色哑光外壳送物机器人",
+            "灰色条纹商用走廊地毯",
+            "酒店房门与米白色墙面",
+            "机器人底部环境辅助灯（幽蓝色）"
+          ],
+          "location_detected": "酒店走廊",
+          "location_type": "室内"
+        },
+        "event": {
+          "activity": "领取酒店送物服务",
+          "social_context": "独自",
+          "mood": "平稳、日常",
+          "story_hints": [
+            "【主角】入住酒店房间号为8107",
+            "当前气温较低（屏幕显示-1度），天气寒冷"
+          ]
+        },
+        "details": [
+          "机器人顶部屏幕显示：8107您的物品已送达",
+          "屏幕天气监测信息显示当日气温：-1度",
+          "屏幕互动按钮：开门 (OPEN)",
+          "摄影器材水印：HUAWEI Pura70 Pro+ | XMAGE"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_047",
+      "filename": "IMG_20260123_220130.jpeg",
+      "timestamp": "2026-03-11T14:25:56",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026年3月11日14:25，于北京故宫博物院内，【主角】正处于一处暗色调的朱红木门廊下，通过门洞望向前方阳光明媚的宫殿院落，前方有数名游客正在驻足观赏或拍摄。",
+        "people": [
+          {
+            "person_id": "Person_001",
+            "appearance": "性别模糊，中等身材，佩戴灰色针织冷帽，短发，侧脸轮廓平直。",
+            "clothing": "身穿米浅色重磅棉材质棒球外套，后背印有醒目的蓝绿色对比色“AC”刺绣徽章及花朵图案，内搭黑色高领针织衫。",
+            "activity": "双手下垂放置于身体两侧，正站立观察室外景观。",
+            "interaction": "与画面中其他游客处于公共社交距离。",
+            "contact_type": "no_contact",
+            "expression": "无法观察（从背后拍摄）"
+          },
+          {
+            "person_id": "Person_002",
+            "appearance": "女性，青年，长发。",
+            "clothing": "身穿白色毛绒短款外套。",
+            "activity": "左侧持手机进行拍摄或查看信息。",
+            "interaction": "立于【主角】左前方，无直接互动。",
+            "contact_type": "no_contact",
+            "expression": "无法观察（侧影）"
+          }
+        ],
+        "relations": [
+          {
+            "subject": "Person_001",
+            "relation": "standing_near",
+            "object": "朱红门框"
+          },
+          {
+            "subject": "Person_001",
+            "relation": "looking_at",
+            "object": "前方院落景观"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "朱红木质雕花门廊",
+            "逆光环境",
+            "地面铺设红毯",
+            "极高的光比",
+            "晴天午后"
+          ],
+          "location_detected": "北京故宫博物院神武门或午门附近门廊",
+          "location_type": "室内"
+        },
+        "event": {
+          "activity": "旅游观光",
+          "social_context": "游客群体",
+          "mood": "闲适、平静",
+          "story_hints": [
+            "根据服饰风格与背景判断，主角正在进行春季北京的古建筑打卡活动。",
+            "拍摄位置位于景深过渡处，强调了从室内看向室外的纵深感。"
+          ]
+        },
+        "details": [
+          "Person_001背部外套刺绣显眼，含有品牌艺术设计感",
+          "朱红门廊上的中式传统镂空雕花纹样",
+          "地面红毯磨损痕迹"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_050",
+      "filename": "IMG_20260124_082354.jpg",
+      "timestamp": "2026-03-11T14:25:56",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026-03-11 14:25，于某室内场所（疑似酒店或接待区），【主角】采取半躺/坐姿视角拍摄，双腿交叠，记录了周围人的陪同状态。",
+        "people": [
+          {
+            "person_id": "Person_001",
+            "appearance": "性别不明，身形匀称，下肢皮肤呈自然色泽",
+            "clothing": "白色无后跟拖鞋，未见袜",
+            "activity": "处于直立或移动状态",
+            "interaction": "与【主角】处于同一空间，距离约2-3米",
+            "contact_type": "no_contact",
+            "expression": "不可见"
+          }
+        ],
+        "relations": [
+          {
+            "subject": "Person_001",
+            "relation": "standing_near",
+            "object": "深绿色购物袋"
+          },
+          {
+            "subject": "【主角】",
+            "relation": "wearing",
+            "object": "深灰色精纺羊毛袜与白色室内拖鞋"
+          },
+          {
+            "subject": "深绿色购物袋",
+            "relation": "placed_on",
+            "object": "浅橡木色地板"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "浅橡木色木纹地板",
+            "平滑室内照明",
+            "深绿色品牌手提袋（含白色标签）",
+            "纸质咖啡杯托架"
+          ],
+          "location_detected": "室内休息区/酒店大堂",
+          "location_type": "室内"
+        },
+        "event": {
+          "activity": "休憩/等待",
+          "social_context": "和朋友/同行者",
+          "mood": "轻松、闲适",
+          "story_hints": [
+            "现场地面放置有外卖购物袋和杯托，推测为等待外卖或餐饮配送的间隙。",
+            "室内环境采用酒店式拖鞋，且周围人员赤足穿拖鞋，暗示该空间具有半私密性（如私人会所、按摩店或高档酒店客房区）。"
+          ]
+        },
+        "details": [
+          "左下角可见的深绿色购物袋，袋身印有疑似“茶颜悦色”或其他奶茶品牌Logo",
+          "【主角】穿着深色（黑色或深蓝）材质垂感长裤",
+          "地板上遗留的瓦楞纸材质咖啡杯托，表明此地有饮品消费行为"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_048",
+      "filename": "IMG_20260123_220132.jpeg",
+      "timestamp": "2026-03-11T14:25:57",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026年3月11日14:25，于北京故宫午门城台区域，【主角】正处于密集的游客群中，从后方视角记录前方人物及远处的午门建筑广场。",
+        "people": [
+          {
+            "person_id": "Person_001",
+            "appearance": "男性，中年，体型中等，深色短发",
+            "clothing": "卡其色立领工装夹克，黑色长裤",
+            "activity": "双手举起拍摄设备记录广场情况",
+            "interaction": "与【主角】处于近距离空间，位于画面左侧中景",
+            "contact_type": "no_contact",
+            "expression": "无法观测（背侧/侧面）"
+          },
+          {
+            "person_id": "Person_002",
+            "appearance": "性别不明，成年，中等体型，佩戴深灰色针织冷帽",
+            "clothing": "背面印有大号“AC”艺术字体装饰的浅米色拼接棒球夹克，内搭深色围巾",
+            "activity": "面向广场眺望",
+            "interaction": "位于【主角】正前方，占据画面视觉中心",
+            "contact_type": "no_contact",
+            "expression": "无法观测（背影）"
+          },
+          {
+            "person_id": "Person_003",
+            "appearance": "女性，青年，长发",
+            "clothing": "浅棕色毛绒（仿羊羔毛）翻领外套，白色针织帽，内搭深色高领衫",
+            "activity": "双手捧着手机正在查看屏幕",
+            "interaction": "位于画面右侧，与【主角】保持社交距离",
+            "contact_type": "no_contact",
+            "expression": "低头专注"
+          }
+        ],
+        "relations": [
+          {
+            "subject": "Person_001",
+            "relation": "standing_near",
+            "object": "Person_002"
+          },
+          {
+            "subject": "Person_002",
+            "relation": "standing_near",
+            "object": "午门城台"
+          },
+          {
+            "subject": "Person_003",
+            "relation": "standing_near",
+            "object": "Person_002"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "红色立柱",
+            "红色铺地地毯",
+            "由于逆光产生的暖黄色边缘光",
+            "万里无云的晴朗天气",
+            "背景可见中国国旗"
+          ],
+          "location_detected": "北京故宫博物院午门城台",
+          "location_type": "室外"
+        },
+        "event": {
+          "activity": "景区游览",
+          "social_context": "公共旅游空间",
+          "mood": "闲适、明亮",
+          "story_hints": [
+            "基于故宫午门标志性建筑判断，此为典型的北京文化旅游行程",
+            "下午14:25的逆光与密集人流符合旅游高峰时段特征"
+          ]
+        },
+        "details": [
+          "Person_002夹克背后的AC艺术字体刺绣/印花",
+          "背景可见远处的故宫建筑群及飘扬的中国国旗"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_049",
+      "filename": "IMG_20260123_220134.jpeg",
+      "timestamp": "2026-03-11T14:25:57",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026年3月11日14:25，于北京天安门城楼游览区，【主角】正持设备拍摄前方人群，Person_044位于画面中段正对拍摄者，背景为开阔的天安门广场。",
+        "people": [
+          {
+            "person_id": "Person_044",
+            "appearance": "男性，成年人，中等身材，佩戴细边框眼镜，面部轮廓清晰，表现出专注感。",
+            "clothing": "黑色防风外套，内搭深色连帽衫，衣物质地可见为聚酯纤维类防风面料。",
+            "activity": "双手持手机进行操作，站立在栏杆旁。",
+            "interaction": "与【主角】保持社交距离，位于拍摄视野中心。",
+            "contact_type": "no_contact",
+            "expression": "平淡、略显严肃，沉浸在个人手机活动中。"
+          }
+        ],
+        "relations": [
+          {
+            "subject": "Person_044",
+            "relation": "holding",
+            "object": "手机"
+          },
+          {
+            "subject": "Person_044",
+            "relation": "standing_near",
+            "object": "天安门城楼栏杆"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "天安门广场远景",
+            "强烈的正向午后阳光",
+            "红色立柱",
+            "大面积铺设的户外红地毯",
+            "天光云影，能见度极高"
+          ],
+          "location_detected": "北京天安门城楼",
+          "location_type": "室外"
+        },
+        "event": {
+          "activity": "景区游览",
+          "social_context": "群体性游览（周边分布多名游客）",
+          "mood": "繁忙、开放、旅游氛围",
+          "story_hints": [
+            "此行可能是春季北京的旅游观光活动",
+            "光线处于下午两点半，为典型逆光旅游摄影场景"
+          ]
+        },
+        "details": [
+          "Person_044手中持有的深色智能手机",
+          "城楼栏杆下的隔离红线",
+          "广场区域可见大量移动的人群缩影"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_051",
+      "filename": "IMG_20260124_105735.jpg",
+      "timestamp": "2026-03-11T14:26:00",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026-03-11 14:26，【主角】正处于一辆靠站停靠的高铁列车车厢内，通过窗户向外远眺清河站站台，记录到达时刻的地理坐标。",
+        "people": [],
+        "relations": [
+          {
+            "subject": "【主角】",
+            "relation": "looking_at",
+            "object": "清河站站台"
+          },
+          {
+            "subject": "列车车窗",
+            "relation": "positioned_between",
+            "object": "【主角】与清河站"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "高铁车厢内部结构",
+            "双层隔音玻璃窗口",
+            "站台指示吊牌",
+            "冷色调日光灯照射下的现代交通空间"
+          ],
+          "location_detected": "北京清河火车站",
+          "location_type": "室内"
+        },
+        "event": {
+          "activity": "旅行/交通出行",
+          "social_context": "独自",
+          "mood": "平静、中性",
+          "story_hints": [
+            "【主角】此次行程为长途交通，到达时间为下午，可能为商务考察或个人异地行程。"
+          ]
+        },
+        "details": [
+          "站台指示牌显示：清河站 (Qinghe Railway Station)",
+          "指示牌显示：出站口 (Exit) 方向提示",
+          "拍摄设备：HUAWEI Pura70 Pro+ XMAGE"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_052",
+      "filename": "IMG_20260124_135143.jpg",
+      "timestamp": "2026-03-11T14:26:17",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026年3月11日14:26，在万里长城（八达岭段）景区户外，【主角】右手握持一张中华人民共和国居民身份证置于前景，背景呈现长城蜿蜒山势与蓝天，正在进行旅游打卡留念。",
+        "people": [],
+        "relations": [
+          {
+            "subject": "右手",
+            "relation": "holding",
+            "object": "居民身份证"
+          },
+          {
+            "subject": "居民身份证",
+            "relation": "placed_in_front_of",
+            "object": "长城景观"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "万里长城砖石结构背景",
+            "初春枯枝山林",
+            "晴朗无云蓝天",
+            "自然日光照射",
+            "低矮长城墙垛"
+          ],
+          "location_detected": "北京市八达岭长城",
+          "location_type": "室外"
+        },
+        "event": {
+          "activity": "旅游",
+          "social_context": "独自",
+          "mood": "轻松",
+          "story_hints": [
+            "此行为属于典型的游客打卡行为，旨在证明本人到访过特定地标。",
+            "身份证签发机关为广东省陆丰市公安局，推测【主角】为跨省旅游的游客。"
+          ]
+        },
+        "details": [
+          "中华人民共和国居民身份证正本（背面可见签发机关：陆丰市公安局，有效期：2022.08.23-2032.08.23）",
+          "黑色保暖户外手套（覆盖左手部分指节）",
+          "HUAWEI Pura70 Pro+ XMAGE水印"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_055",
+      "filename": "IMG_20260124_135208.jpg",
+      "timestamp": "2026-03-11T14:26:19",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026年3月11日14:26，天气晴朗，【主角】正处于长城景区的高处烽火台附近，正以第一人称视角举起手中的第二代居民身份证进行拍摄，标记此次个人远足行程。",
+        "people": [],
+        "relations": [
+          {
+            "subject": "【主角】的手部",
+            "relation": "holding",
+            "object": "居民身份证"
+          },
+          {
+            "subject": "居民身份证",
+            "relation": "placed_in_foreground_of",
+            "object": "长城风景"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "晴朗无云的深蓝色天空",
+            "远景为连绵的灰色山脉及古长城遗迹",
+            "近景为长城粗糙的条石墙面",
+            "强烈的日照直射光",
+            "植被呈现初春早期的枯黄与深绿交替色调"
+          ],
+          "location_detected": "北京八达岭长城景区",
+          "location_type": "室外"
+        },
+        "event": {
+          "activity": "旅行/打卡",
+          "social_context": "独自",
+          "mood": "专注、纪念性",
+          "story_hints": [
+            "由于长城景区通常需查验实名信息，这可能是【主角】在登顶或入口处留下的纪实影像",
+            "拍摄者可能在通过身份证明与地理标志的合影方式，通过社交媒体进行个人地理定位打卡"
+          ]
+        },
+        "details": [
+          "中华人民共和国居民身份证正本（模糊处理）",
+          "华为 Pura 70 Pro+ XMAGE 手机拍摄水印",
+          "长城特有的灰白色石质城墙纹理"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_056",
+      "filename": "IMG_20260125_092104_1.jpg",
+      "timestamp": "2026-03-11T14:27:37",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026年3月11日14:27，【主角】在北京故宫博物院乾清宫门外，正通过低角度拍摄视角记录大殿内部的“正大光明”匾与皇家龙椅陈设。",
+        "people": [],
+        "relations": [
+          {
+            "subject": "正大光明匾",
+            "relation": "mounted_above",
+            "object": "龙椅屏风"
+          },
+          {
+            "subject": "龙椅屏风",
+            "relation": "placed_inside",
+            "object": "乾清宫正殿"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "古建筑木质门框涂层剥落及开裂痕迹",
+            "正方形格栅天花",
+            "宫廷风格漆红立柱",
+            "金漆雕龙纹装饰",
+            "午后阳光形成的侧向投影"
+          ],
+          "location_detected": "北京故宫博物院-乾清宫",
+          "location_type": "室外"
+        },
+        "event": {
+          "activity": "参观考察/文物摄影",
+          "social_context": "独自",
+          "mood": "严肃、肃穆",
+          "story_hints": [
+            "基于拍摄机位的高度，【主角】可能处于参观动线外围或游客通过门框拍摄视角",
+            "拍摄器材为华为Pura 70 Pro+，显示【主角】对影像记录有明确的设备偏好"
+          ]
+        },
+        "details": [
+          "“正大光明”牌匾",
+          "雕龙木质屏风",
+          "华为 Pura 70 Pro+ XMAGE 水印",
+          "对联文字：‘泰正萬邦慎身脩思永，先覺覺仁呈建其有極’（部分可见）"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_094",
+      "filename": "screenshot_20260124_195819.jpg",
+      "timestamp": "2026-03-11T14:37:17",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026-03-11 14:37，在数字电子环境下，【主角】正在通过手机操作支付宝小程序界面进行网约车合规性查询，处于执行行政审核或验证服务的状态。",
+        "people": [],
+        "relations": [
+          {
+            "subject": "【主角】",
+            "relation": "interacting_with",
+            "object": "支付宝合规信息查询小程序界面"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "移动数字设备屏幕界面",
+            "白色背景极简UI设计",
+            "深蓝色放大镜与白色轿车装饰图标",
+            "绿色矩形交互按钮"
+          ],
+          "location_detected": "数字化空间/个人移动设备内",
+          "location_type": "室内"
+        },
+        "event": {
+          "activity": "查询业务",
+          "social_context": "独自",
+          "mood": "中性，功能性操作",
+          "story_hints": [
+            "【主角】可能正在进行网约车从业资格核验或车辆合规性审查",
+            "【主角】可能处于职业背调或日常合规检查流程中"
+          ]
+        },
+        "details": [
+          "顶部状态栏显示时间19:58（注意：截屏时间与EXIF记录时间存在差异，或为截屏时间）",
+          "页面标题：合规信息查询服务",
+          "核心功能：网约车合规查询",
+          "操作按钮：微信授权一键登录",
+          "背书信息：数据来源-全国网约车监管信息交互平台技术，支持-国交信息股份有限公司"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_097",
+      "filename": "screenshot_20260124_220934.jpg",
+      "timestamp": "2026-03-11T14:37:17",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026年3月11日14:37，【主角】正在查看手机上的天气App界面，屏幕显示当前处于寒冬季节（对比2026年1月25日气象资料），正通过数字化工具确认环境气候数据。",
+        "people": [],
+        "relations": [
+          {
+            "subject": "【主角】",
+            "relation": "interacting_with",
+            "object": "智能手机屏幕"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "深色UI设计的天气应用界面",
+            "包含日期、温度曲线、空气质量、风向风力及全年气候趋势图表",
+            "系统状态栏显示5G网络、264KB/s实时网速、26%剩余电量"
+          ],
+          "location_detected": "移动设备屏幕内",
+          "location_type": "室内"
+        },
+        "event": {
+          "activity": "查看天气信息",
+          "social_context": "独自",
+          "mood": "平稳",
+          "story_hints": [
+            "【主角】可能在规划近期行程，正在回溯或预估低温天气影响",
+            "该应用显示2026年1月25日为气象对比基准，暗示该时间点对【主角】具有特殊参考价值"
+          ]
+        },
+        "details": [
+          "日期：2026年1月25日（周日）",
+          "天气数据：-2°/-7°，小雪，西北风转南风1级，空气良",
+          "屏幕文字：'全年气候趋势 - 2026年1月，预计高温较去年降低了1.9度'",
+          "系统状态栏时间：22:09"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_095",
+      "filename": "screenshot_20260124_214802.jpg",
+      "timestamp": "2026-03-11T14:37:18",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026年3月11日14:37，【主角】在户外长城景区拍摄Person_045，后者正手持展示写有毛泽东诗词《清平乐·六盘山》的手机屏幕。",
+        "people": [
+          {
+            "person_id": "Person_045",
+            "appearance": "男性，青年，短发，椭圆形脸，体型正常。",
+            "clothing": "深蓝色与白色拼色防风冲锋衣（胸口印有CAMEL品牌Logo）、蓝色针织运动帽。",
+            "activity": "双手持握手机展示文字，面部戴有黑色遮阳墨镜。",
+            "interaction": "与【主角】保持社交距离，正在配合展示物进行拍摄。",
+            "contact_type": "no_contact",
+            "expression": "表情平静，被墨镜遮挡大部分视线。"
+          }
+        ],
+        "relations": [
+          {
+            "subject": "Person_045",
+            "relation": "holding",
+            "object": "手机（显示内容为《清平乐·六盘山》）"
+          },
+          {
+            "subject": "Person_045",
+            "relation": "standing_near",
+            "object": "长城城墙"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "背景可见裸露的枯树枝",
+            "灰黑色砖石长城墙体",
+            "冰雪覆盖的地面",
+            "漫射光照射"
+          ],
+          "location_detected": "北京长城景区",
+          "location_type": "室外"
+        },
+        "event": {
+          "activity": "旅游观光/书法展示",
+          "social_context": "和朋友（【主角】）",
+          "mood": "严肃、文艺",
+          "story_hints": [
+            "Person_045可能正在进行某种打卡或致敬经典的拍摄活动",
+            "照片内容的诗词与长城场景高度契合"
+          ]
+        },
+        "details": [
+          "CAMEL品牌Logo冲锋衣",
+          "手机屏幕显示内容：《清平乐·六盘山》毛泽东：天高云淡望断南飞雁，不到长城非好汉，屈指行程二万，六盘山上高峰，红旗漫卷西风，今日长缨在手，何时缚住苍龙",
+          "拍摄设备水印信息：HUAWEI Pura70 Pro+ | XMAGE"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    },
+    {
+      "photo_id": "photo_096",
+      "filename": "screenshot_20260124_215419.jpg",
+      "timestamp": "2026-03-11T14:37:20",
+      "location": {},
+      "vlm_analysis": {
+        "summary": "2026年3月11日14:37，在八达岭长城户外严寒环境下，【主角】拍摄了Person_045手持手机展示个人游记备忘录的画面，记录了其冬季长城旅行的实况。",
+        "people": [
+          {
+            "person_id": "Person_045",
+            "appearance": "男性，青年，圆脸型，肤色匀称，佩戴深色墨镜，头戴亮蓝色针织帽。",
+            "clothing": "身穿Camel品牌藏青色与白色拼接的机能防风外套，内层疑似抓绒材质，佩戴黑色户外运动手套。",
+            "activity": "双手举起iPhone手机，将其屏幕正对摄像机镜头进行展示。",
+            "interaction": "与【主角】保持约一个手臂的拍摄距离，直视镜头方向。",
+            "contact_type": "no_contact",
+            "expression": "面部表情平静，嘴唇微张，情绪状态稳定。"
+          }
+        ],
+        "relations": [
+          {
+            "subject": "Person_045",
+            "relation": "holding",
+            "object": "iPhone"
+          },
+          {
+            "subject": "Person_045",
+            "relation": "standing_near",
+            "object": "长城城墙"
+          }
+        ],
+        "scene": {
+          "environment_details": [
+            "背景为干枯树枝与积雪覆盖的阴面山坡",
+            "石质长城墙体",
+            "冷光色调",
+            "冬季户外环境"
+          ],
+          "location_detected": "北京市八达岭长城",
+          "location_type": "室外"
+        },
+        "event": {
+          "activity": "户外旅行记录",
+          "social_context": "个人游",
+          "mood": "专注、留念",
+          "story_hints": [
+            "画面中的手机备忘录显示有“2026年1月20日”的字样及旅行感怀，推测此次拍摄是对过往旅行记录的影像复盘。",
+            "受访者通过手持屏幕展示，具有极强的社交平台发布意图（短视频博主行为特征）。"
+          ]
+        },
+        "details": [
+          "外衣胸前可见CAMEL品牌Logo",
+          "手机屏幕内容显示备忘录文字：‘天高云淡望长城……’及具体日期‘2026年1月20日’",
+          "画面右侧UI显示点赞、评论及收藏按钮，为短视频平台界面"
+        ]
+      },
+      "source_type": null,
+      "face_person_ids": []
+    }
+  ]
+}

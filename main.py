@@ -1,28 +1,70 @@
 #!/usr/bin/env python3
 """
-记忆工程项目 - 主入口
+记忆工程 v2.0 - 主入口
+Pipeline: Load → HEIC → 去重 → 人脸识别 → 主角推断+画框 → 压缩 → VLM → LLM → 保存
 """
 import os
 import sys
 import json
 import argparse
+import shutil
 from datetime import datetime
-from typing import List
+from typing import List, Dict
+
+# 预解析 --user-name 参数，在 config import 之前设置环境变量
+def _pre_parse_user_name():
+    for i, arg in enumerate(sys.argv):
+        if arg == '--user-name' and i + 1 < len(sys.argv):
+            os.environ['MEMORY_USER_NAME'] = sys.argv[i + 1]
+            return
+
+_pre_parse_user_name()
 
 # 添加项目路径
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 # 加载环境变量
 from dotenv import load_dotenv
-load_dotenv()
+try:
+    load_dotenv()
+except:
+    pass
 
 from config import *
-from memory_module import MemoryModuleService
 from services.image_processor import ImageProcessor
 from services.face_recognition import FaceRecognition
 from services.vlm_analyzer import VLMAnalyzer
 from services.llm_processor import LLMProcessor
-from utils import save_json
+from utils import save_json, format_timestamp
+from utils.output_artifacts import (
+    build_artifacts_manifest,
+    build_final_output_payload,
+    build_internal_artifact,
+    build_profile_debug_artifact,
+    build_relationships_artifact,
+    save_json_artifact,
+)
+from services.memory_pipeline.downstream_audit import (
+    apply_downstream_profile_backflow,
+    apply_downstream_protagonist_backflow,
+    apply_downstream_relationship_backflow,
+    inspect_profile_agent_runtime_health,
+    run_downstream_profile_agent_audit,
+)
+from services.memory_pipeline.orchestrator import (
+    build_memory_state,
+    rerun_pipeline_from_primary_backflow,
+    rerun_pipeline_from_relationship_backflow,
+    run_memory_pipeline,
+)
+from services.memory_pipeline.evolution import (
+    build_memory_run_trace,
+    persist_memory_run_trace,
+)
+from services.reflection import (
+    persist_downstream_audit_reflection_assets,
+    persist_mainline_reflection_assets,
+)
 
 
 def show_progress(current: int, total: int, message: str = ""):
@@ -38,59 +80,42 @@ def show_progress(current: int, total: int, message: str = ""):
     print(f"\r处理中... [{bar}] {current}/{total} ({percent:.0f}%) {message}", end='', flush=True)
 
 
-def print_simple_summary(
-    events: List,
-    relationships: List,
-    profile_path: str = None,
-    primary_person_id: str = None,
-):
-    """打印简洁版摘要（终端输出）"""
+def print_simple_summary(events: List, relationships: List, artifacts: Dict[str, str | None], profile_path: str = None):
+    """打印简洁版摘要"""
     print("\n\n" + "=" * 50)
     print("记忆提取完成")
     print("=" * 50)
 
-    # 事件
     print(f"\n事件：{len(events)}个")
     for event in events:
         print(f"  ├─ {event.date} {event.time_range}: {event.title} (置信度: {event.confidence:.0%})")
 
-    # 人物关系
     print(f"\n人物关系：{len(relationships)}个")
     for rel in relationships:
-        print(f"  ├─ {rel.person_id}: {rel.label} (置信度: {rel.confidence:.0%})")
+        print(f"  ├─ {rel.person_id}: {rel.relationship_type} (intimacy: {rel.intimacy_score:.2f}, {rel.status})")
 
-    # 用户画像
     print("\n用户画像：")
     if profile_path:
         print(f"  画像报告已生成: {profile_path}")
     else:
         print(f"  画像生成失败")
 
-    if primary_person_id:
-        print(f"\n主用户ID：{primary_person_id}")
-
-    # 输出路径
     print(f"\n结果已保存到: {OUTPUT_PATH}")
     print(f"详细报告已保存到: {DETAILED_OUTPUT_PATH}")
     print(f"VLM缓存已保存到: {VLM_CACHE_PATH}")
-    print(f"人脸识别输出已保存到: {FACE_OUTPUT_PATH}")
+    print(f"关系调试输出已保存到: {artifacts.get('relationships_path')}")
+    print(f"画像调试输出已保存到: {artifacts.get('profile_debug_path')}")
+    print(f"下游审计输出已保存到: {artifacts.get('downstream_audit_report_path')}")
+    print(f"Reflection observation cases 已保存到: {artifacts.get('reflection_observation_cases_path')}")
+    print(f"Reflection case facts 已保存到: {artifacts.get('reflection_case_facts_path')}")
 
 
-def save_detailed_report(events: List, relationships: List, face_output: dict):
-    """保存详细版报告（Markdown格式）- 不包含用户画像"""
+def save_detailed_report(events: List, relationships: List, face_db: dict):
+    """保存详细版报告（Markdown格式）"""
     report = []
-    report.append("# 记忆工程 - 详细报告\n")
+    report.append("# 记忆工程 v2.0 - 详细报告\n")
     report.append(f"**生成时间**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
 
-    primary_person_id = face_output.get("primary_person_id")
-    metrics = face_output.get("metrics", {})
-    report.append("## 人脸识别摘要\n")
-    report.append(f"- **主用户 ID**: {primary_person_id or '未识别'}\n")
-    report.append(f"- **图片数**: {metrics.get('total_images', 0)}\n")
-    report.append(f"- **人脸数**: {metrics.get('total_faces', 0)}\n")
-    report.append(f"- **人物数**: {metrics.get('total_persons', 0)}\n\n")
-
-    # 事件详情
     report.append("## 事件详情\n")
     for i, event in enumerate(events, 1):
         report.append(f"### {i}. {event.title}\n")
@@ -98,8 +123,6 @@ def save_detailed_report(events: List, relationships: List, face_output: dict):
         report.append(f"- **类型**: {event.type}\n")
         report.append(f"- **地点**: {event.location}\n")
         report.append(f"- **参与者**: {', '.join(event.participants)}\n")
-        if event.evidence_photos:
-            report.append(f"- **证据照片**: {', '.join(event.evidence_photos)}\n")
         report.append(f"- **照片数**: {event.photo_count}张\n")
         report.append(f"- **描述**: {event.description}\n")
         if event.narrative:
@@ -108,282 +131,809 @@ def save_detailed_report(events: List, relationships: List, face_output: dict):
             core_ids = event.social_interaction.get('core_person_ids', [])
             if core_ids:
                 report.append(f"- **核心同伴**: {', '.join(core_ids)}\n")
-            details = event.social_interaction.get('interaction_details', '')
-            if details:
-                report.append(f"- **互动详情**: {details}\n")
         if event.lifestyle_tags:
             report.append(f"- **生活标签**: {', '.join(event.lifestyle_tags)}\n")
-
-        # 新增：社交切片
         if event.social_slices:
             report.append(f"- **社交切片**:\n")
-            for slice in event.social_slices:
-                report.append(f"  - {slice.get('person_id', '未知')}: {slice.get('interaction', '')} | {slice.get('relationship', '')} ({slice.get('confidence', 0):.0%})\n")
-
-        # 新增：人格/性格/审美线索
+            for s in event.social_slices:
+                report.append(f"  - {s.get('person_id', '未知')}: {s.get('interaction', '')} | {s.get('relationship', '')} ({s.get('confidence', 0):.0%})\n")
         if event.persona_evidence:
-            report.append(f"- **人格/性格/审美线索**:\n")
             evidence = event.persona_evidence
+            report.append(f"- **人格线索**:\n")
             if evidence.get('behavioral'):
-                report.append(f"  - 行为特征: {', '.join(evidence['behavioral'])}\n")
+                report.append(f"  - 行为: {', '.join(evidence['behavioral'])}\n")
             if evidence.get('aesthetic'):
                 report.append(f"  - 审美: {', '.join(evidence['aesthetic'])}\n")
-            if evidence.get('other'):
-                report.append(f"  - 其他: {', '.join(evidence['other'])}\n")
-
         report.append(f"- **置信度**: {event.confidence:.0%}\n")
         report.append(f"- **推理依据**: {event.reason}\n\n")
 
-    # 人物关系详情
     report.append("## 人物关系详情\n")
     for i, rel in enumerate(relationships, 1):
-        report.append(f"### {i}. {rel.person_id} - {rel.label}\n")
+        report.append(f"### {i}. {rel.person_id} - {rel.relationship_type} (intimacy: {rel.intimacy_score:.2f}, {rel.status})\n")
+        report.append(f"- **月均频率**: {rel.evidence.get('monthly_frequency', 0)}/月\n")
         report.append(f"- **置信度**: {rel.confidence:.0%}\n")
-        report.append(f"- **证据**: 共同出现{rel.evidence['photo_count']}次，时间跨度{rel.evidence['time_span']}\n")
-        report.append(f"- **场景**: {', '.join(rel.evidence['scenes'])}\n")
-        report.append(f"- **推理**: {rel.reason}\n\n")
+        report.append(f"- **证据**: 共同出现{rel.evidence.get('photo_count', 0)}次，时间跨度{rel.evidence.get('time_span', '未知')}\n")
+        report.append(f"- **场景**: {', '.join(rel.evidence.get('scenes', []))}\n")
+        co_persons = rel.evidence.get('co_appearing_persons', [])
+        if co_persons:
+            co_strs = [f"{c['person_id']}({c['co_ratio']:.0%})" for c in co_persons[:5]]
+            report.append(f"- **第三方共现**: {', '.join(co_strs)}\n")
+        anomalies = rel.evidence.get('anomalies', [])
+        if anomalies:
+            anomaly_strs = [f"{a['type']}@{a['date']}" for a in anomalies[:5]]
+            report.append(f"- **异常**: {'; '.join(anomaly_strs)}\n")
+        report.append(f"- **推理**: {rel.reasoning}\n\n")
 
-    # 保存
     with open(DETAILED_OUTPUT_PATH, 'w', encoding='utf-8') as f:
         f.writelines(report)
 
 
-def save_final_output(
-    events: List,
-    relationships: List,
-    face_output: dict,
-    memory_output: dict = None,
-    profile_markdown: str = "",
-    primary_person_id: str = None,
-):
-    """保存最终输出（JSON格式）- 不包含用户画像（画像单独保存为Markdown）"""
-    output = {
-        "metadata": {
-            "generated_at": datetime.now().isoformat(),
-            "total_events": len(events),
-            "total_relationships": len(relationships),
-            "models": {
-                "vlm": VLM_MODEL,
-                "llm": LLM_MODEL,
-            },
-            "primary_person_id": primary_person_id,
+def save_final_output(events: List, relationships: List, face_db: dict, artifacts: Dict[str, str | None]):
+    """保存最终输出（JSON格式）"""
+    output = build_final_output_payload(
+        events=events,
+        relationships=relationships,
+        face_db=face_db,
+        artifacts=artifacts,
+        models={
+            "vlm": VLM_MODEL,
+            "llm": LLM_MODEL,
+            "face": f"InsightFace/{FACE_MODEL_NAME}",
         },
-        "events": [
-            {
-                "event_id": e.event_id,
-                "date": e.date,
-                "time_range": e.time_range,
-                "duration": e.duration,
-                "title": e.title,
-                "type": e.type,
-                "participants": e.participants,
-                "location": e.location,
-                "description": e.description,
-                "photo_count": e.photo_count,
-                "confidence": e.confidence,
-                "reason": e.reason,
-                "narrative": e.narrative,
-                "social_interaction": e.social_interaction,
-                "evidence_photos": e.evidence_photos,
-                "lifestyle_tags": e.lifestyle_tags,
-                "social_slices": e.social_slices,
-                "persona_evidence": e.persona_evidence
-            }
-            for e in events
-        ],
-        "relationships": [
-            {
-                "person_id": r.person_id,
-                "relationship_type": r.relationship_type,
-                "label": r.label,
-                "confidence": r.confidence,
-                "evidence": r.evidence,
-                "reason": r.reason
-            }
-            for r in relationships
-        ],
-        "face_recognition": face_output,
-        "profile_markdown": profile_markdown,
-        "memory": memory_output or {},
-    }
-
+    )
     save_json(output, OUTPUT_PATH)
 
 
 def save_profile_report(profile_markdown: str):
-    """保存用户画像报告（Markdown格式）"""
+    """保存用户画像报告"""
     with open(PROFILE_REPORT_PATH, 'w', encoding='utf-8') as f:
         f.write(profile_markdown)
     return PROFILE_REPORT_PATH
 
 
+def save_structured_profile(structured_profile: dict):
+    """保存结构化画像标签"""
+    save_json(structured_profile, PROFILE_STRUCTURED_PATH)
+    return PROFILE_STRUCTURED_PATH
+
+
+def save_relationships_output(relationships: List, primary_person_id: str | None):
+    """保存独立 relationships 调试输出"""
+    payload = build_relationships_artifact(
+        relationships=relationships,
+        primary_person_id=primary_person_id,
+    )
+    return save_json_artifact(payload, RELATIONSHIPS_OUTPUT_PATH)
+
+
+def save_profile_debug(profile_result: dict | None, primary_person_id: str | None, total_events: int, total_relationships: int):
+    """保存画像调试输出（debug + consistency）。"""
+    payload = build_profile_debug_artifact(
+        profile_result=profile_result,
+        primary_person_id=primary_person_id,
+        total_events=total_events,
+        total_relationships=total_relationships,
+    )
+    return save_json_artifact(payload, PROFILE_DEBUG_PATH)
+
+
+def save_internal_artifact(artifact_name: str, payload, path: str, **metadata):
+    """保存多 agent 内部 artifact。"""
+    artifact = build_internal_artifact(
+        artifact_name=artifact_name,
+        payload=payload,
+        **metadata,
+    )
+    return save_json_artifact(artifact, path)
+
+
+def run_memory_pipeline_entry(
+    llm: LLMProcessor,
+    photos: list,
+    face_db: dict,
+    vlm_results: list,
+    primary_person_id: str | None,
+):
+    """运行当前主链路记忆生成链路。"""
+    print("  - 运行主链路记忆生成...")
+    memory_state = build_memory_state(
+        photos=photos,
+        face_db=face_db,
+        vlm_results=vlm_results,
+    )
+    profile_result = run_memory_pipeline(
+        state=memory_state,
+        llm_processor=llm,
+        fallback_primary_person_id=primary_person_id,
+    )
+    audit_album_id = f"{USER_NAME}_{RUN_TIMESTAMP}"
+    downstream_audit_report = _run_downstream_audit_with_fallback(
+        album_id=audit_album_id,
+        primary_decision=profile_result.get("internal_artifacts", {}).get("primary_decision"),
+        relationships=profile_result.get("relationships", []),
+        structured_profile=profile_result.get("structured"),
+        profile_fact_decisions=profile_result.get("internal_artifacts", {}).get("profile_fact_decisions", []),
+    )
+    audit_rounds = [_audit_round_snapshot("initial", downstream_audit_report)]
+
+    updated_primary_decision, protagonist_changed = apply_downstream_protagonist_backflow(
+        profile_result.get("internal_artifacts", {}).get("primary_decision"),
+        downstream_audit_report,
+    )
+    if protagonist_changed:
+        original_primary = profile_result.get("internal_artifacts", {}).get("primary_decision") or {}
+        runner_up_id = original_primary.get("runner_up_person_id")
+
+        if runner_up_id and runner_up_id in memory_state.face_db:
+            updated_primary_decision["mode"] = "person_id"
+            updated_primary_decision["primary_person_id"] = runner_up_id
+            updated_primary_decision["confidence"] = 0.65
+            existing_reason = str(updated_primary_decision.get("reasoning") or "")
+            updated_primary_decision["reasoning"] = f"{existing_reason}\n[回流] 第一候选被推翻，尝试第二候选人 {runner_up_id}。".strip()
+            memory_state.primary_decision = updated_primary_decision
+            profile_result = rerun_pipeline_from_primary_backflow(
+                state=memory_state,
+                llm_processor=llm,
+            )
+            rerun_stage = "after_protagonist_runner_up_rerun"
+            downstream_audit_report = _run_downstream_audit_with_fallback(
+                album_id=audit_album_id,
+                primary_decision=profile_result.get("internal_artifacts", {}).get("primary_decision"),
+                relationships=profile_result.get("relationships", []),
+                structured_profile=profile_result.get("structured"),
+                profile_fact_decisions=profile_result.get("internal_artifacts", {}).get("profile_fact_decisions", []),
+            )
+            audit_rounds.append(_audit_round_snapshot(rerun_stage, downstream_audit_report))
+
+            _, runner_up_also_rejected = apply_downstream_protagonist_backflow(
+                profile_result.get("internal_artifacts", {}).get("primary_decision"),
+                downstream_audit_report,
+            )
+            if runner_up_also_rejected:
+                updated_primary_decision["mode"] = "photographer_mode"
+                updated_primary_decision["primary_person_id"] = None
+                updated_primary_decision["confidence"] = 0.0
+                existing_reason2 = str(updated_primary_decision.get("reasoning") or "")
+                updated_primary_decision["reasoning"] = f"{existing_reason2}\n[回流] 第二候选人也被推翻，终局为 photographer_mode。".strip()
+        else:
+            runner_up_id = None
+
+        if updated_primary_decision.get("mode") == "photographer_mode":
+            for rel in memory_state.relationships:
+                if hasattr(rel, 'relationship_type'):
+                    rel.relationship_type = "observed_without_protagonist"
+                    rel.confidence = min(rel.confidence, 0.3)
+                elif isinstance(rel, dict):
+                    rel["relationship_type"] = "observed_without_protagonist"
+                    rel["confidence"] = min(float(rel.get("confidence", 0)), 0.3)
+            for dossier in memory_state.relationship_dossiers:
+                dossier.group_eligible = False
+            memory_state.groups = []
+            profile_result = rerun_pipeline_from_relationship_backflow(
+                state=memory_state,
+                llm_processor=llm,
+            )
+            rerun_stage = "after_protagonist_photographer_rerun"
+        elif not runner_up_id:
+            memory_state.primary_decision = updated_primary_decision
+            profile_result = rerun_pipeline_from_primary_backflow(
+                state=memory_state,
+                llm_processor=llm,
+            )
+            rerun_stage = "after_protagonist_rerun"
+
+        if not runner_up_id or updated_primary_decision.get("mode") == "photographer_mode":
+            downstream_audit_report = _run_downstream_audit_with_fallback(
+                album_id=audit_album_id,
+                primary_decision=profile_result.get("internal_artifacts", {}).get("primary_decision"),
+                relationships=profile_result.get("relationships", []),
+                structured_profile=profile_result.get("structured"),
+                profile_fact_decisions=profile_result.get("internal_artifacts", {}).get("profile_fact_decisions", []),
+            )
+            audit_rounds.append(_audit_round_snapshot(rerun_stage, downstream_audit_report))
+
+    updated_relationships, updated_dossiers, relationship_changed = apply_downstream_relationship_backflow(
+        profile_result.get("relationships", []),
+        memory_state.relationship_dossiers,
+        downstream_audit_report,
+    )
+    if relationship_changed:
+        memory_state.relationships = updated_relationships
+        memory_state.relationship_dossiers = updated_dossiers
+        profile_result = rerun_pipeline_from_relationship_backflow(
+            state=memory_state,
+            llm_processor=llm,
+        )
+        downstream_audit_report = _run_downstream_audit_with_fallback(
+            album_id=audit_album_id,
+            primary_decision=profile_result.get("internal_artifacts", {}).get("primary_decision"),
+            relationships=profile_result.get("relationships", []),
+            structured_profile=profile_result.get("structured"),
+            profile_fact_decisions=profile_result.get("internal_artifacts", {}).get("profile_fact_decisions", []),
+        )
+        audit_rounds.append(_audit_round_snapshot("after_relationship_rerun", downstream_audit_report))
+
+    updated_structured_profile, updated_profile_fact_decisions = apply_downstream_profile_backflow(
+        profile_result.get("structured"),
+        downstream_audit_report,
+        field_decisions=profile_result.get("internal_artifacts", {}).get("profile_fact_decisions", []),
+    )
+    profile_result["structured"] = updated_structured_profile
+    profile_result.setdefault("internal_artifacts", {})["profile_fact_decisions"] = updated_profile_fact_decisions
+    downstream_audit_report["feedback_loop"] = {
+        "protagonist_rerun_applied": protagonist_changed,
+        "relationship_rerun_applied": relationship_changed,
+        "audit_rounds": audit_rounds,
+    }
+    final_primary_person_id = (
+        (profile_result.get("internal_artifacts", {}).get("primary_decision") or {}).get("primary_person_id")
+    )
+    mainline_capture_error = ""
+    try:
+        mainline_capture_result = persist_mainline_reflection_assets(
+            internal_artifacts=profile_result.get("internal_artifacts", {}),
+            project_root=PROJECT_ROOT,
+            user_name=USER_NAME,
+            album_id=audit_album_id,
+        )
+    except Exception as exc:
+        mainline_capture_error = str(exc)
+        mainline_capture_result = {
+            "observation_cases_path": None,
+            "case_facts_path": None,
+            "written_observation_count": 0,
+            "written_case_fact_count": 0,
+            "case_ids": [],
+            "error": mainline_capture_error,
+        }
+
+    reflection_capture_error = ""
+    try:
+        downstream_capture_result = persist_downstream_audit_reflection_assets(
+            downstream_audit_report=downstream_audit_report,
+            project_root=PROJECT_ROOT,
+            user_name=USER_NAME,
+            album_id=audit_album_id,
+        )
+    except Exception as exc:
+        reflection_capture_error = str(exc)
+        downstream_capture_result = {
+            "observation_cases_path": None,
+            "case_facts_path": None,
+            "written_observation_count": 0,
+            "written_case_fact_count": 0,
+            "case_ids": [],
+            "error": reflection_capture_error,
+        }
+    reflection_observation_cases_path = (
+        downstream_capture_result.get("observation_cases_path")
+        or mainline_capture_result.get("observation_cases_path")
+    )
+    reflection_case_facts_path = (
+        downstream_capture_result.get("case_facts_path")
+        or mainline_capture_result.get("case_facts_path")
+    )
+    reflection_capture_status = {
+        "phase": "mainline_and_downstream_capture",
+        "state": "captured" if not (mainline_capture_error or reflection_capture_error) else "capture_failed",
+        "mainline_capture_error": mainline_capture_error,
+        "downstream_capture_error": reflection_capture_error,
+        "written_mainline_observation_count": mainline_capture_result.get("written_observation_count", 0),
+        "written_mainline_case_fact_count": mainline_capture_result.get("written_case_fact_count", 0),
+        "written_downstream_observation_count": downstream_capture_result.get("written_observation_count", 0),
+        "written_downstream_case_fact_count": downstream_capture_result.get("written_case_fact_count", 0),
+        "written_observation_count": (
+            mainline_capture_result.get("written_observation_count", 0)
+            + downstream_capture_result.get("written_observation_count", 0)
+        ),
+        "written_case_fact_count": (
+            mainline_capture_result.get("written_case_fact_count", 0)
+            + downstream_capture_result.get("written_case_fact_count", 0)
+        ),
+    }
+    downstream_audit_report.setdefault("metadata", {})["reflection_observation_cases_written"] = downstream_capture_result.get("written_observation_count", 0)
+    downstream_audit_report["metadata"]["reflection_case_facts_written"] = downstream_capture_result.get("written_case_fact_count", 0)
+    downstream_audit_report["metadata"]["reflection_capture_status"] = reflection_capture_status
+    events = profile_result.get("events", [])
+    relationships = profile_result.get("relationships", [])
+    relationship_dossiers_path = save_internal_artifact(
+        artifact_name="relationship_dossiers",
+        payload=profile_result.get("internal_artifacts", {}).get("relationship_dossiers", []),
+        path=RELATIONSHIP_DOSSIERS_PATH,
+        primary_person_id=final_primary_person_id,
+        total_dossiers=len(profile_result.get("internal_artifacts", {}).get("relationship_dossiers", [])),
+    )
+    group_artifacts_path = save_internal_artifact(
+        artifact_name="group_artifacts",
+        payload=profile_result.get("internal_artifacts", {}).get("group_artifacts", []),
+        path=GROUP_ARTIFACTS_PATH,
+        primary_person_id=final_primary_person_id,
+        total_groups=len(profile_result.get("internal_artifacts", {}).get("group_artifacts", [])),
+    )
+    profile_fact_decisions_path = save_internal_artifact(
+        artifact_name="profile_fact_decisions",
+        payload=profile_result.get("internal_artifacts", {}).get("profile_fact_decisions", []),
+        path=PROFILE_FACT_DECISIONS_PATH,
+        primary_person_id=final_primary_person_id,
+        total_fields=len(profile_result.get("internal_artifacts", {}).get("profile_fact_decisions", [])),
+    )
+    reflection_capture_status_path = save_internal_artifact(
+        artifact_name="reflection_capture_status",
+        payload=reflection_capture_status,
+        path=os.path.join(USER_OUTPUT_DIR, f"reflection_capture_status_{USER_NAME}_{RUN_TIMESTAMP}.json"),
+        primary_person_id=final_primary_person_id,
+        reflection_case_facts_written=reflection_capture_status.get("written_case_fact_count", 0),
+    )
+    downstream_audit_report_path = save_internal_artifact(
+        artifact_name="downstream_audit_report",
+        payload=downstream_audit_report,
+        path=DOWNSTREAM_AUDIT_REPORT_PATH,
+        primary_person_id=final_primary_person_id,
+        total_audited_tags=downstream_audit_report.get("summary", {}).get("total_audited_tags", 0),
+        rejected_count=downstream_audit_report.get("summary", {}).get("rejected_count", 0),
+    )
+    run_trace_path = None
+    run_trace_ledger_path = None
+    try:
+        stage_reports = [
+            {
+                "stage": "relationships",
+                "status": "ok",
+                "counts": {
+                    "relationships": len(relationships),
+                    "dossiers": len(profile_result.get("internal_artifacts", {}).get("relationship_dossiers", [])),
+                },
+            },
+            {
+                "stage": "profile_lp3",
+                "status": "ok",
+                "counts": {
+                    "field_decisions": len(profile_result.get("internal_artifacts", {}).get("profile_fact_decisions", [])),
+                    "groups": len(profile_result.get("internal_artifacts", {}).get("group_artifacts", [])),
+                },
+            },
+            {
+                "stage": "downstream_audit",
+                "status": "ok"
+                if str((downstream_audit_report.get("metadata") or {}).get("audit_status") or "ok") != "skipped_init_failure"
+                else "warn",
+                "counts": dict(downstream_audit_report.get("summary", {}) or {}),
+            },
+        ]
+        for round_payload in audit_rounds[1:]:
+            stage_reports.append(
+                {
+                    "stage": str(round_payload.get("stage") or "audit_rerun"),
+                    "status": "ok",
+                    "counts": dict((round_payload.get("summary") or {})),
+                }
+            )
+        profile_llm_batch_debug = list(
+            profile_result.get("internal_artifacts", {}).get("profile_llm_batch_debug", []) or []
+        )
+        fallback_batch_count = sum(
+            1
+            for item in profile_llm_batch_debug
+            if item.get("used_offline_fallback")
+            or item.get("fallback_reason")
+            or item.get("raw_result_parseable") is False
+        )
+        issue_count = 0
+        high_risk_issue_count = 0
+        if str((downstream_audit_report.get("metadata") or {}).get("audit_status") or "ok") == "skipped_init_failure":
+            issue_count += 1
+            high_risk_issue_count += 1
+        if fallback_batch_count > 0:
+            issue_count += 1
+            if fallback_batch_count >= 2:
+                high_risk_issue_count += 1
+        run_trace_payload = build_memory_run_trace(
+            run_type="mainline",
+            user_name=USER_NAME,
+            stage_reports=stage_reports,
+            downstream_audit_report=downstream_audit_report,
+            profile_llm_batch_debug=profile_llm_batch_debug,
+            test_issue_log={
+                "summary": {
+                    "issue_count": issue_count,
+                    "high_risk_issue_count": high_risk_issue_count,
+                }
+            },
+            artifacts={
+                "structured_profile_path": PROFILE_STRUCTURED_PATH,
+                "profile_fact_decisions_path": profile_fact_decisions_path,
+                "downstream_audit_report_path": downstream_audit_report_path,
+                "relationship_dossiers_path": relationship_dossiers_path,
+                "group_artifacts_path": group_artifacts_path,
+                "reflection_capture_status_path": reflection_capture_status_path,
+            },
+        )
+        run_trace_result = persist_memory_run_trace(
+            project_root=PROJECT_ROOT,
+            output_dir=USER_OUTPUT_DIR,
+            trace_payload=run_trace_payload,
+        )
+        run_trace_path = run_trace_result.get("trace_json_path")
+        run_trace_ledger_path = run_trace_result.get("trace_ledger_path")
+    except Exception as exc:
+        print(f"    [warn] memory run trace 写入失败: {exc}")
+    print(f"    提取了 {len(events)} 个事件")
+    print(f"    推断了 {len(relationships)} 个关系")
+    print(f"    生成了 {len(profile_result.get('internal_artifacts', {}).get('group_artifacts', []))} 个圈层 artifact")
+    return {
+        "events": events,
+        "relationships": relationships,
+        "profile_result": profile_result,
+        "final_primary_person_id": final_primary_person_id,
+        "relationship_dossiers_path": relationship_dossiers_path,
+        "group_artifacts_path": group_artifacts_path,
+        "profile_fact_decisions_path": profile_fact_decisions_path,
+        "downstream_audit_report_path": downstream_audit_report_path,
+        "reflection_observation_cases_path": reflection_observation_cases_path,
+        "reflection_case_facts_path": reflection_case_facts_path,
+        "reflection_capture_status_path": reflection_capture_status_path,
+        "run_trace_path": run_trace_path,
+        "run_trace_ledger_path": run_trace_ledger_path,
+    }
+
+
+def _audit_round_snapshot(stage: str, report: Dict) -> Dict[str, Dict]:
+    return {
+        "stage": stage,
+        "summary": dict(report.get("summary", {}) or {}),
+        "backflow": dict(report.get("backflow", {}) or {}),
+    }
+
+
+def _run_downstream_audit_with_fallback(
+    *,
+    album_id: str,
+    primary_decision: Dict | None,
+    relationships: list | None,
+    structured_profile: Dict | None,
+    profile_fact_decisions: List[Dict] | None = None,
+) -> Dict:
+    runtime_health = inspect_profile_agent_runtime_health()
+    if runtime_health.get("status") != "ok":
+        return _build_skipped_downstream_audit_report(
+            album_id=album_id,
+            primary_decision=primary_decision or {},
+            relationships=relationships or [],
+            structured_profile=structured_profile or {},
+            runtime_health=runtime_health,
+            error=RuntimeError(
+                f"downstream_runtime_unhealthy:{runtime_health.get('error_code', 'runtime_unhealthy')}"
+            ),
+        )
+    try:
+        return run_downstream_profile_agent_audit(
+            album_id=album_id,
+            primary_decision=primary_decision,
+            relationships=relationships or [],
+            structured_profile=structured_profile,
+            profile_fact_decisions=profile_fact_decisions or [],
+            runtime_health=runtime_health,
+        )
+    except Exception as exc:
+        return _build_skipped_downstream_audit_report(
+            album_id=album_id,
+            primary_decision=primary_decision or {},
+            relationships=relationships or [],
+            structured_profile=structured_profile or {},
+            runtime_health=runtime_health,
+            error=exc,
+        )
+
+
+def _build_skipped_downstream_audit_report(
+    *,
+    album_id: str,
+    primary_decision: Dict,
+    relationships: list,
+    structured_profile: Dict,
+    runtime_health: Dict | None,
+    error: Exception,
+) -> Dict:
+    error_type = type(error).__name__
+    error_message = str(error)
+    error_code = (
+        str((runtime_health or {}).get("error_code") or "audit_runtime_failure")
+        if runtime_health and runtime_health.get("status") != "ok"
+        else "audit_runtime_failure"
+    )
+    protagonist_not_audited = [{"target_id": "primary_decision", "reason": "audit_runtime_failure"}] if primary_decision else []
+    relationship_not_audited = []
+    for relationship in relationships:
+        if isinstance(relationship, dict):
+            person_id = relationship.get("person_id")
+        else:
+            person_id = getattr(relationship, "person_id", None)
+        relationship_not_audited.append(
+            {
+                "person_id": person_id,
+                "reason": "audit_runtime_failure",
+            }
+        )
+    total_not_audited = len(protagonist_not_audited) + len(relationship_not_audited)
+    return {
+        "metadata": {
+            "downstream_engine": "profile_agent",
+            "audit_mode": "selective_profile_domain_rules_facts_only",
+            "audit_cycle_mode": "full_v1_critic_v2_judge",
+            "profile_agent_root": PROFILE_AGENT_ROOT,
+            "audit_status": "skipped_init_failure",
+            "audit_error_code": error_code,
+            "audit_error_type": error_type,
+            "audit_error_message": error_message,
+            "runtime_health": runtime_health or {},
+            "reflection_observation_cases_written": 0,
+            "reflection_case_facts_written": 0,
+            "reflection_capture_status": {
+                "phase": "downstream_audit_capture",
+                "state": "skipped_init_failure",
+                "capture_error": error_message,
+                "written_observation_count": 0,
+                "written_case_fact_count": 0,
+            },
+        },
+        "summary": {
+            "total_audited_tags": 0,
+            "challenged_count": 0,
+            "accepted_count": 0,
+            "downgraded_count": 0,
+            "rejected_count": 0,
+            "not_audited_count": total_not_audited,
+        },
+        "backflow": {
+            "album_id": album_id,
+            "storage_saved": False,
+            "audit_failure": {
+                "error_type": error_type,
+                "error_message": error_message,
+            },
+            "protagonist": {
+                "official_output_applied": False,
+                "merged_output": {"agent_type": "protagonist", "tags": []},
+                "actions": [],
+            },
+            "relationship": {
+                "official_output_applied": False,
+                "merged_output": {"agent_type": "relationship", "tags": []},
+                "actions": [],
+            },
+            "profile": {
+                "official_output_applied": False,
+                "merged_output": {"agent_type": "profile", "tags": []},
+                "field_actions": [],
+            },
+        },
+        "protagonist": {
+            "extractor_output": {},
+            "critic_output": {"challenges": []},
+            "judge_output": {"decisions": [], "hard_cases": []},
+            "audit_flags": [],
+            "not_audited": protagonist_not_audited,
+        },
+        "relationship": {
+            "extractor_output": {},
+            "critic_output": {"challenges": []},
+            "judge_output": {"decisions": [], "hard_cases": []},
+            "audit_flags": [],
+            "not_audited": relationship_not_audited,
+        },
+        "profile": {
+            "extractor_output": {},
+            "critic_output": {"challenges": []},
+            "judge_output": {"decisions": [], "hard_cases": []},
+            "audit_flags": [],
+            "not_audited": [],
+        },
+    }
+
+
+def _cleanup_old_output_runs(user_name: str, max_runs: int) -> None:
+    """保留最新 max_runs 个运行目录，删除更早的。"""
+    if max_runs <= 0:
+        return
+    prefix = f"{user_name}_记忆测试_"
+    try:
+        all_dirs = sorted(
+            [
+                d for d in os.listdir(OUTPUT_DIR)
+                if d.startswith(prefix) and os.path.isdir(os.path.join(OUTPUT_DIR, d))
+            ]
+        )
+    except FileNotFoundError:
+        return
+    if len(all_dirs) <= max_runs:
+        return
+    to_remove = all_dirs[: len(all_dirs) - max_runs]
+    for d in to_remove:
+        target = os.path.join(OUTPUT_DIR, d)
+        print(f"  [cleanup] 删除旧运行: {d}")
+        shutil.rmtree(target, ignore_errors=True)
+
+
+def reset_cache():
+    """重置缓存（清空 cache/ 和 output/）"""
+    for path in (USER_CACHE_DIR, USER_OUTPUT_DIR):
+        if os.path.isdir(path):
+            shutil.rmtree(path)
+        os.makedirs(path, exist_ok=True)
+
+
 def main():
-    """主流程"""
-    parser = argparse.ArgumentParser(description='记忆工程项目 - 从相册提取记忆和画像')
+    """主流程 — 9步 pipeline"""
+    parser = argparse.ArgumentParser(description='记忆工程 v2.0 - 从相册提取记忆和画像')
     parser.add_argument('--photos', type=str, required=True, help='照片目录路径')
+    parser.add_argument('--user-name', type=str, required=True, help='用户名')
     parser.add_argument('--max-photos', type=int, default=MAX_PHOTOS, help='最多处理多少张照片')
     parser.add_argument('--use-cache', action='store_true', help='使用VLM缓存（跳过VLM分析）')
-
+    parser.add_argument('--gps-only', action='store_true', help='只处理含GPS信息的照片')
+    parser.add_argument('--task-version', default=DEFAULT_TASK_VERSION, help='人脸链路版本')
+    parser.add_argument('--reset-cache', action='store_true', help='处理前清空缓存（v1.x 缓存不兼容）')
     args = parser.parse_args()
 
     print("=" * 50)
-    print("记忆工程项目")
+    print("记忆工程 v2.0")
+    print(f"人脸引擎: InsightFace/{FACE_MODEL_NAME}")
+    print(f"person_id 格式: Person_001/Person_002...")
     print("=" * 50)
 
-    # Step 1: 加载照片
+    # 在实际运行时才创建 output 目录（不在 import config 时创建）
+    os.makedirs(USER_OUTPUT_DIR, exist_ok=True)
+    _cleanup_old_output_runs(USER_NAME, MAX_OUTPUT_RUNS_PER_USER)
+
+    if args.reset_cache:
+        print("\n[重置] 清空缓存...")
+        reset_cache()
+
+    # ─── [1/9] 加载照片 ───────────────────────────────────────────
     print("\n[1/9] 加载照片...")
     image_processor = ImageProcessor()
-    photos = image_processor.load_photos(args.photos, args.max_photos)
-    print(f"  加载了 {len(photos)} 张照片")
+    photos, load_errors = image_processor.load_photos_with_errors(args.photos, args.max_photos)
+    print(f"  加载 {len(photos)} 张，失败 {len(load_errors)} 张")
 
-    # Step 2: 转换HEIC到全尺寸JPEG（用于人脸识别）
-    print("\n[2/9] 转换HEIC到JPEG...")
+    if args.gps_only:
+        before = len(photos)
+        photos = [p for p in photos if p.location]
+        print(f"  GPS过滤: {before} → {len(photos)} 张")
+
+    # ─── [2/9] 转换 HEIC ──────────────────────────────────────────
+    print("\n[2/9] 转换 HEIC / 方向归一化 JPEG...")
     photos = image_processor.convert_to_jpeg(photos)
-    print(f"  转换完成")
 
-    # Step 3: 人脸识别前去重
-    print("\n[3/9] 人脸识别前去重...")
-    face_input_photos = image_processor.dedupe_before_face_recognition(photos)
-    print(f"  去重后保留 {len(face_input_photos)} / {len(photos)} 张")
+    # ─── [3/9] 去重（在人脸识别前） ──────────────────────────────
+    print("\n[3/9] 照片去重...")
+    before_dedup = len(photos)
+    photos = image_processor.dedupe_before_face_recognition(photos)
+    dedupe_report = image_processor.last_dedupe_report
+    save_json(dedupe_report, DEDUP_REPORT_PATH)
+    print(f"  去重完成：{before_dedup} → {len(photos)} 张（去除 {before_dedup - len(photos)} 张）")
 
-    # Step 3: 人脸识别
-    print("\n[4/9] 人脸识别...")
-    face_rec = FaceRecognition()
+    # ─── [4/9] 人脸识别 ──────────────────────────────────────────
+    print("\n[4/9] 人脸识别（InsightFace + FAISS）...")
+    face_rec = FaceRecognition(task_version=args.task_version)
+    face_errors = []
 
-    for i, photo in enumerate(face_input_photos):
-        show_progress(i + 1, len(face_input_photos), f"人脸识别")
-        face_rec.process_photo(photo)
+    for i, photo in enumerate(photos):
+        show_progress(i + 1, len(photos), "人脸识别")
+        try:
+            face_rec.process_photo(photo)
+        except Exception as e:
+            face_errors.append({
+                "image_id": photo.photo_id,
+                "filename": photo.filename,
+                "step": "face_recognition",
+                "error": str(e),
+            })
 
     face_db = face_rec.get_all_persons()
-    face_output = face_rec.get_face_output()
-    print(f"\n  识别了 {face_output['metrics']['total_persons']} 个人物")
+    print(f"\n  识别了 {len(face_db)} 个人物，失败 {len(face_errors)} 张")
 
-    # Step 4: 确定主用户 + 画框
-    print("\n[5/9] 确定主用户并绘制人脸框...")
-    face_rec.reorder_protagonist(face_input_photos)
-    face_db = face_rec.get_all_persons()
-    face_output = face_rec.get_face_output()
-
+    # ─── [5/9] 主角推断 + 画框 ──────────────────────────────────
+    print("\n[5/9] 主角推断并绘制人脸框...")
+    face_rec.reorder_protagonist(photos)
     primary_person_id = face_rec.get_primary_person_id()
-    primary_person = face_db.get(primary_person_id) if primary_person_id else None
-    if primary_person_id and primary_person:
-        print(f"  主用户：{primary_person_id}（出现 {primary_person.photo_count} 次）")
+    face_db = face_rec.get_all_persons()
 
-    # 绘制人脸框
+    if primary_person_id:
+        primary_info = face_db.get(primary_person_id)
+        count = primary_info.photo_count if hasattr(primary_info, 'photo_count') else 0
+        print(f"  主角：{primary_person_id}（出现 {count} 次）")
+    else:
+        print("  主角：未稳定识别")
+
     boxed_count = 0
-    for photo in face_input_photos:
+    for photo in photos:
+        photo.primary_person_id = primary_person_id
         if photo.faces:
-            photo.primary_person_id = primary_person_id
             boxed_path = image_processor.draw_face_boxes(photo)
             if boxed_path:
                 photo.boxed_path = boxed_path
                 boxed_count += 1
     print(f"  绘制了 {boxed_count} 张带框图片")
 
-    # Step 5: 压缩照片（用于VLM）
+    face_rec.save()
+
+    # ─── [6/9] 压缩照片 ──────────────────────────────────────────
     print("\n[6/9] 压缩照片...")
-    photos = image_processor.preprocess(face_input_photos)
+    photos = image_processor.preprocess(photos)
     print(f"  压缩完成")
 
-    # Step 6: VLM分析
+    # ─── [7/9] VLM 分析 ──────────────────────────────────────────
     vlm = VLMAnalyzer()
 
     if args.use_cache and vlm.load_cache():
         print("\n[7/9] 使用VLM缓存（跳过VLM分析）...")
     else:
-        print("\n[7/9] VLM分析（这可能需要30-40分钟）...")
-
-        for i, photo in enumerate(photos):
-            show_progress(i + 1, len(photos), f"VLM分析")
-
-            if SHOW_PHOTO_DETAILS:
-                print(f"\n  [{i+1}/{len(photos)}] {photo.filename}")
-                print(f"    人脸: {', '.join([f['person_id'] for f in photo.faces])}")
-
-            result = vlm.analyze_photo(photo, face_db, primary_person_id)
-
-            if result:
-                vlm.add_result(photo, result)
-
-        # 保存VLM缓存
+        print("\n[7/9] VLM分析（并发处理）...")
+        vlm.analyze_photos_concurrent(photos, face_db, protagonist=primary_person_id, max_workers=2)
         vlm.save_cache()
-        print("\n  VLM分析完成，结果已缓存")
+        print("  VLM分析完成，结果已缓存")
 
-    # Step 7: LLM处理
+    # ─── [8/9] LLM 处理 ──────────────────────────────────────────
     print("\n[8/9] LLM处理（事件提取、关系推断、画像生成）...")
-    events = []
-    relationships = []
-    profile_markdown = ""
-    profile_path = None
-    memory_contract = {
-        "events": [],
-        "observations": [],
-        "claims": [],
-        "relationship_hypotheses": [],
-        "profile_deltas": [],
-        "uncertainty": [],
-    }
-    llm_chunk_artifacts = {}
+    llm = LLMProcessor(primary_person_id=primary_person_id)
 
-    if not vlm.results:
-        print("  - VLM结果为空，跳过LLM处理，仅保存人脸识别结果")
-    else:
-        llm = LLMProcessor()
-
-        print("  - 分段提取 memory contract...")
-        memory_contract = llm.extract_memory_contract(vlm.results, face_db, primary_person_id)
-        llm_chunk_artifacts = getattr(llm, "last_chunk_artifacts", {}) or {}
-
-        # 提取事件
-        print("  - 提取事件...")
-        events = llm.events_from_memory_contract(memory_contract)
-        print(f"    提取了 {len(events)} 个事件")
-
-        # 推断关系
-        print("  - 推断人物关系...")
-        relationships = llm.relationships_from_memory_contract(memory_contract)
-        print(f"    推断了 {len(relationships)} 个关系")
-
-        # 生成画像
-        print("  - 生成用户画像...")
-        profile_markdown = llm.profile_markdown_from_memory_contract(memory_contract, primary_person_id)
-        if profile_markdown:
-            profile_path = save_profile_report(profile_markdown)
-            print(f"    画像报告已保存: {profile_path}")
-        else:
-            print("    画像生成失败")
-
-    # Step 8: Memory 框架物化
-    print("\n[8/9] 生成 Memory Framework 输出...")
-    memory_output = MemoryModuleService(
-        task_id="cli_run",
-        task_dir=PROJECT_ROOT,
-        pipeline_version=APP_VERSION,
-    ).materialize(
+    pipeline_result = run_memory_pipeline_entry(
+        llm=llm,
         photos=photos,
-        face_output=face_output,
+        face_db=face_db,
         vlm_results=vlm.results,
-        events=events,
-        relationships=relationships,
-        profile_markdown=profile_markdown,
-        memory_contract=memory_contract,
-        chunk_artifacts=llm_chunk_artifacts,
-    )
-
-    # Step 9: 保存结果
-    print("\n[9/9] 保存结果...")
-    save_final_output(
-        events,
-        relationships,
-        face_output,
-        memory_output=memory_output,
-        profile_markdown=profile_markdown,
         primary_person_id=primary_person_id,
     )
-    save_detailed_report(events, relationships, face_output)
+    events = pipeline_result["events"]
+    relationships = pipeline_result["relationships"]
+    profile_result = pipeline_result["profile_result"]
+    relationship_dossiers_path = pipeline_result["relationship_dossiers_path"]
+    group_artifacts_path = pipeline_result["group_artifacts_path"]
+    profile_fact_decisions_path = pipeline_result["profile_fact_decisions_path"]
+    downstream_audit_report_path = pipeline_result["downstream_audit_report_path"]
+    reflection_observation_cases_path = pipeline_result["reflection_observation_cases_path"]
+    reflection_case_facts_path = pipeline_result["reflection_case_facts_path"]
+    reflection_capture_status_path = pipeline_result["reflection_capture_status_path"]
+    final_primary_person_id = pipeline_result.get("final_primary_person_id")
+    profile_path = None
+    structured_path = None
+    profile_debug_path = save_profile_debug(profile_result, final_primary_person_id, len(events), len(relationships))
+    relationships_path = save_relationships_output(relationships, final_primary_person_id)
+    if profile_result:
+        if profile_result.get("structured"):
+            structured_path = save_structured_profile(profile_result["structured"])
+            print(f"    结构化画像已保存: {structured_path}")
+        if profile_result.get("report"):
+            profile_path = save_profile_report(profile_result["report"])
+            print(f"    画像报告已保存: {profile_path}")
+        if not structured_path and not profile_path:
+            print("    画像生成失败")
+    else:
+        print("    画像生成失败")
 
-    # 输出摘要
-    print_simple_summary(events, relationships, profile_path, primary_person_id)
+    # ─── [9/9] 保存结果 ──────────────────────────────────────────
+    print("\n[9/9] 保存结果...")
+    artifacts = build_artifacts_manifest(
+        dedupe_report_path=DEDUP_REPORT_PATH,
+        face_state_path=FACE_STATE_PATH,
+        face_output_path=FACE_OUTPUT_PATH,
+        vlm_cache_path=VLM_CACHE_PATH,
+        relationships_path=relationships_path,
+        relationship_dossiers_path=relationship_dossiers_path,
+        group_artifacts_path=group_artifacts_path,
+        structured_profile_path=structured_path,
+        profile_report_path=profile_path,
+        profile_debug_path=profile_debug_path,
+        profile_fact_decisions_path=profile_fact_decisions_path,
+        downstream_audit_report_path=downstream_audit_report_path,
+        reflection_observation_cases_path=reflection_observation_cases_path,
+        reflection_case_facts_path=reflection_case_facts_path,
+        reflection_capture_status_path=reflection_capture_status_path,
+        detailed_report_path=DETAILED_OUTPUT_PATH,
+    )
+    save_final_output(events, relationships, face_db, artifacts)
+    save_detailed_report(events, relationships, face_db)
+
+    print_simple_summary(events, relationships, artifacts, profile_path)
 
 
 if __name__ == "__main__":

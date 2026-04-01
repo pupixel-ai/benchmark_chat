@@ -20,11 +20,19 @@ from memory_module.dto import (
 )
 from memory_module.embeddings import EmbeddingProvider, cosine_similarity
 from memory_module.ontology import canonical_concept_names, concept_metadata, expand_concepts, normalize_concept
-from services.v0321_3.retrieval_shadow import (
-    build_memory_evidence_v2,
-    build_memory_units_v2,
-    build_profile_truth_v1,
-)
+def build_memory_units_v2(**kwargs: Any) -> list:
+    """Stub: retrieval_shadow module removed."""
+    return []
+
+
+def build_memory_evidence_v2(**kwargs: Any) -> list:
+    """Stub: retrieval_shadow module removed."""
+    return []
+
+
+def build_profile_truth_v1(**kwargs: Any) -> dict:
+    """Stub: retrieval_shadow module removed."""
+    return {}
 
 
 NODE_GROUP_ID_FIELDS = {
@@ -127,8 +135,7 @@ class MemoryQueryService:
         if self._is_revision_first_memory(memory):
             return False
         return bool(
-            memory.get("pipeline_family") == "v0323"
-            or memory.get("lp1_events")
+            memory.get("lp1_events")
             or memory.get("lp2_relationships")
             or memory.get("lp3_profile")
         )
@@ -154,7 +161,7 @@ class MemoryQueryService:
         )
 
     def _adapt_lp_snapshot_memory(self, memory: Dict[str, Any], *, user_id: Optional[str]) -> Dict[str, Any]:
-        pipeline_family = str(memory.get("pipeline_family") or "v0323")
+        pipeline_family = str(memory.get("pipeline_family") or "v0317")
         resolved_user_id = str(user_id or memory.get("user_id") or memory.get("envelope", {}).get("scope", {}).get("user_id") or "")
         vp1_index = {
             str(item.get("photo_id") or "").strip(): dict(item)
@@ -327,7 +334,7 @@ class MemoryQueryService:
         time_hint: Optional[str],
         answer_shape_hint: Optional[str],
     ) -> Dict[str, Any]:
-        pipeline_family = str(memory.get("pipeline_family") or memory.get("envelope", {}).get("scope", {}).get("pipeline_family") or "v0321_3")
+        pipeline_family = str(memory.get("pipeline_family") or memory.get("envelope", {}).get("scope", {}).get("pipeline_family") or "v0317")
         resolved_user_id = str(user_id or memory.get("envelope", {}).get("scope", {}).get("user_id") or "")
         event_revisions = list(memory.get("event_revisions", []) or [])
         atomic_evidence = list(memory.get("atomic_evidence", []) or [])

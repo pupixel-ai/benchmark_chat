@@ -1,0 +1,12 @@
+{
+  "run_id": "run_20260331_000053",
+  "user_name": "chenmeiyi",
+  "album_id": "chenmeiyi_run_20260331_000053",
+  "created_at": "2026-03-31T00:17:08.892226",
+  "date": "2026-03-31",
+  "profile_model": "deepseek/deepseek-chat-v3-0324",
+  "has_gt": true,
+  "total_events": 42,
+  "total_relationships": 1,
+  "final_primary_person_id": "Person_002"
+}

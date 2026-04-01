@@ -1,3787 +1,1882 @@
 """
-LLM processing module: chunk-aware memory materialization.
+LLM处理模块：事件提取、关系推断、画像生成
 """
-from __future__ import annotations
-
 import json
 import re
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from collections import Counter, defaultdict
-from copy import deepcopy
 from datetime import datetime
-from math import asin, cos, radians, sin, sqrt
-from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence
-
+from typing import List, Dict, Optional
+from models import Event, Relationship, UserProfile
 from config import (
-    API_PROXY_KEY,
-    API_PROXY_MODEL,
-    API_PROXY_URL,
-    BEDROCK_LLM_MAX_OUTPUT_TOKENS,
-    BEDROCK_RELATIONSHIP_LLM_FALLBACK_MODEL,
-    BEDROCK_RELATIONSHIP_LLM_MODEL,
-    BEDROCK_RELATIONSHIP_MAX_OUTPUT_TOKENS,
-    BEDROCK_REGION,
-    DEFAULT_TASK_VERSION,
-    GEMINI_API_KEY,
-    LLM_PROVIDER,
-    LLM_BURST_GAP_SECONDS,
-    LLM_BURST_MAX_DURATION_SECONDS,
-    LLM_BURST_MAX_PHOTOS,
-    LLM_SESSION_HARD_DISTANCE_KM,
-    LLM_SESSION_HARD_GAP_SECONDS,
-    LLM_SESSION_NEAR_DISTANCE_KM,
-    LLM_SESSION_SOFT_GAP_SECONDS,
-    LLM_SESSION_STRONG_GAP_SECONDS,
-    LLM_MODEL,
-    LLM_SLICE_MAX_DENSITY_SCORE,
-    LLM_SLICE_HARD_MAX_BURSTS,
-    LLM_SLICE_MAX_BURSTS,
-    LLM_SLICE_MAX_INFO_SCORE,
-    LLM_SLICE_MAX_PHOTOS,
-    LLM_SLICE_MAX_RARE_CLUES,
-    LLM_SLICE_MIN_PHOTOS,
-    LLM_SLICE_OVERLAP_BURSTS,
-    MAX_RETRIES,
-    OPENROUTER_API_KEY,
-    OPENROUTER_APP_NAME,
-    OPENROUTER_BASE_URL,
-    OPENROUTER_LLM_MODEL,
-    OPENROUTER_REASONING_EFFORT,
-    OPENROUTER_SITE_URL,
-    RELATIONSHIP_FOLLOWS_MAIN_LLM,
-    RELATIONSHIP_MAX_CONCURRENCY,
-    RELATIONSHIP_MAX_RETRIES,
-    RELATIONSHIP_MIN_CO_OCCURRENCE,
-    RELATIONSHIP_MIN_DISTINCT_DAYS,
-    RELATIONSHIP_MIN_INTIMACY_SCORE,
-    RELATIONSHIP_PROVIDER,
-    RELATIONSHIP_REQUEST_TIMEOUT_SECONDS,
-    RETRY_DELAY,
-    TASK_VERSION_V0323,
-    TASK_VERSION_V0317_HEAVY,
-    V0323_OPENROUTER_MODEL,
+    GEMINI_API_KEY, LLM_MODEL, MIN_PHOTO_COUNT, MIN_TIME_SPAN_DAYS, MIN_SCENE_VARIETY,
+    GOOGLE_GEMINI_BASE_URL, INTIMACY_WEIGHT_FREQUENCY, INTIMACY_WEIGHT_INTERACTION,
+    INTIMACY_WEIGHT_SCENE_DIVERSITY, INTERACTION_SCORES, PRIVATE_SCENE_TYPES,
+    OPENROUTER_API_KEY, OPENROUTER_BASE_URL,
 )
-from models import Event, Relationship
-from services.bedrock_runtime import (
-    build_bedrock_client,
-    build_inference_config,
-    build_text_message,
-    extract_text_from_converse_response,
-    should_try_next_bedrock_model,
+from utils import calculate_distance, time_overlap, is_weekend
+
+try:
+    import requests
+except ModuleNotFoundError:  # pragma: no cover - test env may not install requests
+    requests = None
+from services.relationship_rules import (
+    apply_relationship_type_veto,
+    apply_status_redlines,
+    blend_relationship_confidence,
+    determine_relationship_status,
+    infer_relationship_candidates,
+    score_relationship_confidence,
 )
+from services.consistency_checker import build_consistency_report
 
 
 class LLMProcessor:
-    """Chunk-aware LLM processor with Bedrock support."""
+    """LLM处理器 - 通过 OpenRouter API 调用"""
 
-    @staticmethod
-    def _dedupe_bedrock_candidates(candidates: Sequence[str]) -> List[str]:
-        return list(dict.fromkeys(str(candidate or "").strip() for candidate in candidates if str(candidate or "").strip()))
+    # OpenRouter 上的 Gemini 模型映射
+    OPENROUTER_MODEL_MAP = {
+        "gemini-2.5-flash": "google/gemini-2.5-flash-preview",
+        "gemini-2.0-flash": "google/gemini-2.0-flash-001",
+    }
 
-    def __init__(self, task_version: str = DEFAULT_TASK_VERSION):
-        self.task_version = task_version
-        self.use_heavy_pipeline = self.task_version == TASK_VERSION_V0317_HEAVY
-        self.provider = "openrouter" if self.task_version == TASK_VERSION_V0323 else LLM_PROVIDER
-        self.relationship_follows_main_llm = RELATIONSHIP_FOLLOWS_MAIN_LLM
-        if self.task_version == TASK_VERSION_V0323:
-            self.relationship_provider = self.provider
-        else:
-            self.relationship_provider = RELATIONSHIP_PROVIDER if not self.relationship_follows_main_llm else self.provider
-        self.use_proxy = self.provider == "proxy"
-        self.use_openrouter = self.provider == "openrouter"
-        self.use_bedrock = self.provider == "bedrock"
-        self.relationship_use_proxy = self.relationship_provider == "proxy"
-        self.relationship_use_openrouter = self.relationship_provider == "openrouter"
-        self.relationship_use_bedrock = self.relationship_provider == "bedrock"
-        if self.task_version == TASK_VERSION_V0323:
-            self.model = V0323_OPENROUTER_MODEL
-        else:
-            self.model = OPENROUTER_LLM_MODEL if self.use_openrouter else LLM_MODEL
-        self.relationship_model = self.model
-        self.requests = None
-        self.genai = None
-        self.bedrock_client = None
-        self.bedrock_model_candidates: List[str] = []
-        self.relationship_bedrock_model_candidates: List[str] = []
-        self.last_memory_contract: Dict[str, Any] | None = None
-        self.last_chunk_artifacts: Dict[str, Any] = {}
-        self._active_json_context: Dict[str, Any] = {}
+    def __init__(self, primary_person_id: str = None):
+        self.primary_person_id = primary_person_id
 
-        if self.use_proxy:
-            if not API_PROXY_URL or not API_PROXY_KEY:
-                raise ValueError("使用代理服务需要配置 API_PROXY_URL 和 API_PROXY_KEY")
-            try:
-                import requests
-            except ModuleNotFoundError:
-                requests = None
-            self.requests = requests
-            self.proxy_url = API_PROXY_URL
-            self.proxy_key = API_PROXY_KEY
-            self.proxy_model = API_PROXY_MODEL
-            print(f"[LLM] 使用代理服务: {self.proxy_url}")
-        elif self.use_openrouter:
-            try:
-                import requests
-            except ModuleNotFoundError:
-                requests = None
-            self.requests = requests
-            self.openrouter_api_key = OPENROUTER_API_KEY or GEMINI_API_KEY
-            if not self.openrouter_api_key:
-                raise ValueError("使用 OpenRouter 需要配置 OPENROUTER_API_KEY 或 GEMINI_API_KEY")
-            self.openrouter_base_url = OPENROUTER_BASE_URL.rstrip("/")
-            self.openrouter_site_url = OPENROUTER_SITE_URL
-            self.openrouter_app_name = OPENROUTER_APP_NAME
-            print(f"[LLM] 使用 OpenRouter: {self.model}")
-        elif self.use_bedrock:
-            self.bedrock_client = build_bedrock_client(BEDROCK_REGION)
-            # Trust explicit configured Bedrock model/profile identifiers directly.
-            # This avoids a slow management-catalog lookup during heavy-task resume.
-            self.bedrock_model_candidates = self._dedupe_bedrock_candidates(
-                [self.model],
-            )
-            self.relationship_bedrock_model_candidates = self._dedupe_bedrock_candidates(
-                [BEDROCK_RELATIONSHIP_LLM_MODEL, BEDROCK_RELATIONSHIP_LLM_FALLBACK_MODEL],
-            )
-            if self.bedrock_model_candidates:
-                self.model = self.bedrock_model_candidates[0]
-            print(f"[LLM] 使用 Bedrock: {self.model} @ {BEDROCK_REGION}")
-        else:
-            from google import genai
+        api_key = OPENROUTER_API_KEY
+        if not api_key:
+            raise ValueError("未配置 OPENROUTER_API_KEY")
 
-            self.genai = genai
-            self.client = genai.Client(api_key=GEMINI_API_KEY)
-            print("[LLM] 使用官方 Gemini API")
+        self.api_key = api_key
+        self.base_url = (OPENROUTER_BASE_URL or "https://openrouter.ai/api/v1").rstrip("/")
+        self.model = self.OPENROUTER_MODEL_MAP.get(LLM_MODEL, LLM_MODEL)
+        self.headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+        }
 
-        if self.relationship_use_openrouter and self.requests is None:
-            try:
-                import requests
-            except ModuleNotFoundError:
-                requests = None
-            self.requests = requests
-            self.openrouter_api_key = OPENROUTER_API_KEY or GEMINI_API_KEY
-            if not self.openrouter_api_key:
-                raise ValueError("relationship 使用 OpenRouter 需要配置 OPENROUTER_API_KEY 或 GEMINI_API_KEY")
-            self.openrouter_base_url = OPENROUTER_BASE_URL.rstrip("/")
-            self.openrouter_site_url = OPENROUTER_SITE_URL
-            self.openrouter_app_name = OPENROUTER_APP_NAME
+        print(f"[LLM] 使用 OpenRouter API")
+        print(f"[LLM] BaseURL: {self.base_url}")
+        print(f"[LLM] 模型: {self.model}")
 
-        if self.relationship_use_openrouter:
-            self.relationship_model = V0323_OPENROUTER_MODEL if self.task_version == TASK_VERSION_V0323 else OPENROUTER_LLM_MODEL
-        elif self.relationship_use_bedrock:
-            self.relationship_model = BEDROCK_RELATIONSHIP_LLM_MODEL
-        else:
-            self.relationship_model = self.model
+    def _extract_json_from_text(self, text: str, target_key: str = "events") -> dict:
+        """
+        从混合文本中鲁棒提取包含 target_key 的 JSON 对象。
 
-        if (self.use_bedrock or self.relationship_use_bedrock) and self.bedrock_client is None:
-            self.bedrock_client = build_bedrock_client(BEDROCK_REGION)
-        if self.use_heavy_pipeline and self.relationship_use_bedrock and not self.relationship_bedrock_model_candidates:
-            self.relationship_bedrock_model_candidates = self._dedupe_bedrock_candidates(
-                [BEDROCK_RELATIONSHIP_LLM_MODEL, BEDROCK_RELATIONSHIP_LLM_FALLBACK_MODEL],
-            )
-
-    def _coerce_text_content(self, content: Any) -> str:
-        if isinstance(content, str):
-            return content.strip()
-        if isinstance(content, list):
-            parts: List[str] = []
-            for item in content:
-                if isinstance(item, str):
-                    parts.append(item)
-                elif isinstance(item, dict):
-                    text = item.get("text")
-                    if isinstance(text, str):
-                        parts.append(text)
-            return "\n".join(part for part in parts if part).strip()
-        if isinstance(content, dict):
-            text = content.get("text")
-            if isinstance(text, str):
-                return text.strip()
-        raise ValueError(f"无法从内容中提取文本: {type(content).__name__}")
-
-    def _sanitize_json_text(self, raw_text: str) -> str:
-        text = str(raw_text or "").strip()
-        text = text.replace("<|begin_of_box|>", "").replace("<|end_of_box|>", "").strip()
-        if text.startswith("```"):
-            lines = text.splitlines()
-            if lines:
-                lines = lines[1:]
-            if lines and lines[-1].strip() == "```":
-                lines = lines[:-1]
-            text = "\n".join(lines).strip()
-            if text.lower().startswith("json"):
-                text = text[4:].strip()
-        return text.strip()
-
-    def _extract_balanced_json_candidate(self, text: str) -> str:
-        start = -1
-        depth = 0
-        in_string = False
-        escaped = False
-        for index, char in enumerate(text):
-            if start == -1:
-                if char in "{[":
-                    start = index
-                    depth = 1
-                continue
-            if in_string:
-                if escaped:
-                    escaped = False
-                elif char == "\\":
-                    escaped = True
-                elif char == '"':
-                    in_string = False
-                continue
-            if char == '"':
-                in_string = True
-            elif char in "{[":
-                depth += 1
-            elif char in "}]":
-                depth -= 1
-                if depth == 0:
-                    return text[start : index + 1]
-        return ""
-
-    def _try_parse_json_candidate(self, candidate: str) -> tuple[Optional[Dict[str, Any]], Optional[json.JSONDecodeError]]:
-        decoder = json.JSONDecoder()
+        策略链：
+        1. 直接 json.loads
+        2. ```json 代码块提取
+        3. 花括号平衡匹配，找包含 target_key 的最大 JSON 块
+        """
+        # 策略1：直接解析
         try:
-            payload = json.loads(candidate)
-            if isinstance(payload, dict):
-                return payload, None
-            return {"items": payload}, None
-        except json.JSONDecodeError as exc:
+            result = json.loads(text)
+            if isinstance(result, dict) and target_key in result:
+                return result
+        except json.JSONDecodeError:
+            pass
+
+        # 策略2：```json 代码块（贪婪匹配最大块）
+        json_blocks = re.findall(r'```json\s*\n(.*?)\n\s*```', text, re.DOTALL)
+        for block in json_blocks:
             try:
-                payload, _end = decoder.raw_decode(candidate)
-                if isinstance(payload, dict):
-                    return payload, None
-                return {"items": payload}, None
+                result = json.loads(block.strip())
+                if isinstance(result, dict) and target_key in result:
+                    print(f"调试：从```json代码块提取到JSON，包含{len(result.get(target_key, []))}个{target_key}")
+                    return result
             except json.JSONDecodeError:
-                return None, exc
-
-    def _insert_missing_commas(self, candidate: str) -> str:
-        repaired = candidate
-        patterns = (
-            r'(?<=[0-9\]}\"])(\s+)(?=("|\{|\[|true|false|null|-?\d))',
-            r'(?<=true)(\s+)(?=("|\{|\[|-?\d))',
-            r'(?<=false)(\s+)(?=("|\{|\[|-?\d))',
-            r'(?<=null)(\s+)(?=("|\{|\[|-?\d))',
-        )
-        for _ in range(3):
-            updated = repaired
-            for pattern in patterns:
-                updated = re.sub(pattern, r",\1", updated)
-            if updated == repaired:
-                break
-            repaired = updated
-        return repaired
-
-    def _normalize_json_string_literals(self, candidate: str) -> str:
-        repaired: List[str] = []
-        in_string = False
-        escaped = False
-        length = len(candidate)
-        index = 0
-        while index < length:
-            char = candidate[index]
-            if escaped:
-                if char in {'"', "\\", "/", "b", "f", "n", "r", "t", "u"}:
-                    repaired.append(char)
-                else:
-                    repaired.append("\\")
-                    repaired.append(char)
-                escaped = False
-                index += 1
                 continue
-            if char == "\\":
-                repaired.append(char)
-                escaped = True
-                index += 1
+
+        # 策略3：花括号平衡匹配 - 找包含 target_key 的 JSON 对象
+        search_pattern = f'"{target_key}"'
+        idx = text.find(search_pattern)
+        while idx != -1:
+            # 向前找到包含此 key 的最近 '{'
+            brace_start = text.rfind('{', 0, idx)
+            if brace_start == -1:
+                idx = text.find(search_pattern, idx + 1)
                 continue
-            if char == '"':
-                if not in_string:
-                    in_string = True
-                    repaired.append(char)
-                    index += 1
+
+            # 从 brace_start 开始，用平衡计数找到匹配的 '}'
+            depth = 0
+            in_string = False
+            escape_next = False
+            for i in range(brace_start, len(text)):
+                ch = text[i]
+                if escape_next:
+                    escape_next = False
                     continue
-                lookahead = index + 1
-                while lookahead < length and candidate[lookahead].isspace():
-                    lookahead += 1
-                next_char = candidate[lookahead] if lookahead < length else ""
-                if next_char in {":", ",", "}", "]", ""}:
-                    in_string = False
-                    repaired.append(char)
-                else:
-                    repaired.append('\\"')
-                index += 1
-                continue
-            if in_string and char == "\n":
-                repaired.append("\\n")
-                index += 1
-                continue
-            if in_string and char == "\r":
-                repaired.append("\\r")
-                index += 1
-                continue
-            if in_string and char == "\t":
-                repaired.append("\\t")
-                index += 1
-                continue
-            repaired.append(char)
-            index += 1
-        return "".join(repaired)
+                if ch == '\\' and in_string:
+                    escape_next = True
+                    continue
+                if ch == '"' and not escape_next:
+                    in_string = not in_string
+                    continue
+                if in_string:
+                    continue
+                if ch == '{':
+                    depth += 1
+                elif ch == '}':
+                    depth -= 1
+                    if depth == 0:
+                        candidate = text[brace_start:i + 1]
+                        try:
+                            result = json.loads(candidate)
+                            if isinstance(result, dict) and target_key in result:
+                                print(f"调试：花括号匹配提取到JSON，包含{len(result.get(target_key, []))}个{target_key}")
+                                return result
+                        except json.JSONDecodeError:
+                            break
+                        break
 
-    def _escape_internal_quotes(self, candidate: str) -> str:
-        return self._normalize_json_string_literals(candidate)
+            idx = text.find(search_pattern, idx + 1)
 
-    def _repair_json_candidates(
-        self,
-        candidate: str,
-        error: Optional[json.JSONDecodeError] = None,
-    ) -> List[str]:
-        repairs: List[str] = []
+        return None
 
-        def add(item: str) -> None:
-            item = str(item or "").strip()
-            if item and item not in repairs:
-                repairs.append(item)
+    def _require_requests(self) -> None:
+        if requests is None:
+            raise RuntimeError("requests 未安装，无法调用 HTTP LLM 接口")
 
-        translated_quotes = candidate.translate(
-            str.maketrans(
-                {
-                    "“": '"',
-                    "”": '"',
-                    "‘": "'",
-                    "’": "'",
-                }
-            )
-        )
-        translated = translated_quotes.translate(
-            str.maketrans(
-                {
-                    "，": ",",
-                    "：": ":",
-                    "（": "(",
-                    "）": ")",
-                }
-            )
-        )
-        add(translated_quotes)
-        add(self._normalize_json_string_literals(translated_quotes))
-        add(re.sub(r",(?=\s*[}\]])", "", translated_quotes))
-        add(re.sub(r"\bNone\b", "null", translated_quotes))
-        add(re.sub(r"\bTrue\b", "true", translated_quotes))
-        add(re.sub(r"\bFalse\b", "false", translated_quotes))
-        add(self._insert_missing_commas(translated_quotes))
-        add(self._insert_missing_commas(re.sub(r",(?=\s*[}\]])", "", translated_quotes)))
-        add(self._insert_missing_commas(self._normalize_json_string_literals(translated_quotes)))
-        add(translated)
-        add(self._normalize_json_string_literals(translated))
-        add(re.sub(r",(?=\s*[}\]])", "", translated))
-        add(re.sub(r"\bNone\b", "null", translated))
-        add(re.sub(r"\bTrue\b", "true", translated))
-        add(re.sub(r"\bFalse\b", "false", translated))
-        add(self._insert_missing_commas(translated))
-        add(self._insert_missing_commas(re.sub(r",(?=\s*[}\]])", "", translated)))
-        add(self._insert_missing_commas(self._normalize_json_string_literals(translated)))
+    def extract_events(self, vlm_results: List[Dict]) -> List[Event]:
+        """
+        从VLM结果中提取事件（直接让LLM分析全部数据）
 
-        if error and "Expecting ',' delimiter" in str(error):
-            position = int(getattr(error, "pos", -1))
-            if 0 <= position < len(candidate):
-                add(candidate[:position] + "," + candidate[position:])
-                previous_quote = candidate.rfind('"', 0, position)
-                if previous_quote != -1 and (previous_quote == 0 or candidate[previous_quote - 1] != "\\"):
-                    add(candidate[:previous_quote] + '\\"' + candidate[previous_quote + 1 :])
-                    next_quote = candidate.find('"', position)
-                    if next_quote != -1 and (next_quote == 0 or candidate[next_quote - 1] != "\\"):
-                        add(
-                            candidate[:previous_quote]
-                            + '\\"'
-                            + candidate[previous_quote + 1 : next_quote]
-                            + '\\"'
-                            + candidate[next_quote + 1 :]
-                        )
-        return repairs
+        Args:
+            vlm_results: VLM分析结果列表
 
-    def _record_parse_failure(
-        self,
-        *,
-        raw_text: str,
-        error: Exception,
-        repaired_attempts: List[str],
-    ) -> None:
-        if not hasattr(self, "last_chunk_artifacts") or not isinstance(self.last_chunk_artifacts, dict):
-            self.last_chunk_artifacts = {}
-        failures = self.last_chunk_artifacts.setdefault("parse_failures", [])
-        failures.append(
-            {
-                **dict(getattr(self, "_active_json_context", {}) or {}),
-                "error": str(error),
-                "raw_text_preview": str(raw_text or "")[:4000],
-                "raw_text_tail": str(raw_text or "")[-4000:],
-                "repair_attempt_preview": [item[:1000] for item in repaired_attempts[:6]],
-                "failed_at": datetime.now().isoformat(),
-            }
-        )
+        Returns:
+            事件列表
+        """
+        # 直接让LLM分析全部VLM数据，不进行预分段
+        all_events = self._extract_events_from_all_photos(vlm_results)
 
-    def _extract_json_payload(self, raw_text: str) -> Dict[str, Any]:
-        text = self._sanitize_json_text(raw_text)
-        candidates: List[str] = []
+        # 物理约束检查
+        all_events = self._check_constraints(all_events)
 
-        def add_candidate(item: str) -> None:
-            item = str(item or "").strip()
-            if item and item not in candidates:
-                candidates.append(item)
+        return all_events
 
-        add_candidate(text)
-        first_json_start = min((idx for idx in (text.find("{"), text.find("[")) if idx != -1), default=-1)
-        if first_json_start != -1:
-            add_candidate(text[first_json_start:])
-        balanced_candidate = self._extract_balanced_json_candidate(text)
-        if balanced_candidate:
-            add_candidate(balanced_candidate)
+    def _extract_events_from_all_photos(self, vlm_results: List[Dict]) -> List[Event]:
+        """
+        用LLM从全部照片中提取事件（两步法）
+        Step 1: 2.5-flash 生成文本分析
+        Step 2: 2.5-flash + responseMimeType 将文本转为 JSON
+        """
+        prompt = self._create_event_extraction_prompt(vlm_results)
 
-        last_error: Optional[Exception] = None
-        repair_attempts: List[str] = []
-        for candidate in candidates:
-            payload, error = self._try_parse_json_candidate(candidate)
-            if payload is not None:
-                return payload
-            if error is not None:
-                last_error = error
-            for repaired in self._repair_json_candidates(candidate, error):
-                if repaired not in repair_attempts:
-                    repair_attempts.append(repaired)
-                payload, repaired_error = self._try_parse_json_candidate(repaired)
-                if payload is not None:
-                    return payload
-                if repaired_error is not None:
-                    last_error = repaired_error
-
-        if last_error:
-            self._record_parse_failure(
-                raw_text=text,
-                error=last_error,
-                repaired_attempts=repair_attempts,
-            )
-            raise last_error
-        raise ValueError("无法解析 JSON payload")
-
-    def _is_retryable_error(self, exc: Exception) -> bool:
-        message = str(exc).lower()
-        retry_keywords = [
-            "429",
-            "500",
-            "502",
-            "503",
-            "504",
-            "520",
-            "522",
-            "524",
-            "rate limit",
-            "connection",
-            "timeout",
-            "temporarily unavailable",
-            "reset by peer",
-            "throttl",
-            "too many requests",
-            "bad gateway",
-            "gateway timeout",
-            "response ended prematurely",
-            "chunkedencodingerror",
-            "incomplete read",
-            "server disconnected",
-            "remote end closed connection",
-            "connection aborted",
-        ]
-        return any(keyword in message for keyword in retry_keywords)
-
-    def _is_json_parse_error(self, exc: Exception) -> bool:
-        if isinstance(exc, json.JSONDecodeError):
-            return True
-        message = str(exc).lower()
-        json_error_markers = (
-            "unterminated string",
-            "expecting value",
-            "expecting ',' delimiter",
-            "extra data",
-            "invalid control character",
-            "unterminated string starting at",
-            "无法解析 json payload",
-        )
-        return any(marker in message for marker in json_error_markers)
-
-    def _record_salvage_recovery(
-        self,
-        *,
-        stage: str,
-        reason: str,
-        payload_summary: Optional[Dict[str, Any]] = None,
-    ) -> None:
-        if not hasattr(self, "last_chunk_artifacts") or not isinstance(self.last_chunk_artifacts, dict):
-            self.last_chunk_artifacts = {}
-        recoveries = self.last_chunk_artifacts.setdefault("salvage_recoveries", [])
-        recoveries.append(
-            {
-                **dict(getattr(self, "_active_json_context", {}) or {}),
-                "stage": stage,
-                "reason": reason,
-                "payload_summary": payload_summary or {},
-                "recovered_at": datetime.now().isoformat(),
-            }
-        )
-
-    def _call_with_retries(self, callback):
-        last_error = None
-        for attempt in range(MAX_RETRIES):
-            try:
-                return callback()
-            except Exception as exc:
-                last_error = exc
-                if attempt == MAX_RETRIES - 1 or not self._is_retryable_error(exc):
-                    raise
-                delay_seconds = RETRY_DELAY * (2 ** attempt)
-                print(f"[LLM] 可重试错误，{delay_seconds}s 后重试 ({attempt + 1}/{MAX_RETRIES}): {exc}")
-                time.sleep(delay_seconds)
-        raise last_error
-
-    def _call_json_prompt_with_compact_retry(
-        self,
-        *,
-        primary_prompt: str,
-        compact_prompt_builder: Optional[Callable[[], str]] = None,
-        salvage_builder: Optional[Callable[[], Dict[str, Any]]] = None,
-        salvage_stage: str,
-    ) -> Dict[str, Any]:
-        original_context = dict(getattr(self, "_active_json_context", {}) or {})
         try:
-            return self._call_with_retries(lambda prompt=primary_prompt: self._call_json_prompt(prompt))
-        except Exception as exc:
-            if not self._is_json_parse_error(exc):
-                raise
+            # Step 1: 生成文本分析
+            print("  [Step 1/2] 生成事件分析...", flush=True)
+            result = self._call_llm_via_official_api(prompt)
 
-            if compact_prompt_builder is not None:
-                compact_context = {**original_context, "recovery_mode": "compact_retry", "initial_error": str(exc)}
-                self._active_json_context = compact_context
-                try:
-                    compact_prompt = compact_prompt_builder()
-                    return self._call_with_retries(lambda prompt=compact_prompt: self._call_json_prompt(prompt))
-                except Exception as compact_exc:
-                    if not self._is_json_parse_error(compact_exc):
-                        raise
-                    if salvage_builder is None:
-                        raise
-                    salvage_contract = self._finalize_memory_contract(salvage_builder())
-                    self._record_salvage_recovery(
-                        stage=salvage_stage,
-                        reason=f"compact retry failed after parse error: {compact_exc}",
-                        payload_summary=self._contract_counts(salvage_contract),
-                    )
-                    return salvage_contract
-                finally:
-                    self._active_json_context = original_context
+            if result is None:
+                print(f"警告：LLM返回None")
+                return []
 
-            if salvage_builder is None:
-                raise
+            # 理想情况：直接返回了 JSON
+            if isinstance(result, dict) and "events" in result:
+                print(f"  [Step 1/2] 直接获得JSON，{len(result['events'])}个事件")
+                return [self._build_event(ed, i) for i, ed in enumerate(result["events"])]
 
-            salvage_contract = self._finalize_memory_contract(salvage_builder())
-            self._record_salvage_recovery(
-                stage=salvage_stage,
-                reason=f"primary parse failed without compact retry: {exc}",
-                payload_summary=self._contract_counts(salvage_contract),
-            )
-            return salvage_contract
-        finally:
-            self._active_json_context = original_context
+            # 尝试从文本提取 JSON
+            if isinstance(result, dict) and "text" in result:
+                text = result["text"]
+                extracted = self._extract_json_from_text(text, "events")
+                if extracted:
+                    print(f"  [Step 1/2] 从文本提取到{len(extracted['events'])}个事件")
+                    return [self._build_event(ed, i) for i, ed in enumerate(extracted["events"])]
 
-    def extract_memory_contract(
+                # Step 2: 文本转 JSON
+                print(f"  [Step 2/2] 文本转JSON（{len(text)}字符）...", flush=True)
+                if len(text) > 30000:
+                    text = text[:30000]
+
+                convert_prompt = f"""将以下事件分析文本转换为JSON格式。只输出JSON，不要其他内容。
+
+要求：
+- 每个事件都必须补齐 `confidence` 和 `reason`
+- `confidence` 是事件级置信度（0-1）
+- 判断标准：
+  - 多张照片、时间地点一致、参与者明确、叙事闭环完整 → 高置信度（0.75-0.95）
+  - 证据较完整但仍有少量模糊 → 中高置信度（0.6-0.74）
+  - 单张照片、地点模糊、参与者不清或叙事跳跃 → 较低置信度（0.35-0.59）
+  - 不允许省略 `confidence`
+
+格式：
+{{"events": [{{"event_id": "EVT_001", "meta_info": {{"title": "标题", "timestamp": "时间", "location_context": "地点", "photo_count": 0}}, "objective_fact": {{"scene_description": "描述", "participants": []}}, "narrative_synthesis": "叙事", "social_dynamics": [], "persona_evidence": {{"behavioral": [], "aesthetic": [], "socioeconomic": []}}, "tags": [], "confidence": 0.8, "reason": "依据"}}]}}
+
+分析文本：
+{text}"""
+
+                json_result = self._call_llm_via_official_api(convert_prompt, response_mime_type="application/json")
+
+                if json_result and isinstance(json_result, dict):
+                    if "events" in json_result:
+                        print(f"  [Step 2/2] 转换成功，{len(json_result['events'])}个事件")
+                        return [self._build_event(ed, i) for i, ed in enumerate(json_result["events"])]
+                    if "text" in json_result:
+                        extracted = self._extract_json_from_text(json_result["text"], "events")
+                        if extracted:
+                            print(f"  [Step 2/2] 二次提取成功，{len(extracted['events'])}个事件")
+                            return [self._build_event(ed, i) for i, ed in enumerate(extracted["events"])]
+
+                print(f"  事件提取：两步法均失败")
+
+            return []
+
+        except Exception as e:
+            print(f"警告：事件提取失败: {e}")
+            import traceback
+            traceback.print_exc()
+            return []
+
+    def _build_event(self, event_data: Dict, index: int) -> Event:
+        """辅助方法：从事件数据构建Event对象"""
+        # 兼容新旧格式：从meta_info提取或直接使用
+        meta_info = dict(event_data.get("meta_info", {}) or {})
+        objective_fact = dict(event_data.get("objective_fact", {}) or {})
+        participants = self._normalize_event_participants(
+            objective_fact.get("participants") or event_data.get("participants", [])
+        )
+        social_dynamics = self._normalize_social_dynamics(event_data.get("social_dynamics", []))
+        objective_fact["participants"] = participants
+        event_confidence_baseline = self._compute_event_confidence_baseline(
+            event_data=event_data,
+            meta_info=meta_info,
+            objective_fact=objective_fact,
+            social_dynamics=social_dynamics,
+        )
+        event_confidence = self._resolve_event_confidence(
+            raw_confidence=event_data.get("confidence"),
+            baseline=event_confidence_baseline,
+        )
+
+        # 解析timestamp从meta_info或直接字段
+        timestamp = meta_info.get("timestamp") or event_data.get("time_range", "")
+        if timestamp:
+            # 从timestamp中提取日期和时间范围
+            parts = timestamp.split(" - ")
+            if len(parts) == 2:
+                date_part = parts[0].split()[0]
+                time_range = f"{parts[0].split()[-1]} - {parts[1].split()[-1]}" if " " in parts[1] else f"{parts[0].split()[-1]} - {parts[1]}"
+            else:
+                date_part = timestamp.split()[0] if " " in timestamp else ""
+                time_range = timestamp
+        else:
+            date_part = event_data.get("date", "")
+            time_range = event_data.get("time_range", "")
+
+        event = Event(
+            event_id=event_data.get("event_id", f"EVT_{index + 1:03d}"),
+            date=date_part,
+            time_range=time_range,
+            duration=event_data.get("duration", ""),
+            title=meta_info.get("title") or event_data.get("title", ""),
+            type=event_data.get("type", "其他"),
+            participants=participants,
+            location=meta_info.get("location_context") or event_data.get("location", ""),
+            description=objective_fact.get("scene_description") or event_data.get("description", ""),
+            photo_count=int(meta_info.get("photo_count") or event_data.get("photo_count", 0)),
+            confidence=event_confidence,
+            reason=event_data.get("reason", ""),
+            narrative="",
+            narrative_synthesis=event_data.get("narrative_synthesis", ""),
+            meta_info=meta_info,
+            objective_fact=objective_fact,
+            social_interaction={},
+            social_dynamics=social_dynamics,
+
+            lifestyle_tags=[],
+            tags=event_data.get("tags", []),
+            social_slices=[],
+            persona_evidence=event_data.get("persona_evidence", {})
+        )
+        return event
+
+    def _compute_event_confidence_baseline(
         self,
-        vlm_results: List[Dict[str, Any]],
-        face_db: Optional[Dict[str, Any]] = None,
-        primary_person_id: Optional[str] = None,
-        progress_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
-    ) -> Dict[str, Any]:
-        started_at = time.perf_counter()
-        if not vlm_results:
-            contract = self._empty_contract()
-            self.last_memory_contract = contract
-            self.last_chunk_artifacts = {
-                "photo_fact_count": 0,
-                "raw_event_count": 0,
-                "slice_count": 0,
-                "slices": [],
-                "event_summaries": [],
-                "llm_runtime_seconds": 0.0,
-            }
-            return contract
+        event_data: Dict,
+        meta_info: Dict,
+        objective_fact: Dict,
+        social_dynamics: List[Dict],
+    ) -> float:
+        """根据事件结构完整度计算事件级 baseline confidence。"""
+        score = 0.28
 
-        photo_facts = self._build_photo_fact_buffer(vlm_results)
-        bursts = self._build_bursts(photo_facts)
-        raw_sessions = self._build_raw_sessions(bursts)
-        session_slices = self._build_session_slices(raw_sessions)
-        self.last_chunk_artifacts = {
-            "task_version": self.task_version,
-            "photo_fact_count": len(photo_facts),
-            "burst_count": len(bursts),
-            "raw_event_count": len(raw_sessions),
-            "slice_count": len(session_slices),
-            "slices": [],
-            "slice_contract_records": [],
-            "event_summaries": [],
-            "event_merge_records": [],
-            "pre_relationship_contract": None,
-            "parse_failures": [],
+        photo_count = int(meta_info.get("photo_count") or event_data.get("photo_count", 0) or 0)
+        if photo_count >= 4:
+            score += 0.18
+        elif photo_count >= 2:
+            score += 0.12
+        elif photo_count >= 1:
+            score += 0.06
+
+        if meta_info.get("title") or event_data.get("title"):
+            score += 0.07
+        if meta_info.get("timestamp") or event_data.get("date") or event_data.get("time_range"):
+            score += 0.10
+        if meta_info.get("location_context") or event_data.get("location"):
+            score += 0.08
+        if objective_fact.get("scene_description") or event_data.get("description"):
+            score += 0.08
+        if objective_fact.get("participants"):
+            score += 0.08
+        if event_data.get("narrative_synthesis"):
+            score += 0.08
+        if event_data.get("type") and event_data.get("type") != "其他":
+            score += 0.05
+        if social_dynamics:
+            score += min(0.08, 0.04 + 0.02 * len(social_dynamics))
+        persona_evidence = event_data.get("persona_evidence", {}) or {}
+        if any(persona_evidence.get(key) for key in ("behavioral", "aesthetic", "socioeconomic")):
+            score += 0.05
+        if event_data.get("tags"):
+            score += 0.03
+
+        return round(max(0.25, min(score, 0.95)), 3)
+
+    def _resolve_event_confidence(self, raw_confidence, baseline: float) -> float:
+        """融合 LLM confidence 和代码 baseline，避免整批回落到 0.5。"""
+        if raw_confidence in (None, ""):
+            return baseline
+
+        llm_confidence = self._normalize_confidence(raw_confidence, default=baseline)
+        blended = 0.6 * llm_confidence + 0.4 * baseline
+        return round(max(0.25, min(blended, 0.95)), 3)
+
+    def _normalize_primary_person_reference(self, raw_value):
+        """把 LP1 中对主角的历史别名归一到真实 primary_person_id。"""
+        if not isinstance(raw_value, str):
+            return raw_value
+
+        value = raw_value.strip()
+        if not value or not self.primary_person_id:
+            return value
+
+        compact = re.sub(r"[\s\-]+", "", value).replace("【", "").replace("】", "").lower()
+        primary_aliases = {
+            "主角",
+            "主角本人",
+            "主角person_id",
+            "主角personid",
+            "用户",
+            "用户本人",
+            "用户person_id",
+            "用户personid",
+            "primary_person_id",
+            "primarypersonid",
         }
-        self._emit_progress(
-            progress_callback,
-            {
-                "message": "LLM 改写中",
-                "substage": "slice_contract",
-                "processed_slices": 0,
-                "slice_count": len(session_slices),
-                "processed_events": 0,
-                "event_count": len(raw_sessions),
-                "percent": 5,
-                "provider": self._active_llm_provider(),
-                "model": self._active_llm_model(),
-                "last_success_at": None,
-                "retry_count": 0,
-                "runtime_seconds": round(time.perf_counter() - started_at, 4),
-            },
-        )
 
-        slice_contracts = []
-        slice_artifacts = []
-        slice_contract_records: List[Dict[str, Any]] = []
-        slice_contracts_by_session: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
-        for session_slice in session_slices:
-            self._active_json_context = {
-                "stage": "slice_contract",
-                "slice_id": session_slice["slice_id"],
-                "raw_event_id": session_slice["raw_session_id"],
-                "photo_ids": list(session_slice["photo_ids"]),
-            }
-            prompt = self._create_slice_memory_prompt(session_slice["evidence_packet"], primary_person_id)
-            response = self._call_json_prompt_with_compact_retry(
-                primary_prompt=prompt,
-                compact_prompt_builder=(
-                    lambda packet=session_slice["evidence_packet"], pid=primary_person_id: self._create_compact_slice_memory_prompt(packet, pid)
-                ),
-                salvage_builder=lambda packet=session_slice["evidence_packet"]: self._salvage_slice_contract_from_evidence_packet(packet),
-                salvage_stage="slice_contract",
-            )
-            normalized = self._finalize_memory_contract(response)
-            slice_contracts.append(normalized)
-            slice_contracts_by_session[session_slice["raw_session_id"]].append(normalized)
-            slice_contract_records.append(
-                {
-                    "slice_id": session_slice["slice_id"],
-                    "raw_event_id": session_slice["raw_session_id"],
-                    "photo_ids": list(session_slice["photo_ids"]),
-                    "contract": deepcopy(normalized),
-                }
-            )
-            slice_artifacts.append(
-                {
-                    "slice_id": session_slice["slice_id"],
-                    "raw_event_id": session_slice["raw_session_id"],
-                    "photo_ids": list(session_slice["photo_ids"]),
-                    "burst_ids": list(session_slice["burst_ids"]),
-                    "overlap_burst_ids": list(session_slice["overlap_burst_ids"]),
-                    "rare_clue_count": session_slice["rare_clue_count"],
-                    "photo_count": len(session_slice["facts"]),
-                    "burst_count": len(session_slice["bursts"]),
-                    "fact_inventory_count": len(session_slice["evidence_packet"]["fact_inventory"]),
-                    "change_point_count": len(session_slice["evidence_packet"]["change_points"]),
-                    "location_chain": list(session_slice["evidence_packet"]["location_chain"]),
-                    "dominant_person_ids": list(session_slice["evidence_packet"]["dominant_person_ids"]),
-                    "conflict_count": len(session_slice["evidence_packet"]["conflicts"]),
-                    "information_score": float(session_slice.get("information_score") or 0.0),
-                    "density_score": float(session_slice.get("density_score") or 0.0),
-                    "contract_counts": self._contract_counts(normalized),
-                }
-            )
-            self.last_chunk_artifacts["slices"] = list(slice_artifacts)
-            self.last_chunk_artifacts["slice_contract_records"] = list(slice_contract_records)
-            self._emit_progress(
-                progress_callback,
-                {
-                    "message": "LLM 改写中",
-                    "substage": "slice_contract",
-                    "processed_slices": len(slice_artifacts),
-                    "slice_count": len(session_slices),
-                    "processed_events": 0,
-                    "event_count": len(raw_sessions),
-                    "percent": self._progress_percent(len(slice_artifacts), max(len(session_slices), 1), start=5, end=65),
-                    "provider": self._active_llm_provider(),
-                    "model": self._active_llm_model(),
-                    "last_success_at": self._iso_now(),
-                    "retry_count": len(self.last_chunk_artifacts.get("parse_failures", []) or []),
-                    "runtime_seconds": round(time.perf_counter() - started_at, 4),
-                },
-            )
+        if compact in primary_aliases or re.fullmatch(r"person_?0+", compact):
+            return self.primary_person_id
 
-        session_contracts = []
-        session_artifacts = []
-        event_merge_records: List[Dict[str, Any]] = []
-        for raw_session in raw_sessions:
-            self._active_json_context = {
-                "stage": "session_merge",
-                "raw_event_id": raw_session["raw_session_id"],
-                "photo_ids": list(raw_session["photo_ids"]),
-            }
-            session_slice_records = [
-                artifact
-                for artifact in slice_artifacts
-                if artifact.get("raw_event_id") == raw_session["raw_session_id"]
-            ]
-            session_prompt = self._create_session_merge_prompt(
-                raw_session=raw_session,
-                session_slice_records=session_slice_records,
-                slice_contracts=slice_contracts_by_session.get(raw_session["raw_session_id"], []),
-                primary_person_id=primary_person_id,
-            )
-            session_contract = self._call_json_prompt_with_compact_retry(
-                primary_prompt=session_prompt,
-                compact_prompt_builder=None,
-                salvage_builder=(
-                    lambda contracts=slice_contracts_by_session.get(raw_session["raw_session_id"], []), raw_event_id=raw_session["raw_session_id"]: self._salvage_session_contract_from_slices(
-                        raw_event_id=raw_event_id,
-                        slice_contracts=contracts,
-                    )
-                ),
-                salvage_stage="session_merge",
-            )
-            normalized_session_contract = self._finalize_memory_contract(session_contract)
-            session_contracts.append(normalized_session_contract)
-            event_merge_records.append(
-                {
-                    "raw_event_id": raw_session["raw_session_id"],
-                    "photo_ids": list(raw_session["photo_ids"]),
-                    "contract": deepcopy(normalized_session_contract),
-                }
-            )
-            session_artifacts.append(
-                {
-                    "raw_event_id": raw_session["raw_session_id"],
-                    "started_at": raw_session["started_at"],
-                    "ended_at": raw_session["ended_at"],
-                    "location_chain": list(raw_session["location_chain"]),
-                    "photo_count": len(raw_session["facts"]),
-                    "burst_count": len(raw_session["bursts"]),
-                    "slice_ids": [item["slice_id"] for item in session_slice_records],
-                    "continuity_decisions": list(raw_session["continuity_decisions"]),
-                    "information_score": round(
-                        sum(float(item.get("information_score") or 0.0) for item in session_slice_records),
-                        3,
-                    ),
-                    "density_score": round(
-                        sum(float(item.get("density_score") or 0.0) for item in session_slice_records),
-                        3,
-                    ),
-                    "contract_counts": self._contract_counts(normalized_session_contract),
-                }
-            )
-            self.last_chunk_artifacts["event_summaries"] = list(session_artifacts)
-            self.last_chunk_artifacts["event_merge_records"] = list(event_merge_records)
-            self._emit_progress(
-                progress_callback,
-                {
-                    "message": "LLM 汇总事件窗口",
-                    "substage": "event_merge",
-                    "processed_slices": len(slice_artifacts),
-                    "slice_count": len(session_slices),
-                    "processed_events": len(session_artifacts),
-                    "event_count": len(raw_sessions),
-                    "percent": self._progress_percent(len(session_artifacts), max(len(raw_sessions), 1), start=65, end=92),
-                    "provider": self._active_llm_provider(),
-                    "model": self._active_llm_model(),
-                    "last_success_at": self._iso_now(),
-                    "retry_count": len(self.last_chunk_artifacts.get("parse_failures", []) or []),
-                    "runtime_seconds": round(time.perf_counter() - started_at, 4),
-                },
-            )
+        return value
 
-        merge_prompt = self._create_merge_prompt(
-            photo_fact_count=len(photo_facts),
-            raw_sessions=raw_sessions,
-            session_slices=session_slices,
-            session_contracts=session_contracts,
-            session_artifacts=session_artifacts,
-            primary_person_id=primary_person_id,
-        )
-        self._emit_progress(
-            progress_callback,
-            {
-                "message": "LLM 生成最终 memory contract",
-                "substage": "global_merge",
-                "processed_slices": len(slice_artifacts),
-                "slice_count": len(session_slices),
-                "processed_events": len(session_artifacts),
-                "event_count": len(raw_sessions),
-                "percent": 96,
-                "provider": self._active_llm_provider(),
-                "model": self._active_llm_model(),
-                "last_success_at": None,
-                "retry_count": len(self.last_chunk_artifacts.get("parse_failures", []) or []),
-                "runtime_seconds": round(time.perf_counter() - started_at, 4),
-            },
-        )
-        self._active_json_context = {
-            "stage": "global_merge",
-            "photo_fact_count": len(photo_facts),
-            "raw_event_count": len(raw_sessions),
-            "slice_count": len(session_slices),
-        }
-        merged_contract = self._call_json_prompt_with_compact_retry(
-            primary_prompt=merge_prompt,
-            compact_prompt_builder=None,
-            salvage_builder=lambda contracts=session_contracts: self._salvage_global_contract_from_sessions(contracts),
-            salvage_stage="global_merge",
-        )
-        contract = self._finalize_memory_contract(merged_contract)
-        recovered_contract = self._recover_contract_if_sparse(
-            merged_contract=contract,
-            session_contracts=session_contracts,
-            session_artifacts=session_artifacts,
-        )
-        merge_recovered = recovered_contract is not contract
-        contract = recovered_contract
-        self.last_memory_contract = deepcopy(contract)
-        self.last_chunk_artifacts["pre_relationship_contract"] = deepcopy(contract)
-        if self.use_heavy_pipeline:
-            self._emit_progress(
-                progress_callback,
-                {
-                    "message": "LLM 关系推断中",
-                    "substage": "relationship_inference",
-                    "processed_slices": len(slice_artifacts),
-                    "slice_count": len(session_slices),
-                    "processed_events": len(session_artifacts),
-                    "event_count": len(raw_sessions),
-                    "percent": 98,
-                    "provider": self._active_relationship_provider(),
-                    "model": self._active_relationship_model(),
-                    "candidate_count": 0,
-                    "filtered_count": 0,
-                    "processed_candidates": 0,
-                    "last_success_at": None,
-                    "retry_count": 0,
-                    "runtime_seconds": round(time.perf_counter() - started_at, 4),
-                },
-            )
-            contract["relationship_hypotheses"] = self._run_heavy_relationship_pass(
-                contract=contract,
-                photo_facts=photo_facts,
-                primary_person_id=primary_person_id,
-                progress_callback=progress_callback,
-                llm_started_at=started_at,
-                slice_count=len(session_slices),
-                event_count=len(raw_sessions),
-                processed_events=len(session_artifacts),
-                processed_slices=len(slice_artifacts),
-            )
+    def _normalize_event_participants(self, participants) -> List[str]:
+        """清理 LP1 participants，避免主角占位符污染下游召回。"""
+        normalized = []
+        seen = set()
 
-        self._active_json_context = {}
+        for participant in participants or []:
+            if not isinstance(participant, str):
+                continue
+            person_ref = self._normalize_primary_person_reference(participant)
+            if not person_ref or person_ref in seen:
+                continue
+            normalized.append(person_ref)
+            seen.add(person_ref)
 
-        self.last_memory_contract = contract
-        self.last_chunk_artifacts = {
-            "photo_fact_count": len(photo_facts),
-            "burst_count": len(bursts),
-            "raw_event_count": len(raw_sessions),
-            "event_contract_count": len(session_contracts),
-            "slice_count": len(session_slices),
-            "task_version": self.task_version,
-            "merge_recovered_from_sessions": merge_recovered,
-            "relationship_provider": self._active_relationship_provider(),
-            "relationship_model_candidates": list(self.relationship_bedrock_model_candidates or []),
-            "slice_contract_records": slice_contract_records,
-            "event_merge_records": event_merge_records,
-            "pre_relationship_contract": deepcopy(self.last_chunk_artifacts.get("pre_relationship_contract")),
-            "bursts": [
-                {
-                    "burst_id": burst["burst_id"],
-                    "photo_ids": list(burst["photo_ids"]),
-                    "started_at": burst["started_at"],
-                    "ended_at": burst["ended_at"],
-                    "location_bucket": burst["location_bucket"],
-                    "dominant_person_ids": list(burst["dominant_person_ids"]),
-                    "rare_clue_count": len(burst["rare_clues"]),
-                    "information_score": float(burst.get("information_score") or 0.0),
-                    "photo_density_score": float(burst.get("photo_density_score") or 0.0),
-                }
-                for burst in bursts
-            ],
-            "event_summaries": session_artifacts,
-            "slices": slice_artifacts,
-            "final_contract_counts": self._contract_counts(contract),
-            "llm_runtime_seconds": round(time.perf_counter() - started_at, 4),
-        }
-        return contract
+        return normalized
 
-    def facts_from_memory_contract(self, memory_contract: Dict[str, Any]) -> List[Event]:
-        events: List[Event] = []
-        for index, item in enumerate(memory_contract.get("facts", []), start=1):
-            started_at = str(item.get("started_at") or "")
-            ended_at = str(item.get("ended_at") or started_at)
-            date, time_range = self._legacy_time_fields(started_at, ended_at)
-            participants = [str(value) for value in item.get("participant_person_ids", []) or item.get("participants", [])]
-            tags = [str(value) for value in item.get("event_facets", [])]
-            alternative = item.get("alternative_type_candidates", [])
-            meta_info = {
-                "title": item.get("title", ""),
-                "timestamp": f"{started_at} - {ended_at}" if started_at else "",
-                "location_context": item.get("location", ""),
-                "photo_count": len(item.get("photo_ids", [])),
-                "original_image_ids": list(item.get("original_image_ids", []) or item.get("photo_ids", [])),
-                "coarse_event_type": item.get("coarse_event_type", "unknown"),
-                "alternative_type_candidates": alternative,
-            }
-            objective_fact = {
-                "scene_description": item.get("description", ""),
-                "participants": participants,
-            }
-            events.append(
-                Event(
-                    event_id=str(item.get("fact_id") or f"FACT_{index:03d}"),
-                    date=date,
-                    time_range=time_range,
-                    duration="",
-                    title=str(item.get("title") or ""),
-                    type=str(item.get("coarse_event_type") or "其他"),
-                    participants=participants,
-                    location=str(item.get("location") or ""),
-                    description=str(item.get("description") or ""),
-                    photo_count=len(item.get("photo_ids", [])),
-                    confidence=float(item.get("confidence") or 0.0),
-                    reason=str(item.get("reason") or ""),
-                    narrative_synthesis=str(item.get("narrative_synthesis") or item.get("description") or ""),
-                    meta_info=meta_info,
-                    objective_fact=objective_fact,
-                    evidence_photos=list(item.get("photo_ids", [])),
-                    tags=tags,
-                    persona_evidence=item.get("persona_evidence", {}) or {},
-                    social_dynamics=item.get("social_dynamics", []) or [],
-                )
-            )
+    def _normalize_social_dynamics(self, social_dynamics) -> List[Dict]:
+        """只对 person_id 类字段做兜底纠偏，其他字段保持原样。"""
+        normalized = []
+
+        for item in social_dynamics or []:
+            if not isinstance(item, dict):
+                continue
+            dynamic = dict(item)
+            dynamic["target_id"] = self._normalize_primary_person_reference(dynamic.get("target_id"))
+            normalized.append(dynamic)
+
+        return normalized
+
+    def _create_event_extraction_prompt(self, vlm_results: List[Dict]) -> str:
+        """创建事件提取prompt（适配新的简化VLM格式）"""
+        photos_info = []
+
+        for item in vlm_results:
+            # 获取地点：优先使用VLM识别的location_detected，其次EXIF GPS
+            exif_location = item['location'].get('name', '未知') if item.get('location') else '未知'
+            scene_info = item['vlm_analysis'].get('scene', {})
+            if isinstance(scene_info, dict):
+                vlm_location = scene_info.get('location_detected', '')
+                location_type = scene_info.get('location_type', '')
+                scene_details = ', '.join(scene_info.get('environment_details', []))
+            else:
+                vlm_location = ''
+                location_type = ''
+                scene_details = str(scene_info)
+            location = vlm_location if vlm_location else exif_location
+
+            # 获取人物详情
+            people_details = item['vlm_analysis'].get('people', [])
+            people_str = ""
+            for p in people_details:
+                pid = p.get('person_id', '未知')
+                appearance = p.get('appearance', '')
+                clothing = p.get('clothing', '')
+                activity = p.get('activity', '')
+                interaction = p.get('interaction', '')
+                expression = p.get('expression', '')
+                people_str += f"""
+    - {pid}:
+      外貌: {appearance}
+      穿着: {clothing}
+      动作: {activity}
+      互动: {interaction}
+      表情: {expression}"""
+
+            # 获取实体关系三元组
+            relations = item['vlm_analysis'].get('relations', [])
+            relations_str = ""
+            for r in relations:
+                if isinstance(r, dict):
+                    relations_str += f"\n    - {r.get('subject', '')} → {r.get('relation', '')} → {r.get('object', '')}"
+
+            # 获取事件信息
+            event_info = item['vlm_analysis'].get('event', {})
+            if isinstance(event_info, str):
+                event_activity = event_info
+                event_social = ''
+                event_mood = ''
+                story_hints = ''
+            else:
+                event_activity = event_info.get('activity', '')
+                event_social = event_info.get('social_context', '')
+                event_mood = event_info.get('mood', '')
+                hints = event_info.get('story_hints', [])
+                story_hints = ', '.join(hints) if isinstance(hints, list) else str(hints)
+
+            # 获取细节
+            details = item['vlm_analysis'].get('details', '')
+            if isinstance(details, list):
+                details = ', '.join(details)
+            elif isinstance(details, dict):
+                details = str(details)
+
+            # 获取人物ID列表
+            vlm_people = item['vlm_analysis'].get('people', [])
+            person_ids = [p.get('person_id', '') for p in vlm_people]
+
+            info = f"""
+【照片 {item['photo_id']}】
+时间: {item['timestamp']}
+地点: {location}{f" ({location_type})" if location_type else ""}
+人物ID: {', '.join(person_ids) if person_ids else '无'}
+人物详情:{people_str if people_str else " 无"}
+实体关系:{relations_str if relations_str else " 无"}
+VLM描述: {item['vlm_analysis'].get('summary', '')}
+场景细节: {scene_details}
+活动: {event_activity}
+社交背景: {event_social}
+氛围: {event_mood}
+{f"故事线索: {story_hints}" if story_hints else ""}
+细节: {details}
+---
+"""
+            photos_info.append(info)
+
+        # 提取日期用于背景推理
+        dates = [item['timestamp'][:10] for item in vlm_results if item.get('timestamp')]
+        if not dates:
+            date_info = "照片拍摄时间范围：未知"
+        else:
+            date_info = f"照片拍摄时间范围：{dates[0]} 至 {dates[-1]}，共{len(set(dates))}天"
+
+        primary_person_output_id = self.primary_person_id or "主角对应的 Person_###"
+        if self.primary_person_id:
+            primary_person_contract = f"""
+Primary Person Contract (人物主键约束):
+- 当前数据集中，【主角】唯一对应的 person_id 是 {self.primary_person_id}
+- 任何涉及用户/主角本人的 participants 或 social_dynamics.target_id，都必须直接写 {self.primary_person_id}
+- 不允许输出 `Person_0` / `person_0` / `主角person_id` / `用户person_id` 这类历史别名或占位符
+- `participants` 只能填写真实出现的 Person_###；若推断存在未识别的拍摄者，只能写进 `scene_description` 或 `social_dynamics.social_clue`，不要把说明文字写进 `participants`
+"""
+        else:
+            primary_person_contract = """
+Primary Person Contract (人物主键约束):
+- 若涉及用户/主角本人，必须使用输入中真实出现的 Person_###，不要使用 `Person_0` / `person_0` / `主角person_id`
+- `participants` 只能填写真实出现的 Person_###
+"""
+
+        prompt = f"""Role: 你是一位资深的人类学专家与社会学行为分析师，擅长从破碎的相册VLM元数据中，通过"时空-行为-关系"三维建模，将零散照片还原为逻辑连贯的"原子事件"，并为后续的用户人格画像（Who/Whom/What）提供高价值的推导证据。
+
+Task:
+1. 原子事件聚类：分析用户相册的VLM（视觉语言模型）原始数据（包含时间戳、地点、人物ID、场景描述），将零散的照片聚类为逻辑连贯的"客观事件"，并识别核心社交关系。
+2. 微观线索提取：从物象、构图、互动中提取能反映用户身份、社交与性格的"切片"。
+3. 特征向量标记：为每个事件打上维度标签，便于全局画像合成。
+4. 为每个事件给出事件级 confidence（0-1）和 reason。confidence 必须综合考虑：照片数、时间地点一致性、参与者清晰度、叙事闭环程度。不要省略该字段。
+
+{primary_person_contract}
+
+Core Principles (核心原则):
+- 视角法则（关键）：
+  - 判定自拍：若画面出现手臂延伸、持手机姿势或镜面反射 → 用户主动记录，表明记录欲、自我展示
+  - 判定他拍：若【主角】出现在中远景、双手未持拍摄设备且姿态自然 → 必须判定为"他拍"，现场存在"隐形成员（Invisible Photographer）"，这是识别亲密同伴的关键线索
+  - 判定监控视角：画面为俯视、高角度、固定机位 → 公共/工作场所
+  - 身份确认：截图或拍摄证件中的人物信息通常是用户本人
+- 证据溯源：所有推断必须基于事实（如：通过Chanel包装推测经济能力，通过凌晨时段推测生活节奏）。严禁无具体证据的主观推测。
+
+Analysis Logic (分析逻辑):
+
+1. 时空聚类（Event Grouping）：
+   - 若相邻照片时间差在4小时内，且地点（location）相同或场景（scene）逻辑连贯（如：从商场到商场餐厅），应归为一个"事件"
+   - 若时间跨度大或地点发生显著位移，应开启新事件
+
+2. 地点的逻辑推断：
+   - 即使坐标缺失，也要通过环境要素判定场景属性：
+   - 睡衣/厨具/床品 → 私密居家（家庭生活、个人空间）
+   - 显示器/工牌/会议室 → 职业办公（工作身份、职业地位）
+   - 摩托车/街道/商场 → 都市户外（出行习惯、生活节奏）
+   - 餐具/菜单/餐桌 → 餐饮场所（饮食习惯、社交活动）
+   - 奢侈品牌、包装 → 消费场景（经济能力、品味偏好）
+
+3. 社交建模（Social Mapping）：
+   - 识别和统计每个事件中出现的person_id
+   - 核心同伴（Core Companion）：行为亲密（经常合影、身体接近）、有明显互动（对视、共同动作）、高频多事件出现 → 候选：家人、伴侣、密友
+   - 频繁伙伴（Frequent Companion）：出现在3-8个事件中，多个不同场景（咖啡馆、餐厅、户外） → 候选：朋友、同事
+   - 环境人物（Incidental Person）：仅在特定公共场所出现一次且无互动 → 不推断关系
+
+4. 微观线索（Micro-Clues）：
+   - 身份线索：工牌、员工证件、专业设备、消费小票、屏幕内容、APP界面 → 推导：职业身份、学历背景
+   - 社交线索：拍摄者与被拍者的距离（亲密度）、身体语言（朝向/肢体接触）、合影频率与场景、出现地点（家/公司） → 推导：关系亲密度、互动模式
+   - 性格线索：构图的秩序感（整齐/随意）、拍摄内容的重复性（如反复拍猫或拍路标）、截图的类型（工作/娱乐/学习）、修图风格 → 推导：性格倾向、专注力、表达欲
+   - 审美线索：服装品牌（奢侈品 vs 快时尚）、配色偏好（素色 vs 鲜艳）、构图风格（对称 vs 自由）、物品选择（极简 vs 繁复） → 推导：审美水平、品味、生活品质
+   - 社会经济线索：品牌档次（Chanel vs 淘宝）、消费场景（米其林餐厅 vs 街边小店）、生活设施（别墅 vs 出租房）、出行方式（私家车 vs 公交） → 推导：经济能力、消费观、阶层位置
+
+Output Format (严格执行以下JSON格式):
+
+{{
+  "events": [
+    {{
+      "event_id": "唯一编号",
+      "narrative_synthesis": "一句话深度还原：[身份/状态]在[环境]中[出于什么动机/情感]进行了[核心行为]，体现了[某种生活特质]。",
+      "meta_info": {{
+        "title": "事件核心动作短语",
+        "timestamp": "YYYY-MM-DD HH:mm - HH:mm",
+        "location_context": "推测的地点性质（如：私密居家/职业办公/公共街区）",
+        "photo_count": "涉及的照片总数"
+      }},
+      "objective_fact": {{
+        "scene_description": "客观事实：环境细节、品牌、构图视角（强调自拍/他拍/监控视角）、人物动作。",
+        "participants": ["{primary_person_output_id}", "Person_002"]
+      }},
+      "social_dynamics": [
+        {{
+          "target_id": "Person_002",
+          "interaction_type": "互动类型（如：他拍摄影师/共同进餐/合影）",
+          "social_clue": "判定关系的证据（如：物理距离、眼神指向、视角高低）",
+          "relation_hypothesis": "初步关系推断",
+          "confidence": 0.9
+        }}
+      ],
+      "persona_evidence": {{
+        "behavioral": ["性格/习惯特征"],
+        "aesthetic": ["视觉偏好/秩序感特征"],
+        "socioeconomic": ["阶层/价值取向特征"]
+      }},
+      "tags": ["#标签1", "#标签2"],
+      "confidence": 0.85,
+      "reason": "事件成立依据"
+    }}
+  ]
+}}
+
+事件级 confidence 判断标准：
+- 0.75-0.95：多张照片支撑，时间地点连贯，参与者明确，叙事闭环完整
+- 0.60-0.74：证据较完整，但仍有少量模糊或推断跳跃
+- 0.35-0.59：单张照片、地点模糊、参与者不清或叙事闭环弱
+- 不允许省略 `confidence`
+
+请开始分析：
+
+{date_info}
+
+{''.join(photos_info)}
+"""
+
+        return prompt
+
+    def _extract_date(self, timestamp_str: str) -> str:
+        """从时间戳中提取日期"""
+        try:
+            dt = datetime.fromisoformat(timestamp_str)
+            return dt.strftime("%Y-%m-%d")
+        except:
+            return ""
+
+    def _check_constraints(self, events: List[Event]) -> List[Event]:
+        """
+        物理约束检查
+
+        Args:
+            events: 事件列表
+
+        Returns:
+            检查后的事件列表
+        """
+        # 检查时间冲突
+        for i, event1 in enumerate(events):
+            for event2 in events[i+1:]:
+                if time_overlap(event1.time_range, event2.time_range):
+                    print(f"警告：事件{event1.event_id}和{event2.event_id}时间重叠")
+
         return events
 
-    def relationships_from_memory_contract(self, memory_contract: Dict[str, Any]) -> List[Relationship]:
-        relationships: List[Relationship] = []
-        for item in memory_contract.get("relationship_hypotheses", []):
-            person_id = str(item.get("person_id") or item.get("target_person_id") or "")
-            if not person_id:
+    def infer_relationships(self, vlm_results: List[Dict], face_db: Dict, events=None) -> List[Relationship]:
+        """
+        推断人物关系（LP2 v3.0）
+
+        Args:
+            vlm_results: VLM结果列表
+            face_db: 人脸库（可能是 dict 或 Person 对象）
+            events: LP1 提取的事件列表（用于事件召回）
+
+        Returns:
+            关系列表
+        """
+        relationships = []
+
+        # 遍历所有人脸库中的人物（除了主角）
+        for person_id, person_info in face_db.items():
+            # 跳过主角
+            if self.primary_person_id and person_id == self.primary_person_id:
                 continue
-            relationships.append(
-                Relationship(
-                    person_id=person_id,
-                    relationship_type=str(item.get("relationship_type") or "acquaintance"),
-                    label=str(item.get("label") or "熟人"),
-                    confidence=float(item.get("confidence") or 0.0),
-                    evidence={
-                        **(item.get("evidence", {}) or {}),
-                        "supporting_event_ids": [str(value) for value in item.get("supporting_fact_ids", []) or []],
-                        "supporting_fact_ids": [str(value) for value in item.get("supporting_fact_ids", []) or []],
-                        "supporting_photo_ids": [str(value) for value in item.get("supporting_photo_ids", []) or []],
-                    },
-                    reason=str(item.get("reason") or item.get("reason_summary") or ""),
-                )
-            )
+
+            # 检查是否满足触发条件
+            should_infer, reason = self._should_infer_relationship(person_id, person_info, vlm_results)
+
+            if not should_infer:
+                print(f"跳过 {person_id}: {reason}")
+                continue
+
+            # 收集证据（含事件召回和 contact_types）
+            evidence = self._collect_relationship_evidence(person_id, vlm_results, events)
+
+            # 推断关系（含亲密度计算）
+            relationship = self._infer_relationship(person_id, evidence, vlm_results, face_db)
+            relationships.append(relationship)
+
         return relationships
 
-    def profile_markdown_from_memory_contract(
-        self,
-        memory_contract: Dict[str, Any],
-        primary_person_id: Optional[str],
-    ) -> str:
-        profile_deltas = memory_contract.get("profile_deltas", [])
-        uncertainty = memory_contract.get("uncertainty", [])
-        if not profile_deltas and not uncertainty:
-            return "# Profile\n\n- no durable profile deltas extracted"
+    def _should_infer_relationship(self, person_id: str, person_info: Dict, vlm_results: List[Dict]) -> tuple:
+        """
+        判断是否应该推断关系
 
-        grouped: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
-        for item in profile_deltas:
-            profile_key = str(item.get("profile_key") or "general_profile")
-            grouped[profile_key].append(item)
+        Returns:
+            (是否应该推断, 原因)
+        """
+        from datetime import datetime
 
-        lines = ["# Profile", ""]
-        if primary_person_id:
-            lines.append(f"- primary_person_id_hint: {primary_person_id}")
-            lines.append("")
-        for profile_key in sorted(grouped):
-            lines.append(f"## {profile_key}")
-            lines.append("")
-            for item in sorted(grouped[profile_key], key=lambda payload: (str(payload.get("field_key") or ""), -float(payload.get("confidence") or 0.0))):
-                summary = str(item.get("summary") or item.get("value_summary") or item.get("field_value") or "")
-                confidence = float(item.get("confidence") or 0.0)
-                lines.append(f"- {item.get('field_key')}: {summary} (confidence={confidence:.2f})")
-            lines.append("")
-        if uncertainty:
-            lines.append("## uncertainty")
-            lines.append("")
-            for item in uncertainty:
-                lines.append(f"- {item.get('field')}: {item.get('status')} ({item.get('reason')})")
-        return "\n".join(lines).strip()
+        # 处理 person_info 可能是 dict 的情况
+        if isinstance(person_info, dict):
+            photo_count = person_info.get("photo_count", 0)
+            first_seen = person_info.get("first_seen")
+            last_seen = person_info.get("last_seen")
+        else:
+            photo_count = getattr(person_info, 'photo_count', 0)
+            first_seen = getattr(person_info, 'first_seen', None)
+            last_seen = getattr(person_info, 'last_seen', None)
 
-    def _finalize_memory_contract(self, payload: Any) -> Dict[str, Any]:
-        contract = self._normalize_memory_contract(payload)
-        self._ensure_profile_deltas(contract)
-        return contract
+        # 条件1：出现次数
+        if photo_count < MIN_PHOTO_COUNT:
+            return False, f"出现次数太少（{photo_count}次，需要≥{MIN_PHOTO_COUNT}次）"
 
-    def _ensure_profile_deltas(self, contract: Dict[str, Any]) -> None:
-        profile_deltas = contract.setdefault("profile_deltas", [])
-        existing_keys = {
-            (
-                str(item.get("profile_key") or ""),
-                str(item.get("field_key") or ""),
-                str(item.get("field_value") or ""),
-            )
-            for item in profile_deltas
-            if isinstance(item, dict)
-        }
-        synthesized: List[Dict[str, Any]] = []
+        # 条件2：时间跨度
+        if first_seen and last_seen:
+            # 如果是字符串，需要转换为 datetime
+            if isinstance(first_seen, str):
+                try:
+                    first_seen = datetime.fromisoformat(first_seen)
+                except:
+                    pass
 
-        def append_delta(
-            *,
-            profile_key: str,
-            field_key: str,
-            field_value: str,
-            summary: str,
-            confidence: float,
-            supporting_fact_ids: Optional[List[str]] = None,
-            supporting_photo_ids: Optional[List[str]] = None,
-            evidence_refs: Optional[List[Dict[str, str]]] = None,
-        ) -> None:
-            normalized_key = (profile_key, field_key, field_value)
-            if not field_value or normalized_key in existing_keys:
-                return
-            existing_keys.add(normalized_key)
-            synthesized.append(
-                {
-                    "profile_key": profile_key,
-                    "field_key": field_key,
-                    "field_value": field_value,
-                    "summary": summary or field_value,
-                    "confidence": round(max(0.0, min(1.0, confidence)), 4),
-                    "supporting_fact_ids": list(supporting_fact_ids or []),
-                    "supporting_photo_ids": list(supporting_photo_ids or []),
-                    "evidence_refs": list(evidence_refs or []),
-                }
-            )
+            if isinstance(last_seen, str):
+                try:
+                    last_seen = datetime.fromisoformat(last_seen)
+                except:
+                    pass
 
-        for fact in contract.get("facts", [])[:16]:
-            fact_id = str(fact.get("fact_id") or "")
-            photo_ids = [str(item) for item in fact.get("original_image_ids", fact.get("photo_ids", [])) or [] if item]
-            summary = str(fact.get("narrative_synthesis") or fact.get("description") or fact.get("title") or "").strip()
-            title = str(fact.get("title") or "").strip()
-            if title:
-                append_delta(
-                    profile_key="recommendation_prior_profile",
-                    field_key="recent_activity_signal",
-                    field_value=title,
-                    summary=summary or title,
-                    confidence=float(fact.get("confidence") or 0.0) * 0.75,
-                    supporting_fact_ids=[fact_id] if fact_id else [],
-                    supporting_photo_ids=photo_ids,
-                    evidence_refs=[{"ref_type": "fact", "ref_id": fact_id}] if fact_id else [],
-                )
-            location = str(fact.get("location") or "").strip()
-            if location:
-                append_delta(
-                    profile_key="identity_trajectory_profile",
-                    field_key="place_signal",
-                    field_value=location,
-                    summary=f"近期活动地点线索: {location}",
-                    confidence=max(0.35, float(fact.get("confidence") or 0.0) * 0.68),
-                    supporting_fact_ids=[fact_id] if fact_id else [],
-                    supporting_photo_ids=photo_ids,
-                    evidence_refs=[{"ref_type": "fact", "ref_id": fact_id}] if fact_id else [],
-                )
+            # 确保都是 datetime 对象后才计算
+            if isinstance(first_seen, datetime) and isinstance(last_seen, datetime):
+                time_span = (last_seen - first_seen).days
+                if time_span < MIN_TIME_SPAN_DAYS:
+                    return False, f"认识时间太短（{time_span}天，需要≥{MIN_TIME_SPAN_DAYS}天）"
 
-        observation_profile_map = {
-            "scene": ("aesthetic_profile", "scene_signal"),
-            "activity": ("recommendation_prior_profile", "activity_signal"),
-            "place_hint": ("identity_trajectory_profile", "place_signal"),
-            "brand": ("preference_profile", "observed_brand_signal"),
-            "dish": ("preference_profile", "observed_dish_signal"),
-            "price": ("consumption_profile", "price_signal"),
-            "clothing": ("style_profile", "style_signal"),
-            "style": ("style_profile", "style_signal"),
-            "health": ("identity_trajectory_profile", "health_signal"),
-            "transport": ("identity_trajectory_profile", "transport_signal"),
-            "route_plan": ("recommendation_prior_profile", "route_signal"),
-            "object": ("recommendation_prior_profile", "object_signal"),
-        }
-        for observation in contract.get("observations", [])[:24]:
-            category = str(observation.get("category") or "scene").strip()
-            profile_key, field_key = observation_profile_map.get(category, ("recommendation_prior_profile", "observation_signal"))
-            field_value = str(observation.get("field_value") or "").strip()
-            if not field_value:
+        # 条件3：场景多样性
+        scenes = self._get_person_scenes(person_id, vlm_results)
+        if len(scenes) < MIN_SCENE_VARIETY:
+            return False, f"场景数据不足（{len(scenes)}种场景，需要≥{MIN_SCENE_VARIETY}种）"
+
+        return True, "可以推断"
+
+    def _get_person_scenes(self, person_id: str, vlm_results: List[Dict]) -> List[str]:
+        """获取人物出现的场景"""
+        scenes = set()
+
+        for result in vlm_results:
+            # 从VLM分析结果中获取人物列表
+            vlm_people = result["vlm_analysis"].get("people", [])
+            for person in vlm_people:
+                if person.get("person_id") == person_id:
+                    scene = result["vlm_analysis"].get("scene", {}).get("location_detected", "")
+                    if scene:
+                        scenes.add(scene)
+                    break
+
+        return list(scenes)
+
+    def _parse_interaction_text(self, text: str) -> float:
+        """解析 people[].interaction 自由文本中的互动关键词，回退打分"""
+        if not text:
+            return 0.2
+        text_lower = text.lower()
+        keyword_scores = [
+            (["亲吻", "kiss", "接吻"], 1.0),
+            (["拥抱", "hug", "抱"], 1.0),
+            (["牵手", "holding_hands", "hand"], 0.8),
+            (["搂", "arm_in_arm", "挽"], 0.8),
+            (["自拍", "selfie"], 0.5),
+            (["肩", "shoulder", "lean"], 0.5),
+            (["亲密", "intimate", "close"], 0.4),
+            (["旁边", "near", "beside", "next"], 0.3),
+        ]
+        best = 0.2
+        for keywords, score in keyword_scores:
+            if any(kw in text_lower for kw in keywords):
+                best = max(best, score)
+        return best
+
+    def _compute_intimacy_score(self, person_id: str, evidence: Dict, vlm_results: List[Dict], face_db: Dict) -> float:
+        """纯代码计算亲密度分数（0-1），不调 LLM"""
+        # --- 频率维度 ---
+        person_count = evidence["photo_count"]
+        total_non_protagonist = 0
+        for pid, pinfo in face_db.items():
+            if self.primary_person_id and pid == self.primary_person_id:
                 continue
-            append_delta(
-                profile_key=profile_key,
-                field_key=field_key,
-                field_value=field_value,
-                summary=f"{observation.get('field_key') or category}: {field_value}",
-                confidence=max(0.28, float(observation.get("confidence") or 0.0) * 0.72),
-                supporting_fact_ids=[str(observation.get("fact_id") or "")] if observation.get("fact_id") else [],
-                supporting_photo_ids=[str(item) for item in observation.get("original_image_ids", observation.get("photo_ids", [])) or [] if item],
-                evidence_refs=observation.get("evidence_refs", []) or [],
-            )
+            if isinstance(pinfo, dict):
+                total_non_protagonist += pinfo.get("photo_count", 0)
+            else:
+                total_non_protagonist += getattr(pinfo, "photo_count", 0)
+        if total_non_protagonist > 0:
+            relative_freq = person_count / total_non_protagonist
+        else:
+            relative_freq = 0
+        freq_score = min(relative_freq * 3, 1.0)
 
-        claim_profile_map = {
-            "location": ("identity_trajectory_profile", "location_claim"),
-            "identity": ("career_profile", "identity_claim"),
-            "brand": ("preference_profile", "brand_claim"),
-            "dish": ("preference_profile", "dish_claim"),
-            "price": ("consumption_profile", "price_claim"),
-            "health": ("identity_trajectory_profile", "health_claim"),
-            "transport": ("identity_trajectory_profile", "transport_claim"),
-            "route_plan": ("recommendation_prior_profile", "route_plan_claim"),
-            "preference_signal": ("preference_profile", "preference_signal"),
-            "culture_signal": ("aesthetic_profile", "culture_signal"),
-            "object_last_seen": ("recommendation_prior_profile", "object_last_seen"),
-        }
-        for claim in contract.get("claims", [])[:24]:
-            claim_type = str(claim.get("claim_type") or "other").strip()
-            profile_key, field_key = claim_profile_map.get(claim_type, ("recommendation_prior_profile", "claim_signal"))
-            claim_object = str(claim.get("object") or "").strip()
-            if not claim_object:
-                continue
-            predicate = str(claim.get("predicate") or "").strip()
-            summary = f"{predicate}: {claim_object}" if predicate else claim_object
-            append_delta(
-                profile_key=profile_key,
-                field_key=field_key,
-                field_value=claim_object,
-                summary=summary,
-                confidence=max(0.32, float(claim.get("confidence") or 0.0) * 0.8),
-                supporting_fact_ids=[str(claim.get("fact_id") or "")] if claim.get("fact_id") else [],
-                supporting_photo_ids=[str(item) for item in claim.get("original_image_ids", claim.get("photo_ids", [])) or [] if item],
-                evidence_refs=claim.get("evidence_refs", []) or [],
-            )
-
-        if not synthesized:
-            return
-
-        remaining_capacity = max(0, 12 - len(profile_deltas))
-        if remaining_capacity <= 0:
-            return
-
-        for index, item in enumerate(synthesized[:remaining_capacity], start=1):
-            item.setdefault("delta_id", f"SYNTH_DELTA_{index:03d}")
-            profile_deltas.append(item)
-
-    def _recover_contract_if_sparse(
-        self,
-        *,
-        merged_contract: Dict[str, Any],
-        session_contracts: List[Dict[str, Any]],
-        session_artifacts: List[Dict[str, Any]],
-    ) -> Dict[str, Any]:
-        core_keys = ("facts", "observations", "claims", "relationship_hypotheses", "profile_deltas")
-        if any(merged_contract.get(key) for key in core_keys):
-            return merged_contract
-        if not any(contract.get(key) for contract in session_contracts for key in core_keys):
-            return merged_contract
-
-        recovered = self._merge_contracts_union(session_contracts)
-        recovered.setdefault("uncertainty", []).append(
-            {
-                "field": "global_merge_contract",
-                "status": "insufficient_evidence",
-                "reason": "global merge returned an empty core contract; recovered from session-level contracts",
-                "session_artifact_refs": [
-                    str(item.get("raw_event_id") or "")
-                    for item in session_artifacts
-                    if item.get("raw_event_id")
-                ],
-            }
-        )
-        self._ensure_profile_deltas(recovered)
-        return recovered
-
-    def _merge_contracts_union(self, contracts: List[Dict[str, Any]]) -> Dict[str, Any]:
-        merged = self._empty_contract()
-        dedupe_maps: Dict[str, Dict[str, Dict[str, Any]]] = {
-            "facts": {},
-            "observations": {},
-            "claims": {},
-            "relationship_hypotheses": {},
-            "profile_deltas": {},
-            "uncertainty": {},
-        }
-
-        identity_fields = {
-            "facts": "fact_id",
-            "observations": "observation_id",
-            "claims": "claim_id",
-            "relationship_hypotheses": "relationship_id",
-            "profile_deltas": "delta_id",
-            "uncertainty": "uncertainty_id",
-        }
-
-        for contract in contracts:
-            normalized = self._finalize_memory_contract(contract)
-            for key, id_field in identity_fields.items():
-                bucket = dedupe_maps[key]
-                for item in normalized.get(key, []):
-                    if not isinstance(item, dict):
-                        continue
-                    identifier = str(item.get(id_field) or "").strip()
-                    if not identifier:
-                        identifier = self._fallback_identity_for_contract_item(key, item)
-                    if identifier in bucket:
-                        bucket[identifier] = self._merge_contract_item(bucket[identifier], item)
+        # --- 互动维度 ---
+        interaction_scores_list = []
+        for result in vlm_results:
+            vlm_people = result.get("vlm_analysis", {}).get("people", [])
+            for person in vlm_people:
+                if person.get("person_id") == person_id:
+                    contact_type = person.get("contact_type", "")
+                    if contact_type and contact_type in INTERACTION_SCORES:
+                        interaction_scores_list.append(INTERACTION_SCORES[contact_type])
                     else:
-                        bucket[identifier] = dict(item)
+                        # 回退到 interaction 文本解析
+                        interaction_scores_list.append(
+                            self._parse_interaction_text(person.get("interaction", ""))
+                        )
+                    break
+        if interaction_scores_list:
+            interaction_score = sum(interaction_scores_list) / len(interaction_scores_list)
+        else:
+            interaction_score = 0.2
 
-        for key in merged:
-            merged[key] = list(dedupe_maps[key].values())
-        return self._finalize_memory_contract(merged)
+        # --- 场景多样性维度 ---
+        person_scene_types = set()
+        all_scene_types = set()
+        private_count = 0
+        total_person_scenes = 0
+        for result in vlm_results:
+            scene_data = result.get("vlm_analysis", {}).get("scene", {})
+            if isinstance(scene_data, dict):
+                scene_type = scene_data.get("location_detected", "")
+            else:
+                scene_type = ""
+            if scene_type:
+                all_scene_types.add(scene_type)
+            vlm_people = result.get("vlm_analysis", {}).get("people", [])
+            for person in vlm_people:
+                if person.get("person_id") == person_id:
+                    if scene_type:
+                        person_scene_types.add(scene_type)
+                        total_person_scenes += 1
+                        if any(pt in scene_type.lower() for pt in PRIVATE_SCENE_TYPES):
+                            private_count += 1
+                    break
+        if all_scene_types:
+            diversity = len(person_scene_types) / len(all_scene_types)
+        else:
+            diversity = 0
+        # 私密场景加权
+        if total_person_scenes > 0:
+            private_ratio = private_count / total_person_scenes
+            diversity = min(diversity * (1 + 0.5 * private_ratio), 1.0)
+        scene_score = min(diversity, 1.0)
 
-    def _fallback_identity_for_contract_item(self, bucket: str, item: Dict[str, Any]) -> str:
-        if bucket == "facts":
-            return "|".join(
-                [
-                    str(item.get("title") or ""),
-                    str(item.get("started_at") or ""),
-                    str(item.get("ended_at") or ""),
-                    str(item.get("location") or ""),
-                ]
-            )
-        if bucket == "observations":
-            return "|".join(
-                [
-                    str(item.get("category") or ""),
-                    str(item.get("field_key") or ""),
-                    str(item.get("field_value") or ""),
-                    ",".join(str(value) for value in item.get("original_image_ids", []) or []),
-                ]
-            )
-        if bucket == "claims":
-            return "|".join(
-                [
-                    str(item.get("claim_type") or ""),
-                    str(item.get("predicate") or ""),
-                    str(item.get("object") or ""),
-                    ",".join(str(value) for value in item.get("original_image_ids", []) or []),
-                ]
-            )
-        if bucket == "relationship_hypotheses":
-            return "|".join(
-                [
-                    str(item.get("person_id") or item.get("target_person_id") or ""),
-                    str(item.get("relationship_type") or ""),
-                ]
-            )
-        if bucket == "profile_deltas":
-            return "|".join(
-                [
-                    str(item.get("profile_key") or ""),
-                    str(item.get("field_key") or ""),
-                    str(item.get("field_value") or ""),
-                ]
-            )
-        return "|".join(
-            [
-                str(item.get("field") or ""),
-                str(item.get("status") or ""),
-                str(item.get("reason") or ""),
-            ]
+        # --- 加权求和 ---
+        intimacy = (
+            freq_score * INTIMACY_WEIGHT_FREQUENCY
+            + interaction_score * INTIMACY_WEIGHT_INTERACTION
+            + scene_score * INTIMACY_WEIGHT_SCENE_DIVERSITY
+        )
+        return round(min(intimacy, 1.0), 3)
+
+    def _recall_shared_events(self, person_id: str, events: List) -> List[Dict]:
+        """从 LP1 事件中召回与 person_id 的共同事件（≤10 个）"""
+        if not events:
+            return []
+        # 筛选包含 person_id 的事件
+        shared = [e for e in events if person_id in (e.participants if hasattr(e, 'participants') else [])]
+        if not shared:
+            return []
+
+        def event_to_dict(e):
+            return {
+                "event_id": e.event_id,
+                "date": e.date,
+                "title": e.title,
+                "location": e.location,
+                "photo_count": e.photo_count,
+                "description": e.description,
+                "participants": e.participants,
+                "narrative_synthesis": getattr(e, 'narrative_synthesis', ''),
+                "social_dynamics": getattr(e, 'social_dynamics', []),
+            }
+
+        if len(shared) <= 2:
+            return [event_to_dict(e) for e in shared]
+
+        # 必选：第一个 + 最后一个
+        result = [event_to_dict(shared[0]), event_to_dict(shared[-1])]
+        middle = shared[1:-1]
+
+        # 中间按优先级取 top 8
+        def priority_key(e):
+            return -(e.photo_count or 0)
+        middle_sorted = sorted(middle, key=priority_key)
+        for e in middle_sorted[:8]:
+            result.append(event_to_dict(e))
+
+        return result
+
+    def _collect_relationship_evidence(self, person_id: str, vlm_results: List[Dict], events=None) -> Dict:
+        """收集关系推断的证据（优先消费 LP1 结果，VLM 仅用于亲密度打分）"""
+        import statistics
+        from collections import defaultdict
+
+        evidence = {
+            "photo_count": 0,
+            "time_span": "",
+            "time_span_days": 0,
+            "recent_gap_days": 0,
+            "scenes": [],
+            "private_scene_ratio": 0.0,
+            "dominant_scene_ratio": 0.0,
+            "interaction_behavior": [],
+            "weekend_frequency": "",
+            "with_user_only": True,
+            "sample_scenes": [],
+            "contact_types": [],
+            "rela_events": [],
+            "monthly_frequency": 0.0,
+            "trend_detail": {},
+            "co_appearing_persons": [],
+            "anomalies": [],
+        }
+
+        # 找出包含该人物的所有照片
+        co_photos = []
+        for result in vlm_results:
+            vlm_people = result["vlm_analysis"].get("people", [])
+            for person in vlm_people:
+                if person.get("person_id") == person_id:
+                    co_photos.append(result)
+                    break
+
+        evidence["photo_count"] = len(co_photos)
+        if not co_photos:
+            return evidence
+
+        # --- 时间跨度 ---
+        timestamps = sorted([datetime.fromisoformat(r["timestamp"]) for r in co_photos])
+        first = timestamps[0]
+        last = timestamps[-1]
+        span_days = (last - first).days + 1
+        evidence["time_span"] = f"{span_days}天"
+        evidence["time_span_days"] = span_days
+
+        # --- 月均频率 ---
+        evidence["monthly_frequency"] = round(len(co_photos) / max(span_days / 30, 1), 1)
+
+        # --- 场景提取（VLM，亲密度打分需要） ---
+        scene_counts = {}
+        private_scene_hits = 0
+        for photo in co_photos:
+            scene_data = photo["vlm_analysis"].get("scene", {})
+            scene = scene_data.get("location_detected", "") if isinstance(scene_data, dict) else ""
+            if scene and scene not in evidence["scenes"]:
+                evidence["scenes"].append(scene)
+            if scene:
+                scene_counts[scene] = scene_counts.get(scene, 0) + 1
+                if any(pt in scene.lower() for pt in PRIVATE_SCENE_TYPES):
+                    private_scene_hits += 1
+
+        if co_photos:
+            evidence["private_scene_ratio"] = round(private_scene_hits / len(co_photos), 2)
+        if scene_counts:
+            evidence["dominant_scene_ratio"] = round(max(scene_counts.values()) / len(co_photos), 2)
+
+        # --- 互动行为（优先从 LP1 social_dynamics 聚合） ---
+        rela_events = self._recall_shared_events(person_id, events)
+        evidence["rela_events"] = rela_events
+
+        if rela_events:
+            for ev in rela_events:
+                for dyn in ev.get("social_dynamics", []):
+                    if dyn.get("target_id") == person_id:
+                        it = dyn.get("interaction_type", "")
+                        if it and it not in evidence["interaction_behavior"]:
+                            evidence["interaction_behavior"].append(it)
+        else:
+            # Fallback: 无 LP1 事件时，从 VLM 原始数据提取
+            for photo in co_photos:
+                for rel in photo["vlm_analysis"].get("relations", []):
+                    if isinstance(rel, dict):
+                        subj, obj, relation = rel.get("subject", ""), rel.get("object", ""), rel.get("relation", "")
+                        if (subj == person_id or obj == person_id) and relation:
+                            interaction = f"{subj} {relation} {obj}"
+                            if interaction not in evidence["interaction_behavior"]:
+                                evidence["interaction_behavior"].append(interaction)
+
+        # --- contact_types（VLM 直接读，LP1 没有这个粒度） ---
+        for photo in co_photos:
+            for person in photo.get("vlm_analysis", {}).get("people", []):
+                if person.get("person_id") == person_id:
+                    ct = person.get("contact_type", "")
+                    if ct:
+                        evidence["contact_types"].append(ct)
+                    break
+
+        # --- 周末频率 ---
+        weekend_count = sum(1 for t in timestamps if is_weekend(t))
+        evidence["weekend_frequency"] = "高" if weekend_count / len(co_photos) > 0.5 else "低"
+        dataset_last = max(datetime.fromisoformat(r["timestamp"]) for r in vlm_results if r.get("timestamp"))
+        evidence["recent_gap_days"] = max((dataset_last - last).days, 0)
+
+        # --- 是否只和主角二人 ---
+        for photo in co_photos:
+            vlm_people = photo.get("vlm_analysis", {}).get("people", [])
+            other_people = [p.get("person_id") for p in vlm_people
+                           if p.get("person_id") and p.get("person_id") not in (person_id, self.primary_person_id)]
+            if other_people:
+                evidence["with_user_only"] = False
+                break
+
+        # --- sample_scenes（保留少量样本给 prompt 展示） ---
+        for photo in co_photos[:5]:
+            scene_data = photo["vlm_analysis"].get("scene", {})
+            scene = scene_data.get("location_detected", "") if isinstance(scene_data, dict) else ""
+            event_data = photo["vlm_analysis"].get("event", {})
+            evidence["sample_scenes"].append({
+                "timestamp": photo["timestamp"],
+                "scene": scene,
+                "summary": photo["vlm_analysis"].get("summary", ""),
+                "activity": event_data.get("activity", "") if isinstance(event_data, dict) else str(event_data),
+                "social_context": event_data.get("social_context", "") if isinstance(event_data, dict) else ""
+            })
+
+        # --- 趋势细节（前后半段频率对比） ---
+        if len(timestamps) >= 4:
+            mid = first + (last - first) / 2
+            first_half = [t for t in timestamps if t <= mid]
+            second_half = [t for t in timestamps if t > mid]
+            first_half_days = max((mid - first).days, 1)
+            second_half_days = max((last - mid).days, 1)
+            first_freq = round(len(first_half) / (first_half_days / 30), 1)
+            second_freq = round(len(second_half) / (second_half_days / 30), 1)
+            if second_freq > first_freq * 1.5:
+                direction = "up"
+            elif second_freq < first_freq * 0.5:
+                direction = "down"
+            else:
+                direction = "flat"
+            evidence["trend_detail"] = {
+                "first_half_freq": first_freq,
+                "second_half_freq": second_freq,
+                "direction": direction,
+                "change_ratio": round(second_freq / max(first_freq, 0.1), 1),
+            }
+
+        # --- 第三方共现人物 ---
+        third_party = defaultdict(int)
+        for photo in co_photos:
+            for p in photo.get("vlm_analysis", {}).get("people", []):
+                pid = p.get("person_id", "")
+                if pid and pid not in (person_id, self.primary_person_id):
+                    third_party[pid] += 1
+        evidence["co_appearing_persons"] = [
+            {"person_id": pid, "co_count": cnt, "co_ratio": round(cnt / len(co_photos), 2)}
+            for pid, cnt in sorted(third_party.items(), key=lambda x: -x[1])
+            if cnt >= 2
+        ]
+
+        # --- 异常检测（统计突变） ---
+        anomalies = []
+
+        # 1) 频率突变：相邻照片间隔的 z-score
+        if len(timestamps) >= 4:
+            intervals = [(timestamps[i+1] - timestamps[i]).days for i in range(len(timestamps)-1)]
+            mean_iv = statistics.mean(intervals)
+            std_iv = statistics.stdev(intervals) if len(intervals) > 1 else 0
+            if std_iv > 0:
+                for i, gap in enumerate(intervals):
+                    z = (gap - mean_iv) / std_iv
+                    if z < -2:
+                        anomalies.append({
+                            "type": "frequency_surge",
+                            "description": f"Interval {gap}d vs avg {mean_iv:.0f}d",
+                            "date": timestamps[i+1].strftime("%Y-%m-%d"),
+                        })
+                    elif z > 2:
+                        anomalies.append({
+                            "type": "frequency_drop",
+                            "description": f"Gap {gap}d vs avg {mean_iv:.0f}d",
+                            "date": timestamps[i+1].strftime("%Y-%m-%d"),
+                        })
+
+        # 2) 共现模式突变：高频第三方最近消失 / 新第三方首次出现
+        if len(co_photos) >= 6:
+            cutoff = len(co_photos) * 2 // 3
+            early_photos = co_photos[:cutoff]
+            recent_photos = co_photos[cutoff:]
+
+            def get_pids(photo):
+                return {p.get("person_id") for p in photo.get("vlm_analysis", {}).get("people", []) if p.get("person_id")}
+
+            early_pids = set()
+            for p in early_photos:
+                early_pids |= get_pids(p)
+
+            for cp in evidence["co_appearing_persons"]:
+                if cp["co_ratio"] >= 0.5:
+                    recent_count = sum(1 for p in recent_photos if cp["person_id"] in get_pids(p))
+                    if recent_count == 0:
+                        anomalies.append({
+                            "type": "companion_disappeared",
+                            "description": f"{cp['person_id']} (co_ratio {cp['co_ratio']}) absent recently",
+                            "date": recent_photos[0]["timestamp"][:10],
+                        })
+
+            for p in recent_photos:
+                for pid in get_pids(p):
+                    if pid not in (self.primary_person_id, person_id) and pid not in early_pids:
+                        anomalies.append({
+                            "type": "new_companion",
+                            "description": f"{pid} first appeared in shared photos",
+                            "date": p["timestamp"][:10],
+                        })
+                        early_pids.add(pid)
+
+        # 3) 场景突变：最近出现的首次新场景
+        if len(co_photos) >= 6:
+            early_scenes = set()
+            for p in early_photos:
+                s = p.get("vlm_analysis", {}).get("scene", {})
+                loc = s.get("location_detected", "") if isinstance(s, dict) else ""
+                if loc:
+                    early_scenes.add(loc)
+            for p in recent_photos:
+                s = p.get("vlm_analysis", {}).get("scene", {})
+                loc = s.get("location_detected", "") if isinstance(s, dict) else ""
+                if loc and loc not in early_scenes:
+                    anomalies.append({
+                        "type": "new_scene",
+                        "description": f"First time at '{loc}' together",
+                        "date": p["timestamp"][:10],
+                    })
+                    early_scenes.add(loc)
+
+        evidence["anomalies"] = anomalies
+
+        return evidence
+
+    def _infer_relationship(self, person_id: str, evidence: Dict, vlm_results: List[Dict], face_db: Dict) -> Relationship:
+        """Soft-constraint LP2：代码给建议和红线，LLM 主导最终判断。"""
+        intimacy_score = self._compute_intimacy_score(person_id, evidence, vlm_results, face_db)
+        candidate_types = infer_relationship_candidates(evidence, intimacy_score)
+        code_status_suggestion = determine_relationship_status(evidence)
+        code_type_suggestion = candidate_types[0] if candidate_types else "acquaintance"
+        code_confidence_baseline = score_relationship_confidence(
+            evidence=evidence,
+            intimacy_score=intimacy_score,
+            relationship_type=code_type_suggestion,
+            candidate_types=candidate_types or [code_type_suggestion],
         )
 
-    def _merge_contract_item(self, left: Dict[str, Any], right: Dict[str, Any]) -> Dict[str, Any]:
-        merged = dict(left)
-        for key, value in right.items():
-            if value in (None, "", [], {}):
-                continue
-            current = merged.get(key)
-            if isinstance(current, list) and isinstance(value, list):
-                merged[key] = self._merge_unique_list(current, value)
-            elif isinstance(current, dict) and isinstance(value, dict):
-                next_value = dict(current)
-                for sub_key, sub_value in value.items():
-                    if sub_value not in (None, "", [], {}):
-                        next_value[sub_key] = sub_value
-                merged[key] = next_value
-            elif key == "confidence":
-                merged[key] = max(float(current or 0.0), float(value or 0.0))
-            elif current in (None, "", [], {}):
-                merged[key] = value
-        return merged
+        shared_events = [
+            {"event_id": ev.get("event_id", ""), "date": ev.get("date", ""), "narrative": ev.get("narrative_synthesis", "") or ev.get("title", "")}
+            for ev in evidence.get("rela_events", [])
+        ]
 
-    def _merge_unique_list(self, left: List[Any], right: List[Any]) -> List[Any]:
-        values: List[Any] = list(left)
-        seen = {json.dumps(item, ensure_ascii=False, sort_keys=True, default=str) for item in left}
-        for item in right:
-            marker = json.dumps(item, ensure_ascii=False, sort_keys=True, default=str)
-            if marker not in seen:
-                seen.add(marker)
-                values.append(item)
-        return values
+        prompt = self._create_relationship_prompt(
+            person_id,
+            evidence,
+            intimacy_score,
+            candidate_types=candidate_types,
+            code_status_suggestion=code_status_suggestion,
+        )
 
-    def extract_events(self, vlm_results: List[Dict], primary_person_id: Optional[str] = None) -> List[Event]:
-        contract = self.last_memory_contract
-        if contract is None:
-            contract = self.extract_memory_contract(vlm_results, primary_person_id=primary_person_id)
-        return self.facts_from_memory_contract(contract)
+        try:
+            result = self._call_llm_via_official_api(prompt)
+            llm_relationship_type = result.get("relationship_type") or code_type_suggestion
+            llm_status = result.get("status") or code_status_suggestion
+            llm_confidence = self._normalize_confidence(
+                result.get("confidence"),
+                default=code_confidence_baseline,
+            )
+            llm_reason = result.get("reason", "")
+        except Exception as e:
+            print(f"警告：关系推断失败 ({person_id}): {e}")
+            llm_relationship_type = code_type_suggestion
+            llm_status = code_status_suggestion
+            llm_confidence = code_confidence_baseline
+            llm_reason = f"LLM调用失败，回退代码建议: {e}"
 
-    def infer_relationships(
+        final_type, type_vetoes = apply_relationship_type_veto(llm_relationship_type, candidate_types)
+        final_status, status_vetoes = apply_status_redlines(llm_status, evidence)
+        applied_vetoes = type_vetoes + status_vetoes
+        final_confidence = blend_relationship_confidence(
+            llm_confidence=llm_confidence,
+            code_confidence_baseline=code_confidence_baseline,
+            applied_vetoes=applied_vetoes,
+        )
+
+        reason = (
+            f"候选关系建议: {', '.join(candidate_types)} | "
+            f"代码状态建议: {code_status_suggestion} | "
+            f"代码置信度基线: {code_confidence_baseline:.2f} | "
+            f"LLM关系: {llm_relationship_type} | "
+            f"LLM状态: {llm_status} | "
+            f"LLM置信度: {llm_confidence:.2f}"
+        )
+        if applied_vetoes:
+            reason += f" | 护栏触发: {', '.join(applied_vetoes)}"
+        if llm_reason:
+            reason += f" | LLM依据: {llm_reason}"
+
+        evidence["decision_trace"] = {
+            "candidate_types": candidate_types,
+            "code_status_suggestion": code_status_suggestion,
+            "code_confidence_baseline": code_confidence_baseline,
+            "llm_relationship_type": llm_relationship_type,
+            "llm_status": llm_status,
+            "llm_confidence": llm_confidence,
+            "final_relationship_type": final_type,
+            "final_status": final_status,
+            "final_confidence": final_confidence,
+            "applied_vetoes": applied_vetoes,
+        }
+
+        return Relationship(
+            person_id=person_id,
+            relationship_type=final_type,
+            intimacy_score=intimacy_score,
+            status=final_status,
+            confidence=final_confidence,
+            reasoning=reason,
+            shared_events=shared_events,
+            evidence=evidence,
+        )
+
+    def _create_relationship_prompt(
         self,
-        vlm_results: List[Dict],
-        face_db: Dict,
-        primary_person_id: Optional[str],
-    ) -> List[Relationship]:
-        contract = self.last_memory_contract
-        if contract is None:
-            contract = self.extract_memory_contract(vlm_results, face_db=face_db, primary_person_id=primary_person_id)
-        return self.relationships_from_memory_contract(contract)
+        person_id: str,
+        evidence: Dict,
+        intimacy_score: float,
+        candidate_types: List[str] | None = None,
+        code_status_suggestion: str = "",
+    ) -> str:
+        """创建关系推断 prompt（LP2 v3.3 — 中文 prompt，保留拍摄者自然语言 fallback）"""
+        candidate_types = candidate_types or []
+        contact_types_str = ', '.join(evidence.get("contact_types", [])) if evidence.get("contact_types") else "none detected"
+        interaction_str = ', '.join(evidence.get("interaction_behavior", [])) if evidence.get("interaction_behavior") else "none observed"
+
+        # 趋势细节
+        trend = evidence.get("trend_detail", {})
+        trend_str = "insufficient data"
+        if trend:
+            trend_str = f"{trend['direction']} (first half: {trend['first_half_freq']}/mo → second half: {trend['second_half_freq']}/mo, ×{trend['change_ratio']})"
+
+        # 第三方共现
+        co_persons = evidence.get("co_appearing_persons", [])
+        co_str = ', '.join([f"{c['person_id']}({c['co_ratio']:.0%})" for c in co_persons[:5]]) if co_persons else "none"
+
+        # 异常
+        anomalies = evidence.get("anomalies", [])
+        anomaly_str = ""
+        if anomalies:
+            for a in anomalies[:5]:
+                anomaly_str += f"\n- [{a['date']}] {a['type']}: {a['description']}"
+        else:
+            anomaly_str = "\nNone detected."
+
+        # 事件召回（含 LP1 的 social_dynamics）
+        rela_events = evidence.get("rela_events", [])
+        events_str = ""
+        if rela_events:
+            for ev in rela_events[:10]:
+                line = f"\n- [{ev.get('date', '')}] {ev.get('title', '')} @ {ev.get('location', '')} ({ev.get('photo_count', 0)} photos)"
+                narr = ev.get('narrative_synthesis', '')
+                if narr:
+                    line += f"\n  Narrative: {narr}"
+                for dyn in ev.get('social_dynamics', []):
+                    if dyn.get('target_id') == person_id:
+                        line += f"\n  Interaction: {dyn.get('interaction_type', '')} | Clue: {dyn.get('social_clue', '')} | Hypothesis: {dyn.get('relation_hypothesis', '')}"
+                events_str += line
+        else:
+            events_str = "\nNo shared events extracted."
+
+        prompt = f"""# 角色
+你是一位像真人秀制片人分析素材一样阅读相册的社交关系分析师。你的任务是判断 {person_id} 在 {self.primary_person_id or "the user (photographer)"} 的生活里扮演什么角色。
+
+# 证据
+- 共现情况：{evidence['photo_count']} 张照片，跨度 {evidence['time_span']}（月均 {evidence.get('monthly_frequency', 0)}/月）
+- 场景：{', '.join(evidence.get('scenes', []))}
+- 接触类型：{contact_types_str}
+- 互动行为（来自事件层）：{interaction_str}
+- 周末频率：{evidence.get('weekend_frequency', 'unknown')}
+- 是否主要是一对一：{'是' if evidence.get('with_user_only', True) else '否'}
+- 第三方共现人物：{co_str}
+- 亲密度分数：{intimacy_score:.3f}
+- 趋势：{trend_str}
+
+**共同事件**：{events_str}
+
+**异常信号**：{anomaly_str}
+
+# 软提示（不是硬规则）
+- 代码给出的候选关系提示：{', '.join(candidate_types) if candidate_types else 'acquaintance'}
+- 代码给出的关系状态建议：{code_status_suggestion or 'stable'}
+- 以上只是建议，不是硬性规则；如果证据强烈支持另一种低风险解释，你可以覆盖代码提示。
+
+# 关系类型（必须且只能选一个）
+- **family** — 家人或法定家庭成员。重点看：年龄差 >15 岁、家庭/节日场景。
+- **romantic** — 明确的恋爱对象。重点看：亲吻/拥抱、高频一对一、私密场景、intimacy_score >0.6。
+- **bestie** — 死党/最铁好友。重点看：高频、多场景、自拍、周末和夜间同框多。
+- **close_friend** — 稳定且较亲近的朋友。重点看：中等频率、多个轻松休闲场景。
+- **friend** — 普通朋友，偶尔一起玩。重点看：频率较低、场景有限。
+- **classmate_colleague** — 同学或同事。重点看：校园/办公室/教室、工作日白天。
+- **activity_buddy** — 某类固定活动搭子（如健身、早午餐、徒步搭子）。重点看：单一主导的非工作/非学校场景、重复模式明显。
+- **acquaintance** — 泛泛之交。重点看：频率很低、基本只出现在群体合照里。
+
+# 关系状态（必须且只能选一个）
+- **new** — 认识时间 <30 天
+- **growing** — 最近频率/亲密度明显上升
+- **stable** — 长期稳定存在
+- **fading** — 频率/亲密度在下降
+- **gone** — 超过 60 天没有再出现
+
+# 任务
+1. 选择 relationship_type（8 选 1）。
+2. 选择 status（5 选 1），并结合趋势数据判断。
+3. 给出 confidence 和 reason。
+
+对 romantic / family 必须非常保守。如果你选择了候选提示之外的关系类型，必须在 reason 里说明为什么覆盖代码建议。
+
+输出 JSON：
+{{
+  "relationship_type": "bestie",
+  "status": "stable",
+  "confidence": 0.85,
+  "reason": "高频共现（15 张，3 次/月）、场景多样、主要集中在周末、经常一对一出现、亲密度 0.72，趋势平稳"
+}}"""
+
+        return prompt
+
+    def _normalize_confidence(self, raw_value, default: float = 0.5) -> float:
+        """把 LLM confidence 归一到 [0, 1]。"""
+        try:
+            value = float(raw_value)
+        except (TypeError, ValueError):
+            value = float(default)
+        return max(0.0, min(value, 1.0))
 
     def generate_profile(
         self,
         events: List[Event],
         relationships: List[Relationship],
-        primary_person_id: Optional[str],
-    ) -> str:
-        if self.use_heavy_pipeline and self.last_memory_contract is not None:
-            return self._generate_heavy_profile(events, relationships, primary_person_id)
-        if self.last_memory_contract is not None:
-            return self.profile_markdown_from_memory_contract(self.last_memory_contract, primary_person_id)
-        return self._create_legacy_profile(events, relationships, primary_person_id)
-
-    def _run_heavy_relationship_pass(
-        self,
-        *,
-        contract: Dict[str, Any],
-        photo_facts: List[Dict[str, Any]],
-        primary_person_id: Optional[str],
-        progress_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
-        llm_started_at: Optional[float] = None,
-        slice_count: int = 0,
-        event_count: int = 0,
-        processed_events: int = 0,
-        processed_slices: int = 0,
-    ) -> List[Dict[str, Any]]:
-        people = sorted(
-            {
-                str(person_id)
-                for fact in photo_facts
-                for person_id in fact.get("person_ids", []) or []
-                if person_id and person_id != primary_person_id
-            }
-        )
-        if not people:
-            return []
-
-        candidate_records: List[Dict[str, Any]] = []
-        results: List[Dict[str, Any]] = []
-        for person_index, person_id in enumerate(people):
-            evidence = self._build_relationship_evidence(
-                person_id=person_id,
-                contract=contract,
-                photo_facts=photo_facts,
-                primary_person_id=primary_person_id,
-            )
-            requires_llm = self._relationship_candidate_requires_llm(evidence)
-            candidate_records.append(
-                {
-                    "index": person_index,
-                    "person_id": person_id,
-                    "evidence": evidence,
-                    "requires_llm": requires_llm,
-                }
-            )
-            if not requires_llm:
-                results.append(
-                    self._co_presence_only_relationship(
-                        person_id=person_id,
-                        evidence=evidence,
-                        reason="weak evidence below relationship LLM thresholds; downgraded to co_presence_only",
-                    )
-                )
-
-        llm_candidates = [item for item in candidate_records if item["requires_llm"]]
-        self.last_chunk_artifacts["relationship_candidates"] = [
-            {
-                "person_id": item["person_id"],
-                "requires_llm": item["requires_llm"],
-                "evidence": deepcopy(item["evidence"]),
-            }
-            for item in candidate_records
-        ]
-
-        relationship_runtime_start = llm_started_at if llm_started_at is not None else time.perf_counter()
-        if llm_candidates:
-            self._preflight_relationship_provider()
-
-        processed_candidates = 0
-        relationship_retry_count = 0
-        if llm_candidates:
-            with ThreadPoolExecutor(max_workers=min(RELATIONSHIP_MAX_CONCURRENCY, len(llm_candidates))) as executor:
-                future_map = {
-                    executor.submit(
-                        self._infer_single_relationship_candidate,
-                        person_id=str(item["person_id"]),
-                        evidence=deepcopy(item["evidence"]),
-                    ): item
-                    for item in llm_candidates
-                }
-                llm_results_by_person: Dict[str, Dict[str, Any]] = {}
-                for future in as_completed(future_map):
-                    item = future_map[future]
-                    person_id = str(item["person_id"])
-                    normalized, retry_count = future.result()
-                    relationship_retry_count += int(retry_count or 0)
-                    llm_results_by_person[person_id] = normalized
-                    processed_candidates += 1
-                    self._emit_progress(
-                        progress_callback,
-                        {
-                            "message": "LLM 关系推断中",
-                            "substage": "relationship_inference",
-                            "processed_slices": processed_slices,
-                            "slice_count": slice_count,
-                            "processed_events": processed_events,
-                            "event_count": event_count,
-                            "candidate_count": len(candidate_records),
-                            "filtered_count": len(llm_candidates),
-                            "processed_candidates": processed_candidates,
-                            "current_person_id": person_id,
-                            "provider": self._active_relationship_provider(),
-                            "model": self._active_relationship_model(),
-                            "retry_count": relationship_retry_count,
-                            "last_success_at": self._iso_now(),
-                            "percent": self._progress_percent(processed_candidates, max(len(llm_candidates), 1), start=97, end=99),
-                            "runtime_seconds": round(time.perf_counter() - relationship_runtime_start, 4),
-                        },
-                    )
-                for item in llm_candidates:
-                    person_id = str(item["person_id"])
-                    normalized = llm_results_by_person.get(person_id)
-                    if normalized is not None:
-                        results.append(normalized)
-
-        results.sort(
-            key=lambda item: (
-                -float(item.get("confidence") or 0.0),
-                -len(item.get("supporting_fact_ids", []) or []),
-                str(item.get("person_id") or ""),
-            )
-        )
-        self.last_chunk_artifacts["relationship_stage"] = {
-            "provider": self._active_relationship_provider(),
-            "model": self._active_relationship_model(),
-            "candidate_count": len(candidate_records),
-            "filtered_count": len(llm_candidates),
-            "processed_candidates": processed_candidates,
-            "retry_count": relationship_retry_count,
-            "result_count": len(results),
-            "completed_at": self._iso_now(),
-        }
-        return results
-
-    def _relationship_candidate_requires_llm(self, evidence: Dict[str, Any]) -> bool:
-        if int(evidence.get("distinct_days") or 0) >= RELATIONSHIP_MIN_DISTINCT_DAYS:
-            return True
-        if int(evidence.get("co_occurrence_count") or 0) >= RELATIONSHIP_MIN_CO_OCCURRENCE:
-            return True
-        if bool(evidence.get("contact_types")):
-            return True
-        if bool(evidence.get("interaction")):
-            return True
-        if int(evidence.get("exclusive_one_on_one") or 0) > 0:
-            return True
-        return float(evidence.get("intimacy_score") or 0.0) >= RELATIONSHIP_MIN_INTIMACY_SCORE
-
-    def _co_presence_only_relationship(
-        self,
-        *,
-        person_id: str,
-        evidence: Dict[str, Any],
-        reason: str,
-    ) -> Dict[str, Any]:
-        supporting_fact_ids = [
-            str(item.get("fact_id") or "")
-            for item in evidence.get("shared_facts", [])
-            if item.get("fact_id")
-        ]
-        supporting_photo_ids = self._unique(
-            photo_id
-            for item in evidence.get("shared_facts", [])
-            for photo_id in item.get("original_image_ids", []) or []
-        )
-        confidence = round(
-            min(
-                0.45,
-                0.12
-                + (min(6, int(evidence.get("co_occurrence_count") or 0)) * 0.035)
-                + (min(3, int(evidence.get("distinct_days") or 0)) * 0.03),
-            ),
-            4,
-        )
-        return {
-            "relationship_id": f"REL_{person_id}",
-            "person_id": person_id,
-            "relationship_type": "co_presence_only",
-            "label": "co_presence_only",
-            "confidence": confidence,
-            "supporting_fact_ids": supporting_fact_ids,
-            "supporting_photo_ids": supporting_photo_ids,
-            "reason_summary": reason,
-            "reason": reason,
-            "evidence": {
-                "status": "filtered_without_llm",
-                "co_occurrence_count": evidence.get("co_occurrence_count", 0),
-                "distinct_days": evidence.get("distinct_days", 0),
-                "monthly_average": evidence.get("monthly_average", 0),
-                "intimacy_score": evidence.get("intimacy_score", 0.0),
-                "scenes": evidence.get("scenes", []),
-                "contact_types": evidence.get("contact_types", []),
-                "interaction": evidence.get("interaction", []),
-                "shared_facts": evidence.get("shared_facts", []),
-                "supporting_fact_ids": supporting_fact_ids,
-                "supporting_photo_ids": supporting_photo_ids,
-            },
-        }
-
-    def _preflight_relationship_provider(self) -> None:
-        if self.relationship_use_openrouter:
-            if not self.requests or not getattr(self, "openrouter_api_key", ""):
-                raise RuntimeError("relationship provider openrouter unavailable")
-            return
-        if self.relationship_use_bedrock:
-            if not self.bedrock_client or not (self.relationship_bedrock_model_candidates or [BEDROCK_RELATIONSHIP_LLM_MODEL]):
-                raise RuntimeError("relationship provider bedrock unavailable")
-            return
-        if self.relationship_use_proxy:
-            if not self.requests:
-                raise RuntimeError("relationship provider proxy unavailable")
-
-    def _infer_single_relationship_candidate(
-        self,
-        *,
-        person_id: str,
-        evidence: Dict[str, Any],
-    ) -> tuple[Dict[str, Any], int]:
-        prompt = self._create_relationship_prompt(person_id=person_id, evidence=evidence)
-        retry_count = 0
-        last_error: Exception | None = None
-        for attempt in range(RELATIONSHIP_MAX_RETRIES):
-            try:
-                payload = self._call_relationship_prompt(prompt)
-                normalized = self._normalize_relationship_result(person_id=person_id, payload=payload, evidence=evidence)
-                return normalized, retry_count
-            except Exception as exc:
-                last_error = exc
-                if attempt == RELATIONSHIP_MAX_RETRIES - 1 or not self._is_retryable_error(exc):
-                    break
-                retry_count += 1
-                time.sleep(RETRY_DELAY * (attempt + 1))
-        if last_error is not None and self._is_json_parse_error(last_error):
-            payload = self._call_json_prompt(prompt)
-            normalized = self._normalize_relationship_result(person_id=person_id, payload=payload, evidence=evidence)
-            return normalized, retry_count
-        if last_error is not None:
-            raise last_error
-        raise RuntimeError(f"relationship inference failed for {person_id}")
-
-    def _build_relationship_evidence(
-        self,
-        *,
-        person_id: str,
-        contract: Dict[str, Any],
-        photo_facts: List[Dict[str, Any]],
-        primary_person_id: Optional[str],
-    ) -> Dict[str, Any]:
-        relevant_photo_facts = [
-            fact
-            for fact in photo_facts
-            if person_id in (fact.get("person_ids", []) or [])
-        ]
-        relevant_facts = [
-            fact
-            for fact in contract.get("facts", [])
-            if person_id in (fact.get("participant_person_ids", []) or [])
-        ]
-        timestamps = [str(fact.get("timestamp") or "") for fact in relevant_photo_facts if fact.get("timestamp")]
-        days = sorted({timestamp.split("T", 1)[0] for timestamp in timestamps if "T" in timestamp})
-        span_days = 0
-        if len(days) >= 2:
-            try:
-                span_days = abs((datetime.fromisoformat(days[-1]) - datetime.fromisoformat(days[0])).days)
-            except Exception:
-                span_days = 0
-        monthly_avg = round((len(relevant_photo_facts) / max(1.0, (span_days + 1) / 30.0)), 2) if relevant_photo_facts else 0.0
-        scenes = self._unique(
-            value
-            for fact in relevant_facts
-            for value in fact.get("event_facets", []) or []
-        )
-        contact_types = self._unique(
-            str(person.get("contact_type") or "")
-            for fact in relevant_photo_facts
-            for person in fact.get("people", []) or []
-            if isinstance(person, dict) and str(person.get("person_id") or "") == person_id and str(person.get("contact_type") or "")
-        )
-        interactions = self._unique(
-            str(item.get("interaction_type") or "")
-            for fact in relevant_facts
-            for item in fact.get("social_dynamics", []) or []
-            if isinstance(item, dict) and str(item.get("target_id") or "") == person_id
-        )
-        co_appearing_people = Counter(
-            other_person_id
-            for fact in relevant_photo_facts
-            for other_person_id in fact.get("person_ids", []) or []
-            if other_person_id and other_person_id != person_id
-        )
-        exclusive_one_on_one = sum(
-            1
-            for fact in relevant_facts
-            if person_id in (fact.get("participant_person_ids", []) or [])
-            and len({pid for pid in fact.get("participant_person_ids", []) or [] if pid}) <= (2 if primary_person_id else 1)
-        )
-        intimacy_score = 0.0
-        intimacy_weights = {
-            "kiss": 1.0,
-            "hug": 0.9,
-            "holding_hands": 0.9,
-            "arm_in_arm": 0.7,
-            "selfie_together": 0.6,
-            "shoulder_lean": 0.65,
-            "sitting_close": 0.55,
-            "standing_near": 0.35,
-            "no_contact": 0.1,
-        }
-        if contact_types:
-            intimacy_score = round(
-                sum(intimacy_weights.get(contact_type, 0.2) for contact_type in contact_types) / len(contact_types),
-                3,
-            )
-        shared_facts = [
-            {
-                "fact_id": str(fact.get("fact_id") or ""),
-                "title": str(fact.get("title") or ""),
-                "narrative_synthesis": str(fact.get("narrative_synthesis") or fact.get("description") or ""),
-                "social_dynamics": [
-                    item
-                    for item in fact.get("social_dynamics", []) or []
-                    if isinstance(item, dict) and str(item.get("target_id") or "") == person_id
-                ],
-                "original_image_ids": list(fact.get("original_image_ids", []) or []),
-            }
-            for fact in relevant_facts[:10]
-        ]
-        return {
-            "co_occurrence_count": len(relevant_photo_facts),
-            "distinct_days": len(days),
-            "monthly_average": monthly_avg,
-            "span_days": span_days,
-            "scenes": scenes[:12],
-            "contact_types": contact_types,
-            "interaction": interactions[:12],
-            "exclusive_one_on_one": exclusive_one_on_one,
-            "co_appearing_third_parties": [
-                {"person_id": pid, "count": count}
-                for pid, count in co_appearing_people.most_common(5)
-            ],
-            "intimacy_score": intimacy_score,
-            "trend": "stable" if len(days) <= 1 else "longitudinal_observed",
-            "shared_facts": shared_facts,
-        }
-
-    def _create_relationship_prompt(self, *, person_id: str, evidence: Dict[str, Any]) -> str:
-        return f"""You are a gossip-savvy social analyst who reads photo albums like a reality TV producer reads footage. Your job: figure out how {person_id} fits into the authenticated user's life.
-
-# Evidence
-- Co-occurrence: {evidence.get("co_occurrence_count", 0)} photos over {evidence.get("distinct_days", 0)} days (monthly avg: {evidence.get("monthly_average", 0)}/mo)
-- Scenes: {json.dumps(evidence.get("scenes", []), ensure_ascii=False)}
-- Contact types: {json.dumps(evidence.get("contact_types", []), ensure_ascii=False)}
-- Interaction: {json.dumps(evidence.get("interaction", []), ensure_ascii=False)}
-- Exclusive 1-on-1: {evidence.get("exclusive_one_on_one", 0)}
-- Co-appearing third parties: {json.dumps(evidence.get("co_appearing_third_parties", []), ensure_ascii=False)}
-- Intimacy score: {evidence.get("intimacy_score", 0.0)}
-- Trend: {evidence.get("trend", "stable")}
-- Shared facts: {json.dumps(evidence.get("shared_facts", []), ensure_ascii=False)}
-
-# Relationship Types (pick exactly one)
-- family
-- romantic
-- bestie
-- close_friend
-- friend
-- classmate_colleague
-- activity_buddy
-- acquaintance
-
-# Relationship Status (pick exactly one)
-- new
-- growing
-- stable
-- fading
-- gone
-
-Output JSON:
-{{
-  "relationship_type": "friend",
-  "status": "stable",
-  "confidence": 0.0,
-  "reason": "why"
-}}
-"""
-
-    def _call_relationship_prompt(self, prompt: str) -> Dict[str, Any]:
-        if self.relationship_use_openrouter:
-            return self._call_llm_via_openrouter(
-                prompt,
-                model=self.relationship_model,
-                max_tokens=BEDROCK_RELATIONSHIP_MAX_OUTPUT_TOKENS,
-                timeout=(15, RELATIONSHIP_REQUEST_TIMEOUT_SECONDS),
-            )
-        if self.relationship_use_proxy:
-            return self._call_llm_via_proxy(prompt)
-        if not self.relationship_use_bedrock:
-            return self._call_json_prompt(prompt)
-        if not self.bedrock_client:
-            raise RuntimeError("Bedrock relationship client unavailable")
-        candidates = self.relationship_bedrock_model_candidates or [BEDROCK_RELATIONSHIP_LLM_MODEL, BEDROCK_RELATIONSHIP_LLM_FALLBACK_MODEL]
-        last_error: Exception | None = None
-        for index, model_id in enumerate(candidates):
-            try:
-                response = self.bedrock_client.converse(
-                    modelId=model_id,
-                    messages=build_text_message(prompt),
-                    inferenceConfig=build_inference_config(
-                        temperature=0.1,
-                        max_tokens=BEDROCK_RELATIONSHIP_MAX_OUTPUT_TOKENS,
-                        top_p=None,
-                    ),
-                )
-                self.relationship_model = model_id
-                return self._extract_json_payload(extract_text_from_converse_response(response))
-            except Exception as exc:
-                last_error = exc
-                if index < len(candidates) - 1 and should_try_next_bedrock_model(exc):
-                    continue
-                raise
-        if last_error:
-            raise last_error
-        raise RuntimeError("未能调用任何 relationship LLM 模型")
-
-    def _normalize_relationship_result(
-        self,
-        *,
-        person_id: str,
-        payload: Dict[str, Any],
-        evidence: Dict[str, Any],
-    ) -> Dict[str, Any]:
-        if isinstance(payload, str):
-            payload = self._extract_json_payload(payload)
-        payload = payload if isinstance(payload, dict) else {}
-        supporting_fact_ids = [
-            str(item.get("fact_id") or "")
-            for item in evidence.get("shared_facts", [])
-            if item.get("fact_id")
-        ]
-        supporting_photo_ids = self._unique(
-            photo_id
-            for item in evidence.get("shared_facts", [])
-            for photo_id in item.get("original_image_ids", []) or []
-        )
-        relationship_type = str(payload.get("relationship_type") or "acquaintance").strip() or "acquaintance"
-        status = str(payload.get("status") or "stable").strip() or "stable"
-        confidence = round(max(0.0, min(1.0, float(payload.get("confidence") or 0.0))), 4)
-        reason = str(payload.get("reason") or "").strip()
-        return {
-            "relationship_id": f"REL_{person_id}",
-            "person_id": person_id,
-            "relationship_type": relationship_type,
-            "label": f"{relationship_type}:{status}",
-            "confidence": confidence,
-            "supporting_fact_ids": supporting_fact_ids,
-            "supporting_photo_ids": supporting_photo_ids,
-            "reason_summary": reason,
-            "reason": reason,
-            "evidence": {
-                "status": status,
-                "co_occurrence_count": evidence.get("co_occurrence_count", 0),
-                "distinct_days": evidence.get("distinct_days", 0),
-                "monthly_average": evidence.get("monthly_average", 0),
-                "intimacy_score": evidence.get("intimacy_score", 0.0),
-                "scenes": evidence.get("scenes", []),
-                "contact_types": evidence.get("contact_types", []),
-                "interaction": evidence.get("interaction", []),
-                "shared_facts": evidence.get("shared_facts", []),
-                "supporting_fact_ids": supporting_fact_ids,
-                "supporting_photo_ids": supporting_photo_ids,
-            },
-        }
-
-    def _generate_heavy_profile(
-        self,
-        events: List[Event],
-        relationships: List[Relationship],
-        primary_person_id: Optional[str],
-    ) -> str:
-        prompt = self._create_profile_prompt(events=events, relationships=relationships, primary_person_id=primary_person_id)
-        try:
-            return self._call_with_retries(lambda: self._call_markdown_prompt(prompt))
-        except Exception:
-            return self.profile_markdown_from_memory_contract(self.last_memory_contract or self._empty_contract(), primary_person_id)
-
-    def _create_profile_prompt(
-        self,
-        *,
-        events: List[Event],
-        relationships: List[Relationship],
-        primary_person_id: Optional[str],
-    ) -> str:
-        event_payload = [
-            {
-                "fact_id": event.event_id,
-                "title": event.title,
-                "timestamp": event.meta_info.get("timestamp") if isinstance(event.meta_info, dict) else "",
-                "location_context": event.meta_info.get("location_context") if isinstance(event.meta_info, dict) else "",
-                "narrative_synthesis": event.narrative_synthesis,
-                "social_dynamics": list(event.social_dynamics or []),
-                "persona_evidence": dict(event.persona_evidence or {}),
-                "original_image_ids": list(event.evidence_photos or []),
-            }
-            for event in events
-        ]
-        relationship_payload = [
-            {
-                "person_id": relationship.person_id,
-                "relationship_type": relationship.relationship_type,
-                "label": relationship.label,
-                "confidence": relationship.confidence,
-                "evidence": dict(relationship.evidence or {}),
-                "reason": relationship.reason,
-            }
-            for relationship in relationships
-        ]
-        primary_label = primary_person_id or "authenticated_user"
-        return f"""你是一位世界级的行为分析专家和 FBI 级别的人格画像师，擅长通过行为残迹还原人类灵魂。
-
-请根据 facts 和 relationships 生成《用户全维画像分析报告》。
-
-约束：
-1. 必须引用证据，不要写无来源结论。
-2. 如果信息模糊，使用“高概率/疑似/待进一步观察”。
-3. “我” 对应 authenticated_user={primary_label}。
-
-Facts:
-{json.dumps(event_payload, ensure_ascii=False, indent=2)}
-
-Relationships:
-{json.dumps(relationship_payload, ensure_ascii=False, indent=2)}
-"""
-
-    def _build_photo_fact_buffer(self, vlm_results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        facts = []
-        for item in sorted(vlm_results, key=lambda payload: payload.get("timestamp") or ""):
-            analysis = item.get("vlm_analysis", {}) if isinstance(item.get("vlm_analysis"), dict) else {}
-            scene = analysis.get("scene", {}) if isinstance(analysis, dict) else {}
-            event = analysis.get("event", {}) if isinstance(analysis, dict) else {}
-            location = item.get("location") or {}
-            place_candidates = []
-            for candidate in analysis.get("place_candidates", []) or []:
-                if isinstance(candidate, dict):
-                    place_candidates.append(
-                        {
-                            "name": str(candidate.get("name") or "").strip(),
-                            "confidence": float(candidate.get("confidence") or 0.0),
-                            "reason": str(candidate.get("reason") or "").strip(),
-                        }
-                    )
-                elif candidate:
-                    place_candidates.append(
-                        {
-                            "name": str(candidate).strip(),
-                            "confidence": 0.0,
-                            "reason": "",
-                        }
-                    )
-            location_name = str(
-                (location or {}).get("name")
-                or (place_candidates[0]["name"] if place_candidates and place_candidates[0]["name"] else "")
-                or scene.get("location_detected")
-                or ""
-            ).strip()
-            person_ids = [str(value) for value in item.get("face_person_ids", []) if value]
-            rare_clues = self._collect_rare_clues(analysis)
-            facts.append(
-                {
-                    "photo_id": item.get("photo_id"),
-                    "timestamp": item.get("timestamp"),
-                    "location": location,
-                    "location_name": location_name,
-                    "person_ids": person_ids,
-                    "scene_hint": str(scene.get("location_detected") or ""),
-                    "activity_hint": str(event.get("activity") or ""),
-                    "social_hint": str(event.get("social_context") or ""),
-                    "summary": str(analysis.get("summary") or ""),
-                    "people": list(analysis.get("people", []) or []),
-                    "relations": list(analysis.get("relations", []) or []),
-                    "details": list(analysis.get("details", []) or []),
-                    "key_objects": list(analysis.get("key_objects", []) or []),
-                    "ocr_hits": [str(value) for value in analysis.get("ocr_hits", []) or [] if value],
-                    "brands": [str(value) for value in analysis.get("brands", []) or [] if value],
-                    "route_plan_clues": [str(value) for value in analysis.get("route_plan_clues", []) or [] if value],
-                    "transport_clues": [str(value) for value in analysis.get("transport_clues", []) or [] if value],
-                    "health_treatment_clues": [str(value) for value in analysis.get("health_treatment_clues", []) or [] if value],
-                    "object_last_seen_clues": [str(value) for value in analysis.get("object_last_seen_clues", []) or [] if value],
-                    "place_candidates": place_candidates,
-                    "raw_structured_observations": list(analysis.get("raw_structured_observations", []) or []),
-                    "uncertainty": list(analysis.get("uncertainty", []) or []),
-                    "rare_clues": rare_clues,
-                    "raw": item,
-                }
-            )
-        return facts
-
-    def _collect_rare_clues(self, analysis: Dict[str, Any]) -> List[str]:
-        candidates: List[str] = []
-        for key in ("ocr_hits", "brands", "route_plan_clues", "transport_clues", "health_treatment_clues", "object_last_seen_clues"):
-            for value in analysis.get(key, []) or []:
-                text = str(value).strip()
-                if text and text not in candidates:
-                    candidates.append(text)
-        for item in analysis.get("raw_structured_observations", []) or []:
-            if not isinstance(item, dict):
-                continue
-            value = str(item.get("value") or "").strip()
-            field = str(item.get("field") or "").strip()
-            if value and (field or value) not in candidates:
-                candidates.append(f"{field}: {value}" if field else value)
-        return candidates
-
-    def _build_bursts(self, facts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        if not facts:
-            return []
-        bursts: List[List[Dict[str, Any]]] = [[facts[0]]]
-        for fact in facts[1:]:
-            current = bursts[-1]
-            previous = current[-1]
-            gap = self._seconds_between(previous.get("timestamp"), fact.get("timestamp"))
-            duration = self._seconds_between(current[0].get("timestamp"), fact.get("timestamp"))
-            if (
-                gap <= LLM_BURST_GAP_SECONDS
-                and duration <= LLM_BURST_MAX_DURATION_SECONDS
-                and len(current) < LLM_BURST_MAX_PHOTOS
-                and not self._burst_break_required(previous, fact)
-            ):
-                current.append(fact)
-            else:
-                bursts.append([fact])
-        burst_payloads = []
-        for index, group in enumerate(bursts, start=1):
-            dominant_person_ids = self._dominant_person_ids_from_facts(group)
-            duration_seconds = max(
-                1,
-                int(self._seconds_between(group[0].get("timestamp"), group[-1].get("timestamp"))),
-            )
-            information_score = self._estimate_information_score(group)
-            density_score = self._estimate_density_score(group, duration_seconds)
-            burst_payloads.append(
-                {
-                    "burst_id": f"burst_{index:04d}",
-                    "photo_ids": [item["photo_id"] for item in group],
-                    "started_at": group[0]["timestamp"],
-                    "ended_at": group[-1]["timestamp"],
-                    "facts": group,
-                    "location_bucket": self._location_bucket(group[0]),
-                    "location_chain": self._unique(self._location_bucket(item) for item in group),
-                    "dominant_person_ids": dominant_person_ids,
-                    "activity_hints": self._unique(item.get("activity_hint") for item in group),
-                    "scene_hints": self._unique(item.get("scene_hint") for item in group),
-                    "duration_seconds": duration_seconds,
-                    "photo_density_score": density_score,
-                    "information_score": information_score,
-                    "rare_clues": self._unique(
-                        clue
-                        for item in group
-                        for clue in item.get("rare_clues", [])
-                    ),
-                    "fact_inventory": self._build_fact_inventory(group),
-                }
-            )
-        return burst_payloads
-
-    def _build_raw_sessions(self, bursts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        if not bursts:
-            return []
-        raw_sessions: List[List[Dict[str, Any]]] = [[bursts[0]]]
-        continuity_decisions: List[List[Dict[str, Any]]] = [[]]
-        for burst in bursts[1:]:
-            current = raw_sessions[-1]
-            previous = current[-1]
-            continuity = self._session_continuity(previous, burst)
-            if continuity["same_session"]:
-                current.append(burst)
-                continuity_decisions[-1].append(continuity)
-            else:
-                raw_sessions.append([burst])
-                continuity_decisions.append([])
-        payloads = []
-        for index, group in enumerate(raw_sessions, start=1):
-            facts = [fact for burst in group for fact in burst["facts"]]
-            payloads.append(
-                {
-                    "raw_session_id": f"raw_session_{index:04d}",
-                    "started_at": group[0]["started_at"],
-                    "ended_at": group[-1]["ended_at"],
-                    "location_bucket": group[0]["location_bucket"],
-                    "location_chain": self._unique(
-                        location_name
-                        for burst in group
-                        for location_name in burst.get("location_chain", [])
-                    ),
-                    "photo_ids": [photo_id for burst in group for photo_id in burst["photo_ids"]],
-                    "burst_ids": [burst["burst_id"] for burst in group],
-                    "bursts": list(group),
-                    "facts": facts,
-                    "dominant_person_ids": self._dominant_person_ids_from_facts(facts),
-                    "continuity_decisions": continuity_decisions[index - 1],
-                }
-            )
-        return payloads
-
-    def _build_session_slices(self, raw_sessions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        slices: List[Dict[str, Any]] = []
-        slice_index = 1
-        for raw_session in raw_sessions:
-            bursts = list(raw_session.get("bursts", []))
-            if not bursts:
-                continue
-            start_index = 0
-            while start_index < len(bursts):
-                end_index = start_index
-                selected: List[Dict[str, Any]] = []
-                photo_count = 0
-                rare_clue_count = 0
-                information_score = 0.0
-                density_score = 0.0
-                while end_index < len(bursts) and len(selected) < LLM_SLICE_HARD_MAX_BURSTS:
-                    burst = bursts[end_index]
-                    projected_photo_count = photo_count + len(burst["facts"])
-                    projected_rare_count = rare_clue_count + len(burst["rare_clues"])
-                    projected_information_score = information_score + float(burst.get("information_score") or 0.0)
-                    projected_density_score = density_score + float(burst.get("photo_density_score") or 0.0)
-                    if selected:
-                        if len(selected) >= LLM_SLICE_MAX_BURSTS:
-                            break
-                        if projected_photo_count > LLM_SLICE_MAX_PHOTOS:
-                            break
-                        if projected_rare_count > LLM_SLICE_MAX_RARE_CLUES and photo_count >= LLM_SLICE_MIN_PHOTOS:
-                            break
-                        if projected_information_score > LLM_SLICE_MAX_INFO_SCORE and photo_count >= LLM_SLICE_MIN_PHOTOS:
-                            break
-                        if projected_density_score > LLM_SLICE_MAX_DENSITY_SCORE and photo_count >= LLM_SLICE_MIN_PHOTOS:
-                            break
-                    selected.append(burst)
-                    photo_count = projected_photo_count
-                    rare_clue_count = projected_rare_count
-                    information_score = projected_information_score
-                    density_score = projected_density_score
-                    end_index += 1
-                if not selected:
-                    selected = [bursts[start_index]]
-                    end_index = start_index + 1
-                    photo_count = len(selected[0]["facts"])
-                    rare_clue_count = len(selected[0]["rare_clues"])
-                    information_score = float(selected[0].get("information_score") or 0.0)
-                    density_score = float(selected[0].get("photo_density_score") or 0.0)
-                overlap_bursts = (
-                    [burst["burst_id"] for burst in selected[:LLM_SLICE_OVERLAP_BURSTS]]
-                    if start_index > 0
-                    else []
-                )
-                slices.append(
-                    self._slice_payload(
-                        raw_session=raw_session,
-                        bursts=selected,
-                        rare_clue_count=rare_clue_count,
-                        information_score=information_score,
-                        density_score=density_score,
-                        slice_index=slice_index,
-                        overlap_burst_ids=overlap_bursts,
-                    )
-                )
-                slice_index += 1
-                if end_index >= len(bursts):
-                    break
-                start_index = max(end_index - LLM_SLICE_OVERLAP_BURSTS, start_index + 1)
-        return slices
-
-    def _slice_payload(
-        self,
-        raw_session: Dict[str, Any],
-        bursts: List[Dict[str, Any]],
-        rare_clue_count: int,
-        information_score: float,
-        density_score: float,
-        slice_index: int,
-        overlap_burst_ids: List[str],
-    ) -> Dict[str, Any]:
-        slice_id = f"slice_{slice_index:04d}"
-        facts = [fact for burst in bursts for fact in burst["facts"]]
-        evidence_packet = self._build_slice_evidence_packet(
-            raw_session=raw_session,
-            bursts=bursts,
-            facts=facts,
-            overlap_burst_ids=overlap_burst_ids,
-        )
-        evidence_packet["slice_id"] = slice_id
-        return {
-            "slice_id": slice_id,
-            "raw_session_id": raw_session["raw_session_id"],
-            "photo_ids": [fact["photo_id"] for fact in facts],
-            "burst_ids": [burst["burst_id"] for burst in bursts],
-            "overlap_burst_ids": overlap_burst_ids,
-            "started_at": facts[0]["timestamp"],
-            "ended_at": facts[-1]["timestamp"],
-            "location_bucket": self._location_bucket(facts[0]),
-            "rare_clue_count": rare_clue_count,
-            "information_score": round(float(information_score), 3),
-            "density_score": round(float(density_score), 3),
-            "bursts": list(bursts),
-            "facts": list(facts),
-            "evidence_packet": evidence_packet,
-        }
-
-    def _build_slice_evidence_packet(
-        self,
-        *,
-        raw_session: Dict[str, Any],
-        bursts: List[Dict[str, Any]],
-        facts: List[Dict[str, Any]],
-        overlap_burst_ids: List[str],
-    ) -> Dict[str, Any]:
-        location_chain = self._unique(
-            location_name
-            for burst in bursts
-            for location_name in burst.get("location_chain", [])
-        )
-        rare_clues = self._unique(
-            clue
-            for fact in facts
-            for clue in fact.get("rare_clues", [])
-        )
-        return {
-            "event_id": raw_session["raw_session_id"],
-            "slice_id": "",
-            "time_range": {
-                "start": facts[0]["timestamp"],
-                "end": facts[-1]["timestamp"],
-            },
-            "location_chain": location_chain,
-            "dominant_person_ids": self._dominant_person_ids_from_facts(facts),
-            "burst_ids": [burst["burst_id"] for burst in bursts],
-            "overlap_burst_ids": list(overlap_burst_ids),
-            "fact_inventory": self._build_fact_inventory(facts),
-            "rare_clues": rare_clues,
-            "change_points": self._build_change_points(bursts),
-            "conflicts": self._detect_slice_conflicts(facts),
-            "slice_budget_metrics": {
-                "photo_count": len(facts),
-                "burst_count": len(bursts),
-                "rare_clue_count": len(rare_clues),
-                "information_score": round(sum(float(burst.get("information_score") or 0.0) for burst in bursts), 3),
-                "density_score": round(sum(float(burst.get("photo_density_score") or 0.0) for burst in bursts), 3),
-            },
-            "photo_refs": [fact["photo_id"] for fact in facts],
-            "photo_facts": [
-                {
-                    "photo_id": fact["photo_id"],
-                    "timestamp": fact["timestamp"],
-                    "location_name": fact.get("location_name", ""),
-                    "person_ids": fact.get("person_ids", []),
-                    "scene_hint": fact.get("scene_hint", ""),
-                    "activity_hint": fact.get("activity_hint", ""),
-                    "social_hint": fact.get("social_hint", ""),
-                    "summary": fact.get("summary", ""),
-                    "people": fact.get("people", []),
-                    "relations": fact.get("relations", []),
-                    "rare_clues": fact.get("rare_clues", []),
-                }
-                for fact in facts
-            ],
-            "session_context": {
-                "raw_session_id": raw_session["raw_session_id"],
-                "raw_session_started_at": raw_session["started_at"],
-                "raw_session_ended_at": raw_session["ended_at"],
-                "raw_session_location_chain": list(raw_session["location_chain"]),
-            },
-        }
-
-    def _build_fact_inventory(self, facts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        aggregated: Dict[tuple[str, str], Dict[str, Any]] = {}
-
-        def add_fact(fact_type: str, value: str, photo_id: str, confidence: float = 0.0) -> None:
-            normalized_value = str(value or "").strip()
-            if not normalized_value:
-                return
-            key = (fact_type, normalized_value)
-            item = aggregated.setdefault(
-                key,
-                {
-                    "fact_type": fact_type,
-                    "value": normalized_value,
-                    "support_count": 0,
-                    "photo_ids": [],
-                    "confidence": 0.0,
-                },
-            )
-            item["support_count"] += 1
-            if photo_id not in item["photo_ids"]:
-                item["photo_ids"].append(photo_id)
-            item["confidence"] = max(float(item["confidence"]), float(confidence or 0.0))
-
-        for fact in facts:
-            photo_id = str(fact.get("photo_id") or "")
-            add_fact("scene_location", str(fact.get("scene_hint") or ""), photo_id)
-            add_fact("activity", str(fact.get("activity_hint") or ""), photo_id)
-            add_fact("social_context", str(fact.get("social_hint") or ""), photo_id)
-            add_fact("summary", str(fact.get("summary") or ""), photo_id)
-            for value in fact.get("key_objects", []) or []:
-                add_fact("object", str(value), photo_id)
-            for value in fact.get("ocr_hits", []) or []:
-                add_fact("ocr", str(value), photo_id, confidence=0.95)
-            for value in fact.get("brands", []) or []:
-                add_fact("brand", str(value), photo_id, confidence=0.9)
-            for value in fact.get("route_plan_clues", []) or []:
-                add_fact("route_plan", str(value), photo_id, confidence=0.8)
-            for value in fact.get("transport_clues", []) or []:
-                add_fact("transport", str(value), photo_id, confidence=0.8)
-            for value in fact.get("health_treatment_clues", []) or []:
-                add_fact("health_treatment", str(value), photo_id, confidence=0.8)
-            for value in fact.get("object_last_seen_clues", []) or []:
-                add_fact("object_last_seen", str(value), photo_id, confidence=0.8)
-            for candidate in fact.get("place_candidates", []) or []:
-                if not isinstance(candidate, dict):
-                    continue
-                add_fact(
-                    "place_candidate",
-                    str(candidate.get("name") or ""),
-                    photo_id,
-                    confidence=float(candidate.get("confidence") or 0.0),
-                )
-        inventory = list(aggregated.values())
-        inventory.sort(key=lambda item: (item["support_count"], item["confidence"], item["fact_type"], item["value"]), reverse=True)
-        return inventory
-
-    def _estimate_information_score(self, facts: List[Dict[str, Any]]) -> float:
-        weights = {
-            "ocr": 3.5,
-            "brand": 3.0,
-            "route_plan": 3.0,
-            "health_treatment": 3.0,
-            "object_last_seen": 3.0,
-            "place_candidate": 2.5,
-            "transport": 2.0,
-            "activity": 1.5,
-            "scene_location": 1.5,
-            "social_context": 1.0,
-            "object": 0.8,
-            "summary": 0.4,
-        }
-        score = 0.0
-        for item in self._build_fact_inventory(facts):
-            fact_type = str(item.get("fact_type") or "")
-            support_count = int(item.get("support_count") or 0)
-            confidence = float(item.get("confidence") or 0.0)
-            weight = weights.get(fact_type, 0.75)
-            support_multiplier = min(1.5, 0.5 + (support_count * 0.25))
-            confidence_multiplier = 1.0 + min(0.5, confidence * 0.5)
-            score += weight * support_multiplier * confidence_multiplier
-        rare_clue_count = len(self._unique(clue for fact in facts for clue in fact.get("rare_clues", [])))
-        score += rare_clue_count * 1.5
-        return round(score, 3)
-
-    def _estimate_density_score(self, facts: List[Dict[str, Any]], duration_seconds: int) -> float:
-        if not facts:
-            return 0.0
-        duration_minutes = max(1.0, float(duration_seconds) / 60.0)
-        photos_per_minute = len(facts) / duration_minutes
-        return round(min(8.0, photos_per_minute), 3)
-
-    def _build_change_points(self, bursts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        change_points: List[Dict[str, Any]] = []
-        seen_rare_clues: set[str] = set()
-        for burst in bursts:
-            new_clues = [clue for clue in burst.get("rare_clues", []) if clue not in seen_rare_clues]
-            if new_clues:
-                change_points.append(
-                    {
-                        "change_type": "rare_clue_emergence",
-                        "burst_id": burst["burst_id"],
-                        "photo_ids": list(burst["photo_ids"]),
-                        "details": new_clues[:5],
-                    }
-                )
-                seen_rare_clues.update(new_clues)
-
-        for left, right in zip(bursts, bursts[1:]):
-            if left.get("location_bucket") != right.get("location_bucket"):
-                change_points.append(
-                    {
-                        "change_type": "location_chain_change",
-                        "from_burst_id": left["burst_id"],
-                        "to_burst_id": right["burst_id"],
-                        "details": [left.get("location_bucket"), right.get("location_bucket")],
-                    }
-                )
-            if set(left.get("dominant_person_ids", [])) != set(right.get("dominant_person_ids", [])):
-                change_points.append(
-                    {
-                        "change_type": "dominant_person_change",
-                        "from_burst_id": left["burst_id"],
-                        "to_burst_id": right["burst_id"],
-                        "details": {
-                            "from": left.get("dominant_person_ids", []),
-                            "to": right.get("dominant_person_ids", []),
-                        },
-                    }
-                )
-            if set(left.get("activity_hints", [])) != set(right.get("activity_hints", [])):
-                change_points.append(
-                    {
-                        "change_type": "activity_change",
-                        "from_burst_id": left["burst_id"],
-                        "to_burst_id": right["burst_id"],
-                        "details": {
-                            "from": left.get("activity_hints", []),
-                            "to": right.get("activity_hints", []),
-                        },
-                    }
-                )
-        return change_points
-
-    def _detect_slice_conflicts(self, facts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        conflicts: List[Dict[str, Any]] = []
-        strong_places = [
-            candidate["name"]
-            for fact in facts
-            for candidate in fact.get("place_candidates", [])
-            if isinstance(candidate, dict)
-            and candidate.get("name")
-            and float(candidate.get("confidence") or 0.0) >= 0.7
-        ]
-        if len(set(strong_places)) > 1:
-            conflicts.append(
-                {
-                    "conflict_type": "multiple_strong_place_candidates",
-                    "values": self._unique(strong_places),
-                }
-            )
-        return conflicts
-
-    def _session_continuity(self, left: Dict[str, Any], right: Dict[str, Any]) -> Dict[str, Any]:
-        gap_seconds = self._seconds_between(left.get("ended_at"), right.get("started_at"))
-        if gap_seconds > LLM_SESSION_HARD_GAP_SECONDS:
-            return {
-                "same_session": False,
-                "score": -99,
-                "reason": "hard_split_time_gap",
-                "gap_seconds": gap_seconds,
-            }
-
-        distance_km = self._distance_km(left.get("facts", [None])[0], right.get("facts", [None])[0])
-        if distance_km > LLM_SESSION_HARD_DISTANCE_KM and not self._looks_like_explainable_transition(left, right):
-            return {
-                "same_session": False,
-                "score": -99,
-                "reason": "hard_split_distance_jump",
-                "gap_seconds": gap_seconds,
-                "distance_km": round(distance_km, 3),
-            }
-
-        score = 0
-        signals: List[str] = []
-
-        if gap_seconds <= LLM_SESSION_STRONG_GAP_SECONDS:
-            score += 2
-            signals.append("strong_time_continuity")
-        elif gap_seconds <= LLM_SESSION_SOFT_GAP_SECONDS:
-            score += 1
-            signals.append("soft_time_continuity")
-
-        left_bucket = str(left.get("location_bucket") or "")
-        right_bucket = str(right.get("location_bucket") or "")
-        if left_bucket and right_bucket and left_bucket == right_bucket:
-            score += 2
-            signals.append("same_location_bucket")
-        elif distance_km and distance_km <= LLM_SESSION_NEAR_DISTANCE_KM:
-            score += 2
-            signals.append("near_distance")
-        elif self._looks_like_explainable_transition(left, right):
-            score += 1
-            signals.append("explainable_transition")
-
-        left_people = set(left.get("dominant_person_ids", []) or [])
-        right_people = set(right.get("dominant_person_ids", []) or [])
-        shared_people = left_people.intersection(right_people)
-        if left_people and right_people and max(len(left_people), len(right_people)) > 0:
-            overlap_ratio = len(shared_people) / max(len(left_people), len(right_people))
-            if overlap_ratio >= 0.5:
-                score += 2
-                signals.append("strong_people_continuity")
-            elif shared_people:
-                score += 1
-                signals.append("weak_people_continuity")
-
-        left_scene = set(self._normalized_hint_set(left.get("scene_hints", [])))
-        right_scene = set(self._normalized_hint_set(right.get("scene_hints", [])))
-        if left_scene.intersection(right_scene):
-            score += 1
-            signals.append("scene_continuity")
-
-        left_activity = set(self._normalized_hint_set(left.get("activity_hints", [])))
-        right_activity = set(self._normalized_hint_set(right.get("activity_hints", [])))
-        if left_activity.intersection(right_activity):
-            score += 1
-            signals.append("activity_continuity")
-
-        if self._rare_clue_conflict(left, right):
-            score -= 3
-            signals.append("rare_clue_conflict")
-
-        if not shared_people and left_bucket != right_bucket and not left_scene.intersection(right_scene) and not left_activity.intersection(right_activity):
-            score -= 3
-            signals.append("semantic_rupture")
-
-        if score >= 3:
-            decision = "same_session"
-            same_session = True
-        elif score >= 1:
-            decision = "review_needed"
-            same_session = True
-        else:
-            decision = "distinct"
-            same_session = False
-        return {
-            "same_session": same_session,
-            "score": score,
-            "decision": decision,
-            "gap_seconds": gap_seconds,
-            "distance_km": round(distance_km, 3),
-            "signals": signals,
-        }
-
-    def _burst_break_required(self, left: Dict[str, Any], right: Dict[str, Any]) -> bool:
-        left_bucket = self._location_bucket(left)
-        right_bucket = self._location_bucket(right)
-        if left_bucket and right_bucket and left_bucket != right_bucket:
-            return True
-        left_people = set(left.get("person_ids") or [])
-        right_people = set(right.get("person_ids") or [])
-        left_activity = str(left.get("activity_hint") or "").strip().lower()
-        right_activity = str(right.get("activity_hint") or "").strip().lower()
-        if left_people and right_people and not left_people.intersection(right_people) and left_activity and right_activity and left_activity != right_activity:
-            return True
-        return False
-
-    def _location_bucket(self, fact: Dict[str, Any]) -> str:
-        location = fact.get("location") or {}
-        if isinstance(location, dict):
-            name = str(location.get("name") or "").strip().lower()
-            if name:
-                return name
-        place_candidates = fact.get("place_candidates", []) or []
-        for candidate in place_candidates:
-            if not isinstance(candidate, dict):
-                continue
-            name = str(candidate.get("name") or "").strip().lower()
-            if name:
-                return name
-        return str(fact.get("location_name") or "").strip().lower()
-
-    def _seconds_between(self, left: Optional[str], right: Optional[str]) -> float:
-        try:
-            left_dt = datetime.fromisoformat(str(left))
-            right_dt = datetime.fromisoformat(str(right))
-        except Exception:
-            return 0.0
-        return abs((right_dt - left_dt).total_seconds())
-
-    def _distance_km(self, left: Optional[Dict[str, Any]], right: Optional[Dict[str, Any]]) -> float:
-        if not left or not right:
-            return 0.0
-        left_location = left.get("location") if isinstance(left, dict) else None
-        right_location = right.get("location") if isinstance(right, dict) else None
-        if not isinstance(left_location, dict) or not isinstance(right_location, dict):
-            return 0.0
-        if any(key not in left_location for key in ("lat", "lng")) or any(key not in right_location for key in ("lat", "lng")):
-            return 0.0
-        lat1 = radians(float(left_location["lat"]))
-        lon1 = radians(float(left_location["lng"]))
-        lat2 = radians(float(right_location["lat"]))
-        lon2 = radians(float(right_location["lng"]))
-        delta_lat = lat2 - lat1
-        delta_lon = lon2 - lon1
-        hav = sin(delta_lat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(delta_lon / 2) ** 2
-        return 2 * 6371.0 * asin(sqrt(hav))
-
-    def _dominant_person_ids_from_facts(self, facts: List[Dict[str, Any]]) -> List[str]:
-        counts = Counter(
-            person_id
-            for fact in facts
-            for person_id in fact.get("person_ids", []) or []
-            if person_id
-        )
-        return [person_id for person_id, _count in counts.most_common(3)]
-
-    def _normalized_hint_set(self, values: Iterable[str]) -> List[str]:
-        normalized: List[str] = []
-        for value in values:
-            text = str(value or "").strip().lower()
-            if text and text not in normalized:
-                normalized.append(text)
-        return normalized
-
-    def _looks_like_explainable_transition(self, left: Dict[str, Any], right: Dict[str, Any]) -> bool:
-        left_bucket = str(left.get("location_bucket") or "")
-        right_bucket = str(right.get("location_bucket") or "")
-        if left_bucket and right_bucket:
-            left_tokens = set(re.split(r"[\s_:/-]+", left_bucket))
-            right_tokens = set(re.split(r"[\s_:/-]+", right_bucket))
-            if left_tokens.intersection(right_tokens):
-                return True
-        left_scene = set(self._normalized_hint_set(left.get("scene_hints", [])))
-        right_scene = set(self._normalized_hint_set(right.get("scene_hints", [])))
-        left_activity = set(self._normalized_hint_set(left.get("activity_hints", [])))
-        right_activity = set(self._normalized_hint_set(right.get("activity_hints", [])))
-        return bool(left_scene.intersection(right_scene) or left_activity.intersection(right_activity))
-
-    def _rare_clue_conflict(self, left: Dict[str, Any], right: Dict[str, Any]) -> bool:
-        left_ocr = {clue.lower() for clue in left.get("rare_clues", []) if clue}
-        right_ocr = {clue.lower() for clue in right.get("rare_clues", []) if clue}
-        if not left_ocr or not right_ocr:
-            return False
-        if left_ocr.intersection(right_ocr):
-            return False
-        left_places = {name.lower() for name in left.get("location_chain", []) if name}
-        right_places = {name.lower() for name in right.get("location_chain", []) if name}
-        return bool(left_places and right_places and not left_places.intersection(right_places))
-
-    def _create_slice_memory_prompt(self, evidence_packet: Dict[str, Any], primary_person_id: Optional[str]) -> str:
-        if self.use_heavy_pipeline:
-            return self._create_heavy_slice_memory_prompt(evidence_packet, primary_person_id)
-        primary_label = primary_person_id or "authenticated_user"
-        compact_packet = self._compact_evidence_packet_for_prompt(evidence_packet)
-        return f"""你是 memory materialization LLM。你现在只处理一个 event slice，不要总结整个相册。
-
-规则：
-1. 你的目标是把 event-scoped evidence packet 转成可落库的 memory contract。
-2. 不能编造城市、人物关系、偏好或长期画像。
-3. 你必须优先使用 fact_inventory、rare_clues、change_points、conflicts，而不是只看 summary。
-4. 允许输出 uncertainty。
-5. “我” 在内部永远对应 authenticated user={primary_label}，但只有在证据足够时才说用户出镜。
-6. facts 只是 memory 的一部分；细粒度事实必须进入 observations 或 claims。
-7. 这个 slice 只是分析窗口，不等于完整现实活动链；不要跨越 packet 边界做过强推断。
-8. 只要 evidence packet 与主用户有关，就尽量输出 profile_deltas；不要把画像层完全留空。
-9. 所有字符串内部如果需要出现双引号，必须转义为 \\\"，输出必须能被 JSON 解析器直接解析。
-
-请输出严格 JSON，包含以下 6 个顶层字段：
-{{
-  "facts": [
-    {{
-      "fact_id": "字符串",
-      "title": "字符串",
-      "coarse_event_type": "unknown/social_outing/sightseeing/dining/training/daily_life/travel/work/study/health/shopping/other",
-      "event_facets": ["字符串"],
-      "alternative_type_candidates": [{{"type": "字符串", "score": 0.0}}],
-      "started_at": "ISO时间",
-      "ended_at": "ISO时间",
-      "location": "字符串",
-      "participant_person_ids": ["Person_001"],
-      "photo_ids": ["photo_001"],
-      "original_image_ids": ["photo_001"],
-      "description": "客观描述",
-      "narrative_synthesis": "一句话客观归纳",
-      "confidence": 0.0,
-      "reason": "判断依据"
-    }}
-  ],
-  "observations": [
-    {{
-      "observation_id": "字符串",
-      "category": "ocr|object|brand|dish|price|clothing|style|health|transport|route_plan|scene|activity|place_hint",
-      "field_key": "字符串",
-      "field_value": "字符串",
-      "confidence": 0.0,
-      "photo_ids": ["photo_001"],
-      "original_image_ids": ["photo_001"],
-      "fact_id": "可为空",
-      "event_id": "{evidence_packet['event_id']}",
-      "person_ids": ["Person_001"],
-      "evidence_refs": [{{"ref_type": "photo", "ref_id": "photo_001"}}]
-    }}
-  ],
-  "claims": [
-    {{
-      "claim_id": "字符串",
-      "claim_type": "location|identity|brand|dish|price|health|transport|route_plan|preference_signal|culture_signal|object_last_seen",
-      "subject": "对象ID或语义主体",
-      "predicate": "字符串",
-      "object": "字符串",
-      "confidence": 0.0,
-      "photo_ids": ["photo_001"],
-      "original_image_ids": ["photo_001"],
-      "fact_id": "可为空",
-      "event_id": "{evidence_packet['event_id']}",
-      "evidence_refs": [{{"ref_type": "photo", "ref_id": "photo_001"}}]
-    }}
-  ],
-  "relationship_hypotheses": [
-    {{
-      "person_id": "Person_002",
-      "relationship_type": "acquaintance|friend|close_friend|colleague|family|partner|co_presence_only",
-      "label": "标签",
-      "confidence": 0.0,
-      "supporting_fact_ids": ["fact_001"],
-      "supporting_photo_ids": ["photo_001"],
-      "reason_summary": "原因",
-      "reason": "原因",
-      "evidence": {{}}
-    }}
-  ],
-  "profile_deltas": [
-    {{
-      "profile_key": "career_profile|preference_profile|opinion_trajectory_profile|style_profile|identity_trajectory_profile|consumption_profile|aesthetic_profile|recommendation_prior_profile",
-      "field_key": "字符串",
-      "field_value": "字符串",
-      "summary": "增量总结",
-      "confidence": 0.0,
-      "supporting_fact_ids": ["fact_001"],
-      "supporting_photo_ids": ["photo_001"],
-      "evidence_refs": [{{"ref_type": "photo", "ref_id": "photo_001"}}]
-    }}
-  ],
-  "uncertainty": [
-    {{
-      "field": "字符串",
-      "status": "unknown|insufficient_evidence|ambiguous",
-      "reason": "为什么"
-    }}
-  ]
-}}
-
-注意：
-- 如果只是看到环境中的品牌或物体，不要直接推断用户偏好。
-- 如果只有单次暴露，不要直接推断长期兴趣。
-- 如果没有稳定跨时段证据，不要输出强关系。
-- rare clues 和 OCR / 品牌 / 路线 / 价格 / 地点名 / 物体最后出现线索必须尽量保留。
-- `original_image_ids` 必须精确绑定原始图片 ID；没有额外来源时可与 `photo_ids` 相同。
-
-Event-scoped evidence packet:
-{json.dumps(compact_packet, ensure_ascii=False, indent=2)}
-"""
-
-    def _create_heavy_slice_memory_prompt(self, evidence_packet: Dict[str, Any], primary_person_id: Optional[str]) -> str:
-        primary_label = primary_person_id or "authenticated_user"
-        compact_packet = self._compact_evidence_packet_for_prompt(evidence_packet)
-        return f"""你是一位资深的人类学专家与社会学行为分析师。现在只分析一个切分后的事件窗口，不要跨越这个窗口做推断。
-
-目标：
-1. 基于照片级 VLM 结果，提取这个窗口内的原子事实（facts）。
-2. 最大限度保留细粒度 observations 与 claims，后续检索只依赖 memory。
-3. 只做事件级社会线索总结；真正的人际关系最终判定会由下一层关系 LLM 完成。
-4. 允许 uncertainty，禁止把弱线索写成硬结论。
-
-特别规则：
-- “我” 永远代表 authenticated_user={primary_label}，但除非证据强，不要把任何 Person_x 直接当作用户本人。
-- OCR、品牌、价格、菜品、地点候选、路线线索、服饰材质、物品最后出现线索不能丢。
-- 如果只看到商店、海报、广告牌、环境品牌，不要直接推断长期偏好。
-- 如果这个窗口有多张逻辑连贯的照片，可以合并为 1-n 个 facts；重点是“事实完整”而不是“事件数尽量少”。
-- 所有长文本字段（description / narrative_synthesis / reason / social_clue / summary）中禁止直接出现 ASCII 双引号 `"`；引用 OCR 或原文时，请改用《》或「」。
-- OCR 原文、品牌原文、价格原文优先放进 observations / claims，不要在长文本字段里重复堆叠。
-
-请严格输出 JSON，且必须包含以下 6 个顶层字段：
-{{
-  "facts": [
-    {{
-      "fact_id": "FACT_xxx",
-      "title": "事件标题",
-      "coarse_event_type": "social_outing|sightseeing|dining|travel|shopping|daily_life|work|study|health|training|other|unknown",
-      "event_facets": ["细粒度标签"],
-      "alternative_type_candidates": [{{"type": "travel", "score": 0.7}}],
-      "started_at": "ISO时间",
-      "ended_at": "ISO时间",
-      "location": "地点描述或候选",
-      "participant_person_ids": ["Person_001"],
-      "photo_ids": ["photo_001"],
-      "original_image_ids": ["photo_001"],
-      "description": "客观事实描述",
-      "narrative_synthesis": "一句话综合描述",
-      "confidence": 0.0,
-      "reason": "为什么这样判断",
-      "social_dynamics": [
-        {{
-          "target_id": "Person_002",
-          "interaction_type": "共同观景/同桌用餐/被拍摄/自拍同框",
-          "social_clue": "来自视角、距离、动作、relations 的证据",
-          "relation_hypothesis": "仅作弱猜测，如 friend_candidate",
-          "confidence": 0.0
-        }}
-      ],
-      "persona_evidence": {{
-        "behavioral": ["行为特征"],
-        "aesthetic": ["审美特征"],
-        "socioeconomic": ["消费/阶层线索"]
-      }}
-    }}
-  ],
-  "observations": [],
-  "claims": [],
-  "relationship_hypotheses": [],
-  "profile_deltas": [],
-  "uncertainty": []
-}}
-
-窗口 evidence packet:
-{json.dumps(compact_packet, ensure_ascii=False, indent=2)}
-"""
-
-    def _compact_contract_limits(self, evidence_packet: Dict[str, Any]) -> Dict[str, int]:
-        metrics = evidence_packet.get("slice_budget_metrics", {}) if isinstance(evidence_packet, dict) else {}
-        photo_count = int(metrics.get("photo_count") or len(evidence_packet.get("photo_refs", []) or []))
-        rare_clue_count = int(metrics.get("rare_clue_count") or len(evidence_packet.get("rare_clues", []) or []))
-        information_score = float(metrics.get("information_score") or 0.0)
-        density_score = float(metrics.get("density_score") or 0.0)
-
-        fact_cap = 1
-        if photo_count >= 6 or information_score >= 8 or rare_clue_count >= 5:
-            fact_cap = 2
-        if photo_count >= 12 or information_score >= 16 or rare_clue_count >= 10:
-            fact_cap = 3
-
-        observation_cap = 6
-        if rare_clue_count >= 5 or information_score >= 8:
-            observation_cap = 8
-        if rare_clue_count >= 10 or information_score >= 16 or density_score >= 8:
-            observation_cap = 10
-
-        claim_cap = 4
-        if rare_clue_count >= 5 or information_score >= 10:
-            claim_cap = 5
-        if rare_clue_count >= 10 or information_score >= 18:
-            claim_cap = 6
-
-        return {
-            "fact_cap": fact_cap,
-            "observation_cap": observation_cap,
-            "claim_cap": claim_cap,
-            "relationship_cap": 2 if photo_count >= 8 else 1,
-            "profile_cap": 6 if information_score >= 10 else 4,
-            "uncertainty_cap": 4,
-        }
-
-    def _create_compact_slice_memory_prompt(self, evidence_packet: Dict[str, Any], primary_person_id: Optional[str]) -> str:
-        primary_label = primary_person_id or "authenticated_user"
-        limits = self._compact_contract_limits(evidence_packet)
-        compact_packet = self._compact_evidence_packet_for_prompt(evidence_packet)
-        return f"""你是 memory materialization LLM 的紧凑恢复模式。上一次该窗口输出过长或 JSON 损坏，这一次必须输出更短、更稳、更易解析的 contract。
-
-恢复原则：
-1. 仍然只分析当前窗口，不要跨窗口推断。
-2. 优先保留高价值 OCR、品牌、地点候选、价格、路线/计划、物体最后出现线索。
-3. 所有长文本字段必须压缩成短句或短语；单字段尽量不超过 60 个汉字。
-4. 所有长文本字段禁止直接出现 ASCII 双引号 `"`；引用原文时用《》或「」。
-5. “我” 永远代表 authenticated_user={primary_label}，不要把 Person_x 强行认成用户。
-6. 如果没有足够证据，宁可放进 uncertainty，也不要补全。
-7. `original_image_ids` 必须精确绑定原始图片 ID。
-
-输出上限：
-- facts <= {limits['fact_cap']}
-- observations <= {limits['observation_cap']}
-- claims <= {limits['claim_cap']}
-- relationship_hypotheses <= {limits['relationship_cap']}
-- profile_deltas <= {limits['profile_cap']}
-- uncertainty <= {limits['uncertainty_cap']}
-
-输出格式仍必须是完整 6 段 JSON contract：
-{{
-  "facts": [],
-  "observations": [],
-  "claims": [],
-  "relationship_hypotheses": [],
-  "profile_deltas": [],
-  "uncertainty": []
-}}
-
-字段约束：
-- facts 只保留最重要的原子事实，title/description/narrative_synthesis 要短。
-- observations 只保留最可检索的高价值项。
-- claims 只保留最可能被 query 直接命中的项。
-- relationship_hypotheses 只保留弱共现，不做强关系定型。
-- profile_deltas 只保留有明确证据引用的增量。
-
-窗口 evidence packet:
-{json.dumps(compact_packet, ensure_ascii=False, indent=2)}
-"""
-
-    def _salvage_slice_contract_from_evidence_packet(self, evidence_packet: Dict[str, Any]) -> Dict[str, Any]:
-        photo_ids = [str(item) for item in evidence_packet.get("photo_refs", []) or [] if item]
-        location_chain = [str(item) for item in evidence_packet.get("location_chain", []) or [] if item]
-        dominant_person_ids = [str(item) for item in evidence_packet.get("dominant_person_ids", []) or [] if item]
-        fact_inventory = [item for item in evidence_packet.get("fact_inventory", []) or [] if isinstance(item, dict)]
-        time_range = evidence_packet.get("time_range", {}) if isinstance(evidence_packet.get("time_range"), dict) else {}
-        rare_clues = [str(item) for item in evidence_packet.get("rare_clues", []) or [] if item]
-
-        activity_values = [
-            str(item.get("value") or "").strip()
-            for item in fact_inventory
-            if str(item.get("type") or "").strip() == "activity_hint" and str(item.get("value") or "").strip()
-        ]
-        scene_values = [
-            str(item.get("value") or "").strip()
-            for item in fact_inventory
-            if str(item.get("type") or "").strip() == "scene_hint" and str(item.get("value") or "").strip()
-        ]
-        top_activity = activity_values[0] if activity_values else ""
-        top_scene = scene_values[0] if scene_values else ""
-        location_label = location_chain[0] if location_chain else ""
-
-        coarse_event_type = "other"
-        activity_text = " ".join(activity_values).lower()
-        if any(keyword in activity_text for keyword in ("餐", "吃", "meal", "dining", "coffee", "cafe", "restaurant")):
-            coarse_event_type = "dining"
-        elif any(keyword in activity_text for keyword in ("travel", "trip", "旅行", "观光", "sight", "景")):
-            coarse_event_type = "travel"
-        elif any(keyword in activity_text for keyword in ("walk", "stroll", "逛", "散步", "view")):
-            coarse_event_type = "social_outing"
-        elif any(keyword in activity_text for keyword in ("work", "办公", "会议")):
-            coarse_event_type = "work"
-
-        title_parts = [part for part in (top_activity, top_scene, location_label) if part]
-        title = " / ".join(title_parts[:2]) or "恢复的窗口事实"
-        description = "由切片证据直接恢复的窗口事实，原始 LLM 输出因 JSON 截断未能完整解析。"
-
-        observations: List[Dict[str, Any]] = []
-        for index, clue in enumerate(rare_clues[:6], start=1):
-            category = "ocr" if any(char.isdigit() for char in clue) or any(token in clue.lower() for token in ("http", "www", "tel", "t.", "街", "路", "店", "馆")) else "scene"
-            observations.append(
-                {
-                    "observation_id": f"OBS_SALVAGE_{index:03d}",
-                    "category": category,
-                    "field_key": "rare_clue",
-                    "field_value": clue,
-                    "confidence": 0.34,
-                    "photo_ids": list(photo_ids),
-                    "original_image_ids": list(photo_ids),
-                    "fact_id": "FACT_SALVAGE_001",
-                    "event_id": str(evidence_packet.get("event_id") or ""),
-                    "person_ids": list(dominant_person_ids),
-                    "evidence_refs": [{"ref_type": "photo", "ref_id": photo_id} for photo_id in photo_ids[:4]],
-                }
-            )
-
-        claims: List[Dict[str, Any]] = []
-        if location_label:
-            claims.append(
-                {
-                    "claim_id": "CLM_SALVAGE_001",
-                    "claim_type": "location",
-                    "subject": str(evidence_packet.get("event_id") or "slice"),
-                    "predicate": "location_candidate",
-                    "object": location_label,
-                    "confidence": 0.41,
-                    "photo_ids": list(photo_ids),
-                    "original_image_ids": list(photo_ids),
-                    "fact_id": "FACT_SALVAGE_001",
-                    "event_id": str(evidence_packet.get("event_id") or ""),
-                    "evidence_refs": [{"ref_type": "photo", "ref_id": photo_id} for photo_id in photo_ids[:4]],
-                }
-            )
-
-        return {
-            "facts": [
-                {
-                    "fact_id": "FACT_SALVAGE_001",
-                    "title": title,
-                    "coarse_event_type": coarse_event_type,
-                    "event_facets": [item for item in (top_activity, top_scene) if item][:4],
-                    "alternative_type_candidates": [],
-                    "started_at": str(time_range.get("start") or ""),
-                    "ended_at": str(time_range.get("end") or time_range.get("start") or ""),
-                    "location": location_label,
-                    "participant_person_ids": list(dominant_person_ids),
-                    "photo_ids": list(photo_ids),
-                    "original_image_ids": list(photo_ids),
-                    "description": description,
-                    "narrative_synthesis": description,
-                    "confidence": 0.22,
-                    "reason": "slice JSON parse failed; recovered from evidence packet",
-                    "social_dynamics": [],
-                    "persona_evidence": {},
-                }
-            ],
-            "observations": observations,
-            "claims": claims,
-            "relationship_hypotheses": [],
-            "profile_deltas": [],
-            "uncertainty": [
-                {
-                    "field": "slice_contract",
-                    "status": "insufficient_evidence",
-                    "reason": "slice output was truncated and recovered from evidence packet",
-                }
-            ],
-        }
-
-    def _salvage_session_contract_from_slices(
-        self,
-        *,
-        raw_event_id: str,
-        slice_contracts: Sequence[Dict[str, Any]],
-    ) -> Dict[str, Any]:
-        merged = self._merge_contracts_union(list(slice_contracts))
-        merged.setdefault("uncertainty", []).append(
-            {
-                "field": "session_merge_contract",
-                "status": "insufficient_evidence",
-                "reason": f"session merge for {raw_event_id} failed to parse and was recovered from slice unions",
-            }
-        )
-        return merged
-
-    def _salvage_global_contract_from_sessions(
-        self,
-        session_contracts: Sequence[Dict[str, Any]],
-    ) -> Dict[str, Any]:
-        merged = self._merge_contracts_union(list(session_contracts))
-        merged.setdefault("uncertainty", []).append(
-            {
-                "field": "global_merge_contract",
-                "status": "insufficient_evidence",
-                "reason": "global merge failed to parse and was recovered from session unions",
-            }
-        )
-        return merged
-
-    def _compact_text_for_prompt(self, value: Any, *, limit: int = 180) -> str:
-        text = str(value or "").strip()
-        if len(text) <= limit:
-            return text
-        return f"{text[:limit].rstrip()}..."
-
-    def _compact_slice_record_for_prompt(self, record: Dict[str, Any]) -> Dict[str, Any]:
-        return {
-            "slice_id": record.get("slice_id"),
-            "raw_event_id": record.get("raw_event_id"),
-            "photo_ids": list(record.get("photo_ids", [])[:12]),
-            "burst_ids": list(record.get("burst_ids", [])[:8]),
-            "overlap_burst_ids": list(record.get("overlap_burst_ids", [])[:4]),
-            "rare_clue_count": int(record.get("rare_clue_count") or 0),
-            "photo_count": int(record.get("photo_count") or 0),
-            "burst_count": int(record.get("burst_count") or 0),
-            "fact_inventory_count": int(record.get("fact_inventory_count") or 0),
-            "change_point_count": int(record.get("change_point_count") or 0),
-            "location_chain": list(record.get("location_chain", [])[:6]),
-            "dominant_person_ids": list(record.get("dominant_person_ids", [])[:6]),
-            "conflict_count": int(record.get("conflict_count") or 0),
-            "information_score": float(record.get("information_score") or 0.0),
-            "density_score": float(record.get("density_score") or 0.0),
-            "contract_counts": dict(record.get("contract_counts", {}) or {}),
-        }
-
-    def _compact_contract_for_prompt(self, contract: Dict[str, Any]) -> Dict[str, Any]:
-        return {
-            "facts": [
-                {
-                    "fact_id": item.get("fact_id"),
-                    "title": item.get("title"),
-                    "coarse_event_type": item.get("coarse_event_type"),
-                    "event_facets": list(item.get("event_facets", [])[:8]),
-                    "started_at": item.get("started_at"),
-                    "ended_at": item.get("ended_at"),
-                    "location": item.get("location"),
-                    "participant_person_ids": list(item.get("participant_person_ids", [])[:8]),
-                    "original_image_ids": list(item.get("original_image_ids", item.get("photo_ids", []))[:8]),
-                    "description": self._compact_text_for_prompt(item.get("description"), limit=160),
-                    "narrative_synthesis": self._compact_text_for_prompt(item.get("narrative_synthesis"), limit=160),
-                    "confidence": item.get("confidence"),
-                }
-                for item in contract.get("facts", [])[:8]
-                if isinstance(item, dict)
-            ],
-            "observations": [
-                {
-                    "observation_id": item.get("observation_id"),
-                    "category": item.get("category"),
-                    "field_key": item.get("field_key"),
-                    "field_value": self._compact_text_for_prompt(item.get("field_value"), limit=120),
-                    "fact_id": item.get("fact_id"),
-                    "original_image_ids": list(item.get("original_image_ids", item.get("photo_ids", []))[:6]),
-                    "confidence": item.get("confidence"),
-                }
-                for item in contract.get("observations", [])[:12]
-                if isinstance(item, dict)
-            ],
-            "claims": [
-                {
-                    "claim_id": item.get("claim_id"),
-                    "claim_type": item.get("claim_type"),
-                    "predicate": item.get("predicate"),
-                    "object": self._compact_text_for_prompt(item.get("object"), limit=120),
-                    "fact_id": item.get("fact_id"),
-                    "original_image_ids": list(item.get("original_image_ids", item.get("photo_ids", []))[:6]),
-                    "confidence": item.get("confidence"),
-                }
-                for item in contract.get("claims", [])[:12]
-                if isinstance(item, dict)
-            ],
-            "relationship_hypotheses": [
-                {
-                    "person_id": item.get("person_id"),
-                    "relationship_type": item.get("relationship_type"),
-                    "confidence": item.get("confidence"),
-                    "supporting_fact_ids": list(item.get("supporting_fact_ids", [])[:6]),
-                }
-                for item in contract.get("relationship_hypotheses", [])[:6]
-                if isinstance(item, dict)
-            ],
-            "profile_deltas": [
-                {
-                    "profile_key": item.get("profile_key"),
-                    "field_key": item.get("field_key"),
-                    "field_value": self._compact_text_for_prompt(item.get("field_value"), limit=100),
-                    "confidence": item.get("confidence"),
-                }
-                for item in contract.get("profile_deltas", [])[:8]
-                if isinstance(item, dict)
-            ],
-            "uncertainty": [
-                {
-                    "field": item.get("field"),
-                    "status": item.get("status"),
-                    "reason": self._compact_text_for_prompt(item.get("reason"), limit=120),
-                }
-                for item in contract.get("uncertainty", [])[:8]
-                if isinstance(item, dict)
-            ],
-        }
-
-    def _compact_evidence_packet_for_prompt(self, evidence_packet: Dict[str, Any]) -> Dict[str, Any]:
-        fact_inventory = []
-        for item in evidence_packet.get("fact_inventory", [])[:36]:
-            if not isinstance(item, dict):
-                continue
-            fact_inventory.append(
-                {
-                    "fact_type": item.get("fact_type"),
-                    "value": self._compact_text_for_prompt(item.get("value"), limit=120),
-                    "support_count": item.get("support_count"),
-                    "photo_ids": list(item.get("photo_ids", [])[:6]),
-                    "confidence": item.get("confidence"),
-                }
-            )
-        photo_facts = []
-        for item in evidence_packet.get("photo_facts", [])[:18]:
-            if not isinstance(item, dict):
-                continue
-            photo_facts.append(
-                {
-                    "photo_id": item.get("photo_id"),
-                    "timestamp": item.get("timestamp"),
-                    "location_name": item.get("location_name"),
-                    "person_ids": list(item.get("person_ids", [])[:8]),
-                    "scene_hint": self._compact_text_for_prompt(item.get("scene_hint"), limit=80),
-                    "activity_hint": self._compact_text_for_prompt(item.get("activity_hint"), limit=80),
-                    "social_hint": self._compact_text_for_prompt(item.get("social_hint"), limit=80),
-                    "rare_clues": list(item.get("rare_clues", [])[:8]),
-                }
-            )
-        return {
-            "event_id": evidence_packet.get("event_id"),
-            "slice_id": evidence_packet.get("slice_id"),
-            "time_range": dict(evidence_packet.get("time_range", {}) or {}),
-            "location_chain": list(evidence_packet.get("location_chain", [])[:8]),
-            "dominant_person_ids": list(evidence_packet.get("dominant_person_ids", [])[:8]),
-            "burst_ids": list(evidence_packet.get("burst_ids", [])[:12]),
-            "overlap_burst_ids": list(evidence_packet.get("overlap_burst_ids", [])[:4]),
-            "fact_inventory": fact_inventory,
-            "rare_clues": list(evidence_packet.get("rare_clues", [])[:24]),
-            "change_points": list(evidence_packet.get("change_points", [])[:12]),
-            "conflicts": list(evidence_packet.get("conflicts", [])[:8]),
-            "slice_budget_metrics": dict(evidence_packet.get("slice_budget_metrics", {}) or {}),
-            "photo_refs": list(evidence_packet.get("photo_refs", [])[:24]),
-            "photo_facts": photo_facts,
-            "session_context": dict(evidence_packet.get("session_context", {}) or {}),
-        }
-
-    def _create_session_merge_prompt(
-        self,
-        *,
-        raw_session: Dict[str, Any],
-        session_slice_records: List[Dict[str, Any]],
-        slice_contracts: List[Dict[str, Any]],
-        primary_person_id: Optional[str],
-    ) -> str:
-        if self.use_heavy_pipeline:
-            return self._create_heavy_session_merge_prompt(
-                raw_session=raw_session,
-                session_slice_records=session_slice_records,
-                slice_contracts=slice_contracts,
-                primary_person_id=primary_person_id,
-            )
-        primary_label = primary_person_id or "authenticated_user"
-        session_summary = {
-            "raw_session_id": raw_session["raw_session_id"],
-            "started_at": raw_session["started_at"],
-            "ended_at": raw_session["ended_at"],
-            "location_chain": raw_session["location_chain"],
-            "photo_ids": raw_session["photo_ids"],
-            "burst_ids": raw_session["burst_ids"],
-            "dominant_person_ids": raw_session["dominant_person_ids"],
-            "continuity_decisions": raw_session["continuity_decisions"],
-        }
-        compact_slice_packets = [self._compact_slice_record_for_prompt(item) for item in session_slice_records]
-        compact_slice_contracts = [self._compact_contract_for_prompt(item) for item in slice_contracts]
-        return f"""你是 memory event aggregator。你会收到同一个 raw event 下多个带 overlap 的 slice memory contracts，请先在 event 内部做去重、拼接和保守确认。
-
-规则：
-1. 优先比较相邻 slice 的事件与 claims，依据 overlap_burst_ids / photo_ids / 时间连续性 / 人物连续性 / location_chain 做拼接。
-2. 不要丢失 rare clues、OCR、brands、place claims、object last-seen claims。
-3. 如果证据不足，宁可保守保留多条 event，也不要强行 merge。
-4. “我” 对应 authenticated_user={primary_label}，不要把任何 Person_x 直接绑成用户。
-5. 输出仍然是完整 6 段 memory contract。
-
-Event summary:
-{json.dumps(session_summary, ensure_ascii=False, indent=2)}
-
-Slice packets:
-{json.dumps(compact_slice_packets, ensure_ascii=False, indent=2)}
-
-Slice contracts:
-{json.dumps(compact_slice_contracts, ensure_ascii=False, indent=2)}
-"""
-
-    def _create_heavy_session_merge_prompt(
-        self,
-        *,
-        raw_session: Dict[str, Any],
-        session_slice_records: List[Dict[str, Any]],
-        slice_contracts: List[Dict[str, Any]],
-        primary_person_id: Optional[str],
-    ) -> str:
-        primary_label = primary_person_id or "authenticated_user"
-        session_summary = {
-            "raw_session_id": raw_session["raw_session_id"],
-            "started_at": raw_session["started_at"],
-            "ended_at": raw_session["ended_at"],
-            "location_chain": raw_session["location_chain"],
-            "photo_ids": raw_session["photo_ids"],
-            "dominant_person_ids": raw_session["dominant_person_ids"],
-            "continuity_decisions": raw_session["continuity_decisions"],
-        }
-        compact_slice_packets = [self._compact_slice_record_for_prompt(item) for item in session_slice_records]
-        compact_slice_contracts = [self._compact_contract_for_prompt(item) for item in slice_contracts]
-        return f"""你是 LP1 的 session 级聚合器。你会收到同一原始事件窗口下多个 slice 的输出，请只在同一 raw_session 内做去重与拼接。
-
-要求：
-1. 保留高价值 observations / claims / persona_evidence / social_dynamics。
-2. overlap 的 slice 不能重复计数，但也不能把细节吞掉。
-3. 相同 fact 若 title 接近、时间连续、地点连续、photo_ids overlap，应合并。
-4. relationship_hypotheses 此阶段只允许保留弱共现，不做强关系定型。
-5. profile_deltas 只保留有明确证据引用的增量。
-6. “我” 代表 authenticated_user={primary_label}。
-7. 所有长文本字段禁止直接出现 ASCII 双引号 `"`；引用 OCR 或原文时统一改用《》或「」。
-
-输出仍为完整 6 段 contract。
-
-Session summary:
-{json.dumps(session_summary, ensure_ascii=False, indent=2)}
-
-Slice packets:
-{json.dumps(compact_slice_packets, ensure_ascii=False, indent=2)}
-
-Slice contracts:
-{json.dumps(compact_slice_contracts, ensure_ascii=False, indent=2)}
-"""
-
-    def _create_merge_prompt(
-        self,
-        *,
-        photo_fact_count: int,
-        raw_sessions: List[Dict[str, Any]],
-        session_slices: List[Dict[str, Any]],
-        session_contracts: List[Dict[str, Any]],
-        session_artifacts: List[Dict[str, Any]],
-        primary_person_id: Optional[str],
-    ) -> str:
-        if self.use_heavy_pipeline:
-            return self._create_heavy_merge_prompt(
-                photo_fact_count=photo_fact_count,
-                raw_sessions=raw_sessions,
-                session_slices=session_slices,
-                session_contracts=session_contracts,
-                session_artifacts=session_artifacts,
-                primary_person_id=primary_person_id,
-            )
-        compact_sessions = [
-            {
-                "raw_session_id": session["raw_session_id"],
-                "started_at": session["started_at"],
-                "ended_at": session["ended_at"],
-                "location_chain": session["location_chain"],
-                "photo_ids": session["photo_ids"],
-            }
-            for session in raw_sessions
-        ]
-        compact_slices = [
-            {
-                "slice_id": session_slice["slice_id"],
-                "raw_session_id": session_slice["raw_session_id"],
-                "photo_ids": session_slice["photo_ids"],
-                "burst_ids": session_slice["burst_ids"],
-                "information_score": session_slice.get("information_score"),
-                "density_score": session_slice.get("density_score"),
-            }
-            for session_slice in session_slices
-        ]
-        primary_label = primary_person_id or "authenticated_user"
-        compact_event_contracts = [self._compact_contract_for_prompt(item) for item in session_contracts]
-        return f"""你是 memory global aggregator。你会收到多个 raw event 的 event-level memory contracts，请做全局去重、合并、谨慎关系修订，并输出最终 memory contract。
-
-规则：
-1. 不要丢失高价值 observations / claims。
-2. 允许多个 event 合并，但只能在时间/地点/活动证据充分时合并。
-3. 关系版本要保守：没有纵向证据就不要输出强关系。
-4. “我” 对应 authenticated_user={primary_label}，但不要因为缺少人脸锚点就把任何 Person_x 绑成用户。
-5. profile_deltas 只输出增量，不直接下绝对结论。
-6. 所有字符串内部如果需要出现双引号，必须转义为 \\\"，输出必须能被 JSON 解析器直接解析。
-
-输出仍然是同样的 6 段 JSON contract，顶层字段必须完整。
-
-输入概览：
-- total_photo_facts: {photo_fact_count}
-- raw_events: {json.dumps(compact_sessions, ensure_ascii=False)}
-- session_slices: {json.dumps(compact_slices, ensure_ascii=False)}
-- event_artifacts: {json.dumps(session_artifacts, ensure_ascii=False)}
-- event_contracts:
-{json.dumps(compact_event_contracts, ensure_ascii=False, indent=2)}
-"""
-
-    def _create_heavy_merge_prompt(
-        self,
-        *,
-        photo_fact_count: int,
-        raw_sessions: List[Dict[str, Any]],
-        session_slices: List[Dict[str, Any]],
-        session_contracts: List[Dict[str, Any]],
-        session_artifacts: List[Dict[str, Any]],
-        primary_person_id: Optional[str],
-    ) -> str:
-        primary_label = primary_person_id or "authenticated_user"
-        compact_sessions = [
-            {
-                "raw_session_id": session["raw_session_id"],
-                "started_at": session["started_at"],
-                "ended_at": session["ended_at"],
-                "location_chain": session["location_chain"],
-                "photo_ids": session["photo_ids"],
-            }
-            for session in raw_sessions
-        ]
-        compact_slices = [
-            {
-                "slice_id": session_slice["slice_id"],
-                "raw_session_id": session_slice["raw_session_id"],
-                "photo_ids": session_slice["photo_ids"],
-                "burst_ids": session_slice["burst_ids"],
-                "information_score": session_slice.get("information_score"),
-                "density_score": session_slice.get("density_score"),
-            }
-            for session_slice in session_slices
-        ]
-        compact_event_contracts = [self._compact_contract_for_prompt(item) for item in session_contracts]
-        return f"""你是 LP1 的全局聚合器。你的任务是把多个 session 级 contract 合并成最终 memory contract，但不能丢失 slice 中已有的有效内容。
-
-要求：
-1. 核心目标是保留事实完整性，而不是把结果压到最少。
-2. facts 之间只有在时间/地点/人物/活动证据充分连续时才能合并。
-3. observations / claims 若有检索价值，优先保留。
-4. relationship_hypotheses 此阶段只保留可从事件层直接观察到的弱共现证据；最终关系判定由下一层关系模型完成。
-5. profile_deltas 允许保守增量，不允许把单次暴露写成稳定画像。
-6. “我” 代表 authenticated_user={primary_label}，不能因为缺少 face 锚点就阻断用户视角。
-7. 所有长文本字段禁止直接出现 ASCII 双引号 `"`；引用 OCR 或原文时统一改用《》或「」。
-
-输出必须是完整 6 段 contract。
-
-输入概览：
-- total_photo_facts: {photo_fact_count}
-- raw_sessions: {json.dumps(compact_sessions, ensure_ascii=False)}
-- session_slices: {json.dumps(compact_slices, ensure_ascii=False)}
-- session_artifacts: {json.dumps(session_artifacts, ensure_ascii=False)}
-- session_contracts:
-{json.dumps(compact_event_contracts, ensure_ascii=False, indent=2)}
-"""
-
-    def _empty_contract(self) -> Dict[str, Any]:
-        return {
-            "facts": [],
-            "observations": [],
-            "claims": [],
-            "relationship_hypotheses": [],
-            "profile_deltas": [],
-            "uncertainty": [],
-        }
-
-    def _normalize_memory_contract(self, payload: Any) -> Dict[str, Any]:
-        contract = self._empty_contract()
-        if isinstance(payload, str):
-            payload = self._extract_json_payload(payload)
-        if not isinstance(payload, dict):
-            return contract
-        for key in contract:
-            if key == "facts":
-                value = payload.get("facts", payload.get("events", []))
-            else:
-                value = payload.get(key, [])
-            contract[key] = value if isinstance(value, list) else []
-
-        for index, fact in enumerate(contract["facts"], start=1):
-            if not isinstance(fact, dict):
-                contract["facts"][index - 1] = {}
-                fact = contract["facts"][index - 1]
-            fact.setdefault("fact_id", fact.get("event_id") or f"FACT_{index:03d}")
-            fact.setdefault("title", "")
-            fact.setdefault("coarse_event_type", "other")
-            fact.setdefault("event_facets", [])
-            fact.setdefault("alternative_type_candidates", [])
-            fact.setdefault("participant_person_ids", [])
-            fact.setdefault("photo_ids", [])
-            fact.setdefault("original_image_ids", list(fact.get("photo_ids", []) or []))
-            fact.setdefault("description", "")
-            fact.setdefault("narrative_synthesis", "")
-            fact.setdefault("confidence", 0.0)
-            fact.setdefault("reason", "")
-            fact.setdefault("social_dynamics", [])
-            fact.setdefault("persona_evidence", {})
-        for key in ("observations", "claims", "relationship_hypotheses", "profile_deltas", "uncertainty"):
-            for index, item in enumerate(contract[key], start=1):
-                if not isinstance(item, dict):
-                    contract[key][index - 1] = {}
-        for index, item in enumerate(contract["observations"], start=1):
-            if not isinstance(item, dict):
-                item = contract["observations"][index - 1]
-            item.setdefault("observation_id", f"OBS_{index:03d}")
-            item.setdefault("category", "scene")
-            item.setdefault("field_key", "")
-            item.setdefault("field_value", "")
-            item.setdefault("confidence", 0.0)
-            item.setdefault("photo_ids", [])
-            item.setdefault("original_image_ids", list(item.get("photo_ids", []) or []))
-            item.setdefault("fact_id", item.get("event_id", ""))
-            item.setdefault("event_id", item.get("session_id", ""))
-            item.setdefault("person_ids", [])
-            item.setdefault("evidence_refs", [])
-        for index, item in enumerate(contract["claims"], start=1):
-            if not isinstance(item, dict):
-                item = contract["claims"][index - 1]
-            item.setdefault("claim_id", f"CLM_{index:03d}")
-            item.setdefault("claim_type", "other")
-            item.setdefault("subject", "")
-            item.setdefault("predicate", "")
-            item.setdefault("object", "")
-            item.setdefault("confidence", 0.0)
-            item.setdefault("photo_ids", [])
-            item.setdefault("original_image_ids", list(item.get("photo_ids", []) or []))
-            item.setdefault("fact_id", item.get("event_id", ""))
-            item.setdefault("event_id", item.get("session_id", ""))
-            item.setdefault("evidence_refs", [])
-        for index, item in enumerate(contract["relationship_hypotheses"], start=1):
-            if not isinstance(item, dict):
-                item = contract["relationship_hypotheses"][index - 1]
-            item.setdefault("relationship_id", f"REL_{index:03d}")
-            item.setdefault("person_id", item.get("target_person_id", ""))
-            item.setdefault("relationship_type", "co_presence_only")
-            item.setdefault("label", "")
-            item.setdefault("confidence", 0.0)
-            item.setdefault("supporting_fact_ids", item.get("supporting_event_ids", []))
-            item.setdefault("supporting_photo_ids", [])
-            item.setdefault("reason_summary", "")
-            item.setdefault("reason", "")
-            item.setdefault("evidence", {})
-        for index, item in enumerate(contract["profile_deltas"], start=1):
-            if not isinstance(item, dict):
-                item = contract["profile_deltas"][index - 1]
-            item.setdefault("delta_id", f"DELTA_{index:03d}")
-            item.setdefault("profile_key", "general_profile")
-            item.setdefault("field_key", "")
-            item.setdefault("field_value", "")
-            item.setdefault("summary", "")
-            item.setdefault("confidence", 0.0)
-            item.setdefault("supporting_fact_ids", item.get("supporting_event_ids", []))
-            item.setdefault("supporting_photo_ids", [])
-            item.setdefault("evidence_refs", [])
-        for index, item in enumerate(contract["uncertainty"], start=1):
-            if not isinstance(item, dict):
-                item = contract["uncertainty"][index - 1]
-            item.setdefault("uncertainty_id", f"UNC_{index:03d}")
-            item.setdefault("field", "")
-            item.setdefault("status", "unknown")
-            item.setdefault("reason", "")
-        return contract
-
-    def _contract_counts(self, contract: Dict[str, Any]) -> Dict[str, int]:
-        return {key: len(contract.get(key, [])) for key in self._empty_contract()}
-
-    def _emit_progress(
-        self,
-        progress_callback: Optional[Callable[[Dict[str, Any]], None]],
-        payload: Dict[str, Any],
-    ) -> None:
-        if progress_callback:
-            progress_callback(payload)
-
-    def _progress_percent(self, processed: int, total: int, *, start: int, end: int) -> int:
-        if total <= 0:
-            return start
-        ratio = min(1.0, max(0.0, processed / total))
-        return int(round(start + ((end - start) * ratio)))
-
-    def _iso_now(self) -> str:
-        return datetime.now().isoformat()
-
-    def _active_llm_provider(self) -> str:
-        return self.provider
-
-    def _active_llm_model(self) -> str:
-        return self.model
-
-    def _active_relationship_provider(self) -> str:
-        return self.relationship_provider
-
-    def _active_relationship_model(self) -> str:
-        if self.relationship_use_bedrock and self.relationship_bedrock_model_candidates:
-            return self.relationship_bedrock_model_candidates[0]
-        return self.relationship_model
-
-    def _legacy_time_fields(self, started_at: str, ended_at: str) -> tuple[str, str]:
-        try:
-            start_dt = datetime.fromisoformat(started_at)
-            end_dt = datetime.fromisoformat(ended_at or started_at)
-        except Exception:
-            return "", ""
-        return start_dt.strftime("%Y-%m-%d"), f"{start_dt.strftime('%H:%M')} - {end_dt.strftime('%H:%M')}"
-
-    def _create_legacy_profile(
-        self,
-        events: List[Event],
-        relationships: List[Relationship],
-        primary_person_id: Optional[str],
-    ) -> str:
-        lines = ["# Profile", ""]
-        if primary_person_id:
-            lines.append(f"- primary_person_id_hint: {primary_person_id}")
-            lines.append("")
-        if events:
-            lines.append("## recent_facts")
-            lines.append("")
-            for event in events[:10]:
-                lines.append(f"- {event.title}: {event.narrative_synthesis or event.description}")
-            lines.append("")
-        if relationships:
-            lines.append("## relationships")
-            lines.append("")
-            for relationship in relationships[:10]:
-                lines.append(f"- {relationship.person_id}: {relationship.label} ({relationship.confidence:.2f})")
-        return "\n".join(lines).strip()
-
-    def _unique(self, items: Iterable[Optional[str]]) -> List[str]:
-        values: List[str] = []
-        for item in items:
-            if not item:
-                continue
-            text = str(item)
-            if text not in values:
-                values.append(text)
-        return values
-
-    def _call_json_prompt(
-        self,
-        prompt: str,
-        *,
-        max_tokens: Optional[int] = None,
-        response_format: Optional[Dict[str, Any]] = None,
-        timeout: Optional[tuple[int | float, int | float]] = None,
-    ) -> Dict[str, Any]:
-        if self.use_proxy:
-            return self._call_llm_via_proxy(prompt)
-        if self.use_openrouter:
-            return self._call_llm_via_openrouter(
-                prompt,
-                max_tokens=int(max_tokens or 8192),
-                response_format=response_format,
-                timeout=timeout or (15, 180),
-            )
-        if self.use_bedrock:
-            return self._call_llm_via_bedrock(prompt)
-        return self._call_llm_via_official_api(prompt)
-
-    def _call_json_prompt_raw_text(
-        self,
-        prompt: str,
-        *,
-        max_tokens: Optional[int] = None,
-        response_format: Optional[Dict[str, Any]] = None,
-        timeout: Optional[tuple[int | float, int | float]] = None,
-    ) -> str:
-        if self.use_openrouter:
-            payload = self._apply_openrouter_reasoning(
-                {
-                    "model": self.model,
-                    "messages": [{"role": "user", "content": prompt}],
-                    "max_tokens": int(max_tokens or 8192),
-                    "temperature": 0.1,
-                }
-            )
-            if response_format:
-                payload["response_format"] = deepcopy(response_format)
-            response_data = self._post_openrouter_chat_completion(
-                payload,
-                timeout=timeout or (15, 180),
-            )
-            return self._extract_openrouter_content(response_data)
-        payload = self._call_json_prompt(
-            prompt,
-            max_tokens=max_tokens,
-            response_format=response_format,
-            timeout=timeout,
-        )
-        return json.dumps(payload, ensure_ascii=False, default=str)
-
-    def _call_markdown_prompt(self, prompt: str) -> str:
-        if self.use_proxy:
-            return self._call_profile_via_proxy(prompt)
-        if self.use_openrouter:
-            return self._call_profile_via_openrouter(prompt)
-        if self.use_bedrock:
-            return self._call_profile_via_bedrock(prompt)
-        return self._call_profile_via_official_api(prompt)
-
-    def _call_llm_via_official_api(self, prompt: str) -> dict:
-        response = self.client.models.generate_content(
-            model=self.model,
-            contents=prompt,
-            config=self.genai.types.GenerateContentConfig(response_mime_type="application/json"),
-        )
-        return self._extract_json_payload(response.text)
-
-    def _call_llm_via_bedrock(self, prompt: str) -> dict:
-        candidates = self.bedrock_model_candidates or [self.model]
-        last_error: Exception | None = None
-        for index, model_id in enumerate(candidates):
-            try:
-                response = self.bedrock_client.converse(
-                    modelId=model_id,
-                    messages=build_text_message(prompt),
-                    inferenceConfig=build_inference_config(
-                        temperature=0.1,
-                        max_tokens=BEDROCK_LLM_MAX_OUTPUT_TOKENS,
-                        top_p=None,
-                    ),
-                )
-                self.model = model_id
-                return self._extract_json_payload(extract_text_from_converse_response(response))
-            except Exception as exc:
-                last_error = exc
-                if index < len(candidates) - 1 and should_try_next_bedrock_model(exc):
-                    continue
-                raise
-        if last_error:
-            raise last_error
-        raise RuntimeError("未能调用任何 Bedrock LLM 模型")
-
-    def _call_llm_via_proxy(self, prompt: str) -> dict:
-        headers = {
-            "x-api-key": self.proxy_key,
-            "Content-Type": "application/json",
-        }
-        payload = {
-            "contents": [
-                {
-                    "role": "user",
-                    "parts": [{"text": prompt}],
-                }
-            ]
-        }
-        url = f"{self.proxy_url}/api/gemini/v1beta/models/{self.proxy_model}:generateContent"
-        response = self.requests.post(url, json=payload, headers=headers, timeout=60)
-        if response.status_code == 200:
-            response_data = response.json()
-            if "candidates" in response_data and response_data["candidates"]:
-                candidate = response_data["candidates"][0]
-                if "content" in candidate and "parts" in candidate["content"]:
-                    for part in candidate["content"]["parts"]:
-                        if "text" in part:
-                            return self._extract_json_payload(part["text"])
-            return {}
-        error_msg = f"代理 API 返回状态码 {response.status_code}"
-        if response.text:
-            try:
-                error_data = response.json()
-                error_msg += f": {error_data.get('error', {}).get('message', response.text)}"
-            except Exception:
-                error_msg += f": {response.text[:200]}"
-        raise Exception(error_msg)
-
-    def _openrouter_headers(self) -> Dict[str, str]:
-        return {
-            "Authorization": f"Bearer {self.openrouter_api_key}",
-            "Content-Type": "application/json",
-            "HTTP-Referer": self.openrouter_site_url,
-            "X-Title": self.openrouter_app_name,
-        }
-
-    def _is_retryable_openrouter_status(self, status_code: int) -> bool:
-        return status_code in {408, 409, 425, 429, 500, 502, 503, 504, 520, 522, 524}
-
-    def _build_openrouter_error(self, response) -> str:
-        error_msg = f"OpenRouter 返回状态码 {response.status_code}"
-        if response.text:
-            try:
-                error_data = response.json()
-                error_msg += f": {error_data.get('error', {}).get('message', response.text)}"
-            except Exception:
-                error_msg += f": {response.text[:200]}"
-        return error_msg
-
-    def _post_openrouter_chat_completion(
-        self,
-        payload: Dict[str, Any],
-        *,
-        timeout: tuple[int | float, int | float] = (15, 180),
-    ) -> Dict[str, Any]:
-        try:
-            response = self.requests.post(
-                f"{self.openrouter_base_url}/chat/completions",
-                json=payload,
-                headers=self._openrouter_headers(),
-                timeout=timeout,
-            )
-        except Exception as exc:
-            raise RuntimeError(f"OpenRouter 请求失败: {exc}") from exc
-
-        if response.status_code == 200:
-            try:
-                return response.json()
-            except Exception as exc:
-                raise RuntimeError(f"OpenRouter 响应解析失败: {exc}") from exc
-
-        error_msg = self._build_openrouter_error(response)
-        if self._is_retryable_openrouter_status(int(response.status_code)):
-            raise RuntimeError(error_msg)
-        raise Exception(error_msg)
-
-    def _extract_openrouter_content(self, response_data: Dict[str, Any]) -> str:
-        choices = response_data.get("choices", [])
-        if not choices:
-            raise ValueError("OpenRouter 未返回 choices")
-        message = choices[0].get("message", {})
-        content = message.get("content")
-        if not content and message.get("reasoning"):
-            content = message["reasoning"]
-        return self._coerce_text_content(content)
-
-    def _apply_openrouter_reasoning(self, payload: Dict[str, Any]) -> Dict[str, Any]:
-        effort = OPENROUTER_REASONING_EFFORT
-        if effort:
-            payload["reasoning"] = {"effort": effort}
-        return payload
-
-    def _call_llm_via_openrouter(
-        self,
-        prompt: str,
-        *,
-        model: Optional[str] = None,
-        max_tokens: int = 8192,
-        timeout: tuple[int | float, int | float] = (15, 180),
-        response_format: Optional[Dict[str, Any]] = None,
+        vlm_results: List[Dict] | None = None,
+        face_db: Dict | None = None,
     ) -> dict:
-        payload = self._apply_openrouter_reasoning({
-            "model": model or self.model,
+        """
+        生成用户画像（两步：结构化 JSON + Markdown 报告）
+
+        Returns:
+            {"structured": dict, "report": str}
+        """
+        # 构建事件和关系的上下文（两步共用）
+        events_str = self._build_events_context(events)
+        relationships_str = self._build_relationships_context(relationships)
+        face_context = self._build_profile_face_context(face_db or {})
+        raw_vlm_context = self._build_profile_vlm_context(vlm_results or [])
+
+        # Step 1: 结构化画像 JSON
+        print("    [Step 1/2] 生成结构化画像标签...", flush=True)
+        structured_profile = self._generate_structured_profile(
+            events_str,
+            relationships_str,
+            face_context=face_context,
+            raw_vlm_context=raw_vlm_context,
+        )
+
+        # Step 2: Markdown 画像报告（引用 Step 1 的结构化结果）
+        print("    [Step 2/2] 生成画像分析报告...", flush=True)
+        report_payload = self._generate_profile_report(events_str, relationships_str, structured_profile)
+        consistency_report = build_consistency_report(events, relationships, structured_profile)
+
+        return {
+            "structured": structured_profile,
+            "report": report_payload.get("public_report", ""),
+            "debug": {
+                "report_reasoning": report_payload.get("reasoning_trace", {}),
+            },
+            "consistency": consistency_report,
+        }
+
+    def _generate_structured_profile(
+        self,
+        events_str: str,
+        relationships_str: str,
+        face_context: str = "",
+        raw_vlm_context: str = "",
+    ) -> dict:
+        """Call 1: 生成结构化画像 JSON"""
+        prompt = self._create_structured_profile_prompt(
+            events_str,
+            relationships_str,
+            face_context=face_context,
+            raw_vlm_context=raw_vlm_context,
+        )
+
+        try:
+            result = self._call_llm_via_official_api(prompt, response_mime_type="application/json")
+            if isinstance(result, dict) and "text" in result:
+                extracted = self._extract_json_from_text(result["text"], "long_term_facts")
+                if extracted:
+                    return extracted
+            if isinstance(result, dict):
+                return result
+            print("警告：结构化画像 JSON 解析失败，返回空结构")
+            return {}
+        except Exception as e:
+            print(f"警告：结构化画像生成失败: {e}")
+            return {}
+
+    def _generate_profile_report(self, events_str: str, relationships_str: str, structured_profile: dict) -> dict:
+        """Call 2: 生成 public_report + reasoning_trace"""
+        prompt = self._create_profile_report_prompt(events_str, relationships_str, structured_profile)
+
+        try:
+            result = self._call_llm_via_official_api(prompt, response_mime_type="application/json")
+            if isinstance(result, dict) and "text" in result:
+                extracted = self._extract_json_from_text(result["text"], "public_report")
+                if extracted:
+                    return {
+                        "public_report": extracted.get("public_report", ""),
+                        "reasoning_trace": extracted.get("reasoning_trace", {}),
+                    }
+            if isinstance(result, dict):
+                return {
+                    "public_report": result.get("public_report", ""),
+                    "reasoning_trace": result.get("reasoning_trace", {}),
+                }
+            return {"public_report": result or "", "reasoning_trace": {}}
+        except Exception as e:
+            print(f"警告：画像报告生成失败: {e}")
+            return {
+                "public_report": f"# 用户全维画像分析报告\n\n## 生成失败\n\n{e}",
+                "reasoning_trace": {"error": str(e)},
+            }
+
+    def _build_events_context(self, events: List[Event]) -> str:
+        """构建事件上下文（Call 1 和 Call 2 共用）"""
+        events_str = ""
+        for event in events:
+            events_str += f"""
+### {event.event_id}: {event.title}
+- 时间: {event.date} {event.time_range}（{event.duration}）| 类型: {event.type} | 地点: {event.location}
+- 参与者: {', '.join(event.participants) if event.participants else '无'} | 照片数: {event.photo_count}
+- 描述: {event.description}
+- 叙事: {event.narrative_synthesis if event.narrative_synthesis else '无'}
+- 标签: {', '.join(event.tags) if event.tags else '无'}
+- 画像证据: 行为[{', '.join(event.persona_evidence.get('behavioral', []))}] 审美[{', '.join(event.persona_evidence.get('aesthetic', []))}] 社经[{', '.join(event.persona_evidence.get('socioeconomic', []))}]
+"""
+            for dyn in event.social_dynamics:
+                events_str += f"  - {dyn.get('target_id', '?')}: {dyn.get('interaction_type', '')} | {dyn.get('relation_hypothesis', '')} ({dyn.get('confidence', 0):.0%})\n"
+        return events_str
+
+    def _build_relationships_context(self, relationships: List[Relationship]) -> str:
+        """构建关系上下文（Call 1 和 Call 2 共用）"""
+        relationships_str = ""
+        for rel in relationships:
+            ev = rel.evidence
+            co_persons = ev.get('co_appearing_persons', [])
+            co_str = ', '.join([f"{c['person_id']}({c['co_ratio']:.0%})" for c in co_persons[:3]]) if co_persons else "无"
+            trend = ev.get('trend_detail', {})
+            trend_str = f"{trend.get('direction', 'N/A')}(×{trend.get('change_ratio', 'N/A')})" if trend else "数据不足"
+            anomalies = ev.get('anomalies', [])
+            anomaly_str = '; '.join([f"{a['type']}@{a['date']}" for a in anomalies[:3]]) if anomalies else "无"
+            shared_ev_str = '; '.join([f"{se.get('date','')}: {se.get('narrative','')}" for se in rel.shared_events[:5]]) if rel.shared_events else "无"
+            relationships_str += f"""
+### {rel.person_id} — {rel.relationship_type} (intimacy: {rel.intimacy_score:.2f}, status: {rel.status})
+- 月均: {ev.get('monthly_frequency', 0)}/月 | 趋势: {trend_str} | 置信度: {rel.confidence:.0%}
+- 共现: {ev.get('photo_count', 0)}次, 跨度{ev.get('time_span', '?')} | 场景: {', '.join(ev.get('scenes', []))}
+- 互动: {', '.join(ev.get('interaction_behavior', []))} | 第三方: {co_str} | 异常: {anomaly_str}
+- 共同事件: {shared_ev_str}
+- 推理: {rel.reasoning}
+"""
+        return relationships_str
+
+    def _build_profile_face_context(self, face_db: Dict | None) -> str:
+        """为 LP3 构建紧凑的人脸识别摘要。"""
+        subject = getattr(self, "primary_person_id", None) or "the user (photographer)"
+        if not face_db:
+            return f"""## 人脸识别结果摘要
+- 当前分析对象（主角）: {subject}
+- 人脸库为空，暂无可用的人脸统计
+"""
+
+        def _photo_count(item: Dict | object) -> int:
+            if isinstance(item, dict):
+                return int(item.get("photo_count", 0) or 0)
+            return int(getattr(item, "photo_count", 0) or 0)
+
+        def _avg_confidence(item: Dict | object) -> float:
+            if isinstance(item, dict):
+                return float(item.get("avg_confidence", 0.0) or 0.0)
+            return float(getattr(item, "avg_confidence", 0.0) or 0.0)
+
+        ranked_people = sorted(face_db.items(), key=lambda kv: _photo_count(kv[1]), reverse=True)
+        lines = [
+            "## 人脸识别结果摘要",
+            f"- 当前分析对象（主角）: {subject}",
+            f"- 人脸库总人数: {len(face_db)}",
+        ]
+
+        if self.primary_person_id and self.primary_person_id in face_db:
+            primary = face_db[self.primary_person_id]
+            lines.append(
+                f"- 主角出现: {_photo_count(primary)} 张 | 平均置信度: {_avg_confidence(primary):.0%}"
+            )
+        else:
+            lines.append("- 当前未稳定识别出主角 person_id，统一按拍摄者视角解释")
+
+        lines.append("- 主要人物出场统计（Top 8）:")
+        for person_id, person_info in ranked_people[:8]:
+            lines.append(
+                f"  - {person_id}: {_photo_count(person_info)} 张 | 平均置信度 {_avg_confidence(person_info):.0%}"
+            )
+        return "\n".join(lines)
+
+    def _build_profile_vlm_context(self, vlm_results: List[Dict], limit: int = 12) -> str:
+        """为 LP3 构建原始 VLM 证据摘录，避免整包 prompt 膨胀。"""
+        if not vlm_results:
+            return "## 原始VLM数据摘录\n- 无可用 VLM 数据"
+
+        lines = ["## 原始VLM数据摘录"]
+        sorted_results = sorted(vlm_results, key=lambda item: item.get("timestamp", ""))
+        for item in sorted_results[:limit]:
+            analysis = item.get("vlm_analysis", {}) or {}
+            scene = analysis.get("scene", {}) if isinstance(analysis.get("scene"), dict) else {}
+            event = analysis.get("event", {}) if isinstance(analysis.get("event"), dict) else {}
+            people = analysis.get("people", []) if isinstance(analysis.get("people"), list) else []
+            people_ids = ", ".join(
+                p.get("person_id", "?") for p in people[:4] if isinstance(p, dict)
+            ) or "无"
+            lines.append(
+                f"- {item.get('photo_id', 'UNKNOWN')} | {item.get('timestamp', '未知时间')} | "
+                f"地点: {scene.get('location_detected', '未知')} | 活动: {event.get('activity', '未知')} | "
+                f"社交: {event.get('social_context', '未知')} | 人物: {people_ids} | "
+                f"摘要: {analysis.get('summary', '无')}"
+            )
+        if len(sorted_results) > limit:
+            lines.append(f"- 仅保留前 {limit} 条原始 VLM 摘录以控制 prompt 长度")
+        return "\n".join(lines)
+
+    def _create_structured_profile_prompt(
+        self,
+        events_str: str,
+        relationships_str: str,
+        face_context: str = "",
+        raw_vlm_context: str = "",
+    ) -> str:
+        """Call 1: 结构化画像 JSON prompt"""
+        subject = getattr(self, "primary_person_id", None) or "the user (photographer)"
+        return f"""# Role
+你是一位世界级的行为分析专家和 FBI 级别的人格画像师，擅长通过"行为残迹"还原人类灵魂，注重每个画像标签推理的逻辑。
+
+# Task
+基于人脸识别结果、原始VLM数据和原始事件数据，产出结构化的画像，并结合关系推断结果与代码预计算特征完成每个标签的判断。
+- 当前分析对象（主角）: {subject}
+- 对每个标签都输出 `value + confidence(0-1)`。
+- 无法从数据稳定推断的标签输出 `null`。
+- 低于 0.4 的 confidence 代表高度不确定，但仍需给出你最接近证据的猜测。
+- 标记为 [SOCIAL_MEDIA_REQUIRED] 的标签必须始终输出 null。
+- 必须尊重代码约束信号与硬约束；如果代码约束信号已明确证据不足，优先输出 null。
+- 每个字段都先看人脸/VLM原始证据，再看事件与关系抽象结果，避免只复述结构化标签名而忽视底层证据。
+- 只推断主角，不要把照片里其他人的外貌特征误投到主角身上。特别是主角缺失时，不能用画面里别人去推 `gender / age_range / race / nationality`。
+- 长期标签必须依赖跨事件重复证据；单张照片线索最多影响短期标签，或作为低置信度猜测。
+- 当 events / relationships / raw VLM 冲突时，长期事实优先信“跨事件模式”和 LP2 最终关系，不要被单张图异常带偏。
+
+# 输出 JSON Schema
+
+所有**非 null 的可推断标签**都必须使用同一个 Tag Object 结构：
+
+{{
+  "value": "标签值或 null",
+  "confidence": 0.0,
+  "evidence": {{
+    "events": [
+      {{
+        "event_id": "EVT_001",
+        "signal": "这条事件里最关键的支持线索",
+        "why": "它为什么支持当前标签"
+      }}
+    ],
+    "relationships": [
+      {{
+        "person_id": "Person_002",
+        "relationship_type": "close_friend",
+        "signal": "这段关系提供的支持线索",
+        "why": "它为什么支持当前标签"
+      }}
+    ],
+    "vlm_observations": [
+      {{
+        "photo_id": "PHOTO_001",
+        "signal": "原始 VLM 里看到的关键视觉线索",
+        "why": "它为什么支持当前标签"
+      }}
+    ],
+        "feature_refs": [
+      {{
+        "feature": "career_evidence_count",
+        "value": 2,
+        "why": "这条代码约束信号如何影响该标签"
+      }}
+    ],
+    "constraint_notes": [
+      "如字段被代码清空或覆盖，在这里写明原因"
+    ],
+    "summary": "用一句话说明这条标签主要基于哪些证据得出"
+  }}
+}}
+
+规则：
+- `events[].event_id` 只能引用上面的 `EVT_###`
+- `relationships[].person_id` 只能引用 LP2 中实际存在的 `Person_###`
+- `vlm_observations[].photo_id` 只能引用原始 VLM 摘录里出现过的 `photo_id`
+- `feature_refs` 用来记录代码约束信号如何影响该标签
+- `constraint_notes` 用来记录字段被代码清空、覆盖或降级的原因
+- 如果没有直接证据，对应数组留空，并在 `summary` 里说明为什么仍给出该判断或为什么保持空值
+
+{{
+  "long_term_facts": {{
+    "identity": {{
+      "name": {{"value": "string or null", "confidence": 0.0}},
+      "gender": {{"value": "male/female/non_binary or null", "confidence": 0.0}},
+      "age_range": {{"value": "e.g. 20-24", "confidence": 0.0}},
+      "role": {{"value": "student/worker/freelancer or null", "confidence": 0.0}},
+      "race": {{"value": "string or null", "confidence": 0.0}},
+      "nationality": {{"value": "string or null", "confidence": 0.0}}
+    }},
+    "social_identity": {{
+      "education": {{"value": "string or null", "confidence": 0.0}},
+      "career": {{"value": "string or null", "confidence": 0.0}},
+      "career_phase": {{"value": "ascending/stable/declining or null", "confidence": 0.0}},
+      "professional_dedication": {{"value": "high/medium/low or null", "confidence": 0.0}},
+      "language_culture": {{"value": "string or null", "confidence": 0.0}},
+      "political_preference": null
+    }},
+    "material": {{
+      "asset_level": {{"value": "high/middle/struggling or null", "confidence": 0.0}},
+      "spending_style": {{"value": "value/experience/luxury or null", "confidence": 0.0}},
+      "brand_preference": {{"value": ["brand1"], "confidence": 0.0}},
+      "income_model": {{"value": "salary/freelance/business/family or null", "confidence": 0.0}},
+      "signature_items": {{"value": ["item1"], "confidence": 0.0}}
+    }},
+    "geography": {{
+      "location_anchors": {{"value": ["place1", "place2"], "confidence": 0.0}},
+      "mobility_pattern": {{"value": "string or null", "confidence": 0.0}},
+      "cross_border": {{"value": true/false, "confidence": 0.0}}
+    }},
+    "time": {{
+      "life_rhythm": {{"value": "string or null", "confidence": 0.0}},
+      "event_cycles": {{"value": ["pattern1"], "confidence": 0.0}},
+      "sleep_pattern": {{"value": "early_bird/night_owl/irregular or null", "confidence": 0.0}}
+    }},
+    "relationships": {{
+      "intimate_partner": {{"value": "person_id or null", "confidence": 0.0}},
+      "close_circle_size": {{"value": 0, "confidence": 0.0}},
+      "social_groups": {{"value": ["group1"], "confidence": 0.0}},
+      "pets": {{"value": "string or null", "confidence": 0.0}},
+      "parenting": {{"value": "no_children/has_children or null", "confidence": 0.0}},
+      "living_situation": {{"value": "alone/shared/with_family or null", "confidence": 0.0}}
+    }},
+    "hobbies": {{
+      "interests": {{"value": [{{"name": "hobby", "dedication": "high/medium/low"}}], "confidence": 0.0}},
+      "frequent_activities": {{"value": ["activity1"], "confidence": 0.0}},
+      "solo_vs_social": {{"value": "mostly_solo/mostly_social/balanced or null", "confidence": 0.0}}
+    }},
+    "physiology": {{
+      "fitness_level": {{"value": "active/moderate/sedentary or null", "confidence": 0.0}},
+      "health_conditions": null,
+      "diet_mode": {{"value": "string or null", "confidence": 0.0}}
+    }}
+  }},
+  "short_term_facts": {{
+    "life_events": {{"value": "string or null", "confidence": 0.0}},
+    "phase_change": {{"value": "string or null", "confidence": 0.0}},
+    "spending_shift": {{"value": "string or null", "confidence": 0.0}},
+    "current_displacement": {{"value": "at_home/traveling/relocated or null", "confidence": 0.0}},
+    "recent_habits": {{"value": ["habit1"], "confidence": 0.0}},
+    "recent_interests": {{"value": "string or null", "confidence": 0.0}},
+    "physiological_state": null
+  }},
+  "long_term_expression": {{
+    "personality_mbti": {{"value": "XXXX or null", "confidence": 0.0}},
+    "morality": {{"value": "string or null", "confidence": 0.0}},
+    "philosophy": {{"value": "string or null", "confidence": 0.0}},
+    "attitude_style": {{"value": "refined/relaxed or null", "confidence": 0.0}},
+    "aesthetic_tendency": {{"value": "minimalist/retro/modern/classical or null", "confidence": 0.0}},
+    "visual_creation_style": {{"value": "string or null", "confidence": 0.0}},
+    "intimacy_display": {{"value": "low_key/public or null", "confidence": 0.0}},
+    "boundary_sense": {{"value": "strong/open or null", "confidence": 0.0}},
+    "solo_vs_group_photos": {{"value": "solo_dominant/group_dominant/balanced or null", "confidence": 0.0}},
+    "topic_blocks": null,
+    "persona_blocks": null,
+    "humor_type": null,
+    "vocabulary_style": null,
+    "symbol_habits": null,
+    "narrative_length": null
+  }},
+  "short_term_expression": {{
+    "current_mood": {{"value": "down/fired_up/neutral or null", "confidence": 0.0}},
+    "mood_trend": {{"value": "rising/stable/falling or null", "confidence": 0.0}},
+    "social_fatigue": {{"value": "high_energy/low_energy or null", "confidence": 0.0}},
+    "temporary_persona": null,
+    "expression_threshold": null,
+    "recent_recurring_topics": null
+  }}
+}}
+
+# 数据输入
+
+{face_context or "## 人脸识别结果摘要\n- 无"}
+
+{raw_vlm_context or "## 原始VLM数据摘录\n- 无"}
+
+## 原始事件数据
+{events_str}
+
+## 关系推断结果
+{relationships_str}
+
+只输出 JSON，不要附加解释。"""
+
+    def _create_profile_report_prompt(self, events_str: str, relationships_str: str, structured_profile: dict) -> str:
+        """Call 2: public_report + reasoning_trace JSON prompt"""
+        import json
+        profile_json_str = json.dumps(structured_profile, ensure_ascii=False, indent=2) if structured_profile else "{}"
+        subject = getattr(self, "primary_person_id", None) or "the user (photographer)"
+
+        return f"""# Role
+你是一位世界级的行为分析专家和 FBI 级别的人格画像师，擅长通过"行为残迹"还原人类灵魂。
+
+# Task
+基于已生成的**结构化画像标签**、原始事件数据和关系数据，生成两个层次的输出：
+1. `reasoning_trace`：内部调试用，存储推理依据和过程。
+2. `public_report`：最终对外展示的《用户全维画像分析报告》。
+
+- 当前分析对象（主角）: {subject}
+- 推理时必须引用结构化标签作为证据（如：根据 `identity.role: student (0.7)` + 事件 EVT_003 推断...）。
+- 把推理依据和过程写入 reasoning_trace，明确记录标签证据、事件证据、关系证据和章节结论。
+- 最终对外输出的 public_report 只能保留逻辑连贯、用词凝练的文字结论，不要出现结构化字段名、置信度、event_id、证据列表、表格或推理草稿箱。
+- public_report 可以使用自然语言小标题，但每一段都应是人类可直接阅读的结论，而不是证据罗列。
+
+# Reasoning Process (Chain of Thought)
+
+## Step 1: 行为基频分析
+- 确定用户的"正常节律"：作息时间、主要活动地点、工作/学习模式
+- 偏离常规的行为是偶然的还是结构性的？
+
+## Step 2: 线索交叉印证
+- 空间+消费：消费场景与经济水平是否一致？
+- 时间+社交：社交活动的时间分布说明什么？
+- 地点+人物：特定人物是否只在特定场景出现？
+
+## Step 3: 异常值探测
+- 频率突变、关系切换、场景变化等"剧变时刻"
+- 对应人生事件推测
+
+## Step 4: 矛盾仲裁
+- 证据冲突的深层解读（选择性奢侈、场景化消费等）
+
+---
+
+# Output JSON Schema
+
+{{
+  "public_report": "# 用户全维画像分析报告\\n\\n## 事实身份与社会角色\\n用自然语言输出结论 ...",
+  "reasoning_trace": {{
+    "tag_evidence": [
+      "long_term_facts.identity.role: student (0.7)",
+      "long_term_facts.relationships.intimate_partner: Person_002 (0.82)"
+    ],
+    "event_evidence": [
+      "EVT_003: 连续多周末与同一人物在校园外休闲场景共现"
+    ],
+    "relationship_evidence": [
+      "Person_002: romantic / stable / intimacy 0.84"
+    ],
+    "reasoning_steps": [
+      "先根据结构化标签建立身份、节奏和社交主轴，再回到事件中验证时间演进。"
+    ],
+    "section_support": [
+      {{
+        "section": "事实身份与社会角色",
+        "basis": "identity.role + 校园事件",
+        "conclusion": "自然语言总结"
+      }}
+    ]
+  }}
+}}
+
+# Constraint & Rules
+1. **证据闭环**：reasoning_trace 中的每条结论都必须能回指结构化标签或具体事件/关系。
+2. **动态演进**：如数据跨度较长，指出时间维度上的变化，并把时间变化写入 reasoning_trace。
+3. **留白原则**：低置信度标签在 public_report 中用"高概率、疑似、待观察"等自然语言处理，不直接输出分数。
+4. **对外洁净**：public_report 不得暴露结构化字段名、confidence、event_id、证据条目或推理过程。
+
+---
+
+# 结构化画像标签（来自 Step 1）
+
+```json
+{profile_json_str}
+```
+
+# 用户事件数据
+
+{events_str}
+
+# 用户社交关系数据
+
+{relationships_str}
+
+请按上述 JSON Schema 输出结果，不要输出额外说明。"""
+
+    def _call_llm_via_official_api(self, prompt: str, response_mime_type: str = None, model_override: str = None) -> dict:
+        """通过 OpenRouter chat/completions API 调用 LLM
+
+        Args:
+            prompt: 提示词
+            response_mime_type: 强制返回格式（如 "application/json"）
+            model_override: 覆盖默认模型
+        """
+        self._require_requests()
+        model = model_override or self.model
+        if model in self.OPENROUTER_MODEL_MAP:
+            model = self.OPENROUTER_MODEL_MAP[model]
+
+        payload = {
+            "model": model,
             "messages": [{"role": "user", "content": prompt}],
-            "max_tokens": max_tokens,
-            "temperature": 0.1,
-        })
-        if response_format:
-            payload["response_format"] = deepcopy(response_format)
-        response_data = self._post_openrouter_chat_completion(payload, timeout=timeout)
-        return self._extract_json_payload(self._extract_openrouter_content(response_data))
+        }
+        if response_mime_type == "application/json":
+            payload["response_format"] = {"type": "json_object"}
+
+        url = f"{self.base_url}/chat/completions"
+        max_retries = 3
+        timeout = 300
+
+        for attempt in range(max_retries):
+            try:
+                response = requests.post(url, json=payload, headers=self.headers, timeout=timeout)
+
+                if response.status_code == 200:
+                    data = response.json()
+                    text = (data.get("choices") or [{}])[0].get("message", {}).get("content", "")
+                    if not text:
+                        return None
+                    try:
+                        return json.loads(text)
+                    except json.JSONDecodeError:
+                        json_match = re.search(r'```json\s*\n(.*?)\n\s*```', text, re.DOTALL)
+                        if json_match:
+                            try:
+                                return json.loads(json_match.group(1))
+                            except json.JSONDecodeError:
+                                pass
+                        return {"text": text}
+
+                elif response.status_code == 429:
+                    wait_time = 2 ** attempt
+                    print(f"      [LLM 429] 等待 {wait_time}s 后重试...", flush=True)
+                    time.sleep(wait_time)
+                    continue
+                else:
+                    error_msg = f"OpenRouter API {response.status_code}"
+                    try:
+                        error_msg += f": {response.json().get('error', response.text[:200])}"
+                    except Exception:
+                        error_msg += f": {response.text[:200]}"
+                    raise Exception(error_msg)
+
+            except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
+                if attempt < max_retries - 1:
+                    wait_time = 2 ** attempt
+                    print(f"      [LLM重试 {attempt + 1}/{max_retries}] 等待 {wait_time}s 后重试...", flush=True)
+                    time.sleep(wait_time)
+                    continue
+                else:
+                    raise Exception(f"LLM调用重试{max_retries}次仍失败: {e}")
 
     def _call_profile_via_official_api(self, prompt: str) -> str:
-        response = self.client.models.generate_content(model=self.model, contents=prompt)
-        return response.text
+        """通过 OpenRouter chat/completions API 生成用户画像"""
+        self._require_requests()
 
-    def _call_profile_via_bedrock(self, prompt: str) -> str:
-        candidates = self.bedrock_model_candidates or [self.model]
-        last_error: Exception | None = None
-        for index, model_id in enumerate(candidates):
-            try:
-                response = self.bedrock_client.converse(
-                    modelId=model_id,
-                    messages=build_text_message(prompt),
-                    inferenceConfig=build_inference_config(
-                        temperature=0.3,
-                        max_tokens=BEDROCK_LLM_MAX_OUTPUT_TOKENS,
-                        top_p=None,
-                    ),
-                )
-                self.model = model_id
-                return extract_text_from_converse_response(response)
-            except Exception as exc:
-                last_error = exc
-                if index < len(candidates) - 1 and should_try_next_bedrock_model(exc):
-                    continue
-                raise
-        if last_error:
-            raise last_error
-        raise RuntimeError("未能调用任何 Bedrock profile 模型")
-
-    def _call_profile_via_proxy(self, prompt: str) -> str:
-        headers = {
-            "x-api-key": self.proxy_key,
-            "Content-Type": "application/json",
-        }
         payload = {
-            "contents": [
-                {
-                    "role": "user",
-                    "parts": [{"text": prompt}],
-                }
-            ]
-        }
-        url = f"{self.proxy_url}/api/gemini/v1beta/models/{self.proxy_model}:generateContent"
-        response = self.requests.post(url, json=payload, headers=headers, timeout=60)
-        if response.status_code == 200:
-            response_data = response.json()
-            if "candidates" in response_data and response_data["candidates"]:
-                candidate = response_data["candidates"][0]
-                if "content" in candidate and "parts" in candidate["content"]:
-                    for part in candidate["content"]["parts"]:
-                        if "text" in part:
-                            return part["text"]
-            return ""
-        error_msg = f"代理 API 返回状态码 {response.status_code}"
-        if response.text:
-            try:
-                error_data = response.json()
-                error_msg += f": {error_data.get('error', {}).get('message', response.text)}"
-            except Exception:
-                error_msg += f": {response.text[:200]}"
-        raise Exception(error_msg)
-
-    def _call_profile_via_openrouter(self, prompt: str) -> str:
-        payload = self._apply_openrouter_reasoning({
             "model": self.model,
             "messages": [{"role": "user", "content": prompt}],
-            "max_tokens": 8192,
-            "temperature": 0.4,
-        })
-        response_data = self._post_openrouter_chat_completion(payload)
-        return self._extract_openrouter_content(response_data)
+        }
+
+        url = f"{self.base_url}/chat/completions"
+        timeout = 300
+
+        response = requests.post(url, json=payload, headers=self.headers, timeout=timeout)
+
+        if response.status_code == 200:
+            data = response.json()
+            text = (data.get("choices") or [{}])[0].get("message", {}).get("content", "")
+            return text or ""
+        else:
+            error_msg = f"OpenRouter API {response.status_code}"
+            try:
+                error_msg += f": {response.json().get('error', response.text[:200])}"
+            except:
+                    error_msg += f": {response.text[:200]}"
+            raise Exception(error_msg)
