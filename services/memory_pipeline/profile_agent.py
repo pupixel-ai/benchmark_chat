@@ -992,7 +992,7 @@ Step 5: 只有在完全没有相关证据时，或者全部证据都只能指向
         )
         return {
             "value": value,
-            "confidence": confidence if value is not None else 0.0,
+            "confidence": confidence,
             "evidence": evidence,
             "reasoning": reasoning,
         }, null_reason
