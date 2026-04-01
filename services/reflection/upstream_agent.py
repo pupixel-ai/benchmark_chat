@@ -598,6 +598,7 @@ tool_rules 和 call_policies 在证据确实缺失时使用（格式见上方 JS
 - 规则修改必须是通用的，适用于所有用户
 - 不要在 rule_patch 里引用具体的 photo_id、EVT_id、Person_id、人名、地名、品牌名
 
+===CASE_CARD===
 {"如果 case card 中包含 human_reviewer_note，这是上一轮审批者的修订意见，你必须认真考虑这个反馈，在本轮反思中回应它。但不要把它当作固定规则，只作为本轮的参考方向。" if packet.get("human_reviewer_note") else ""}
 
 {"如果 case card 中包含 evolution_context，说明这个字段已经在之前的轮次中被反思过。" + chr(10) + "evolution_context 包含：cycle_index（当前第几轮）、previous_grade（上轮评分）、score_trend（分数趋势）、patch_effect（上次规则修改后的效果）、last_proposed_direction（上次提出的改进方向）。" + chr(10) + "你应该：" + chr(10) + "1) 如果 patch_effect 显示 degraded（恶化），必须换一个不同的改进方向，不要重复上次的建议" + chr(10) + "2) 如果 patch_effect 显示 improved 但还未达标，在上次方向的基础上深化" + chr(10) + "3) 如果 score_trend 是 stable 且 no_new_signal_streak > 2，考虑 watch_only" + chr(10) + "4) 不要重复提出和 last_proposed_direction 完全相同的建议，除非你有新的证据" if packet.get("evolution_context") else ""}
@@ -1632,15 +1633,6 @@ def _normalize_patch_intent(payload: Any, *, default: Dict[str, Any], field_key:
             legacy_summary = str(normalized.get("summary") or "").strip()
             if legacy_summary:
                 normalized["change_summary_zh"] = legacy_summary
-        # 清理 weak_evidence_caution — 不再作为输出选项
-        rule_patch = normalized.get("rule_patch")
-        if isinstance(rule_patch, dict):
-            fso = rule_patch.get("field_spec_overrides")
-            if isinstance(fso, dict):
-                for _fk, spec in fso.items():
-                    if isinstance(spec, dict):
-                        spec.pop("weak_evidence_caution", None)
-                        spec.pop("null_preferred_when", None)
         return normalized
     if isinstance(payload, str):
         text = payload.strip()

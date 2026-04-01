@@ -23,7 +23,7 @@ def _default_cot_steps(field_key: str, strong_evidence: List[str]) -> List[str]:
         f"先看该字段允许证据源里的主线信号，优先确认 {primary_requirement}",
         "再确认这些信号稳定绑定主角本人，而不是同框人物、环境信息、截图内容或外部上下文",
         "当证据支持更细粒度的子类时，优先输出子类标签（如 college_student 而非 student，rock_music 而非 music，digital_photography 而非 photography）；泛类标签只在无法区分子类时使用",
-        "只有在无法区分子类或证据不足以支撑任何标签时才输出泛化标签或 null",
+        "证据不足以区分子类时输出泛化标签；只有完全零证据时才输出 null",
     ]
 
 
@@ -45,11 +45,11 @@ def _default_time_reasoning_steps(field_key: str, time_layer_rule: str) -> List[
     if time_layer_rule == "long_term_only":
         return [
             "只接受跨事件、跨时间窗口的稳定模式",
-            "如果证据只来自单次事件或短期窗口，退回 null",
+            "如果证据只来自单次事件或短期窗口，降低 confidence 而非直接 null",
         ]
     return [
         "优先确认该字段对应的是长期模式还是短期变化",
-        "若无法区分长期/短期层级，则按更保守的层级处理或退回 null",
+        "若无法区分长期/短期层级，按更保守的层级处理并降低 confidence",
     ]
 
 
@@ -139,7 +139,7 @@ FIELD_COT_OVERRIDES: Dict[str, Dict[str, List[str]]] = {
         "cot_steps": [
             "先读取圈层识别器产出的 GroupArtifact",
             "再确认群组不是由一次多人同框或单次活动合照误推出来的",
-            "没有稳定群组强证据时，不输出 social_groups",
+            "群组证据不稳定时降低 confidence；只有完全无群组信号时才输出 null",
         ],
     },
     "long_term_facts.relationships.pets": {
@@ -167,7 +167,7 @@ FIELD_COT_OVERRIDES: Dict[str, Dict[str, List[str]]] = {
         "cot_steps": [
             "先读长期事件统计里的 top 活动",
             "再过滤最近窗口的噪声活动，避免把偶然高频写成长期高频",
-            "只有稳定 top 活动成立时才输出 frequent_activities",
+            "有活动信号但稳定性不足时降低 confidence；只有完全无活动数据时才输出 null",
         ],
     },
     "short_term_facts.current_displacement": {
@@ -221,21 +221,21 @@ FIELD_COT_OVERRIDES: Dict[str, Dict[str, List[str]]] = {
         "cot_steps": [
             "先看穿搭、场景选择和物品搭配是否跨事件重复",
             "再排除单次 dress code、主题活动和借用物带来的噪声",
-            "只有稳定风格成立时才输出 attitude_style",
+            "风格不够稳定时降低 confidence；只有完全无风格线索时才输出 null",
         ],
     },
     "long_term_expression.aesthetic_tendency": {
         "cot_steps": [
             "先看构图、色调、物品选择和装修风格是否跨事件重复",
             "再排除单次场地风格、滤镜和主题布景误导",
-            "只有稳定审美模式成立时才输出 aesthetic_tendency",
+            "审美模式不够稳定时降低 confidence；只有完全无审美线索时才输出 null",
         ],
     },
     "long_term_expression.visual_creation_style": {
         "cot_steps": [
             "先看自拍、风景、合照和构图习惯是否跨事件重复",
             "再排除单次拍摄任务或单次旅行相册带来的偏差",
-            "只有稳定拍照模式成立时才输出 visual_creation_style",
+            "拍照模式不够稳定时降低 confidence；只有完全无拍照习惯线索时才输出 null",
         ],
     },
     "short_term_expression.current_mood": {
@@ -251,21 +251,21 @@ FIELD_COT_OVERRIDES: Dict[str, Dict[str, List[str]]] = {
             "mental_state 输出当前的精神/认知状态（如 focused / fatigued / energized / overwhelmed / content），是精神能量和认知负荷的描述",
             "与 current_mood 的边界：mental_state 是'脑子在什么状态'（专注/疲惫/充沛），mood 是'心情怎么样'（开心/焦虑）",
             "不要输出社交行为描述（socially_active 不是 mental_state——那属于 social_energy）",
-            "如果没有连续证据，输出 null",
+            "连续证据不足时降低 confidence；只有完全无精神状态线索时才输出 null",
         ],
     },
     "short_term_expression.stress_signal": {
         "cot_steps": [
             "先看近期是否出现连续高压信号，如深夜活动、密集事务或明显关系压力",
             "再排除考试周、项目周或节庆活动造成的局部峰值",
-            "只有近期压力信号连续出现时才输出 stress_signal",
+            "压力信号存在但不连续时降低 confidence；只有完全无压力信号时才输出 null",
         ],
     },
     "short_term_expression.social_energy": {
         "cot_steps": [
             "先看近期社交频率、活动规模和互动强度是否出现一致变化",
             "再排除单周高频聚会或单次社交低谷造成的偏差",
-            "只有近期社交能量模式稳定时才输出 social_energy",
+            "社交模式不够稳定时降低 confidence；只有完全无社交数据时才输出 null",
         ],
     },
     "long_term_facts.identity.age_range": {
@@ -301,14 +301,14 @@ FIELD_COT_OVERRIDES: Dict[str, Dict[str, List[str]]] = {
             "先读长期事件统计里的 top 活动及具体活动场景",
             "如果证据中有具体的活动场景和频次细节，输出到能区分的最细粒度，而非宽泛分类",
             "再过滤最近窗口的噪声活动，避免把偶然高频写成长期高频",
-            "只有稳定 top 活动成立时才输出",
+            "有活动信号但稳定性不足时降低 confidence；只有完全无活动数据时才输出 null",
         ],
     },
     "long_term_facts.time.event_cycles": {
         "cot_steps": [
             "event_cycles 输出周期性重复事件的具体模式和频率（如 biweekly_social_outings / monthly_travel / weekly_gym），不输出泛化活动类别（social_activities——那属于 interests/frequent_activities）",
             "必须体现周期性：多久一次、什么活动、是否稳定重复",
-            "如果没有发现明确的周期性模式，输出 null 而非泛化活动标签",
+            "周期性模式不明确时降低 confidence；只有完全无周期信号时才输出 null",
         ],
     },
     "long_term_facts.time.sleep_pattern": {
@@ -316,7 +316,7 @@ FIELD_COT_OVERRIDES: Dict[str, Dict[str, List[str]]] = {
             "sleep_pattern 输出具体的睡眠时间规律（如 late_sleeper_past_midnight / early_riser / irregular_between_11pm_2am），不输出单个词 irregular——这没有信息量",
             "从深夜/清晨活动时间戳推断入睡和起床时间范围",
             "与 life_rhythm 的边界：sleep_pattern 只关注睡眠相关时间点，不描述整体生活节奏",
-            "证据不足时输出 null，不要猜",
+            "证据偏弱时输出最可能的模式并降低 confidence；完全无时间线索时才输出 null",
         ],
     },
     "long_term_facts.social_identity.career_phase": {
@@ -324,7 +324,7 @@ FIELD_COT_OVERRIDES: Dict[str, Dict[str, List[str]]] = {
             "career_phase 输出职业/学业的发展阶段（如 undergraduate / postgraduate / entry_level / mid_career / senior / retired），不输出身份类别（student/employee——那属于 role）",
             "对学生：区分 undergraduate / postgraduate / phd_candidate",
             "对职场人：区分 intern / entry_level / mid_career / senior / management",
-            "如果无法判断具体阶段，输出 null",
+            "无法判断具体阶段时输出最可能的阶段并降低 confidence",
         ],
     },
     "long_term_facts.social_identity.professional_dedication": {
@@ -332,7 +332,7 @@ FIELD_COT_OVERRIDES: Dict[str, Dict[str, List[str]]] = {
             "professional_dedication 输出主角在主业上的投入模式和专注方向，不输出身份类别（student/employee——那属于 role）",
             "示例格式：full_time_focused / part_time_with_side_projects / academic_with_social_balance / career_driven",
             "从活动时间分配、工作/学习场景频率、副业/兼职线索中推断",
-            "如果只能确定身份但无法判断投入模式，输出 null 而非重复 role 的值",
+            "只能确定身份时输出最可能的投入模式并降低 confidence，但不重复 role 的值",
         ],
     },
     "long_term_facts.material.asset_level": {
@@ -716,7 +716,7 @@ def _llm_field_value(bundle: FieldBundle, context: Dict[str, Any], llm_processor
 {_format_list_for_prompt(bundle.field_spec.time_reasoning_steps)}
 反证检查:
 {_format_list_for_prompt(bundle.field_spec.counter_evidence_checks)}
-以下情况证据较弱，需要更谨慎地判断（不是直接输出 null，而是需要更充分的证据支撑）:
+以下情况证据较弱，应降低 confidence 但仍输出最佳推断:
 {_format_list_for_prompt(bundle.field_spec.weak_evidence_caution or ["证据不足时需要更多证据才能下结论"])}
 反思问题: {bundle.field_spec.reflection_questions}
 允许证据:
@@ -724,7 +724,7 @@ def _llm_field_value(bundle: FieldBundle, context: Dict[str, Any], llm_processor
 {resolved_facts_clause}
 
 请严格按上面的字段级COT在内部逐步判断，但不要输出推理过程。
-若主体归属不清、时间层级不清、或反证更强，需要更充分的证据支撑才能输出结论。当确实没有任何证据时才输出 null。
+若主体归属不清、时间层级不清、或反证更强，降低 confidence 但仍输出最佳推断值。只有完全零证据时才输出 null。
 
 请只输出 JSON:
 {{

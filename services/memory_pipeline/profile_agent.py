@@ -974,10 +974,6 @@ Step 5: 只有在完全没有相关证据时，或者全部证据都只能指向
                 # 降低 confidence 而非强制 null
                 confidence = max(0.0, confidence * 0.75)  # 降低 25%
 
-        if value is None and null_reason:
-            value = None
-            confidence = 0.0
-
         constraint_notes = [null_reason] if null_reason else []
         # 添加 constraint_notes 中的信息
         if field_output.get("constraint_notes"):
