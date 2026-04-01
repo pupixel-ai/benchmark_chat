@@ -349,6 +349,13 @@ class EngineeringCritic:
             temperature=self.temperature,
             messages=[{"role": "user", "content": prompt}],
         )
+        # 记录 token 用量
+        from services.memory_pipeline.profile_llm import _append_usage_log
+        _append_usage_log(
+            model=self.model,
+            usage={"prompt_tokens": response.usage.input_tokens, "completion_tokens": response.usage.output_tokens},
+            caller="critic",
+        )
         text = response.content[0].text if response.content else ""
         return self._parse_json(text)
 
@@ -365,14 +372,27 @@ class EngineeringCritic:
             "temperature": self.temperature,
             "response_format": {"type": "json_object"},
         }
-        resp = httpx.post(
-            f"{OPENROUTER_BASE_URL}/chat/completions",
-            headers=headers,
-            json=body,
-            timeout=120,
-        )
-        resp.raise_for_status()
+        import time as _time
+        for _attempt in range(3):
+            resp = httpx.post(
+                f"{OPENROUTER_BASE_URL}/chat/completions",
+                headers=headers,
+                json=body,
+                timeout=120,
+            )
+            if resp.status_code == 429 and _attempt < 2:
+                _time.sleep(5.0 * (2 ** _attempt))
+                continue
+            resp.raise_for_status()
+            break
         data = resp.json()
+        # 记录 token 用量
+        from services.memory_pipeline.profile_llm import _append_usage_log
+        _append_usage_log(
+            model=data.get("model", self.model),
+            usage=data.get("usage", {}),
+            caller="critic",
+        )
         text = data.get("choices", [{}])[0].get("message", {}).get("content", "")
         return self._parse_json(text)
 

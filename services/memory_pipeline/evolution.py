@@ -276,6 +276,10 @@ def run_memory_nightly_evaluation(
 ) -> Dict[str, Any]:
     traces = load_memory_run_traces(project_root=project_root, user_name=user_name, date_str=date_str)
 
+    # 清空旧进度文件，开始新的进度追踪
+    _progress_path = Path(project_root) / EVOLUTION_RELATIVE_DIR / f"_progress_{user_name}.jsonl"
+    _progress_path.unlink(missing_ok=True)
+
     reports_dir = Path(project_root) / EVOLUTION_RELATIVE_DIR / "reports" / user_name
     insights_dir = Path(project_root) / EVOLUTION_RELATIVE_DIR / "insights" / user_name
     proposals_dir = Path(project_root) / EVOLUTION_RELATIVE_DIR / "proposals" / user_name
@@ -401,6 +405,13 @@ def run_memory_nightly_evaluation(
         field_cycles_all=field_loop_payload.get("field_cycles", []),
     )
 
+    _emit_progress(project_root, user_name, {
+        "event": "evolve_complete",
+        "total_proposals": len(proposals),
+        "total_focus_fields": len(field_loop_payload.get("focus_fields", [])),
+        "converged": converged,
+    })
+
     return {
         "report_path": str(report_path),
         "insights_path": str(insights_path),
@@ -501,6 +512,10 @@ def _check_and_generate_recap(
             ],
         })
 
+    # Token 黑洞检测
+    token_summary = _load_token_usage_summary(project_root, user_name)
+    token_blackholes = _detect_token_blackholes(user_name, state_payload, token_summary)
+
     recap = {
         "user_name": user_name,
         "date": date_str,
@@ -510,12 +525,40 @@ def _check_and_generate_recap(
         "total_approved_fields": len(approved_fields),
         "approved_fields": approved_fields,
         "field_recaps": field_recaps,
+        "token_blackholes": token_blackholes,
         "generated_at": datetime.now().isoformat(),
     }
 
     recap_path.write_text(json.dumps(recap, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"  [recap] 用户 {user_name} 已收敛，复盘已生成: {recap_path}")
     return True
+
+
+def _run_single_user_evolve(
+    project_root: str,
+    user_name: str,
+    date_str: str,
+    top_k_fields: int,
+) -> Dict[str, Any]:
+    """单用户 evolve 包装函数（供 ProcessPoolExecutor 调用）。"""
+    result = run_memory_nightly_evaluation(
+        project_root=project_root,
+        user_name=user_name,
+        date_str=date_str,
+        top_k_fields=top_k_fields,
+    )
+    return {
+        "user_name": user_name,
+        "status": "ok",
+        "report_path": result["report_path"],
+        "insights_path": result["insights_path"],
+        "proposals_path": result["proposals_path"],
+        "focus_fields_path": result.get("focus_fields_path"),
+        "field_cycles_path": result.get("field_cycles_path"),
+        "total_traces": int(result.get("total_traces") or 0),
+        "total_focus_fields": int(result.get("total_focus_fields") or 0),
+        "total_proposals": int(result.get("total_proposals") or 0),
+    }
 
 
 def run_memory_nightly_user_set_evaluation(
@@ -526,36 +569,82 @@ def run_memory_nightly_user_set_evaluation(
     top_k_fields: int = FOCUS_FIELD_COUNT_DEFAULT,
 ) -> Dict[str, Any]:
     resolved_users = _resolve_user_set(project_root=project_root, user_names=user_names)
-    results: List[Dict[str, Any]] = []
-    for user_name in resolved_users:
-        result = run_memory_nightly_evaluation(
-            project_root=project_root,
-            user_name=user_name,
-            date_str=date_str,
-            top_k_fields=top_k_fields,
-        )
-        results.append(
-            {
-                "user_name": user_name,
-                "report_path": result["report_path"],
-                "insights_path": result["insights_path"],
-                "proposals_path": result["proposals_path"],
-                "focus_fields_path": result.get("focus_fields_path"),
-                "field_cycles_path": result.get("field_cycles_path"),
-                "total_traces": int(result.get("total_traces") or 0),
-                "total_focus_fields": int(result.get("total_focus_fields") or 0),
-                "total_proposals": int(result.get("total_proposals") or 0),
-            }
-        )
+    max_workers = int(os.environ.get("EVOLVE_PARALLEL_WORKERS", "3"))
 
+    results: List[Dict[str, Any]] = []
+    failed_users: List[str] = []
+
+    if max_workers > 1 and len(resolved_users) > 1:
+        # ── 并行执行 ──
+        from concurrent.futures import ProcessPoolExecutor, as_completed
+        user_futures: Dict[Any, str] = {}
+        with ProcessPoolExecutor(max_workers=max_workers) as pool:
+            for user_name in resolved_users:
+                future = pool.submit(
+                    _run_single_user_evolve,
+                    project_root, user_name, date_str, top_k_fields,
+                )
+                user_futures[future] = user_name
+
+            for future in as_completed(user_futures):
+                user_name = user_futures[future]
+                try:
+                    results.append(future.result())
+                except Exception as exc:
+                    print(f"  [evolve] {user_name} failed: {exc}")
+                    failed_users.append(user_name)
+                    results.append({
+                        "user_name": user_name,
+                        "status": "error",
+                        "reason": str(exc),
+                        "total_traces": 0,
+                        "total_focus_fields": 0,
+                        "total_proposals": 0,
+                    })
+
+        # ── 失败用户重试一次（串行，避免加剧 rate limit）──
+        for user_name in failed_users:
+            print(f"  [evolve] Retrying {user_name} (serial)...")
+            try:
+                retry_result = _run_single_user_evolve(
+                    project_root, user_name, date_str, top_k_fields,
+                )
+                # 替换之前的 error 记录
+                results = [r for r in results if r.get("user_name") != user_name]
+                results.append(retry_result)
+                print(f"  [evolve] {user_name} retry succeeded")
+            except Exception as exc:
+                print(f"  [evolve] {user_name} retry also failed: {exc}")
+    else:
+        # ── 串行执行（单用户或 workers=1）──
+        for user_name in resolved_users:
+            try:
+                results.append(_run_single_user_evolve(
+                    project_root, user_name, date_str, top_k_fields,
+                ))
+            except Exception as exc:
+                print(f"  [evolve] {user_name} failed: {exc}")
+                results.append({
+                    "user_name": user_name,
+                    "status": "error",
+                    "reason": str(exc),
+                    "total_traces": 0,
+                    "total_focus_fields": 0,
+                    "total_proposals": 0,
+                })
+
+    # ── Aggregate report（并行区域外，无竞争）──
+    ok_results = [r for r in results if r.get("status") != "error"]
     aggregate = {
         "date": date_str,
         "total_users": len(resolved_users),
+        "succeeded": len(ok_results),
+        "failed": len(results) - len(ok_results),
         "users": results,
         "summary": {
-            "total_traces": sum(item["total_traces"] for item in results),
-            "total_focus_fields": sum(item["total_focus_fields"] for item in results),
-            "total_proposals": sum(item["total_proposals"] for item in results),
+            "total_traces": sum(int(r.get("total_traces") or 0) for r in ok_results),
+            "total_focus_fields": sum(int(r.get("total_focus_fields") or 0) for r in ok_results),
+            "total_proposals": sum(int(r.get("total_proposals") or 0) for r in ok_results),
         },
     }
     aggregate_dir = Path(project_root) / EVOLUTION_RELATIVE_DIR / "reports" / "_user_set"
@@ -566,6 +655,8 @@ def run_memory_nightly_user_set_evaluation(
         "report_path": str(aggregate_path),
         "date": date_str,
         "total_users": len(resolved_users),
+        "succeeded": len(ok_results),
+        "failed": len(results) - len(ok_results),
         "users": results,
     }
 
@@ -949,6 +1040,7 @@ def _try_reflect_field(
     project_root: str,
     reviewer_note: str = "",
     evolution_context: Dict[str, Any] | None = None,
+    user_name: str = "",
 ) -> Dict[str, Any] | None:
     """Attempt LLM reflection on a field. Returns reflect result or None on failure."""
     cf = case_facts_by_field.get(field_key)
@@ -957,6 +1049,10 @@ def _try_reflect_field(
     agent = _get_or_create_reflection_agent(project_root)
     if agent is None:
         return None
+    # 标记 user/field 供 token 计量使用
+    if hasattr(agent, "llm_processor") and agent.llm_processor:
+        agent.llm_processor._usage_user = user_name
+        agent.llm_processor._usage_field = field_key
     try:
         from services.reflection.upstream_agent import BadcasePacketAssembler
         assembler = BadcasePacketAssembler(project_root=project_root)
@@ -970,10 +1066,37 @@ def _try_reflect_field(
         result = agent.reflect(packet)
         if result.get("status") == "failed":
             return None
+        # 转录持久化：保存完整 prompt 输入 + reflect 输出
+        _save_transcript(project_root, user_name, field_key, packet, result)
         return result
     except Exception as exc:
         print(f"  [reflect] {field_key} failed: {exc}")
         return None
+
+
+def _save_transcript(project_root: str, user_name: str, field_key: str,
+                     packet: Dict[str, Any], result: Dict[str, Any]) -> None:
+    """转录持久化：保存 reflect 的输入和输出供事后审计。"""
+    try:
+        transcript_dir = Path(project_root) / EVOLUTION_RELATIVE_DIR / "transcripts" / user_name
+        transcript_dir.mkdir(parents=True, exist_ok=True)
+        date_str = datetime.now().strftime("%Y-%m-%d")
+        transcript_path = transcript_dir / f"{date_str}.jsonl"
+        entry = {
+            "ts": datetime.now().isoformat(),
+            "field_key": field_key,
+            "input_keys": list(packet.keys()),
+            "evolution_context": packet.get("evolution_context"),
+            "result_status": result.get("status"),
+            "result_confidence": result.get("confidence"),
+            "root_cause_family": result.get("root_cause_family"),
+            "judgment_summary_zh": result.get("judgment_summary_zh", "")[:200],
+            "patch_intent_summary": (result.get("patch_intent") or {}).get("change_summary_zh", "")[:200],
+        }
+        with open(transcript_path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    except Exception:
+        pass  # 转录失败不影响主逻辑
 
 
 def _load_reviewer_notes(project_root: str, user_name: str) -> Dict[str, str]:
@@ -1074,6 +1197,91 @@ def _load_event_summaries(*, project_root: str, user_name: str) -> Dict[str, str
     return {}
 
 
+def _load_token_usage_summary(project_root: str, user_name: str) -> Dict[str, Dict[str, Any]]:
+    """从 llm_usage.jsonl 聚合每个 field 的 token 消耗。"""
+    log_path = Path(project_root) / EVOLUTION_RELATIVE_DIR / "llm_usage.jsonl"
+    if not log_path.exists():
+        return {}
+    summary: Dict[str, Dict[str, Any]] = {}
+    try:
+        for line in log_path.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            try:
+                entry = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if entry.get("user") != user_name:
+                continue
+            fk = entry.get("field", "")
+            if not fk:
+                continue
+            item = summary.setdefault(fk, {"total_in": 0, "total_out": 0, "call_count": 0, "callers": {}})
+            item["total_in"] += int(entry.get("in", 0))
+            item["total_out"] += int(entry.get("out", 0))
+            item["call_count"] += 1
+            caller = entry.get("caller", "unknown")
+            item["callers"][caller] = item["callers"].get(caller, 0) + 1
+    except Exception:
+        pass
+    return summary
+
+
+def _emit_progress(project_root: str, user_name: str, event_data: Dict[str, Any]) -> None:
+    """写入进度事件到 _progress_{user}.jsonl（供 SSE 推送）。"""
+    try:
+        path = Path(project_root) / EVOLUTION_RELATIVE_DIR / f"_progress_{user_name}.jsonl"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with open(path, "a", encoding="utf-8") as f:
+            f.write(json.dumps({**event_data, "ts": datetime.now().isoformat()}, ensure_ascii=False) + "\n")
+    except Exception:
+        pass
+
+
+def _detect_token_blackholes(
+    user_name: str,
+    field_state: Dict[str, Any],
+    token_summary: Dict[str, Dict[str, Any]],
+) -> list[Dict[str, Any]]:
+    """检测 token 黑洞字段：消耗远超平均但 grade 未改善。"""
+    if not token_summary:
+        return []
+    # 计算平均 token 消耗
+    all_totals = [v["total_in"] + v["total_out"] for v in token_summary.values()]
+    if not all_totals:
+        return []
+    avg_tokens = sum(all_totals) / len(all_totals)
+    if avg_tokens == 0:
+        return []
+
+    fields = field_state.get("fields", {})
+    blackholes = []
+    for fk, usage in token_summary.items():
+        total = usage["total_in"] + usage["total_out"]
+        fs = fields.get(fk, {})
+        cycle_count = int(fs.get("cycle_count", 0))
+        score_trend = str(fs.get("score_trend", ""))
+        last_grade = str(fs.get("last_grade", ""))
+
+        # 判定条件：token > 均值 ×2 且 grade 未改善 且至少 3 轮
+        if (total > avg_tokens * 2
+                and score_trend in ("stable", "rising", "oscillating")
+                and cycle_count >= 3
+                and last_grade not in ("exact_match", "close_match", "improved")):
+            blackholes.append({
+                "field_key": fk,
+                "total_tokens": total,
+                "avg_tokens": round(avg_tokens),
+                "ratio": round(total / avg_tokens, 1),
+                "cycle_count": cycle_count,
+                "score_trend": score_trend,
+                "last_grade": last_grade,
+                "call_count": usage["call_count"],
+            })
+    blackholes.sort(key=lambda x: x["total_tokens"], reverse=True)
+    return blackholes
+
+
 def _run_gt_field_loop(
     *,
     project_root: str,
@@ -1156,11 +1364,13 @@ def _run_gt_field_loop(
 
     # 耗尽字段检测（基于多轮 Reflect Agent LLM 信号累积）— 必须在 persist state 之前，
     # 以便 exhausted 标记写入 field_loop_state，让下轮 focus selection 能过滤掉
+    token_summary = _load_token_usage_summary(project_root, user_name)
     exhausted = _persist_exhausted_candidates(
         project_root=project_root,
         user_name=user_name,
         field_state=next_state,
         policy=policy,
+        token_summary=token_summary,
     )
     for c in (exhausted or []):
         fk = c.get("field_key", "")
@@ -1458,6 +1668,14 @@ def _build_gt_field_cycles(
     proposals: List[Dict[str, Any]] = []
     no_signal_streak_threshold = max(1, int(policy.get("no_signal_streak_threshold") or FIELD_LOOP_NO_SIGNAL_STREAK_THRESHOLD_DEFAULT))
     throttle_cooldown_rounds = max(1, int(policy.get("throttle_cooldown_rounds") or FIELD_LOOP_THROTTLE_COOLDOWN_ROUNDS_DEFAULT))
+    _consecutive_system_failures = 0  # 连续系统性故障计数（API 超时/异常，非 LLM 无提案）
+
+    # 进度推送：本轮开始
+    _emit_progress(project_root, user_name, {
+        "event": "cycle_start",
+        "fields": [str(f.get("field_key", "")) for f in focus_fields],
+        "total_fields": len(focus_fields),
+    })
 
     for index, focus in enumerate(focus_fields, start=1):
         field_key = str(focus.get("field_key") or "").strip()
@@ -1593,12 +1811,29 @@ def _build_gt_field_cycles(
         }
 
         # ── LLM 反思（唯一的提案来源）──
+        _emit_progress(project_root, user_name, {
+            "event": "field_start", "field": field_key, "index": index,
+            "total": len(focus_fields), "grade": grade,
+        })
         field_reviewer_note = (reviewer_notes or {}).get(field_key, "")
         reflect_result = _try_reflect_field(
             field_key, case_facts_by_field or {}, project_root,
             reviewer_note=field_reviewer_note,
             evolution_context=evolution_context if (cycle_index > 1 or overlooked_evidence_digest) else None,
+            user_name=user_name,
         )
+        # 级别 1: 系统性故障重试（reflect_result is None = 异常/超时，不是"LLM 没有新提案"）
+        if reflect_result is None:
+            import time as _time
+            _time.sleep(3)
+            print(f"  [reflect] {field_key} 系统故障，3s 后重试...")
+            reflect_result = _try_reflect_field(
+                field_key, case_facts_by_field or {}, project_root,
+                reviewer_note=field_reviewer_note,
+                evolution_context=evolution_context if (cycle_index > 1 or overlooked_evidence_digest) else None,
+                user_name=user_name,
+            )
+
         cf = (case_facts_by_field or {}).get(field_key, {})
         original_reasoning = str((cf.get("decision_trace") or {}).get("reasoning") or "")
 
@@ -1613,9 +1848,18 @@ def _build_gt_field_cycles(
         if has_valid_proposal:
             reflect_fail_streak = 0
         elif reflect_result is None:
+            # 系统性故障（重试后仍然失败）
             reflect_fail_streak = prev_reflect_fail_streak + 1
+            _consecutive_system_failures += 1
         else:
+            # LLM 正常返回但没有合适的提案 — 不算系统故障
             reflect_fail_streak = prev_reflect_fail_streak + 1
+            _consecutive_system_failures = 0  # 重置：LLM 能正常工作
+
+        # 级别 3: 连续系统故障中止（3 个字段重试后都返回 None = 系统性问题）
+        if _consecutive_system_failures >= 3:
+            print(f"  [evolve] 连续 {_consecutive_system_failures} 个字段系统故障（API 超时/异常），中止本轮")
+            break
 
         if has_valid_proposal:
             patch_intent = reflect_result.get("patch_intent") or {}
@@ -1699,6 +1943,11 @@ def _build_gt_field_cycles(
             "gt_value": gt_value,
         }
         cycles.append(cycle_entry)
+        _emit_progress(project_root, user_name, {
+            "event": "field_done", "field": field_key, "index": index,
+            "total": len(focus_fields), "has_proposal": has_valid_proposal,
+            "grade": grade, "cycle_status": cycle_status,
+        })
         insights.append(
             {
                 "type": "field_loop_focus",
@@ -2026,9 +2275,11 @@ def _collect_field_cycle_history(
 
 def _is_field_exhausted(
     *,
+    field_key: str = "",
     field_state: Dict[str, Any],
     cycle_history: List[Dict[str, Any]],
     policy: Dict[str, int],
+    token_summary: Dict[str, Dict[str, Any]] | None = None,
 ) -> str | None:
     """Check if a field has exhausted all improvement avenues based on LLM signals.
 
@@ -2061,9 +2312,8 @@ def _is_field_exhausted(
     confidences = [c for c in confidences if c >= 0.0]
 
     total_cycles_with_rc = len(root_causes)
-    total_cycles_with_status = len(reflect_statuses)
 
-    # LLM 信号条件（三选一）
+    # LLM 信号条件（四选一）
     # 1. 反复 watch_only：LLM 多次判定"无法归因"
     watch_only_count = sum(1 for rc in root_causes if rc == "watch_only")
     if total_cycles_with_rc >= 2 and watch_only_count / total_cycles_with_rc >= 0.5:
@@ -2078,6 +2328,19 @@ def _is_field_exhausted(
     if len(confidences) >= 2 and sum(confidences) / len(confidences) < 0.4:
         return "low_confidence_persistent"
 
+    # 4. Token ROI 衰减：token 消耗高于平均但 score 未改善
+    if token_summary and field_key:
+        token_info = token_summary.get(field_key, {})
+        field_tokens = token_info.get("total_in", 0) + token_info.get("total_out", 0)
+        all_totals = [v["total_in"] + v["total_out"] for v in token_summary.values()]
+        avg_tokens = sum(all_totals) / len(all_totals) if all_totals else 0
+        score_trend = str(field_state.get("score_trend", ""))
+        if (avg_tokens > 0
+                and field_tokens > avg_tokens * 1.5
+                and score_trend in ("stable", "rising")
+                and cycle_count >= 4):
+            return "token_roi_exhausted"
+
     return None
 
 
@@ -2087,6 +2350,7 @@ def _persist_exhausted_candidates(
     user_name: str,
     field_state: Dict[str, Any],
     policy: Dict[str, int],
+    token_summary: Dict[str, Dict[str, Any]] | None = None,
 ) -> List[Dict[str, Any]]:
     """Detect and persist fields that have exhausted all improvement avenues.
 
@@ -2108,7 +2372,7 @@ def _persist_exhausted_candidates(
         # 加载该字段的历史 cycle 数据
         cycle_history = _collect_field_cycle_history(project_root, user_name, fk)
 
-        reason = _is_field_exhausted(field_state=fs, cycle_history=cycle_history, policy=policy)
+        reason = _is_field_exhausted(field_key=fk, field_state=fs, cycle_history=cycle_history, policy=policy, token_summary=token_summary)
         if reason is None:
             continue
 

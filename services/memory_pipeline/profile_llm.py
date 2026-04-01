@@ -4,11 +4,39 @@ import json
 import os
 import re
 import time
+from datetime import datetime
+from pathlib import Path
 from typing import Any, Iterable
 
 import requests
 
 from config import OPENROUTER_API_KEY, OPENROUTER_BASE_URL, PROFILE_LLM_MODEL
+
+
+def _append_usage_log(model: str, usage: dict, caller: str,
+                      user_name: str = "", field_key: str = "",
+                      ttft_ms: int = 0) -> None:
+    """追加 LLM 调用计量到 llm_usage.jsonl（append-only）。"""
+    try:
+        log_path = Path(os.environ.get(
+            "LLM_USAGE_LOG",
+            str(Path(__file__).resolve().parent.parent.parent / "memory" / "evolution" / "llm_usage.jsonl"),
+        ))
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        entry = {
+            "ts": datetime.now().isoformat(),
+            "model": model,
+            "in": usage.get("prompt_tokens", 0),
+            "out": usage.get("completion_tokens", 0),
+            "caller": caller,
+            "user": user_name,
+            "field": field_key,
+            "ttft_ms": ttft_ms,
+        }
+        with open(log_path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    except Exception:
+        pass  # 计量失败不影响主逻辑
 
 DEFAULT_PROFILE_LLM_MODEL_CANDIDATES = tuple(
     m.strip() for m in os.environ.get(
@@ -92,13 +120,16 @@ class OpenRouterProfileLLMProcessor:
                 try:
                     self._last_call_debug["api_call_attempted"] = True
                     self._last_call_debug["attempt_count"] = attempt + 1
+                    _req_start = time.time()
                     response = requests.post(
                         url,
                         json=payload,
                         headers=self.headers,
                         timeout=self.timeout_seconds,
                     )
+                    _ttft_ms = int((time.time() - _req_start) * 1000)
                     self._last_call_debug["http_status_code"] = response.status_code
+                    self._last_call_debug["ttft_ms"] = _ttft_ms
                     preview, truncated = _truncate_debug_text(response.text)
                     self._last_call_debug["raw_response_preview"] = preview
                     self._last_call_debug["raw_response_truncated"] = truncated
@@ -115,12 +146,24 @@ class OpenRouterProfileLLMProcessor:
                         self._last_call_debug["exception_type"] = "HTTPError"
                         self._last_call_debug["exception_message"] = error_msg
                         failure_samples.append(f"{model}@attempt{attempt + 1}:{error_msg}")
-                        if response.status_code >= 500 and attempt < self.max_retries - 1:
-                            time.sleep(self.retry_base_seconds * (2 ** attempt))
+                        if (response.status_code >= 500 or response.status_code == 429) and attempt < self.max_retries - 1:
+                            wait = self.retry_base_seconds * (2 ** attempt)
+                            if response.status_code == 429:
+                                wait = max(wait, 5.0)  # 429 至少等 5 秒
+                            time.sleep(wait)
                             continue
                         break
 
                     response_data = response.json()
+                    # 记录 token 用量 + TTFT
+                    _append_usage_log(
+                        model=response_data.get("model", model),
+                        usage=response_data.get("usage", {}),
+                        caller=getattr(self, "_usage_caller", "unknown"),
+                        user_name=getattr(self, "_usage_user", ""),
+                        field_key=getattr(self, "_usage_field", ""),
+                        ttft_ms=_ttft_ms,
+                    )
                     content = self._extract_message_content(response_data)
                     if not content:
                         failure_samples.append(f"{model}@attempt{attempt + 1}:empty_content")

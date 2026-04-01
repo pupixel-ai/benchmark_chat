@@ -357,12 +357,15 @@ def _build_llm_processor() -> Any | None:
     try:
         gt_model = os.getenv("GT_MATCHER_MODEL", "").strip()
         if gt_model:
-            return OpenRouterProfileLLMProcessor(
+            proc = OpenRouterProfileLLMProcessor(
                 api_key=OPENROUTER_API_KEY,
                 base_url=OPENROUTER_BASE_URL,
                 model=gt_model,
             )
-        return OpenRouterProfileLLMProcessor()
+        else:
+            proc = OpenRouterProfileLLMProcessor()
+        proc._usage_caller = "gt_matcher"
+        return proc
     except Exception:
         return None
 

@@ -380,11 +380,13 @@ class UpstreamReflectionAgent:
         if not api_key:
             return None
         try:
-            return OpenRouterProfileLLMProcessor(
+            proc = OpenRouterProfileLLMProcessor(
                 api_key=api_key,
                 base_url=OPENROUTER_BASE_URL,
                 model=self.model or PROFILE_LLM_MODEL,
             )
+            proc._usage_caller = "reflect"
+            return proc
         except Exception:
             return None
 
@@ -1110,11 +1112,13 @@ class MemoryEngineerAgent:
         if not api_key:
             return None
         try:
-            return OpenRouterProfileLLMProcessor(
+            proc = OpenRouterProfileLLMProcessor(
                 api_key=api_key,
                 base_url=OPENROUTER_BASE_URL,
                 model=self.model or PROFILE_LLM_MODEL,
             )
+            proc._usage_caller = "reflect"
+            return proc
         except Exception:
             return None
 
