@@ -7,7 +7,7 @@ import uuid
 
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.exc import OperationalError
-from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy.orm import declarative_base, load_only, sessionmaker
 
 from config import DATABASE_URL, SQL_ECHO, DEFAULT_TASK_VERSION
 
@@ -109,18 +109,49 @@ def ensure_schema() -> None:
     from backend.models import SubjectUserRecord, TaskRecord, UserRecord
 
     with SessionLocal() as session:
-        tasks = session.execute(select(TaskRecord)).scalars().all()
+        tasks = session.execute(
+            select(TaskRecord).options(
+                load_only(
+                    TaskRecord.task_id,
+                    TaskRecord.user_id,
+                    TaskRecord.operator_user_id,
+                    TaskRecord.options,
+                    TaskRecord.created_at,
+                    TaskRecord.updated_at,
+                )
+            )
+        ).scalars().all()
         if not tasks:
             return
 
         subjects_by_username = {
             record.username: record
-            for record in session.execute(select(SubjectUserRecord)).scalars().all()
+            for record in session.execute(
+                select(SubjectUserRecord).options(
+                    load_only(
+                        SubjectUserRecord.user_id,
+                        SubjectUserRecord.username,
+                        SubjectUserRecord.display_name,
+                        SubjectUserRecord.linked_auth_user_id,
+                        SubjectUserRecord.created_at,
+                        SubjectUserRecord.updated_at,
+                    )
+                )
+            ).scalars().all()
             if record.username
         }
         auth_users_by_username = {
             record.username: record
-            for record in session.execute(select(UserRecord)).scalars().all()
+            for record in session.execute(
+                select(UserRecord).options(
+                    load_only(
+                        UserRecord.user_id,
+                        UserRecord.username,
+                        UserRecord.created_at,
+                        UserRecord.updated_at,
+                    )
+                )
+            ).scalars().all()
             if record.username
         }
 
