@@ -10,7 +10,11 @@ class TaskSurveyImportEventsTests(unittest.TestCase):
     def test_build_survey_import_event_payload_emits_minimal_contract(self) -> None:
         task = self._build_task()
 
-        event = build_survey_import_event_payload(task)
+        with patch(
+            "backend.memory_full_retrieval._survey_asset_store.presigned_get_url",
+            side_effect=lambda task_id, relative_path, expires_in=86400: f"https://signed.example.com/{task_id}/{relative_path}",
+        ):
+            event = build_survey_import_event_payload(task)
 
         self.assertIsNotNone(event)
         assert event is not None
@@ -30,7 +34,10 @@ class TaskSurveyImportEventsTests(unittest.TestCase):
         self.assertEqual(relationship["person_id"], "Person_002")
         self.assertEqual(relationship["photo_count"], 1)
         self.assertEqual(relationship["photo_ids_sample"], ["photo_001"])
-        self.assertEqual(relationship["boxed_image_url"], "https://cdn.example.com/photo_001_boxed.webp")
+        self.assertEqual(
+            relationship["boxed_image_url"],
+            "https://signed.example.com/task-1/cache/boxed_images/photo_001_boxed.webp",
+        )
         self.assertEqual(relationship["sample_scenes"][0]["summary"], "Live concert with a close friend.")
 
     def test_build_survey_import_event_payload_falls_back_to_related_event_boxed_image(self) -> None:
@@ -39,7 +46,10 @@ class TaskSurveyImportEventsTests(unittest.TestCase):
             boxed_image_url="/api/assets/task-1/cache/boxed_images/photo_001_boxed.webp",
         )
 
-        with patch("backend.memory_full_retrieval.FRONTEND_ORIGIN", "https://memory.example.com"):
+        with patch(
+            "backend.memory_full_retrieval._survey_asset_store.presigned_get_url",
+            side_effect=lambda task_id, relative_path, expires_in=86400: f"https://signed.example.com/{task_id}/{relative_path}",
+        ):
             event = build_survey_import_event_payload(task)
 
         self.assertIsNotNone(event)
@@ -49,7 +59,7 @@ class TaskSurveyImportEventsTests(unittest.TestCase):
         self.assertEqual(relationship["photo_ids_sample"], ["photo_001"])
         self.assertEqual(
             relationship["boxed_image_url"],
-            "https://memory.example.com/api/assets/task-1/cache/boxed_images/photo_001_boxed.webp",
+            "https://signed.example.com/task-1/cache/boxed_images/photo_001_boxed.webp",
         )
 
     def test_build_survey_import_event_payload_returns_none_without_survey_username(self) -> None:
@@ -80,7 +90,7 @@ class TaskSurveyImportEventsTests(unittest.TestCase):
         *,
         survey_username: str | None = "alice",
         supporting_photo_ids: list[str] | None = None,
-        boxed_image_url: str = "https://cdn.example.com/photo_001_boxed.webp",
+        boxed_image_url: str = "/api/assets/task-1/cache/boxed_images/photo_001_boxed.webp",
     ) -> dict:
         relationship_supporting_photo_ids = ["hash-001"] if supporting_photo_ids is None else supporting_photo_ids
         return {
@@ -100,7 +110,7 @@ class TaskSurveyImportEventsTests(unittest.TestCase):
                     "image_id": "photo_001",
                     "filename": "sample.png",
                     "path": "uploads/001_sample.png",
-                    "url": "/assets/uploads/001_sample.png",
+                    "url": "/api/assets/task-1/uploads/001_sample.png",
                     "preview_url": None,
                     "source_hash": "hash-001",
                     "timestamp": "2026-03-20T20:00:00",
@@ -114,7 +124,7 @@ class TaskSurveyImportEventsTests(unittest.TestCase):
                             "filename": "sample.png",
                             "source_hash": "hash-001",
                             "timestamp": "2026-03-20T20:00:00",
-                            "display_image_url": "/assets/uploads/001_sample.png",
+                            "display_image_url": "/api/assets/task-1/uploads/001_sample.png",
                             "boxed_image_url": boxed_image_url,
                             "faces": [],
                         }

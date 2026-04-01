@@ -16,6 +16,8 @@ from pydantic import BaseModel
 from backend.artifact_store import build_task_asset_manifest
 from backend.control_plane_client import ControlPlaneClient
 from backend.progress_utils import append_terminal_error, append_terminal_info, merge_stage_progress
+from backend.task_completion import ensure_completion_outputs
+from backend.task_store import normalize_task_options
 from backend.upload_utils import (
     UPLOAD_FAILURES_FILENAME,
     is_live_photo_candidate,
@@ -51,7 +53,9 @@ class TaskStartPayload(BaseModel):
     max_photos: int = MAX_UPLOAD_PHOTOS
     use_cache: bool = False
     version: str = DEFAULT_TASK_VERSION
+    user_id: str | None = None
     normalize_live_photos: bool = DEFAULT_NORMALIZE_LIVE_PHOTOS
+    options: dict | None = None
 
 
 def _require_internal_token(authorization: str | None = Header(default=None)) -> None:
@@ -125,7 +129,14 @@ def _notify_control_plane_terminal_update(task_id: str, payload: dict) -> None:
         logger.exception("Failed to notify control-plane terminal update for task_id=%s", task_id)
 
 
-def _run_pipeline_task(task_id: str, max_photos: int, use_cache: bool, task_version: str, task_options: dict | None) -> None:
+def _run_pipeline_task(
+    task_id: str,
+    user_id: str | None,
+    max_photos: int,
+    use_cache: bool,
+    task_version: str,
+    task_options: dict | None,
+) -> None:
     task_dir = _task_dir(task_id)
 
     def progress_callback(stage: str, payload: dict) -> None:
@@ -151,6 +162,7 @@ def _run_pipeline_task(task_id: str, max_photos: int, use_cache: bool, task_vers
             task_id=task_id,
             task_dir=str(task_dir),
             asset_store=asset_store,
+            user_id=user_id,
             task_version=task_version,
             task_options=task_options,
         ).run(
@@ -158,6 +170,7 @@ def _run_pipeline_task(task_id: str, max_photos: int, use_cache: bool, task_vers
             use_cache=use_cache,
             progress_callback=progress_callback,
         )
+        ensure_completion_outputs(task_version, result)
         terminal_payload = _update_status(
             task_id,
             status="completed",
@@ -341,9 +354,12 @@ def start_task(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     if current.get("version") and current.get("version") != task_version:
         raise HTTPException(status_code=409, detail="worker 任务版本已锁定，不能修改")
-    task_options = {
-        "normalize_live_photos": bool(payload.normalize_live_photos),
-    }
+    task_options = normalize_task_options(
+        {
+            **dict(payload.options or {}),
+            "normalize_live_photos": bool(payload.normalize_live_photos),
+        }
+    )
 
     max_photos = min(max(1, int(payload.max_photos)), len(uploads), MAX_UPLOAD_PHOTOS)
     _update_status(
@@ -356,7 +372,15 @@ def start_task(
         version=task_version,
         options=task_options,
     )
-    background_tasks.add_task(_run_pipeline_task, task_id, max_photos, payload.use_cache, task_version, task_options)
+    background_tasks.add_task(
+        _run_pipeline_task,
+        task_id,
+        payload.user_id,
+        max_photos,
+        payload.use_cache,
+        task_version,
+        task_options,
+    )
     return {
         "task_id": task_id,
         "status": "queued",

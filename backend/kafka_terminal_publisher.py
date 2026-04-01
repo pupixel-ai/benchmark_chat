@@ -6,9 +6,15 @@ from __future__ import annotations
 import json
 import logging
 import socket
+import threading
 import time
 import uuid
 from typing import Any
+
+try:
+    from confluent_kafka import Producer as ConfluentKafkaProducer
+except Exception:  # pragma: no cover - optional dependency during local dev
+    ConfluentKafkaProducer = None  # type: ignore[assignment]
 
 try:
     from kafka import KafkaProducer
@@ -30,6 +36,36 @@ from config import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+class _ConfluentProducerAdapter:
+    def __init__(self, producer: Any) -> None:
+        self._producer = producer
+
+    def publish(self, topic: str, *, key: bytes, value: bytes, timeout: float = 30.0) -> None:
+        completion = threading.Event()
+        delivery: dict[str, Any] = {}
+
+        def _callback(error: Any, _message: Any) -> None:
+            delivery["error"] = error
+            completion.set()
+
+        self._producer.produce(topic=topic, key=key, value=value, on_delivery=_callback)
+        deadline = time.monotonic() + max(1.0, timeout)
+        while not completion.is_set():
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise TimeoutError(f"confluent-kafka publish timed out topic={topic}")
+            self._producer.poll(min(0.5, remaining))
+        error = delivery.get("error")
+        if error is not None:
+            raise RuntimeError(str(error))
+
+    def flush(self, timeout: int | None = None) -> None:
+        self._producer.flush(timeout if timeout is not None else 10)
+
+    def close(self) -> None:
+        self._producer.flush(10)
 
 
 class KafkaTerminalPublisher:
@@ -64,12 +100,21 @@ class KafkaTerminalPublisher:
     def _publish_item(self, item: TaskEventOutboxItem) -> bool:
         payload_bytes = json.dumps(item.payload_json, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
         try:
-            future = self.producer.send(
-                item.topic,
-                key=item.event_key.encode("utf-8"),
-                value=payload_bytes,
-            )
-            future.get(timeout=30)
+            publish = getattr(self.producer, "publish", None)
+            if callable(publish):
+                publish(
+                    item.topic,
+                    key=item.event_key.encode("utf-8"),
+                    value=payload_bytes,
+                    timeout=30,
+                )
+            else:
+                future = self.producer.send(
+                    item.topic,
+                    key=item.event_key.encode("utf-8"),
+                    value=payload_bytes,
+                )
+                future.get(timeout=30)
         except Exception as exc:
             logger.exception("Kafka publish failed for task_id=%s outbox_id=%s", item.task_id, item.outbox_id)
             self.store.mark_retry(item.outbox_id, error=str(exc))
@@ -81,8 +126,26 @@ class KafkaTerminalPublisher:
     def _build_producer(self) -> Any:
         if not KAFKA_ENABLED:
             raise RuntimeError("Kafka terminal publisher 未启用")
+        if ConfluentKafkaProducer is not None:
+            producer_kwargs = {
+                "bootstrap.servers": ",".join(KAFKA_BOOTSTRAP_SERVERS),
+                "client.id": KAFKA_CLIENT_ID,
+                "acks": "all",
+                "message.max.bytes": KAFKA_MESSAGE_MAX_BYTES,
+                "message.send.max.retries": 3,
+            }
+            if KAFKA_SECURITY_PROTOCOL:
+                producer_kwargs["security.protocol"] = KAFKA_SECURITY_PROTOCOL
+            if KAFKA_SASL_MECHANISM:
+                producer_kwargs["sasl.mechanism"] = KAFKA_SASL_MECHANISM
+            if KAFKA_SASL_USERNAME:
+                producer_kwargs["sasl.username"] = KAFKA_SASL_USERNAME
+            if KAFKA_SASL_PASSWORD:
+                producer_kwargs["sasl.password"] = KAFKA_SASL_PASSWORD
+            logger.info("Kafka terminal publisher using confluent-kafka client")
+            return _ConfluentProducerAdapter(ConfluentKafkaProducer(producer_kwargs))
         if KafkaProducer is None:
-            raise RuntimeError("kafka-python 未安装，无法启动 Kafka terminal publisher")
+            raise RuntimeError("未安装 confluent-kafka 或 kafka-python，无法启动 Kafka terminal publisher")
 
         producer_kwargs = {
             "bootstrap_servers": list(KAFKA_BOOTSTRAP_SERVERS),
@@ -101,6 +164,7 @@ class KafkaTerminalPublisher:
             producer_kwargs["sasl_plain_username"] = KAFKA_SASL_USERNAME
         if KAFKA_SASL_PASSWORD:
             producer_kwargs["sasl_plain_password"] = KAFKA_SASL_PASSWORD
+        logger.info("Kafka terminal publisher using kafka-python client")
         return KafkaProducer(**producer_kwargs)
 
 

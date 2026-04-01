@@ -20,6 +20,8 @@ register_heif_opener()
 
 UPLOAD_FAILURES_FILENAME = "upload_failures.json"
 ORIENTATION_TAG = 274
+SUPPORTED_UPLOAD_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif", ".livp"}
+IGNORED_UPLOAD_BASENAMES = {".ds_store", "thumbs.db"}
 
 
 def safe_filename(filename: str, fallback: str) -> str:
@@ -43,6 +45,19 @@ def preview_filename(filename: str, index: int) -> str:
 
 def task_asset_path(directory: str, filename: str) -> str:
     return f"{directory}/{filename}"
+
+
+def upload_ignore_reason(filename: str | None) -> str | None:
+    basename = Path((filename or "").strip()).name
+    lowered = basename.lower()
+    if not basename:
+        return "文件名为空"
+    if basename.startswith(".") or lowered in IGNORED_UPLOAD_BASENAMES:
+        return "隐藏/系统文件"
+    suffix = Path(lowered).suffix
+    if suffix not in SUPPORTED_UPLOAD_EXTENSIONS:
+        return f"不支持的格式{f' ({suffix})' if suffix else ''}"
+    return None
 
 
 def is_live_photo_candidate(filename: str, content_type: str | None = None) -> bool:

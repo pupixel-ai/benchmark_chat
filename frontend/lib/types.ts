@@ -109,8 +109,6 @@ export type TaskOptions = {
   requested_max_photos?: number | null;
   auto_start_on_upload_complete?: boolean;
   survey_username?: string | null;
-  subject_user_id?: string | null;
-  operator_user_id?: string | null;
 };
 
 export type FaceRecognitionPayload = {

@@ -12,9 +12,9 @@ import requests
 from config import (
     GEMINI_API_KEY,
     OPENROUTER_API_KEY,
+    OPENROUTER_AGENT_MODEL,
     OPENROUTER_APP_NAME,
     OPENROUTER_BASE_URL,
-    OPENROUTER_LLM_MODEL,
     OPENROUTER_SITE_URL,
 )
 
@@ -538,7 +538,7 @@ class StructuredQueryPlanner:
         if not OPENROUTER_API_KEY:
             return None
         payload = {
-            "model": OPENROUTER_LLM_MODEL,
+            "model": OPENROUTER_AGENT_MODEL,
             "messages": [
                 {
                     "role": "system",
@@ -725,4 +725,3 @@ class StructuredQueryPlanner:
     def _normalize_enum(self, value: Any, *, allowed: set[str], fallback: str) -> str:
         normalized = str(value or "").strip()
         return normalized if normalized in allowed else fallback
-

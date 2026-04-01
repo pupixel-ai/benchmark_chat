@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import List, Optional
 
-from sqlalchemy import select, update
+from sqlalchemy import and_, or_, select, update
 from sqlalchemy.orm import Session
 
 from backend.db import SessionLocal
@@ -102,20 +102,28 @@ class TaskEventOutboxStore:
         now = datetime.now()
         stale_before = now - timedelta(seconds=self.lock_seconds)
         claimed_ids: List[str] = []
+        reclaimable_lock = or_(
+            TaskEventOutboxRecord.locked_at.is_(None),
+            TaskEventOutboxRecord.locked_at <= stale_before,
+        )
+        claimable_condition = or_(
+            and_(
+                TaskEventOutboxRecord.status.in_((STATUS_PENDING, STATUS_RETRY)),
+                TaskEventOutboxRecord.available_at <= now,
+                reclaimable_lock,
+            ),
+            and_(
+                TaskEventOutboxRecord.status == STATUS_PUBLISHING,
+                reclaimable_lock,
+            ),
+        )
 
         with SessionLocal() as session:
             candidate_ids = [
                 row[0]
                 for row in session.execute(
                     select(TaskEventOutboxRecord.outbox_id)
-                    .where(
-                        TaskEventOutboxRecord.status.in_((STATUS_PENDING, STATUS_RETRY)),
-                        TaskEventOutboxRecord.available_at <= now,
-                        (
-                            (TaskEventOutboxRecord.locked_at.is_(None))
-                            | (TaskEventOutboxRecord.locked_at <= stale_before)
-                        ),
-                    )
+                    .where(claimable_condition)
                     .order_by(TaskEventOutboxRecord.created_at.asc())
                     .limit(max(1, batch_size))
                 ).all()
@@ -126,11 +134,7 @@ class TaskEventOutboxStore:
                     update(TaskEventOutboxRecord)
                     .where(
                         TaskEventOutboxRecord.outbox_id == outbox_id,
-                        TaskEventOutboxRecord.status.in_((STATUS_PENDING, STATUS_RETRY)),
-                        (
-                            (TaskEventOutboxRecord.locked_at.is_(None))
-                            | (TaskEventOutboxRecord.locked_at <= stale_before)
-                        ),
+                        claimable_condition,
                     )
                     .values(
                         status=STATUS_PUBLISHING,

@@ -39,7 +39,7 @@ def resolve_subject_identity(
     if not normalized_subject_username or normalized_subject_username == normalized_operator_username:
         return {
             "user_id": str(operator_user_id or "").strip(),
-            "operator_user_id": None,
+            "operator_user_id": str(operator_user_id or "").strip(),
             "subject_username": normalized_operator_username,
             "subject_source": "self",
         }
@@ -59,7 +59,7 @@ def resolve_subject_identity(
             session.commit()
             return {
                 "user_id": auth_user.user_id,
-                "operator_user_id": None if auth_user.user_id == operator_user_id else operator_user_id,
+                "operator_user_id": str(operator_user_id or "").strip(),
                 "subject_username": normalized_subject_username,
                 "subject_source": "auth_user",
             }
@@ -85,7 +85,7 @@ def resolve_subject_identity(
         session.commit()
         return {
             "user_id": subject_user.user_id,
-            "operator_user_id": None if subject_user.user_id == operator_user_id else operator_user_id,
+            "operator_user_id": str(operator_user_id or "").strip(),
             "subject_username": subject_user.username,
             "subject_source": "subject_registry",
         }

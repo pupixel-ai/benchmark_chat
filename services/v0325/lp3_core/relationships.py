@@ -30,6 +30,7 @@ RELATIONSHIP_TYPES = {
     "acquaintance",
 }
 LOW_SIGNAL_RELATIONSHIP_TYPES = {"activity_buddy", "acquaintance", "classmate_colleague"}
+RELATIONSHIP_DOSSIER_LIMIT = 60
 
 
 RELATIONSHIP_TYPE_SPECS: Dict[str, RelationshipTypeSpec] = {
@@ -156,9 +157,9 @@ def build_relationship_dossiers(state: MemoryState, llm_processor: Any) -> List[
                 anomalies=list(evidence.get("anomalies", []) or []),
                 evidence_refs=evidence_refs,
                 block_reasons=list(screening.block_reasons if screening else []),
+                )
             )
-        )
-    return dossiers
+    return _limit_relationship_dossiers(dossiers)
 
 
 def infer_relationships_from_dossiers(
@@ -191,6 +192,34 @@ def infer_relationships_from_dossiers(
         if updated_dossier.retention_decision == "keep":
             relationships.append(relationship)
     return relationships, updated_dossiers
+
+
+def _limit_relationship_dossiers(
+    dossiers: List[RelationshipDossier],
+    *,
+    limit: int = RELATIONSHIP_DOSSIER_LIMIT,
+) -> List[RelationshipDossier]:
+    if limit <= 0 or len(dossiers) <= limit:
+        return dossiers
+
+    core_dossiers = [dossier for dossier in dossiers if dossier.memory_value == "core"]
+    other_dossiers = [dossier for dossier in dossiers if dossier.memory_value != "core"]
+    if len(core_dossiers) >= limit:
+        return sorted(core_dossiers, key=_relationship_dossier_sort_key)
+
+    selected_core = sorted(core_dossiers, key=_relationship_dossier_sort_key)
+    remaining_slots = max(limit - len(selected_core), 0)
+    selected_others = sorted(other_dossiers, key=_relationship_dossier_sort_key)[:remaining_slots]
+    return selected_core + selected_others
+
+
+def _relationship_dossier_sort_key(dossier: RelationshipDossier) -> tuple[int, float, int, str]:
+    return (
+        -int(dossier.photo_count),
+        -float(dossier.monthly_frequency),
+        -int(dossier.time_span_days),
+        str(dossier.person_id),
+    )
 
 
 def select_group_candidates(

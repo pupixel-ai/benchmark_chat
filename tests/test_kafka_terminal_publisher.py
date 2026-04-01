@@ -35,6 +35,26 @@ class _FakeProducer:
         self.closed = True
 
 
+class _FakeConfluentProducer:
+    def __init__(self, exc: Exception | None = None) -> None:
+        self.exc = exc
+        self.calls: list[dict] = []
+        self.flushed = False
+        self.closed = False
+
+    def publish(self, topic: str, *, key: bytes, value: bytes, timeout: float = 30.0) -> None:
+        self.calls.append({"topic": topic, "key": key, "value": value, "timeout": timeout})
+        if self.exc is not None:
+            raise self.exc
+
+    def flush(self, timeout: int | None = None) -> None:
+        del timeout
+        self.flushed = True
+
+    def close(self) -> None:
+        self.closed = True
+
+
 class _FakeStore:
     def __init__(self, items: list[TaskEventOutboxItem]) -> None:
         self.items = items
@@ -103,3 +123,15 @@ class KafkaTerminalPublisherTests(unittest.TestCase):
         self.assertEqual(store.retried[0][0], "outbox-1")
         self.assertIn("broker unavailable", store.retried[0][1])
 
+    def test_publish_once_supports_confluent_style_producer(self) -> None:
+        store = _FakeStore([self._item()])
+        producer = _FakeConfluentProducer()
+        publisher = KafkaTerminalPublisher(store=store, producer=producer)
+
+        published = publisher.publish_once()
+
+        self.assertEqual(published, 1)
+        self.assertEqual(store.published, ["outbox-1"])
+        self.assertEqual(store.retried, [])
+        self.assertEqual(producer.calls[0]["topic"], "memory.task.terminal.v1")
+        self.assertEqual(producer.calls[0]["key"], b"task-1")

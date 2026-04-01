@@ -967,9 +967,17 @@ class QueryEngineV1:
         supporting_event_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         payload = dict(photo or {})
+        photo_payload = dict(payload.get("photo_payload") or {})
+        source_photo_id = (
+            photo_payload.get("image_id")
+            or photo_payload.get("original_photo_id")
+            or photo_payload.get("source_hash")
+            or payload.get("source_photo_id")
+        )
         photo_url = self._photo_url(payload)
         return {
             "photo_id": payload.get("photo_id") or payload.get("image_id"),
+            "source_photo_id": source_photo_id,
             "photo_url": photo_url,
             "asset_url": payload.get("asset_url") or photo_url,
             "object_key": payload.get("object_key"),
@@ -1357,7 +1365,7 @@ class QueryEngineV1:
         return round(min(max(sum(scores) / len(scores), 0.0), 1.0), 4)
 
     def _original_photo_ids(self, supporting_photos: Sequence[Dict[str, Any]]) -> List[str]:
-        rows = [str(item.get("photo_id") or item.get("image_id") or "") for item in list(supporting_photos or [])]
+        rows = [str(item.get("source_photo_id") or item.get("photo_id") or item.get("image_id") or "") for item in list(supporting_photos or [])]
         return self._unique(rows)
 
     def _legacy_unit(self, event: Dict[str, Any]) -> Dict[str, Any]:

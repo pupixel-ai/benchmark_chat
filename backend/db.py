@@ -3,6 +3,8 @@ SQLAlchemy database setup.
 """
 from __future__ import annotations
 
+import uuid
+
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import declarative_base, sessionmaker
@@ -22,6 +24,7 @@ Base = declarative_base()
 
 def ensure_schema() -> None:
     """Apply lightweight schema changes needed for deploy-time compatibility."""
+    Base.metadata.create_all(bind=engine)
     inspector = inspect(engine)
     table_names = set(inspector.get_table_names())
     if "tasks" not in table_names:
@@ -100,3 +103,75 @@ def ensure_schema() -> None:
         add_artifact_column("object_key", f"VARCHAR(512){nullable_suffix}")
         add_artifact_column("asset_url", f"VARCHAR(512){nullable_suffix}")
         add_artifact_column("metadata", f"JSON{nullable_suffix}")
+
+    from sqlalchemy import select
+
+    from backend.models import SubjectUserRecord, TaskRecord, UserRecord
+
+    with SessionLocal() as session:
+        tasks = session.execute(select(TaskRecord)).scalars().all()
+        if not tasks:
+            return
+
+        subjects_by_username = {
+            record.username: record
+            for record in session.execute(select(SubjectUserRecord)).scalars().all()
+            if record.username
+        }
+        auth_users_by_username = {
+            record.username: record
+            for record in session.execute(select(UserRecord)).scalars().all()
+            if record.username
+        }
+
+        for task in tasks:
+            options = dict(task.options or {})
+            original_user_id = str(task.user_id or "").strip() or None
+            legacy_subject_user_id = str(options.pop("subject_user_id", "") or "").strip() or None
+            options.pop("operator_user_id", None)
+            survey_username = str(options.get("survey_username") or "").strip().lower() or None
+
+            if legacy_subject_user_id:
+                task.user_id = legacy_subject_user_id
+
+            if not str(task.user_id or "").strip() and survey_username:
+                auth_user = auth_users_by_username.get(survey_username)
+                if auth_user is not None:
+                    task.user_id = auth_user.user_id
+                    subject = subjects_by_username.get(survey_username)
+                    if subject is None:
+                        subject = SubjectUserRecord(
+                            user_id=auth_user.user_id,
+                            username=survey_username,
+                            display_name=survey_username,
+                            linked_auth_user_id=auth_user.user_id,
+                            created_at=auth_user.created_at,
+                            updated_at=auth_user.updated_at,
+                        )
+                        session.add(subject)
+                        subjects_by_username[survey_username] = subject
+                else:
+                    subject = subjects_by_username.get(survey_username)
+                    if subject is None:
+                        subject = SubjectUserRecord(
+                            user_id=uuid.uuid4().hex,
+                            username=survey_username,
+                            display_name=survey_username,
+                            linked_auth_user_id=None,
+                            created_at=task.created_at,
+                            updated_at=task.updated_at,
+                        )
+                        session.add(subject)
+                        subjects_by_username[survey_username] = subject
+                    task.user_id = subject.user_id
+
+            normalized_owner_user_id = str(task.user_id or "").strip() or None
+            if normalized_owner_user_id:
+                task.user_id = normalized_owner_user_id
+            if not str(task.operator_user_id or "").strip():
+                task.operator_user_id = original_user_id or normalized_owner_user_id
+
+            task.options = options
+            session.add(task)
+
+        session.commit()

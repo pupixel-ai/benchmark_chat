@@ -31,7 +31,10 @@ const MAX_BATCH_FILES = 50;
 const MAX_BATCH_BYTES = 64 * 1024 * 1024;
 const UPLOAD_BATCH_RETRY_LIMIT = 3;
 const UPLOAD_RETRY_BASE_DELAY_MS = 1200;
+const UPLOAD_BATCH_TIMEOUT_MS = 120000;
 const GALLERY_PREVIEW_LIMIT = 120;
+const SUPPORTED_UPLOAD_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif", ".livp"]);
+const IGNORED_UPLOAD_BASENAMES = new Set([".ds_store", "thumbs.db"]);
 const FACE_RECOGNITION_STAGES = new Set(["queued", "starting", "loading", "converting", "face_recognition", "face_visualization"]);
 const FALLBACK_TASK_VERSIONS = ["v0327-db-query", "v0327-db", "v0327-exp", "v0325", "v0323", "v0317-Heavy", "v0317", "v0315", "v0312"];
 const FALLBACK_DEFAULT_TASK_VERSION = FALLBACK_TASK_VERSIONS[0];
@@ -43,6 +46,22 @@ type PendingUpload = {
   filename: string;
   previewUrl: string;
   sizeLabel: string;
+};
+
+type DirectoryUploadFile = File & {
+  webkitRelativePath?: string;
+};
+
+type IgnoredUpload = {
+  filename: string;
+  reason: string;
+};
+
+type PreparedUploadSelection = {
+  files: File[];
+  ignored: IgnoredUpload[];
+  surveyUsername: string | null;
+  truncatedCount: number;
 };
 
 type GalleryCard = {
@@ -173,6 +192,91 @@ function formatTaskTime(value?: string) {
 
 function sleep(ms: number) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+function isSurveyDirectoryTaskVersion(version: string) {
+  return version === "v0327-db-query";
+}
+
+function extractSurveyUsernameFromDirectory(files: File[]) {
+  const roots = new Set<string>();
+  for (const file of files as DirectoryUploadFile[]) {
+    const relativePath = typeof file.webkitRelativePath === "string" ? file.webkitRelativePath.trim() : "";
+    const segments = relativePath.split("/").filter(Boolean);
+    if (segments.length < 2 || !segments[0]?.trim()) {
+      throw new Error("v0327-db-query 需要按文件夹上传，且所有图片必须位于同一个顶层文件夹下");
+    }
+    roots.add(segments[0].trim());
+  }
+  if (roots.size !== 1) {
+    throw new Error("v0327-db-query 仅支持单个顶层文件夹上传，请确认所有图片来自同一个目录");
+  }
+  return Array.from(roots)[0];
+}
+
+function uploadDisplayName(file: File) {
+  const relativePath = typeof (file as DirectoryUploadFile).webkitRelativePath === "string" ? (file as DirectoryUploadFile).webkitRelativePath?.trim() : "";
+  return relativePath || file.name;
+}
+
+function uploadIgnoreReason(file: File) {
+  const displayName = uploadDisplayName(file);
+  const basename = displayName.split("/").filter(Boolean).pop()?.trim() ?? file.name.trim();
+  const lowered = basename.toLowerCase();
+  if (!basename) {
+    return "文件名为空";
+  }
+  if (basename.startsWith(".") || IGNORED_UPLOAD_BASENAMES.has(lowered)) {
+    return "隐藏/系统文件";
+  }
+  const suffixMatch = lowered.match(/(\.[^.]+)$/);
+  const suffix = suffixMatch?.[1] ?? "";
+  if (!SUPPORTED_UPLOAD_EXTENSIONS.has(suffix)) {
+    return `不支持的格式${suffix ? ` (${suffix})` : ""}`;
+  }
+  return null;
+}
+
+function summarizeIgnoredUploads(items: IgnoredUpload[]) {
+  if (items.length === 0) {
+    return null;
+  }
+  const examples = items
+    .slice(0, 3)
+    .map((item) => `${item.filename}（${item.reason}）`)
+    .join("，");
+  const suffix = items.length > 3 ? ` 等 ${items.length} 个文件` : "";
+  return `已跳过 ${items.length} 个不支持文件：${examples}${suffix}`;
+}
+
+function prepareUploadSelection(files: File[], requiresDirectoryUpload: boolean, maxUploadPhotos: number): PreparedUploadSelection {
+  const surveyUsername = requiresDirectoryUpload ? extractSurveyUsernameFromDirectory(files) : null;
+  const accepted: File[] = [];
+  const ignored: IgnoredUpload[] = [];
+
+  files.forEach((file) => {
+    const reason = uploadIgnoreReason(file);
+    if (reason) {
+      ignored.push({
+        filename: uploadDisplayName(file),
+        reason,
+      });
+      return;
+    }
+    accepted.push(file);
+  });
+
+  if (accepted.length === 0) {
+    throw new Error("没有检测到可上传的图片。请确认文件夹中只包含受支持的图片格式");
+  }
+
+  const truncatedFiles = accepted.slice(0, maxUploadPhotos);
+  return {
+    files: truncatedFiles,
+    ignored,
+    surveyUsername,
+    truncatedCount: Math.max(accepted.length - truncatedFiles.length, 0),
+  };
 }
 
 function formatTaskDate(value?: string) {
@@ -1397,6 +1501,11 @@ function compactConfidence(value: unknown) {
   return parsed == null ? "n/a" : parsed.toFixed(2);
 }
 
+function formatFixedMetric(value: unknown, digits = 3, fallback = "n/a") {
+  const parsed = readNumericValue(value);
+  return parsed == null ? fallback : parsed.toFixed(digits);
+}
+
 function isObjectRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
@@ -2092,6 +2201,13 @@ function PersonGroupsPanel({
         <div className="space-y-4">
           {groups.map((group) => {
             const avatarUrl = toAbsoluteUrl(group.avatar_url);
+            const groupRecord = group as unknown as Record<string, unknown>;
+            const photoCount =
+              readNumericValue(group.photo_count) ??
+              readNumericValue(groupRecord.image_count) ??
+              group.images.length;
+            const faceCount = readNumericValue(group.face_count) ?? photoCount;
+            const avgScoreLabel = formatFixedMetric(group.avg_score, 3);
             return (
               <article
                 key={group.person_id}
@@ -2117,7 +2233,7 @@ function PersonGroupsPanel({
                       ) : null}
                     </div>
                     <p className="mt-2 text-sm text-black/60">
-                      对应 {group.photo_count} 张图片 · {group.face_count} 张脸 · 平均检测分数 {group.avg_score.toFixed(3)}
+                      对应 {photoCount} 张图片 · {faceCount} 张脸 · 平均检测分数 {avgScoreLabel}
                     </p>
                   </div>
                 </div>
@@ -2153,7 +2269,7 @@ function PersonGroupsPanel({
                             </span>
                           </div>
                           <p className="text-sm text-black/58">
-                            分数 {image.score.toFixed(3)} · 相似度 {image.similarity.toFixed(3)}
+                            分数 {formatFixedMetric(image.score, 3)} · 相似度 {formatFixedMetric(image.similarity, 3)}
                           </p>
                           {image.timestamp ? (
                             <p className="font-mono text-[11px] uppercase tracking-[0.12em] text-black/40">
@@ -2350,6 +2466,9 @@ function RecallChatDock({
 export default function HomePage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const pollTimerRef = useRef<number | null>(null);
+  const taskDetailAbortRef = useRef<AbortController | null>(null);
+  const memoryStepsAbortRef = useRef<AbortController | null>(null);
+  const fullMemoryAbortRef = useRef<AbortController | null>(null);
 
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
@@ -2378,6 +2497,7 @@ export default function HomePage() {
     totalFiles: number;
     uploadedFiles: number;
     failedFiles: number;
+    ignoredFiles: number;
     totalBatches: number;
     completedBatches: number;
     retryAttempt: number;
@@ -2391,6 +2511,7 @@ export default function HomePage() {
   const [memoryStepsByTask, setMemoryStepsByTask] = useState<Record<string, TaskMemoryStepsResponse | null>>({});
   const [memoryStepsLoadingByTask, setMemoryStepsLoadingByTask] = useState<Record<string, boolean>>({});
   const [error, setError] = useState<string | null>(null);
+  const [uploadNotice, setUploadNotice] = useState<string | null>(null);
 
   const currentFaceStage = currentTask ? readStageProgress(currentTask.progress, "face_recognition") : {};
   const facePreview = (currentFaceStage.face_result_preview as FaceRecognitionPayload | undefined) ?? null;
@@ -2425,20 +2546,34 @@ export default function HomePage() {
     uploadProgressForCurrentTask?.uploadedFiles ?? 0
   );
   const uploadFailedCount = uploadProgressForCurrentTask?.failedFiles ?? 0;
+  const uploadIgnoredCount = uploadProgressForCurrentTask?.ignoredFiles ?? 0;
   const uploadRemainingCount = uploadProgressForCurrentTask
-    ? Math.max(uploadTotalCount - uploadUploadedCount - uploadFailedCount, 0)
+    ? Math.max(uploadTotalCount - uploadUploadedCount - uploadFailedCount - uploadIgnoredCount, 0)
     : Math.max(uploadTotalCount - uploadUploadedCount, 0);
   const uploadTotalBatches = uploadProgressForCurrentTask?.totalBatches ?? 0;
   const uploadCompletedBatches = uploadProgressForCurrentTask?.completedBatches ?? 0;
   const uploadActiveBatch = uploadTotalBatches > 0 ? Math.min(uploadCompletedBatches + 1, uploadTotalBatches) : 0;
   const uploadRetryAttempt = uploadProgressForCurrentTask?.retryAttempt ?? 0;
   const uploadLastError = uploadProgressForCurrentTask?.lastError ?? null;
+  const selectedTaskNeedsDirectoryUpload = isSurveyDirectoryTaskVersion(selectedTaskVersion);
 
   useEffect(() => {
     return () => {
+      taskDetailAbortRef.current?.abort();
+      memoryStepsAbortRef.current?.abort();
+      fullMemoryAbortRef.current?.abort();
       revokePendingUploads(pendingUploads);
     };
   }, [pendingUploads]);
+
+  function abortTaskDataRequests() {
+    taskDetailAbortRef.current?.abort();
+    taskDetailAbortRef.current = null;
+    memoryStepsAbortRef.current?.abort();
+    memoryStepsAbortRef.current = null;
+    fullMemoryAbortRef.current?.abort();
+    fullMemoryAbortRef.current = null;
+  }
 
   const galleryItems = useMemo<GalleryCard[]>(() => {
     if (pendingUploads.length > 0) {
@@ -2579,6 +2714,7 @@ export default function HomePage() {
       setMemoryStepsByTask({});
       setMemoryStepsLoadingByTask({});
       setUploadProgress(null);
+      setUploadNotice(null);
       setPendingUploads((previous) => {
         revokePendingUploads(previous);
         return [];
@@ -2634,8 +2770,14 @@ export default function HomePage() {
     if (showLoading) {
       setIsTaskLoading(true);
     }
+    taskDetailAbortRef.current?.abort();
+    const controller = new AbortController();
+    taskDetailAbortRef.current = controller;
     try {
-      const response = await apiFetch(`${API_BASE}/api/tasks/${taskId}`, { cache: "no-store" });
+      const response = await apiFetch(`${API_BASE}/api/tasks/${taskId}`, {
+        cache: "no-store",
+        signal: controller.signal,
+      });
       if (response.status === 401) {
         setAuthUser(null);
         setTasks([]);
@@ -2647,6 +2789,9 @@ export default function HomePage() {
         throw new Error("读取任务详情失败");
       }
       const payload = (await response.json()) as TaskState;
+      if (controller.signal.aborted) {
+        return;
+      }
       setCurrentTask(payload);
       setIsDraftView(false);
       if (LP_SNAPSHOT_TASK_VERSIONS.has(payload.version ?? "") && payload.status !== "draft" && payload.status !== "uploading") {
@@ -2684,7 +2829,15 @@ export default function HomePage() {
         return next;
       });
       return payload;
+    } catch (fetchError) {
+      if (fetchError instanceof DOMException && fetchError.name === "AbortError") {
+        return;
+      }
+      throw fetchError;
     } finally {
+      if (taskDetailAbortRef.current === controller) {
+        taskDetailAbortRef.current = null;
+      }
       if (showLoading) {
         setIsTaskLoading(false);
       }
@@ -2692,12 +2845,18 @@ export default function HomePage() {
   }
 
   async function fetchTaskMemorySteps(taskId: string) {
+    memoryStepsAbortRef.current?.abort();
+    const controller = new AbortController();
+    memoryStepsAbortRef.current = controller;
     setMemoryStepsLoadingByTask((previous) => ({
       ...previous,
       [taskId]: true,
     }));
     try {
-      const response = await apiFetch(`${API_BASE}/api/tasks/${taskId}/memory/steps`, { cache: "no-store" });
+      const response = await apiFetch(`${API_BASE}/api/tasks/${taskId}/memory/steps`, {
+        cache: "no-store",
+        signal: controller.signal,
+      });
       if (response.status === 404) {
         setMemoryStepsByTask((previous) => ({
           ...previous,
@@ -2710,13 +2869,22 @@ export default function HomePage() {
         throw new Error(payload?.detail ?? "读取 LP steps 失败");
       }
       const payload = (await response.json()) as TaskMemoryStepsResponse;
+      if (controller.signal.aborted) {
+        return;
+      }
       setMemoryStepsByTask((previous) => ({
         ...previous,
         [taskId]: payload,
       }));
     } catch (fetchError) {
+      if (fetchError instanceof DOMException && fetchError.name === "AbortError") {
+        return;
+      }
       setError(fetchError instanceof Error ? fetchError.message : "读取 LP steps 失败");
     } finally {
+      if (memoryStepsAbortRef.current === controller) {
+        memoryStepsAbortRef.current = null;
+      }
       setMemoryStepsLoadingByTask((previous) => ({
         ...previous,
         [taskId]: false,
@@ -2725,12 +2893,18 @@ export default function HomePage() {
   }
 
   async function fetchTaskFullMemory(taskId: string) {
+    fullMemoryAbortRef.current?.abort();
+    const controller = new AbortController();
+    fullMemoryAbortRef.current = controller;
     setFullMemoryLoadingByTask((previous) => ({
       ...previous,
       [taskId]: true,
     }));
     try {
-      const response = await apiFetch(`${API_BASE}/api/tasks/${taskId}/memory/core`, { cache: "no-store" });
+      const response = await apiFetch(`${API_BASE}/api/tasks/${taskId}/memory/core`, {
+        cache: "no-store",
+        signal: controller.signal,
+      });
       if (response.status === 404) {
         setFullMemoryByTask((previous) => ({
           ...previous,
@@ -2743,13 +2917,22 @@ export default function HomePage() {
         throw new Error(payload?.detail ?? "读取 memory core 失败");
       }
       const payload = (await response.json()) as TaskMemoryFullResponse;
+      if (controller.signal.aborted) {
+        return;
+      }
       setFullMemoryByTask((previous) => ({
         ...previous,
         [taskId]: payload,
       }));
     } catch (fetchError) {
+      if (fetchError instanceof DOMException && fetchError.name === "AbortError") {
+        return;
+      }
       setError(fetchError instanceof Error ? fetchError.message : "读取 memory core 失败");
     } finally {
+      if (fullMemoryAbortRef.current === controller) {
+        fullMemoryAbortRef.current = null;
+      }
       setFullMemoryLoadingByTask((previous) => ({
         ...previous,
         [taskId]: false,
@@ -2804,11 +2987,13 @@ export default function HomePage() {
     };
   }, [currentTask, isDraftView]);
 
-  async function createTask(files: File[]) {
+  async function createTask(files: File[], surveyUsername?: string | null) {
+    abortTaskDataRequests();
     setIsUploading(true);
     setError(null);
     let createdTaskId: string | null = null;
     let completedSuccessfully = false;
+    const creationSource = selectedTaskNeedsDirectoryUpload ? "directory" : "manual";
 
     try {
       const response = await apiFetch(`${API_BASE}/api/tasks`, {
@@ -2816,10 +3001,11 @@ export default function HomePage() {
         body: JSON.stringify({
           version: selectedTaskVersion,
           normalize_live_photos: normalizeLivePhotos,
-          creation_source: "manual",
+          creation_source: creationSource,
           expected_upload_count: files.length,
           requested_max_photos: Math.min(files.length, maxUploadPhotos),
           auto_start_on_upload_complete: true,
+          survey_username: surveyUsername ?? undefined,
         })
       });
 
@@ -2841,6 +3027,7 @@ export default function HomePage() {
         totalFiles: files.length,
         uploadedFiles: 0,
         failedFiles: 0,
+        ignoredFiles: 0,
         totalBatches: batches.length,
         completedBatches: 0,
         retryAttempt: 0,
@@ -2863,16 +3050,27 @@ export default function HomePage() {
 
           try {
             const formData = new FormData();
-            formData.append("creation_source", "manual");
+            formData.append("creation_source", creationSource);
             formData.append("expected_upload_count", String(files.length));
             formData.append("requested_max_photos", String(Math.min(files.length, maxUploadPhotos)));
             formData.append("auto_start_on_upload_complete", "true");
+            if (surveyUsername) {
+              formData.append("survey_username", surveyUsername);
+            }
             batch.forEach((file) => formData.append("files", file));
 
-            const batchResponse = await apiFetch(`${API_BASE}/api/tasks/${payload.task_id}/upload-batches`, {
-              method: "POST",
-              body: formData,
-            });
+            const controller = new AbortController();
+            const timeoutId = window.setTimeout(() => controller.abort(), UPLOAD_BATCH_TIMEOUT_MS);
+            let batchResponse: Response;
+            try {
+              batchResponse = await apiFetch(`${API_BASE}/api/tasks/${payload.task_id}/upload-batches`, {
+                method: "POST",
+                body: formData,
+                signal: controller.signal,
+              });
+            } finally {
+              window.clearTimeout(timeoutId);
+            }
             if (!batchResponse.ok) {
               const batchPayload = await batchResponse.json().catch(() => null);
               throw new Error(batchPayload?.detail ?? `第 ${batchIndex + 1} 批上传失败`);
@@ -2881,9 +3079,12 @@ export default function HomePage() {
             const batchPayload = (await batchResponse.json()) as {
               upload_count?: number;
               failed_count?: number;
+              ignored_count?: number;
+              ignored_files?: Array<{ filename?: string; reason?: string }>;
               status?: TaskState["status"];
               stage?: string;
             };
+            const ignoredCount = Number(batchPayload.ignored_count ?? 0);
             accumulatedFailedCount += Number(batchPayload.failed_count ?? 0);
             setUploadProgress((previous) =>
               previous && previous.taskId === payload.task_id
@@ -2891,12 +3092,20 @@ export default function HomePage() {
                     ...previous,
                     uploadedFiles: Math.max(previous.uploadedFiles, Number(batchPayload.upload_count ?? previous.uploadedFiles)),
                     failedFiles: previous.failedFiles + Number(batchPayload.failed_count ?? 0),
+                    ignoredFiles: previous.ignoredFiles + ignoredCount,
                     completedBatches: Math.max(previous.completedBatches, batchIndex + 1),
                     retryAttempt: 0,
                     lastError: null,
                   }
                 : previous
             );
+            if (ignoredCount > 0) {
+              const ignoredExamples = (batchPayload.ignored_files ?? [])
+                .slice(0, 3)
+                .map((item) => item.filename || "未知文件")
+                .join("，");
+              setUploadNotice(`服务端额外跳过了 ${ignoredCount} 个文件${ignoredExamples ? `：${ignoredExamples}` : ""}`);
+            }
             setCurrentTask((previous) =>
               previous && previous.task_id === payload.task_id
                 ? {
@@ -2909,7 +3118,12 @@ export default function HomePage() {
             );
             return;
           } catch (batchError) {
-            const message = batchError instanceof Error ? batchError.message : `第 ${batchIndex + 1} 批上传失败`;
+            const message =
+              batchError instanceof DOMException && batchError.name === "AbortError"
+                ? `第 ${batchIndex + 1} 批上传超时（>${Math.round(UPLOAD_BATCH_TIMEOUT_MS / 1000)} 秒）`
+                : batchError instanceof Error
+                  ? batchError.message
+                  : `第 ${batchIndex + 1} 批上传失败`;
             setUploadProgress((previous) =>
               previous && previous.taskId === payload.task_id
                 ? {
@@ -3102,22 +3316,58 @@ export default function HomePage() {
 
   function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const incomingFiles = Array.from(event.target.files ?? []);
-    const exceededLimit = incomingFiles.length > maxUploadPhotos;
-    const files = incomingFiles.slice(0, maxUploadPhotos);
-    if (files.length === 0) {
+    if (incomingFiles.length === 0) {
       return;
     }
 
-    setError(exceededLimit ? `当前环境最多上传 ${maxUploadPhotos} 张图片，已自动截断` : null);
+    let preparedSelection: PreparedUploadSelection;
+    if (selectedTaskNeedsDirectoryUpload) {
+      try {
+        preparedSelection = prepareUploadSelection(incomingFiles, true, maxUploadPhotos);
+      } catch (uploadError) {
+        const message = uploadError instanceof Error ? uploadError.message : "目录上传校验失败";
+        setError(message);
+        setUploadNotice(null);
+        setSelectedFiles([]);
+        setPendingUploads((previous) => {
+          revokePendingUploads(previous);
+          return [];
+        });
+        event.target.value = "";
+        return;
+      }
+    } else {
+      try {
+        preparedSelection = prepareUploadSelection(incomingFiles, false, maxUploadPhotos);
+      } catch (uploadError) {
+        const message = uploadError instanceof Error ? uploadError.message : "图片上传校验失败";
+        setError(message);
+        setUploadNotice(null);
+        setSelectedFiles([]);
+        setPendingUploads((previous) => {
+          revokePendingUploads(previous);
+          return [];
+        });
+        event.target.value = "";
+        return;
+      }
+    }
+
+    const files = preparedSelection.files;
+    const limitWarning =
+      preparedSelection.truncatedCount > 0 ? `当前环境最多上传 ${maxUploadPhotos} 张图片，已自动截断 ${preparedSelection.truncatedCount} 张` : null;
+    setError(limitWarning);
+    setUploadNotice(summarizeIgnoredUploads(preparedSelection.ignored));
     setSelectedFiles(files);
     setPendingUploads((previous) => {
       revokePendingUploads(previous);
       return buildPendingUploads(files);
     });
-    void createTask(files);
+    void createTask(files, preparedSelection.surveyUsername);
   }
 
   function openDraftTask() {
+    abortTaskDataRequests();
     setIsDraftView(true);
     setCurrentTask(null);
     setError(null);
@@ -3130,6 +3380,7 @@ export default function HomePage() {
     setFullMemoryLoadingByTask({});
     setMemoryStepsLoadingByTask({});
     setUploadProgress(null);
+    setUploadNotice(null);
     setPendingUploads((previous) => {
       revokePendingUploads(previous);
       return [];
@@ -3201,10 +3452,14 @@ export default function HomePage() {
       <p className="text-sm text-black/58">当前还没有可展示的人物索引。</p>
     );
   const personIndexReady = personGroups.length > 0 || Boolean(faceReport) || Boolean(facePreview);
+  const fileInputModeProps = selectedTaskNeedsDirectoryUpload
+    ? ({ webkitdirectory: "", directory: "" } as Record<string, string>)
+    : {};
 
   return (
     <main className="min-h-screen px-2 py-6 md:px-4">
       <input
+        key={selectedTaskNeedsDirectoryUpload ? "directory-upload" : "file-upload"}
         ref={fileInputRef}
         type="file"
         accept="image/*,.heic,.heif,.livp"
@@ -3212,6 +3467,7 @@ export default function HomePage() {
         onChange={handleFileChange}
         disabled={isUploading}
         className="hidden"
+        {...(fileInputModeProps as any)}
       />
 
       <div className="mx-auto flex max-w-[1680px] gap-0">
@@ -3341,7 +3597,11 @@ export default function HomePage() {
                 <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
                   <div>
                     <p className="font-mono text-xs uppercase tracking-[0.2em] text-black/42">上传入口</p>
-                    <p className="mt-2 text-base text-black/64">当前环境最多上传 {maxUploadPhotos} 张图片。图片会按 50 张一批分片上传，完成后自动启动人脸识别。</p>
+                    <p className="mt-2 text-base text-black/64">
+                      {selectedTaskNeedsDirectoryUpload
+                        ? `当前环境最多上传 ${maxUploadPhotos} 张图片。请直接选择顶层文件夹，文件夹名会作为 survey_username，并按 50 张一批分片上传。`
+                        : `当前环境最多上传 ${maxUploadPhotos} 张图片。图片会按 50 张一批分片上传，完成后自动启动人脸识别。`}
+                    </p>
                     {selectedFiles.length > 0 ? (
                       <p className="mt-3 font-mono text-xs uppercase tracking-[0.2em] text-black/42">已选择 {selectedFiles.length} / {maxUploadPhotos}</p>
                     ) : null}
@@ -3392,7 +3652,7 @@ export default function HomePage() {
                       disabled={isUploading}
                       className="inline-flex items-center justify-center rounded-full bg-[#1f1a15] px-5 py-3 text-sm font-medium text-white transition hover:bg-[#2d251e] disabled:cursor-not-allowed disabled:bg-black/20"
                     >
-                      选择图片并开始
+                      {selectedTaskNeedsDirectoryUpload ? "选择文件夹并开始" : "选择图片并开始"}
                     </button>
                   </div>
                 </div>
@@ -3427,11 +3687,14 @@ export default function HomePage() {
                       {(uploadProgress?.retryAttempt ?? 0) > 1 ? (
                         <span>重试 {uploadProgress?.retryAttempt}/{UPLOAD_BATCH_RETRY_LIMIT}</span>
                       ) : null}
+                      {(uploadProgress?.ignoredFiles ?? 0) > 0 ? <span>已跳过 {uploadProgress?.ignoredFiles}</span> : null}
                     </div>
                     {uploadProgress?.lastError ? <p className="mt-3 text-sm text-[#8a5637]">{uploadProgress.lastError}</p> : null}
+                    {uploadNotice ? <p className="mt-2 text-sm text-black/58">{uploadNotice}</p> : null}
                   </div>
                 ) : null}
 
+                {uploadNotice && !uploadSessionActive ? <p className="mt-4 text-sm text-black/58">{uploadNotice}</p> : null}
                 {error ? <p className="mt-4 text-sm text-[#8a5637]">{error}</p> : null}
               </section>
             </>
@@ -3482,6 +3745,7 @@ export default function HomePage() {
                       <p className="mt-1 text-sm text-black/56">
                         {uploadTotalCount > 0 ? `剩余 ${uploadRemainingCount}` : "总数待确认"}
                         {uploadFailedCount > 0 ? ` · 失败 ${uploadFailedCount}` : ""}
+                        {uploadIgnoredCount > 0 ? ` · 跳过 ${uploadIgnoredCount}` : ""}
                       </p>
                       {uploadTotalBatches > 0 ? (
                         <p className="mt-1 text-xs text-black/45">

@@ -4,10 +4,14 @@ import copy
 import json
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Sequence
+from urllib.parse import unquote, urlparse
 
-from config import FRONTEND_ORIGIN
+from config import ASSET_URL_PREFIX, FRONTEND_ORIGIN
 from services.v0325.profile_compaction import compact_lp3_profile
 from services.v0321_3.retrieval_shadow import build_profile_truth_v1
+from services.asset_store import TaskAssetStore
+
+_survey_asset_store = TaskAssetStore()
 
 
 def _unique(values: Iterable[Any]) -> List[Any]:
@@ -35,6 +39,56 @@ def _public_asset_url(value: Any) -> str | None:
         origin = FRONTEND_ORIGIN.rstrip("/")
         return f"{origin}{text}" if origin else text
     return text
+
+
+def _extract_task_asset_relative_path(task_id: str, value: Any) -> str | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+
+    prefixes = (
+        f"{ASSET_URL_PREFIX}/{task_id}/",
+        f"/api/assets/{task_id}/",
+    )
+    parsed = urlparse(text)
+    path = parsed.path or text
+    for prefix in prefixes:
+        if path.startswith(prefix):
+            return unquote(path[len(prefix) :]).strip() or None
+    if "://" not in text and not text.startswith("/"):
+        try:
+            return _survey_asset_store.sanitize_relative_path(text)
+        except Exception:
+            return None
+    return None
+
+
+def _survey_accessible_asset_url(task_id: str, *candidates: Any) -> str | None:
+    for candidate in candidates:
+        text = str(candidate or "").strip()
+        if not text:
+            continue
+        if text.lower().startswith(("http://", "https://", "data:", "blob:", "//")):
+            if _extract_task_asset_relative_path(task_id, text):
+                continue
+            public_url = _public_asset_url(text)
+            if public_url:
+                return public_url
+    for candidate in candidates:
+        relative_path = _extract_task_asset_relative_path(task_id, candidate)
+        if not relative_path:
+            continue
+        presigned = _survey_asset_store.presigned_get_url(task_id, relative_path, expires_in=7 * 24 * 3600)
+        if presigned:
+            return presigned
+        public_url = _public_asset_url(_survey_asset_store.asset_url(task_id, relative_path))
+        if public_url:
+            return public_url
+    for candidate in candidates:
+        public_url = _public_asset_url(candidate)
+        if public_url:
+            return public_url
+    return None
 
 
 def _best_display_photo_url(photo: dict | None) -> str | None:
@@ -340,7 +394,7 @@ def _build_profile(memory_payload: dict, photo_catalog: Dict[str, dict], *, user
     }
 
 
-def _build_survey_events(memory_payload: dict, photo_catalog: Dict[str, dict]) -> List[dict]:
+def _build_survey_events(task_id: str, memory_payload: dict, photo_catalog: Dict[str, dict]) -> List[dict]:
     events: List[dict] = []
     if memory_payload.get("pipeline_family") == "v0323" or memory_payload.get("lp1_events"):
         event_source = list(memory_payload.get("lp1_events", []) or [])
@@ -402,9 +456,23 @@ def _build_survey_events(memory_payload: dict, photo_catalog: Dict[str, dict]) -
                 "person_ids": person_ids,
                 "photo_ids": photo_ids,
                 "photo_boxed_urls": _unique(
-                    _best_display_photo_url(photo)
+                    _survey_accessible_asset_url(
+                        task_id,
+                        photo.get("boxed_image_url"),
+                        photo.get("display_image_url"),
+                        photo.get("original_image_url"),
+                        photo.get("asset_url"),
+                        photo.get("path"),
+                    )
                     for photo in resolved_photos
-                    if _best_display_photo_url(photo)
+                    if _survey_accessible_asset_url(
+                        task_id,
+                        photo.get("boxed_image_url"),
+                        photo.get("display_image_url"),
+                        photo.get("original_image_url"),
+                        photo.get("asset_url"),
+                        photo.get("path"),
+                    )
                 ),
             }
         )
@@ -412,6 +480,7 @@ def _build_survey_events(memory_payload: dict, photo_catalog: Dict[str, dict]) -
 
 
 def _build_survey_relationships(
+    task_id: str,
     memory_payload: dict,
     survey_events: Sequence[dict],
     photo_catalog: Dict[str, dict],
@@ -451,9 +520,29 @@ def _build_survey_relationships(
 
         boxed_image_url = next(
             (
-                str(_best_display_photo_url(photo) or "").strip()
+                str(
+                    _survey_accessible_asset_url(
+                        task_id,
+                        photo.get("boxed_image_url"),
+                        photo.get("display_image_url"),
+                        photo.get("original_image_url"),
+                        photo.get("asset_url"),
+                        photo.get("path"),
+                    )
+                    or ""
+                ).strip()
                 for photo in resolved_supporting_photos
-                if str(_best_display_photo_url(photo) or "").strip()
+                if str(
+                    _survey_accessible_asset_url(
+                        task_id,
+                        photo.get("boxed_image_url"),
+                        photo.get("display_image_url"),
+                        photo.get("original_image_url"),
+                        photo.get("asset_url"),
+                        photo.get("path"),
+                    )
+                    or ""
+                ).strip()
             ),
             "",
         )
@@ -668,12 +757,13 @@ def build_task_survey_import_payload(task: dict) -> dict:
     if not isinstance(memory_payload, dict):
         raise KeyError("当前任务没有 memory 输出")
 
+    task_id = str(task.get("task_id") or "").strip()
     photo_catalog, _ = _build_photo_catalog(task)
     user_id = str(task.get("user_id") or "")
     pipeline_family = str(memory_payload.get("pipeline_family") or "")
     profile = _build_profile(memory_payload, photo_catalog, user_id=user_id, pipeline_family=pipeline_family)
-    survey_events = _build_survey_events(memory_payload, photo_catalog)
-    relationships = _build_survey_relationships(memory_payload, survey_events, photo_catalog)
+    survey_events = _build_survey_events(task_id, memory_payload, photo_catalog)
+    relationships = _build_survey_relationships(task_id, memory_payload, survey_events, photo_catalog)
     return {
         "profile": {
             "report_markdown": str(profile.get("report_markdown") or ""),

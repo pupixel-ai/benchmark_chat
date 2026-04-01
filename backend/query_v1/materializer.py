@@ -56,6 +56,13 @@ def materialize_v0325_to_query_store(task: Dict[str, Any], user_id: str, store: 
     materialization_id = _stable_id("mat", task_id, task.get("updated_at") or "", SCHEMA_VERSION)
     photo_rows = _build_photo_rows(task, user_id=user_id, task_id=task_id, pipeline_family=pipeline_family, materialization_id=materialization_id)
     photo_by_id = {row["photo_id"]: row for row in photo_rows}
+    person_rows, face_rows = _build_face_rows(
+        face_result=face_result,
+        user_id=user_id,
+        task_id=task_id,
+        pipeline_family=pipeline_family,
+        materialization_id=materialization_id,
+    )
 
     lp1_events = list(memory.get("lp1_events", []) or _load_json_list(family_dir / "lp1_events_compact.json"))
     lp2_relationships = list(memory.get("lp2_relationships", []) or _load_json_list(family_dir / "lp2_relationships.json"))
@@ -143,6 +150,8 @@ def materialize_v0325_to_query_store(task: Dict[str, Any], user_id: str, store: 
         MaterializedBundle(
             materialization=initial_materialization,
             photos=photo_rows,
+            persons=person_rows,
+            faces=face_rows,
             events=event_rows,
             event_photos=event_photo_rows,
             event_people=event_people_rows,
@@ -177,6 +186,174 @@ def materialize_v0325_to_query_store(task: Dict[str, Any], user_id: str, store: 
         error_summary=error_summary,
     )
     return updated or initial_materialization
+
+
+def persist_v0325_stage_to_query_store(
+    *,
+    task_id: str,
+    user_id: str | None,
+    face_result: Dict[str, Any],
+    observations: Sequence[Dict[str, Any]] | None,
+    lp1_events: Sequence[Dict[str, Any]] | None,
+    lp2_relationships: Sequence[Dict[str, Any]] | None = None,
+    relationship_dossiers: Sequence[Dict[str, Any]] | None = None,
+    group_artifacts: Sequence[Dict[str, Any]] | None = None,
+    profile_fact_decisions: Sequence[Dict[str, Any]] | None = None,
+    structured_profile: Dict[str, Any] | None = None,
+    pipeline_family: str = "v0325",
+    source_updated_at: datetime | None = None,
+    stage_status: str = "stage_lp1",
+    publish_indexes: bool = False,
+    store: Optional[QueryStore] = None,
+) -> Dict[str, Any]:
+    normalized_user_id = str(user_id or "").strip()
+    normalized_task_id = str(task_id or "").strip()
+    if not normalized_user_id or not normalized_task_id:
+        return {}
+
+    query_store = store or QueryStore()
+    materialization_id = _stable_id("mat", normalized_task_id, SCHEMA_VERSION)
+    normalized_observations = [dict(item) for item in list(observations or []) if isinstance(item, dict)]
+    normalized_lp1_events = [dict(item) for item in list(lp1_events or []) if isinstance(item, dict)]
+    normalized_lp2_relationships = [dict(item) for item in list(lp2_relationships or []) if isinstance(item, dict)]
+    normalized_relationship_dossiers = [dict(item) for item in list(relationship_dossiers or []) if isinstance(item, dict)]
+    normalized_group_artifacts = [dict(item) for item in list(group_artifacts or []) if isinstance(item, dict)]
+    normalized_profile_fact_decisions = [dict(item) for item in list(profile_fact_decisions or []) if isinstance(item, dict)]
+    normalized_structured_profile = dict(structured_profile or {})
+
+    photo_rows = _build_photo_rows_from_stage_payloads(
+        task_id=normalized_task_id,
+        user_id=normalized_user_id,
+        pipeline_family=pipeline_family,
+        materialization_id=materialization_id,
+        face_result=face_result,
+        observations=normalized_observations,
+    )
+    photo_by_id = {row["photo_id"]: row for row in photo_rows}
+    person_rows, face_rows = _build_face_rows(
+        face_result=face_result,
+        user_id=normalized_user_id,
+        task_id=normalized_task_id,
+        pipeline_family=pipeline_family,
+        materialization_id=materialization_id,
+    )
+    event_rows, event_photo_rows, event_people_rows, event_place_rows = _build_event_rows(
+        lp1_events=normalized_lp1_events,
+        user_id=normalized_user_id,
+        task_id=normalized_task_id,
+        pipeline_family=pipeline_family,
+        materialization_id=materialization_id,
+        photo_by_id=photo_by_id,
+    )
+    relationship_rows, relationship_support_rows = _build_relationship_rows(
+        lp2_relationships=normalized_lp2_relationships,
+        relationship_dossiers=normalized_relationship_dossiers,
+        user_id=normalized_user_id,
+        task_id=normalized_task_id,
+        pipeline_family=pipeline_family,
+        materialization_id=materialization_id,
+    )
+    evidence_rows = _build_evidence_rows(
+        vp1_observations=normalized_observations,
+        lp1_events=normalized_lp1_events,
+        relationships=relationship_rows,
+        relationship_support_rows=relationship_support_rows,
+        photo_to_events=_photo_to_events(event_photo_rows),
+        user_id=normalized_user_id,
+        task_id=normalized_task_id,
+        pipeline_family=pipeline_family,
+        materialization_id=materialization_id,
+    )
+    group_rows, group_member_rows = _build_group_rows(
+        groups=normalized_group_artifacts,
+        user_id=normalized_user_id,
+        task_id=normalized_task_id,
+        pipeline_family=pipeline_family,
+        materialization_id=materialization_id,
+    )
+    profile_fact_rows = _build_profile_fact_rows(
+        structured_profile=normalized_structured_profile,
+        profile_fact_decisions=normalized_profile_fact_decisions,
+        user_id=normalized_user_id,
+        task_id=normalized_task_id,
+        pipeline_family=pipeline_family,
+        materialization_id=materialization_id,
+    )
+
+    materialization = {
+        "materialization_id": materialization_id,
+        "user_id": normalized_user_id,
+        "source_task_id": normalized_task_id,
+        "pipeline_family": pipeline_family,
+        "schema_version": SCHEMA_VERSION,
+        "status": stage_status,
+        "source_updated_at": source_updated_at,
+        "milvus_status": {"status": "pending" if publish_indexes else "skipped"},
+        "neo4j_status": {"status": "pending" if publish_indexes else "skipped"},
+        "error_summary": None,
+    }
+    query_store.replace_scope(
+        MaterializedBundle(
+            materialization=materialization,
+            photos=photo_rows,
+            persons=person_rows,
+            faces=face_rows,
+            events=event_rows,
+            event_photos=event_photo_rows,
+            event_people=event_people_rows,
+            event_places=event_place_rows,
+            evidence=evidence_rows,
+            relationships=relationship_rows,
+            relationship_support=relationship_support_rows,
+            groups=group_rows,
+            group_members=group_member_rows,
+            profile_facts=profile_fact_rows,
+        )
+    )
+
+    if not publish_indexes:
+        return materialization
+
+    event_views = _build_event_views(
+        events=event_rows,
+        event_photos=event_photo_rows,
+        event_people=event_people_rows,
+        event_places=event_place_rows,
+        evidence_rows=evidence_rows,
+        relationships=relationship_rows,
+        relationship_support=relationship_support_rows,
+    )
+    evidence_docs = _build_evidence_docs(evidence_rows, event_people_rows, event_places_rows=event_place_rows)
+    graph_payload = _build_graph_payload(
+        primary_person_id=str(face_result.get("primary_person_id") or "") or None,
+        events=event_rows,
+        event_people=event_people_rows,
+        event_places=event_place_rows,
+        relationships=relationship_rows,
+        relationship_support=relationship_support_rows,
+        groups=group_rows,
+        group_members=group_member_rows,
+    )
+    milvus_status = MilvusQueryIndexer().publish(event_views=event_views, evidence_docs=evidence_docs)
+    neo4j_status = Neo4jQueryIndexer().publish(graph_payload)
+    final_status = "materialized"
+    error_summary = None
+    if str(milvus_status.get("status")) == "failed" or str(neo4j_status.get("status")) == "failed":
+        final_status = "partial_failure"
+        reasons = [
+            item.get("reason")
+            for item in (milvus_status, neo4j_status)
+            if isinstance(item, dict) and item.get("status") == "failed" and item.get("reason")
+        ]
+        error_summary = "; ".join(str(item) for item in reasons if item)
+    updated = query_store.update_materialization_status(
+        materialization_id=materialization_id,
+        status=final_status,
+        milvus_status=milvus_status,
+        neo4j_status=neo4j_status,
+        error_summary=error_summary,
+    )
+    return updated or materialization
 
 
 def _load_named_payload(inline_payload: Any, fallback_path: Path) -> List[Dict[str, Any]]:
@@ -230,6 +407,88 @@ def _stable_id(prefix: str, *parts: Any) -> str:
     return f"{prefix}_{hashlib.sha1(joined.encode('utf-8')).hexdigest()[:24]}"
 
 
+def _scoped_entity_id(task_id: str, entity_id: Any) -> str:
+    normalized = str(entity_id or "").strip()
+    if not normalized:
+        return ""
+    return f"{task_id}:{normalized}"
+
+
+def _scoped_photo_id(task_id: str, photo_id: Any) -> str:
+    return _scoped_entity_id(task_id, photo_id)
+
+
+def _build_photo_rows_from_stage_payloads(
+    *,
+    task_id: str,
+    user_id: str,
+    pipeline_family: str,
+    materialization_id: str,
+    face_result: Dict[str, Any],
+    observations: Sequence[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    images = list(face_result.get("images") or [])
+    by_photo_id: Dict[str, Dict[str, Any]] = {}
+    for observation in list(observations or []):
+        if not isinstance(observation, dict):
+            continue
+        raw_photo_id = str(observation.get("photo_id") or "").strip()
+        if not raw_photo_id:
+            continue
+        by_photo_id[raw_photo_id] = {
+            "photo_id": _scoped_photo_id(task_id, raw_photo_id),
+            "user_id": user_id,
+            "source_task_id": task_id,
+            "pipeline_family": pipeline_family,
+            "materialization_id": materialization_id,
+            "object_key": None,
+            "asset_url": None,
+            "captured_at": observation.get("timestamp"),
+            "content_type": None,
+            "width": None,
+            "height": None,
+            "photo_payload": copy.deepcopy(observation),
+        }
+    for image in images:
+        if not isinstance(image, dict):
+            continue
+        raw_photo_id = str(image.get("image_id") or image.get("source_hash") or "").strip()
+        if not raw_photo_id:
+            continue
+        payload = by_photo_id.setdefault(
+            raw_photo_id,
+            {
+                "photo_id": _scoped_photo_id(task_id, raw_photo_id),
+                "user_id": user_id,
+                "source_task_id": task_id,
+                "pipeline_family": pipeline_family,
+                "materialization_id": materialization_id,
+                "object_key": None,
+                "asset_url": image.get("display_image_url") or image.get("original_image_url"),
+                "captured_at": image.get("timestamp"),
+                "content_type": image.get("content_type"),
+                "width": image.get("width"),
+                "height": image.get("height"),
+                "photo_payload": copy.deepcopy(image),
+            },
+        )
+        if image.get("display_image_url") or image.get("original_image_url"):
+            payload["asset_url"] = image.get("display_image_url") or image.get("original_image_url")
+        if image.get("timestamp"):
+            payload["captured_at"] = image.get("timestamp")
+        if image.get("content_type"):
+            payload["content_type"] = image.get("content_type")
+        if image.get("width") is not None:
+            payload["width"] = image.get("width")
+        if image.get("height") is not None:
+            payload["height"] = image.get("height")
+        merged_payload = copy.deepcopy(payload.get("photo_payload") or {})
+        if not isinstance(merged_payload, dict):
+            merged_payload = {}
+        payload["photo_payload"] = {**merged_payload, **copy.deepcopy(image)}
+    return list(by_photo_id.values())
+
+
 def _build_photo_rows(
     task: Dict[str, Any],
     *,
@@ -254,11 +513,11 @@ def _build_photo_rows(
     for upload in uploads:
         if not isinstance(upload, dict):
             continue
-        photo_id = str(upload.get("image_id") or upload.get("source_hash") or "").strip()
-        if not photo_id:
+        raw_photo_id = str(upload.get("image_id") or upload.get("source_hash") or "").strip()
+        if not raw_photo_id:
             continue
-        by_photo_id[photo_id] = {
-            "photo_id": photo_id,
+        by_photo_id[raw_photo_id] = {
+            "photo_id": _scoped_photo_id(task_id, raw_photo_id),
             "user_id": user_id,
             "source_task_id": task_id,
             "pipeline_family": pipeline_family,
@@ -274,14 +533,14 @@ def _build_photo_rows(
     for image in images:
         if not isinstance(image, dict):
             continue
-        photo_id = str(image.get("image_id") or image.get("source_hash") or "").strip()
-        if not photo_id:
+        raw_photo_id = str(image.get("image_id") or image.get("source_hash") or "").strip()
+        if not raw_photo_id:
             continue
         upload = uploads_by_image_id.get(str(image.get("image_id") or "")) or uploads_by_hash.get(str(image.get("source_hash") or "")) or {}
         payload = by_photo_id.setdefault(
-            photo_id,
+            raw_photo_id,
             {
-                "photo_id": photo_id,
+                "photo_id": _scoped_photo_id(task_id, raw_photo_id),
                 "user_id": user_id,
                 "source_task_id": task_id,
                 "pipeline_family": pipeline_family,
@@ -300,6 +559,127 @@ def _build_photo_rows(
     return list(by_photo_id.values())
 
 
+def _build_face_rows(
+    *,
+    face_result: Dict[str, Any],
+    user_id: str,
+    task_id: str,
+    pipeline_family: str,
+    materialization_id: str,
+) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+    images = list(face_result.get("images") or [])
+    person_groups = {
+        str(item.get("person_id") or "").strip(): dict(item)
+        for item in list(face_result.get("person_groups") or [])
+        if isinstance(item, dict) and str(item.get("person_id") or "").strip()
+    }
+    primary_person_id = str(face_result.get("primary_person_id") or "").strip()
+
+    person_buckets: Dict[str, Dict[str, Any]] = {}
+    face_rows: List[Dict[str, Any]] = []
+    for person_id, group in person_groups.items():
+        person_buckets[person_id] = {
+            "person_id": person_id,
+            "canonical_name": str(group.get("canonical_name") or person_id),
+            "is_primary_person": person_id == primary_person_id,
+            "face_ids": [],
+            "photo_ids": [],
+            "high_quality_face_count": int(group.get("high_quality_face_count") or 0),
+            "avatar_url": group.get("avatar_url"),
+            "_scores": [],
+            "_qualities": [],
+            "person_payload": copy.deepcopy(group),
+        }
+
+    for image in images:
+        if not isinstance(image, dict):
+            continue
+        raw_photo_id = str(image.get("image_id") or image.get("source_hash") or "").strip()
+        scoped_photo_id = _scoped_photo_id(task_id, raw_photo_id) or None
+        source_photo_id = str(image.get("image_id") or "").strip() or None
+        for index, face in enumerate(list(image.get("faces") or []), 1):
+            if not isinstance(face, dict):
+                continue
+            face_id = str(face.get("face_id") or f"{raw_photo_id or 'photo'}:face_{index:03d}").strip()
+            person_id = str(face.get("person_id") or "unknown").strip()
+            bucket = person_buckets.setdefault(
+                person_id,
+                {
+                    "person_id": person_id,
+                    "canonical_name": person_id,
+                    "is_primary_person": person_id == primary_person_id,
+                    "face_ids": [],
+                    "photo_ids": [],
+                    "high_quality_face_count": 0,
+                    "avatar_url": None,
+                    "_scores": [],
+                    "_qualities": [],
+                    "person_payload": {},
+                },
+            )
+            bucket["face_ids"].append(face_id)
+            if scoped_photo_id:
+                bucket["photo_ids"].append(scoped_photo_id)
+            if face.get("score") is not None:
+                bucket["_scores"].append(float(face.get("score") or 0.0))
+            if face.get("quality_score") is not None:
+                quality = float(face.get("quality_score") or 0.0)
+                bucket["_qualities"].append(quality)
+                if quality >= 0.8:
+                    bucket["high_quality_face_count"] += 1
+
+            face_rows.append(
+                {
+                    "row_id": _stable_id("face", task_id, face_id),
+                    "user_id": user_id,
+                    "source_task_id": task_id,
+                    "pipeline_family": pipeline_family,
+                    "materialization_id": materialization_id,
+                    "face_id": face_id,
+                    "person_id": person_id,
+                    "photo_id": scoped_photo_id,
+                    "source_photo_id": source_photo_id or raw_photo_id or None,
+                    "bbox": copy.deepcopy(face.get("bbox")),
+                    "bbox_xywh": copy.deepcopy(face.get("bbox_xywh")),
+                    "score": float(face.get("score")) if face.get("score") is not None else None,
+                    "similarity": float(face.get("similarity")) if face.get("similarity") is not None else None,
+                    "quality_score": float(face.get("quality_score")) if face.get("quality_score") is not None else None,
+                    "match_decision": str(face.get("match_decision") or "").strip() or None,
+                    "match_reason": str(face.get("match_reason") or "").strip() or None,
+                    "is_inaccurate": bool(face.get("is_inaccurate")),
+                    "comment_text": str(face.get("comment_text") or "").strip() or None,
+                    "face_payload": copy.deepcopy(face),
+                }
+            )
+
+    person_rows: List[Dict[str, Any]] = []
+    for person_id in sorted(person_buckets):
+        bucket = person_buckets[person_id]
+        group = person_groups.get(person_id, {})
+        scores = list(bucket.pop("_scores", []))
+        qualities = list(bucket.pop("_qualities", []))
+        person_rows.append(
+            {
+                "row_id": _stable_id("person", task_id, person_id),
+                "user_id": user_id,
+                "source_task_id": task_id,
+                "pipeline_family": pipeline_family,
+                "materialization_id": materialization_id,
+                "person_id": person_id,
+                "canonical_name": str(group.get("canonical_name") or bucket.get("canonical_name") or person_id),
+                "is_primary_person": bool(bucket.get("is_primary_person")),
+                "face_count": int(group.get("face_count") or len(_unique(bucket.get("face_ids") or []))),
+                "photo_count": int(group.get("photo_count") or len(_unique(bucket.get("photo_ids") or []))),
+                "avg_score": round(sum(scores) / len(scores), 4) if scores else (float(group.get("avg_score")) if group.get("avg_score") is not None else None),
+                "avg_quality": round(sum(qualities) / len(qualities), 4) if qualities else (float(group.get("avg_quality")) if group.get("avg_quality") is not None else None),
+                "high_quality_face_count": int(bucket.get("high_quality_face_count") or 0),
+                "avatar_url": str(group.get("avatar_url") or bucket.get("avatar_url") or "").strip() or None,
+                "person_payload": copy.deepcopy(bucket.get("person_payload") or group),
+            }
+        )
+    return person_rows, face_rows
+
+
 def _build_event_rows(
     *,
     lp1_events: Sequence[Dict[str, Any]],
@@ -316,14 +696,18 @@ def _build_event_rows(
     for event in list(lp1_events or []):
         if not isinstance(event, dict):
             continue
-        event_id = str(event.get("event_id") or "").strip()
-        if not event_id:
+        raw_event_id = str(event.get("event_id") or "").strip()
+        if not raw_event_id:
             continue
-        cover_photo_id = str(event.get("anchor_photo_id") or "").strip() or None
+        event_id = _scoped_entity_id(task_id, raw_event_id)
+        cover_photo_id = _scoped_photo_id(task_id, event.get("anchor_photo_id")) or None
         supporting_photo_ids = _unique(
-            list(event.get("supporting_photo_ids", []) or [])
-            or list(event.get("evidence_photos", []) or [])
-            or ([cover_photo_id] if cover_photo_id else [])
+            _scoped_photo_id(task_id, item)
+            for item in (
+                list(event.get("supporting_photo_ids", []) or [])
+                or list(event.get("evidence_photos", []) or [])
+                or ([event.get("anchor_photo_id")] if event.get("anchor_photo_id") else [])
+            )
         )
         if cover_photo_id and cover_photo_id not in supporting_photo_ids:
             supporting_photo_ids = [cover_photo_id, *supporting_photo_ids]
@@ -353,7 +737,7 @@ def _build_event_rows(
                 continue
             event_photos.append(
                 {
-                    "row_id": _stable_id("evp", event_id, normalized_photo_id),
+                    "row_id": _stable_id("evp", task_id, event_id, normalized_photo_id),
                     "user_id": user_id,
                     "source_task_id": task_id,
                     "pipeline_family": pipeline_family,
@@ -387,7 +771,7 @@ def _build_event_rows(
         for person_id in participant_ids:
             event_people.append(
                 {
-                    "row_id": _stable_id("evperson", event_id, person_id, "participant"),
+                    "row_id": _stable_id("evperson", task_id, event_id, person_id, "participant"),
                     "user_id": user_id,
                     "source_task_id": task_id,
                     "pipeline_family": pipeline_family,
@@ -403,7 +787,7 @@ def _build_event_rows(
                 continue
             event_people.append(
                 {
-                    "row_id": _stable_id("evperson", event_id, person_id, "depicted"),
+                    "row_id": _stable_id("evperson", task_id, event_id, person_id, "depicted"),
                     "user_id": user_id,
                     "source_task_id": task_id,
                     "pipeline_family": pipeline_family,
@@ -420,7 +804,7 @@ def _build_event_rows(
                 continue
             event_places.append(
                 {
-                    "row_id": _stable_id("evplace", event_id, normalized),
+                    "row_id": _stable_id("evplace", task_id, event_id, normalized),
                     "user_id": user_id,
                     "source_task_id": task_id,
                     "pipeline_family": pipeline_family,
@@ -467,14 +851,24 @@ def _build_relationship_rows(
         person_id = str(relationship.get("person_id") or "").strip()
         if not person_id:
             continue
-        relationship_id = str(relationship.get("relationship_id") or f"REL_{person_id}")
+        raw_relationship_id = str(relationship.get("relationship_id") or f"REL_{person_id}").strip()
+        if not raw_relationship_id:
+            continue
+        relationship_id = _scoped_entity_id(task_id, raw_relationship_id)
         dossier = dossiers_by_person.get(person_id, {})
-        supporting_event_ids = _unique(list(relationship.get("supporting_event_ids", []) or []) + [item.get("event_id") for item in list(relationship.get("shared_events", []) or []) if isinstance(item, dict)])
-        supporting_photo_ids = _unique(
+        supporting_event_ids = _unique(
+            _scoped_entity_id(task_id, item)
+            for item in (
+                list(relationship.get("supporting_event_ids", []) or [])
+                + [item.get("event_id") for item in list(relationship.get("shared_events", []) or []) if isinstance(item, dict)]
+            )
+        )
+        raw_supporting_photo_ids = _unique(
             list(relationship.get("supporting_photo_ids", []) or [])
             or list(((relationship.get("evidence") or {}).get("photo_ids")) or [])
         )
-        photo_count = int(dossier.get("photo_count") or len(supporting_photo_ids) or 0)
+        supporting_photo_ids = _unique(_scoped_photo_id(task_id, item) for item in raw_supporting_photo_ids)
+        photo_count = int(dossier.get("photo_count") or len(raw_supporting_photo_ids) or 0)
         shared_event_count = len(supporting_event_ids)
         monthly_frequency = _safe_float(dossier.get("monthly_frequency"))
         recent_gap_days = _safe_int(dossier.get("recent_gap_days"))
@@ -504,7 +898,7 @@ def _build_relationship_rows(
         for event_id in supporting_event_ids:
             supports.append(
                 {
-                    "row_id": _stable_id("relsupport", relationship_id, event_id, "event"),
+                    "row_id": _stable_id("relsupport", task_id, relationship_id, event_id, "event"),
                     "user_id": user_id,
                     "source_task_id": task_id,
                     "pipeline_family": pipeline_family,
@@ -519,7 +913,7 @@ def _build_relationship_rows(
         for photo_id in supporting_photo_ids:
             supports.append(
                 {
-                    "row_id": _stable_id("relsupport", relationship_id, photo_id, "photo"),
+                    "row_id": _stable_id("relsupport", task_id, relationship_id, photo_id, "photo"),
                     "user_id": user_id,
                     "source_task_id": task_id,
                     "pipeline_family": pipeline_family,
@@ -550,15 +944,16 @@ def _build_evidence_rows(
     for event in list(lp1_events or []):
         if not isinstance(event, dict):
             continue
-        event_id = str(event.get("event_id") or "").strip()
-        if not event_id:
+        raw_event_id = str(event.get("event_id") or "").strip()
+        if not raw_event_id:
             continue
-        cover_photo_id = str(event.get("anchor_photo_id") or ((event.get("supporting_photo_ids") or [None])[0] or "")).strip() or None
+        event_id = _scoped_entity_id(task_id, raw_event_id)
+        cover_photo_id = _scoped_photo_id(task_id, event.get("anchor_photo_id") or ((event.get("supporting_photo_ids") or [None])[0] or "")) or None
         tags = [str(item).strip() for item in list(event.get("tags", []) or []) if str(item).strip()]
         if tags:
             rows.append(
                 _evidence_row(
-                    evidence_id=_stable_id("evidence", event_id, "tags"),
+                    evidence_id=_stable_id("evidence", task_id, event_id, "tags"),
                     user_id=user_id,
                     task_id=task_id,
                     pipeline_family=pipeline_family,
@@ -578,7 +973,7 @@ def _build_evidence_rows(
         if scene_description:
             rows.append(
                 _evidence_row(
-                    evidence_id=_stable_id("evidence", event_id, "scene"),
+                    evidence_id=_stable_id("evidence", task_id, event_id, "scene"),
                     user_id=user_id,
                     task_id=task_id,
                     pipeline_family=pipeline_family,
@@ -601,7 +996,7 @@ def _build_evidence_rows(
                     continue
                 rows.append(
                     _evidence_row(
-                        evidence_id=_stable_id("evidence", event_id, "persona", bucket, index),
+                        evidence_id=_stable_id("evidence", task_id, event_id, "persona", bucket, index),
                         user_id=user_id,
                         task_id=task_id,
                         pipeline_family=pipeline_family,
@@ -619,7 +1014,7 @@ def _build_evidence_rows(
     for observation in list(vp1_observations or []):
         if not isinstance(observation, dict):
             continue
-        photo_id = str(observation.get("photo_id") or "").strip()
+        photo_id = _scoped_photo_id(task_id, observation.get("photo_id"))
         event_ids = photo_to_events.get(photo_id, [])
         if not photo_id or not event_ids:
             continue
@@ -634,7 +1029,7 @@ def _build_evidence_rows(
             if summary:
                 rows.append(
                     _evidence_row(
-                        evidence_id=_stable_id("evidence", event_id, photo_id, "summary"),
+                        evidence_id=_stable_id("evidence", task_id, event_id, photo_id, "summary"),
                         user_id=user_id,
                         task_id=task_id,
                         pipeline_family=pipeline_family,
@@ -659,7 +1054,7 @@ def _build_evidence_rows(
                     continue
                 rows.append(
                     _evidence_row(
-                        evidence_id=_stable_id("evidence", event_id, photo_id, evidence_type, text),
+                        evidence_id=_stable_id("evidence", task_id, event_id, photo_id, evidence_type, text),
                         user_id=user_id,
                         task_id=task_id,
                         pipeline_family=pipeline_family,
@@ -677,7 +1072,7 @@ def _build_evidence_rows(
             for index, value in enumerate(details[:12], start=1):
                 rows.append(
                     _evidence_row(
-                        evidence_id=_stable_id("evidence", event_id, photo_id, "detail", index),
+                        evidence_id=_stable_id("evidence", task_id, event_id, photo_id, "detail", index),
                         user_id=user_id,
                         task_id=task_id,
                         pipeline_family=pipeline_family,
@@ -695,7 +1090,7 @@ def _build_evidence_rows(
             for index, value in enumerate(key_objects[:12], start=1):
                 rows.append(
                     _evidence_row(
-                        evidence_id=_stable_id("evidence", event_id, photo_id, "key_object", index),
+                        evidence_id=_stable_id("evidence", task_id, event_id, photo_id, "key_object", index),
                         user_id=user_id,
                         task_id=task_id,
                         pipeline_family=pipeline_family,
@@ -713,7 +1108,7 @@ def _build_evidence_rows(
             for index, value in enumerate(ocr_hits[:12], start=1):
                 rows.append(
                     _evidence_row(
-                        evidence_id=_stable_id("evidence", event_id, photo_id, "ocr", index),
+                        evidence_id=_stable_id("evidence", task_id, event_id, photo_id, "ocr", index),
                         user_id=user_id,
                         task_id=task_id,
                         pipeline_family=pipeline_family,
@@ -744,7 +1139,7 @@ def _build_evidence_rows(
         for event_id in support_by_relationship.get(relationship_id, []) or []:
             rows.append(
                 _evidence_row(
-                    evidence_id=_stable_id("evidence", relationship_id, event_id, "relationship_signal"),
+                    evidence_id=_stable_id("evidence", task_id, relationship_id, event_id, "relationship_signal"),
                     user_id=user_id,
                     task_id=task_id,
                     pipeline_family=pipeline_family,
@@ -818,9 +1213,10 @@ def _build_group_rows(
     for group in list(groups or []):
         if not isinstance(group, dict):
             continue
-        group_id = str(group.get("group_id") or "").strip()
-        if not group_id:
+        raw_group_id = str(group.get("group_id") or "").strip()
+        if not raw_group_id:
             continue
+        group_id = _scoped_entity_id(task_id, raw_group_id)
         group_rows.append(
             {
                 "group_id": group_id,
@@ -837,7 +1233,7 @@ def _build_group_rows(
         for member in _unique(list(group.get("members", []) or [])):
             member_rows.append(
                 {
-                    "row_id": _stable_id("groupmember", group_id, member),
+                    "row_id": _stable_id("groupmember", task_id, group_id, member),
                     "user_id": user_id,
                     "source_task_id": task_id,
                     "pipeline_family": pipeline_family,

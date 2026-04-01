@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import json
 import shutil
 import tempfile
@@ -16,22 +17,27 @@ from sqlalchemy import delete
 from backend.app import app, task_store
 from backend.db import SessionLocal
 from backend.models import SessionRecord, TaskRecord, UserRecord
-from backend.query_v1 import QueryEngineV1, QueryStore, materialize_v0325_to_query_store
+from backend.models import SubjectUserRecord
+from backend.query_v1 import QueryEngineV1, QueryStore, materialize_v0325_to_query_store, persist_v0325_stage_to_query_store
 from backend.query_v1.models import (
     MemoryEvidenceRecord,
     MemoryEventPersonRecord,
     MemoryEventPhotoRecord,
     MemoryEventPlaceRecord,
     MemoryEventRecord,
+    MemoryFaceRecord,
     MemoryGroupMemberRecord,
     MemoryGroupRecord,
     MemoryMaterializationRecord,
+    MemoryPersonRecord,
     MemoryPhotoRecord,
     MemoryProfileFactRecord,
     MemoryRelationshipRecord,
     MemoryRelationshipSupportRecord,
 )
 from backend.query_v1.planner import StructuredQueryPlanner
+from backend.task_completion import missing_completion_outputs
+from backend.task_memory_views import build_task_memory_events_response, build_task_memory_faces_response
 from backend.query_v1.writer import AnswerWriterLLM
 
 
@@ -81,6 +87,8 @@ class QueryV1Tests(unittest.TestCase):
                 MemoryGroupMemberRecord,
                 MemoryProfileFactRecord,
                 MemoryEvidenceRecord,
+                MemoryFaceRecord,
+                MemoryPersonRecord,
                 MemoryEventPlaceRecord,
                 MemoryEventPersonRecord,
                 MemoryEventPhotoRecord,
@@ -92,7 +100,9 @@ class QueryV1Tests(unittest.TestCase):
             ):
                 session.execute(delete(model).where(model.user_id == self.user_id))
             session.execute(delete(SessionRecord).where(SessionRecord.user_id == self.user_id))
+            session.execute(delete(SubjectUserRecord))
             session.execute(delete(TaskRecord).where(TaskRecord.user_id == self.user_id))
+            session.execute(delete(TaskRecord).where(TaskRecord.operator_user_id == self.user_id))
             session.execute(delete(UserRecord).where(UserRecord.user_id == self.user_id))
             session.commit()
 
@@ -114,6 +124,29 @@ class QueryV1Tests(unittest.TestCase):
             self.assertEqual(int(relationships["Person_002"]["recent_gap_days"]), 4)
             self.assertIn("long_term_facts.relationships.pets", profile_facts)
             self.assertEqual(profile_facts["long_term_facts.relationships.pets"]["source_level"], "decision")
+
+    def test_materializer_scopes_internal_query_store_ids_per_task(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir_a, tempfile.TemporaryDirectory() as tmpdir_b:
+            task_a = self._synthetic_task(task_id=f"task_{uuid.uuid4().hex[:8]}", task_dir=Path(tmpdir_a), version="v0327-db-query")
+            task_b = self._synthetic_task(task_id=f"task_{uuid.uuid4().hex[:8]}", task_dir=Path(tmpdir_b), version="v0327-db-query")
+
+            with self._materialization_patches():
+                materialize_v0325_to_query_store(task_a, self.user_id, self.query_store)
+                materialize_v0325_to_query_store(task_b, self.user_id, self.query_store)
+
+            bundle_a = self.query_store.fetch_scope(user_id=self.user_id, source_task_id=task_a["task_id"])
+            bundle_b = self.query_store.fetch_scope(user_id=self.user_id, source_task_id=task_b["task_id"])
+
+            event_ids_a = {item["event_id"] for item in bundle_a["events"]}
+            event_ids_b = {item["event_id"] for item in bundle_b["events"]}
+            relationship_ids_a = {item["relationship_id"] for item in bundle_a["relationships"]}
+            relationship_ids_b = {item["relationship_id"] for item in bundle_b["relationships"]}
+
+            self.assertIn("EVT_CONCERT_001", event_ids_a)
+            self.assertIn("EVT_CONCERT_001", event_ids_b)
+            self.assertIn("REL_P002", relationship_ids_a)
+            self.assertIn("REL_P002", relationship_ids_b)
+            self.assertEqual(len(bundle_a["event_people"]), len(bundle_b["event_people"]))
 
     def test_query_engine_fact_first_returns_profile_fact_and_photo_backed_events(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -204,6 +237,78 @@ class QueryV1Tests(unittest.TestCase):
             self.assertIn("relationship-first", routes)
             self.assertIn("fact-first", routes)
 
+    def test_completion_validator_requires_stage_outputs_for_v0327_db_query(self) -> None:
+        missing = missing_completion_outputs(
+            "v0327-db-query",
+            {
+                "face_recognition": {"images": []},
+                "memory": {
+                    "vp1_observations": [],
+                    "lp1_events": [],
+                },
+            },
+        )
+        self.assertEqual(missing, ["lp2_relationships", "lp3_profile"])
+
+    def test_task_memory_events_reads_query_store_even_without_task_memory(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            task = self._synthetic_task(task_id=f"task_{uuid.uuid4().hex[:8]}", task_dir=Path(tmpdir), version="v0327-db-query")
+            task["user_id"] = self.user_id
+
+            with self._materialization_patches():
+                materialize_v0325_to_query_store(task, self.user_id, self.query_store)
+
+            task_without_memory = copy.deepcopy(task)
+            task_without_memory["result"]["memory"] = {}
+            payload = build_task_memory_events_response(task_without_memory, include_raw=True)
+
+            self.assertGreaterEqual(len(payload["data"]["events"]), 1)
+            self.assertNotIn("photos", payload["data"])
+            self.assertNotIn("persons", payload["data"])
+            self.assertEqual(payload["data"]["events"][0]["event_id"], "EVT_HOME_001")
+            self.assertGreaterEqual(len(payload["data"]["events"][0]["photos"]), 1)
+            self.assertGreaterEqual(len(payload["data"]["raw_events"]), 1)
+            self.assertTrue(payload["data"]["events"][0]["photo_urls"][0].startswith("/assets/uploads/"))
+
+    def test_task_memory_faces_reads_query_store_even_without_face_snapshot(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            task = self._synthetic_task(task_id=f"task_{uuid.uuid4().hex[:8]}", task_dir=Path(tmpdir), version="v0327-db-query")
+            task["user_id"] = self.user_id
+
+            with self._materialization_patches():
+                materialize_v0325_to_query_store(task, self.user_id, self.query_store)
+
+            task_without_face_snapshot = copy.deepcopy(task)
+            task_without_face_snapshot["result"]["face_recognition"] = {}
+            payload = build_task_memory_faces_response(task_without_face_snapshot)
+
+            self.assertGreaterEqual(len(payload["data"]["persons"]), 1)
+            self.assertGreaterEqual(len(payload["data"]["faces"]), 1)
+            self.assertTrue(payload["data"]["photos"][0]["photo_url"].startswith("/assets/uploads/"))
+            self.assertEqual(payload["data"]["faces"][0]["person_id"], "Person_001")
+
+    def test_lp1_stage_persists_events_without_waiting_for_read_time_materialization(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            task = self._synthetic_task(task_id=f"task_{uuid.uuid4().hex[:8]}", task_dir=Path(tmpdir), version="v0327-db-query")
+            payloads = self._task_payloads()
+
+            materialization = persist_v0325_stage_to_query_store(
+                task_id=task["task_id"],
+                user_id=self.user_id,
+                face_result=task["result"]["face_recognition"],
+                observations=payloads["vp1_observations"],
+                lp1_events=payloads["lp1_events"],
+                stage_status="stage_lp1",
+                publish_indexes=False,
+                store=self.query_store,
+            )
+
+            self.assertEqual(materialization["status"], "stage_lp1")
+            scope = self.query_store.fetch_events_scope(user_id=self.user_id, source_task_id=task["task_id"])
+            self.assertGreaterEqual(len(scope["events"]), 1)
+            self.assertGreaterEqual(len(scope["event_photos"]), 1)
+            self.assertEqual(scope.get("relationships", []), [])
+
     def test_query_engine_date_query_normalizes_time_windows(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             task = self._synthetic_task(task_id=f"task_{uuid.uuid4().hex[:8]}", task_dir=Path(tmpdir), version="v0327-db-query")
@@ -223,7 +328,10 @@ class QueryV1Tests(unittest.TestCase):
             self.assertEqual(payload["matched_events"][0]["event_id"], "EVT_EXHIBITION_001")
 
     def test_memory_query_endpoint_routes_v0327_db_task_to_query_v1_with_new_fields(self) -> None:
-        create_response = self.client.post("/api/tasks", json={"version": "v0327-db-query"})
+        create_response = self.client.post(
+            "/api/tasks",
+            json={"version": "v0327-db-query", "creation_source": "directory", "survey_username": "alice"},
+        )
         self.assertEqual(create_response.status_code, 200)
         task_id = create_response.json()["task_id"]
         self.task_ids.append(task_id)
@@ -295,11 +403,60 @@ class QueryV1Tests(unittest.TestCase):
             result={
                 "face_recognition": {
                     "primary_person_id": "Person_001",
+                    "person_groups": [
+                        {
+                            "person_id": "Person_001",
+                            "canonical_name": "Person_001",
+                            "face_count": 4,
+                            "photo_count": 4,
+                            "avg_score": 0.91,
+                            "avg_quality": 0.88,
+                        },
+                        {
+                            "person_id": "Person_002",
+                            "canonical_name": "Person_002",
+                            "face_count": 2,
+                            "photo_count": 2,
+                            "avg_score": 0.89,
+                            "avg_quality": 0.85,
+                        },
+                    ],
                     "images": [
-                        {"image_id": "photo_001", "source_hash": "hash-photo-001", "timestamp": "2026-03-01T20:00:00"},
-                        {"image_id": "photo_002", "source_hash": "hash-photo-002", "timestamp": "2026-03-05T19:30:00"},
-                        {"image_id": "photo_003", "source_hash": "hash-photo-003", "timestamp": "2026-01-18T15:00:00"},
-                        {"image_id": "photo_004", "source_hash": "hash-photo-004", "timestamp": "2026-01-10T18:30:00"},
+                        {
+                            "image_id": "photo_001",
+                            "source_hash": "hash-photo-001",
+                            "timestamp": "2026-03-01T20:00:00",
+                            "faces": [
+                                {"face_id": "face_001", "person_id": "Person_001", "score": 0.96, "quality_score": 0.91},
+                                {"face_id": "face_002", "person_id": "Person_002", "score": 0.92, "quality_score": 0.87},
+                            ],
+                        },
+                        {
+                            "image_id": "photo_002",
+                            "source_hash": "hash-photo-002",
+                            "timestamp": "2026-03-05T19:30:00",
+                            "faces": [
+                                {"face_id": "face_003", "person_id": "Person_001", "score": 0.94, "quality_score": 0.89},
+                                {"face_id": "face_004", "person_id": "Person_003", "score": 0.82, "quality_score": 0.78},
+                            ],
+                        },
+                        {
+                            "image_id": "photo_003",
+                            "source_hash": "hash-photo-003",
+                            "timestamp": "2026-01-18T15:00:00",
+                            "faces": [
+                                {"face_id": "face_005", "person_id": "Person_001", "score": 0.93, "quality_score": 0.88},
+                                {"face_id": "face_006", "person_id": "Person_002", "score": 0.9, "quality_score": 0.84},
+                            ],
+                        },
+                        {
+                            "image_id": "photo_004",
+                            "source_hash": "hash-photo-004",
+                            "timestamp": "2026-01-10T18:30:00",
+                            "faces": [
+                                {"face_id": "face_007", "person_id": "Person_001", "score": 0.9, "quality_score": 0.86}
+                            ],
+                        },
                     ],
                 },
                 "memory": {
@@ -423,11 +580,45 @@ class QueryV1Tests(unittest.TestCase):
             "result": {
                 "face_recognition": {
                     "primary_person_id": "Person_001",
+                    "person_groups": [
+                        {"person_id": "Person_001", "canonical_name": "Person_001", "face_count": 4, "photo_count": 4},
+                        {"person_id": "Person_002", "canonical_name": "Person_002", "face_count": 2, "photo_count": 2},
+                    ],
                     "images": [
-                        {"image_id": "photo_001", "source_hash": "hash-photo-001", "timestamp": "2026-03-01T20:00:00"},
-                        {"image_id": "photo_002", "source_hash": "hash-photo-002", "timestamp": "2026-03-05T19:30:00"},
-                        {"image_id": "photo_003", "source_hash": "hash-photo-003", "timestamp": "2026-01-18T15:00:00"},
-                        {"image_id": "photo_004", "source_hash": "hash-photo-004", "timestamp": "2026-01-10T18:30:00"},
+                        {
+                            "image_id": "photo_001",
+                            "source_hash": "hash-photo-001",
+                            "timestamp": "2026-03-01T20:00:00",
+                            "faces": [
+                                {"face_id": "face_001", "person_id": "Person_001", "score": 0.96, "quality_score": 0.91},
+                                {"face_id": "face_002", "person_id": "Person_002", "score": 0.92, "quality_score": 0.87},
+                            ],
+                        },
+                        {
+                            "image_id": "photo_002",
+                            "source_hash": "hash-photo-002",
+                            "timestamp": "2026-03-05T19:30:00",
+                            "faces": [
+                                {"face_id": "face_003", "person_id": "Person_001", "score": 0.94, "quality_score": 0.89}
+                            ],
+                        },
+                        {
+                            "image_id": "photo_003",
+                            "source_hash": "hash-photo-003",
+                            "timestamp": "2026-01-18T15:00:00",
+                            "faces": [
+                                {"face_id": "face_005", "person_id": "Person_001", "score": 0.93, "quality_score": 0.88},
+                                {"face_id": "face_006", "person_id": "Person_002", "score": 0.9, "quality_score": 0.84},
+                            ],
+                        },
+                        {
+                            "image_id": "photo_004",
+                            "source_hash": "hash-photo-004",
+                            "timestamp": "2026-01-10T18:30:00",
+                            "faces": [
+                                {"face_id": "face_007", "person_id": "Person_001", "score": 0.9, "quality_score": 0.86}
+                            ],
+                        },
                     ],
                 },
                 "memory": {

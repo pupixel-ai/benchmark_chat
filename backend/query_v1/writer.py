@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional, Sequence
 
 import requests
 
-from config import OPENROUTER_API_KEY, OPENROUTER_APP_NAME, OPENROUTER_BASE_URL, OPENROUTER_LLM_MODEL, OPENROUTER_SITE_URL
+from config import OPENROUTER_AGENT_MODEL, OPENROUTER_API_KEY, OPENROUTER_APP_NAME, OPENROUTER_BASE_URL, OPENROUTER_SITE_URL
 
 
 class AnswerWriterLLM:
@@ -92,7 +92,7 @@ class AnswerWriterLLM:
             if str(item.get("event_id") or "") in set(str(event_id) for event_id in list(top_event_ids_for_summary or []))
         ]
         payload = {
-            "model": OPENROUTER_LLM_MODEL,
+            "model": OPENROUTER_AGENT_MODEL,
             "messages": [
                 {
                     "role": "system",
@@ -192,4 +192,3 @@ class AnswerWriterLLM:
             if titles:
                 return f"共召回 {len(list(matched_events or []))} 个相关事件，重点包括 {titles}。"
         return f"当前问题是：{question}。系统还没有生成更具体的摘要。"
-

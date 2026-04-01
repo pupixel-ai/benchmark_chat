@@ -17,7 +17,7 @@ from PIL import Image
 from sqlalchemy import delete, select
 
 from backend.app import _run_pipeline_task, _task_upload_lock, app, task_store
-from backend.db import SessionLocal
+from backend.db import SessionLocal, ensure_schema
 from backend.task_event_outbox import build_terminal_dedupe_key
 from backend.task_store import normalize_task_options
 from config import (
@@ -138,7 +138,6 @@ class TaskApiTests(unittest.TestCase):
                 "requested_max_photos": None,
                 "auto_start_on_upload_complete": False,
                 "survey_username": self.username,
-                "subject_user_id": self.user_id,
             },
         )
 
@@ -196,7 +195,6 @@ class TaskApiTests(unittest.TestCase):
                 "requested_max_photos": 2,
                 "auto_start_on_upload_complete": False,
                 "survey_username": self.username,
-                "subject_user_id": self.user_id,
             },
         )
 
@@ -240,16 +238,19 @@ class TaskApiTests(unittest.TestCase):
         payload = create_response.json()
         self.task_ids.append(payload["task_id"])
         self.assertEqual(payload["user_id"], self.user_id)
-        self.assertIsNone(payload["operator_user_id"])
+        self.assertEqual(payload["operator_user_id"], self.user_id)
         self.assertEqual(payload["options"]["survey_username"], self.username)
-        self.assertEqual(payload["options"]["subject_user_id"], self.user_id)
+        self.assertNotIn("subject_user_id", payload["options"])
+        self.assertNotIn("operator_user_id", payload["options"])
 
         task = task_store.get_task(payload["task_id"], user_id=self.user_id)
         self.assertIsNotNone(task)
         assert task is not None
         self.assertEqual(task["user_id"], self.user_id)
-        self.assertIsNone(task["operator_user_id"])
+        self.assertEqual(task["operator_user_id"], self.user_id)
         self.assertEqual(task["options"]["survey_username"], self.username)
+        self.assertNotIn("subject_user_id", task["options"])
+        self.assertNotIn("operator_user_id", task["options"])
 
     def test_create_task_maps_v0327_db_query_to_subject_user_and_operator(self) -> None:
         create_response = self.client.post(
@@ -276,8 +277,9 @@ class TaskApiTests(unittest.TestCase):
         self.assertEqual(task["user_id"], payload["user_id"])
         self.assertEqual(task["operator_user_id"], self.user_id)
         self.assertEqual(task["options"]["survey_username"], "alice")
-        self.assertEqual(task["options"]["subject_user_id"], payload["user_id"])
         self.assertEqual(task["options"]["creation_source"], "directory")
+        self.assertNotIn("subject_user_id", task["options"])
+        self.assertNotIn("operator_user_id", task["options"])
 
     def test_manual_task_options_fall_back_to_requested_max_photos_for_auto_start(self) -> None:
         options = normalize_task_options(
@@ -309,32 +311,134 @@ class TaskApiTests(unittest.TestCase):
         task_ids = [item["task_id"] for item in response.json()["tasks"]]
         self.assertIn(payload["task_id"], task_ids)
 
-    def test_create_task_accepts_explicit_subject_user_id_for_admin_upload(self) -> None:
-        subject_user_id = "subject_jennie_demo"
+    def test_create_task_accepts_explicit_user_id_for_admin_upload(self) -> None:
+        owner_user_id = "subject_jennie_demo"
+        survey_username = "jennie"
         create_response = self.client.post(
             "/api/tasks",
             json={
                 "version": "v0327-db-query",
-                "user_id": subject_user_id,
+                "user_id": owner_user_id,
                 "creation_source": "admin_console",
+                "survey_username": survey_username,
             },
         )
         self.assertEqual(create_response.status_code, 200)
         payload = create_response.json()
         self.task_ids.append(payload["task_id"])
-        self.assertEqual(payload["user_id"], subject_user_id)
+        self.assertEqual(payload["user_id"], owner_user_id)
         self.assertEqual(payload["operator_user_id"], self.user_id)
+        self.assertEqual(payload["options"]["survey_username"], survey_username)
 
         task = task_store.get_task(payload["task_id"], user_id=self.user_id)
         self.assertIsNotNone(task)
         assert task is not None
-        self.assertEqual(task["user_id"], subject_user_id)
+        self.assertEqual(task["user_id"], owner_user_id)
         self.assertEqual(task["operator_user_id"], self.user_id)
+        self.assertEqual(task["options"]["survey_username"], survey_username)
+        self.assertNotIn("subject_user_id", task["options"])
+        self.assertNotIn("operator_user_id", task["options"])
 
-        response = self.client.get(f"/api/users/{subject_user_id}/tasks")
+        response = self.client.get(f"/api/users/{owner_user_id}/tasks")
         self.assertEqual(response.status_code, 200)
         task_ids = [item["task_id"] for item in response.json()["tasks"]]
         self.assertIn(payload["task_id"], task_ids)
+
+    def test_ensure_schema_backfills_operator_user_id_from_legacy_user_id(self) -> None:
+        task_id = uuid.uuid4().hex
+        self.task_ids.append(task_id)
+        task_dir = task_store.task_dir(task_id)
+        task_dir.mkdir(parents=True, exist_ok=True)
+        now = datetime.now()
+
+        with SessionLocal() as session:
+            session.add(
+                TaskRecord(
+                    task_id=task_id,
+                    user_id=self.user_id,
+                    operator_user_id=None,
+                    version="v0327-db-query",
+                    status="draft",
+                    stage="draft",
+                    upload_count=0,
+                    task_dir=str(task_dir),
+                    progress=None,
+                    uploads=None,
+                    options={"survey_username": self.username},
+                    result=None,
+                    result_summary=None,
+                    asset_manifest=None,
+                    error=None,
+                    worker_instance_id=None,
+                    worker_private_ip=None,
+                    worker_status=None,
+                    delete_state=None,
+                    created_at=now,
+                    updated_at=now,
+                    expires_at=None,
+                    deleted_at=None,
+                    last_worker_sync_at=None,
+                )
+            )
+            session.commit()
+
+        ensure_schema()
+
+        migrated = task_store.get_task(task_id, user_id=self.user_id)
+        self.assertIsNotNone(migrated)
+        assert migrated is not None
+        self.assertEqual(migrated["user_id"], self.user_id)
+        self.assertEqual(migrated["operator_user_id"], self.user_id)
+        self.assertNotIn("subject_user_id", migrated["options"])
+
+    def test_ensure_schema_promotes_legacy_subject_user_id_without_losing_operator(self) -> None:
+        task_id = uuid.uuid4().hex
+        self.task_ids.append(task_id)
+        task_dir = task_store.task_dir(task_id)
+        task_dir.mkdir(parents=True, exist_ok=True)
+        now = datetime.now()
+        owner_user_id = f"subject_{uuid.uuid4().hex[:8]}"
+
+        with SessionLocal() as session:
+            session.add(
+                TaskRecord(
+                    task_id=task_id,
+                    user_id=self.user_id,
+                    operator_user_id=None,
+                    version="v0327-db-query",
+                    status="draft",
+                    stage="draft",
+                    upload_count=0,
+                    task_dir=str(task_dir),
+                    progress=None,
+                    uploads=None,
+                    options={"survey_username": "alice", "subject_user_id": owner_user_id},
+                    result=None,
+                    result_summary=None,
+                    asset_manifest=None,
+                    error=None,
+                    worker_instance_id=None,
+                    worker_private_ip=None,
+                    worker_status=None,
+                    delete_state=None,
+                    created_at=now,
+                    updated_at=now,
+                    expires_at=None,
+                    deleted_at=None,
+                    last_worker_sync_at=None,
+                )
+            )
+            session.commit()
+
+        ensure_schema()
+
+        migrated = task_store.get_task(task_id, user_id=self.user_id)
+        self.assertIsNotNone(migrated)
+        assert migrated is not None
+        self.assertEqual(migrated["user_id"], owner_user_id)
+        self.assertEqual(migrated["operator_user_id"], self.user_id)
+        self.assertNotIn("subject_user_id", migrated["options"])
+        self.assertEqual(migrated["options"]["survey_username"], "alice")
 
     def test_upload_batches_accepts_livp_container(self) -> None:
         create_response = self.client.post("/api/tasks")
@@ -415,7 +519,6 @@ class TaskApiTests(unittest.TestCase):
                 "requested_max_photos": 2,
                 "auto_start_on_upload_complete": True,
                 "survey_username": self.username,
-                "subject_user_id": self.user_id,
             },
         )
 
@@ -1007,6 +1110,7 @@ class TaskApiTests(unittest.TestCase):
             rows_by_type["survey.import.ready"].payload_json["payload"]["profile"]["structured_profile"]["long_term_facts"]["identity"]["name"]["value"],
             "Alice",
         )
+        self.assertNotIn("photos", rows_by_type["survey.import.ready"].payload_json["payload"])
         self.assertEqual(
             rows_by_type["survey.import.ready"].payload_json["payload"]["relationships"][0]["boxed_image_url"],
             "https://cdn.example.com/photo_001_boxed.webp",
@@ -1127,6 +1231,7 @@ class TaskApiTests(unittest.TestCase):
             )
             session.commit()
 
+        ensure_schema()
         task = task_store.get_task(task_id, user_id=self.user_id)
         self.assertIsNotNone(task)
         assert task is not None

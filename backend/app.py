@@ -8,6 +8,7 @@ import json
 import logging
 import os
 import shutil
+import threading
 import uuid
 from contextlib import contextmanager
 from datetime import datetime
@@ -57,6 +58,7 @@ from backend.upload_utils import (
     save_upload_original_streamed,
     stored_upload_filename,
     task_asset_path,
+    upload_ignore_reason,
     write_upload_failures,
 )
 from backend.worker_client import WorkerClient
@@ -291,13 +293,14 @@ def _resolve_subject_ref(
 ) -> dict:
     normalized_subject_user_id = str(subject_user_id or "").strip()
     if normalized_subject_user_id:
+        normalized_subject_username = _normalize_survey_username(survey_username)
         subject = get_subject_user(normalized_subject_user_id)
         if subject is None:
-            subject = ensure_subject_user(normalized_subject_user_id)
+            subject = ensure_subject_user(normalized_subject_user_id, username=normalized_subject_username)
         return {
             "user_id": normalized_subject_user_id,
-            "operator_user_id": None if normalized_subject_user_id == current_user["user_id"] else current_user["user_id"],
-            "subject_username": subject.get("username"),
+            "operator_user_id": current_user["user_id"],
+            "subject_username": normalized_subject_username or subject.get("username"),
             "subject_source": subject.get("source"),
         }
     return resolve_subject_identity(
@@ -305,6 +308,8 @@ def _resolve_subject_ref(
         operator_username=current_user.get("username"),
         subject_username=survey_username,
     )
+
+
 def _build_outbox_events(task: dict) -> list[dict]:
     if not task_store.outbox_store.enabled:
         return []
@@ -414,16 +419,28 @@ def _write_merged_upload_failures(task_dir: Path, failures: List[dict]) -> None:
             asset_store.upload_file(task_dir.name, UPLOAD_FAILURES_FILENAME, failures_path)
 
 
-def _save_upload_batch(task_id: str, task_dir: Path, files: List[UploadFile], start_index: int) -> tuple[List[dict], List[dict], int]:
+def _save_upload_batch(task_id: str, task_dir: Path, files: List[UploadFile], start_index: int) -> tuple[List[dict], List[dict], List[dict], int]:
     uploads_dir = task_dir / "uploads"
     uploads_dir.mkdir(parents=True, exist_ok=True)
     saved_files: List[dict] = []
     upload_failures: List[dict] = []
+    ignored_files: List[dict] = []
     total_bytes = 0
 
     for offset, upload in enumerate(files):
         index = start_index + offset
         image_id = f"photo_{index:03d}"
+        ignore_reason = upload_ignore_reason(upload.filename or "")
+        if ignore_reason:
+            ignored_files.append(
+                {
+                    "image_id": image_id,
+                    "filename": upload.filename or "",
+                    "step": "upload",
+                    "reason": ignore_reason,
+                }
+            )
+            continue
         stored_name = stored_upload_filename(upload.filename or "", index)
         destination = uploads_dir / stored_name
         try:
@@ -456,7 +473,7 @@ def _save_upload_batch(task_id: str, task_dir: Path, files: List[UploadFile], st
                 }
             )
 
-    return saved_files, upload_failures, total_bytes
+    return saved_files, upload_failures, ignored_files, total_bytes
 
 
 def _find_face(task: dict, face_id: str) -> Optional[Dict]:
@@ -734,6 +751,23 @@ def _chunk_remote_upload_entries(entries: List[dict]) -> List[List[dict]]:
     return batches
 
 
+def _sync_task_directory_async(task_id: str, task_dir: Path) -> None:
+    if not asset_store.enabled:
+        return
+
+    def runner() -> None:
+        try:
+            asset_store.sync_task_directory(task_id, task_dir)
+        except Exception:
+            logger.exception("Background task directory sync failed for task_id=%s", task_id)
+
+    threading.Thread(
+        target=runner,
+        name=f"task-sync-{task_id[:12]}",
+        daemon=True,
+    ).start()
+
+
 def _run_pipeline_task(
     task_id: str,
     user_id: Optional[str],
@@ -809,6 +843,7 @@ def _run_pipeline_task(
             options=task_options,
             event_result=result,
         )
+        _sync_task_directory_async(task_id, task_dir)
     except Exception as exc:
         logger.exception("Pipeline task failed for task_id=%s version=%s", task_id, task_version)
         failed_progress = append_terminal_error(
@@ -868,18 +903,17 @@ def _create_task_record(
         "expected_upload_count": expected_upload_count,
         "requested_max_photos": requested_max_photos,
         "survey_username": normalized_survey_username,
-        "subject_user_id": str(subject_ref.get("user_id") or ""),
-        "operator_user_id": str(subject_ref.get("operator_user_id") or "").strip() or None,
     }
     if auto_start_on_upload_complete is not None:
         option_payload["auto_start_on_upload_complete"] = auto_start_on_upload_complete
     task_options = normalize_task_options(option_payload)
+    normalized_operator_user_id = str(subject_ref.get("operator_user_id") or current_user["user_id"] or "").strip() or None
     task_id = uuid.uuid4().hex
     task_store.create_task(
         task_id,
         upload_count=0,
         user_id=str(subject_ref.get("user_id") or ""),
-        operator_user_id=str(subject_ref.get("operator_user_id") or "").strip() or None,
+        operator_user_id=normalized_operator_user_id,
         version=task_version,
         options=task_options,
         status="draft",
@@ -888,7 +922,7 @@ def _create_task_record(
     return {
         "task_id": task_id,
         "user_id": str(subject_ref.get("user_id") or ""),
-        "operator_user_id": str(subject_ref.get("operator_user_id") or "").strip() or None,
+        "operator_user_id": normalized_operator_user_id,
         "version": task_version,
         "options": task_options,
         "status": "draft",
@@ -898,17 +932,19 @@ def _create_task_record(
     }
 
 
-def _save_upload_collection(task_id: str, task_dir: Path, files: List[UploadFile]) -> tuple[List[dict], List[dict]]:
+def _save_upload_collection(task_id: str, task_dir: Path, files: List[UploadFile]) -> tuple[List[dict], List[dict], List[dict]]:
     saved_files: List[dict] = []
     upload_failures: List[dict] = []
+    ignored_files: List[dict] = []
     start_index = 1
     for offset in range(0, len(files), UPLOAD_BATCH_MAX_FILES):
         batch = files[offset: offset + UPLOAD_BATCH_MAX_FILES]
-        batch_saved, batch_failures, _ = _save_upload_batch(task_id, task_dir, batch, start_index)
+        batch_saved, batch_failures, batch_ignored, _ = _save_upload_batch(task_id, task_dir, batch, start_index)
         saved_files.extend(batch_saved)
         upload_failures.extend(batch_failures)
+        ignored_files.extend(batch_ignored)
         start_index += len(batch)
-    return saved_files, upload_failures
+    return saved_files, upload_failures, ignored_files
 
 
 def _merge_upload_task_options(
@@ -1063,6 +1099,7 @@ def _start_task_impl(
                 max_photos=effective_max_photos,
                 use_cache=use_cache,
                 version=task_version,
+                user_id=str(task.get("user_id") or "").strip() or None,
                 options=task_options,
             )
             task_store.update_worker_state(
@@ -1292,7 +1329,7 @@ async def ingest_photo_collection(
     task_dir = task_store.task_dir(task_id)
 
     try:
-        saved_files, upload_failures = _save_upload_collection(task_id, task_dir, files)
+        saved_files, upload_failures, ignored_files = _save_upload_collection(task_id, task_dir, files)
     except Exception as exc:
         task_store.update_task(task_id, status="failed", stage="failed", error=f"照片集接收失败: {exc}")
         raise HTTPException(status_code=500, detail=f"照片集接收失败: {exc}") from exc
@@ -1322,6 +1359,8 @@ async def ingest_photo_collection(
         **start_payload,
         "accepted_count": len(saved_files),
         "failed_count": len(upload_failures),
+        "ignored_count": len(ignored_files),
+        "ignored_files": ignored_files,
         "upload_count": updated_task["upload_count"],
     }
 
@@ -1365,7 +1404,7 @@ async def upload_task_batch(
                 task = task_store.update_task(task_id, options=merged_options)
 
             start_index = len(_task_uploads(task)) + 1
-            saved_files, upload_failures, _ = _save_upload_batch(task_id, task_dir, files, start_index)
+            saved_files, upload_failures, ignored_files, _ = _save_upload_batch(task_id, task_dir, files, start_index)
 
             _write_merged_upload_failures(task_dir, upload_failures)
             updated_task = task_store.append_uploads(task_id, saved_files, status="uploading", stage="uploading")
@@ -1390,6 +1429,8 @@ async def upload_task_batch(
         "stage": (auto_start_payload or updated_task)["stage"],
         "batch_count": len(saved_files),
         "failed_count": len(upload_failures),
+        "ignored_count": len(ignored_files),
+        "ignored_files": ignored_files,
         "upload_count": updated_task["upload_count"],
         "auto_started": bool(auto_start_payload),
         "task_url": f"/api/tasks/{task_id}",

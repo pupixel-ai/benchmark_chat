@@ -63,6 +63,7 @@ class WorkerClient:
         use_cache: bool,
         *,
         version: str,
+        user_id: str | None = None,
         options: dict | None = None,
     ) -> dict:
         response = requests.post(
@@ -72,7 +73,9 @@ class WorkerClient:
                 "max_photos": max_photos,
                 "use_cache": use_cache,
                 "version": version,
+                "user_id": str(user_id or "").strip() or None,
                 "normalize_live_photos": bool((options or {}).get("normalize_live_photos", True)),
+                "options": dict(options or {}),
             },
             timeout=(10, 30),
         )

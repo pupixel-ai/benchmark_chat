@@ -228,3 +228,53 @@ class MemoryPhotoRecord(Base):
     photo_payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+
+
+class MemoryPersonRecord(Base):
+    __tablename__ = "memory_persons"
+    __table_args__ = (UniqueConstraint("source_task_id", "person_id", name="uq_memory_person_task_person"),)
+
+    row_id: Mapped[str] = mapped_column(String(160), primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    source_task_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    pipeline_family: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    materialization_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    person_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    canonical_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    is_primary_person: Mapped[bool] = mapped_column(default=False, nullable=False, index=True)
+    face_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    photo_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    avg_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    avg_quality: Mapped[float | None] = mapped_column(Float, nullable=True)
+    high_quality_face_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    avatar_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    person_payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+
+
+class MemoryFaceRecord(Base):
+    __tablename__ = "memory_faces"
+    __table_args__ = (UniqueConstraint("source_task_id", "face_id", name="uq_memory_face_task_face"),)
+
+    row_id: Mapped[str] = mapped_column(String(160), primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    source_task_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    pipeline_family: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    materialization_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    face_id: Mapped[str] = mapped_column(String(160), nullable=False, index=True)
+    person_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    photo_id: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    source_photo_id: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    bbox: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    bbox_xywh: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    similarity: Mapped[float | None] = mapped_column(Float, nullable=True)
+    quality_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    match_decision: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    match_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    is_inaccurate: Mapped[bool] = mapped_column(default=False, nullable=False, index=True)
+    comment_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    face_payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)

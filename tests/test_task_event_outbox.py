@@ -4,7 +4,7 @@ import shutil
 import threading
 import unittest
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from sqlalchemy import delete, select
 
@@ -124,3 +124,28 @@ class TaskEventOutboxStoreTests(unittest.TestCase):
             thread.join(timeout=2)
 
         self.assertEqual(len(claimed), 1)
+
+    def test_claim_batch_reclaims_stale_publishing_rows(self) -> None:
+        with SessionLocal() as session:
+            record = self.outbox_store.enqueue_terminal_event(
+                session,
+                task_id=self.task_id,
+                event_type="task.completed",
+                payload_json={"event_id": uuid.uuid4().hex, "event_type": "task.completed", "task_id": self.task_id},
+            )
+            record.status = "publishing"
+            record.locked_at = datetime.now() - timedelta(seconds=self.outbox_store.lock_seconds + 5)
+            record.locked_by = "stale-publisher"
+            session.add(record)
+            session.commit()
+            outbox_id = record.outbox_id
+
+        items = self.outbox_store.claim_batch(batch_size=1, locked_by="fresh-publisher")
+
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0].outbox_id, outbox_id)
+        with SessionLocal() as session:
+            refreshed = session.get(TaskEventOutboxRecord, outbox_id)
+            assert refreshed is not None
+            self.assertEqual(refreshed.status, "publishing")
+            self.assertEqual(refreshed.locked_by, "fresh-publisher")

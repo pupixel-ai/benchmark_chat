@@ -90,6 +90,20 @@ class TaskAssetStore:
         encoded_path = quote(safe_relative_path, safe="/")
         return f"{self.asset_url_prefix}/{task_id}/{encoded_path}"
 
+    def presigned_get_url(self, task_id: str, relative_path: str, *, expires_in: int = 86400) -> Optional[str]:
+        if not self.enabled or self._client is None:
+            return None
+        safe_relative_path = self.sanitize_relative_path(relative_path)
+        key = self.object_key(task_id, safe_relative_path)
+        try:
+            return self._client.generate_presigned_url(
+                "get_object",
+                Params={"Bucket": self.bucket, "Key": key},
+                ExpiresIn=max(60, int(expires_in)),
+            )
+        except Exception:
+            return None
+
     def _content_type_for(self, relative_path: str) -> str:
         content_type, _ = mimetypes.guess_type(relative_path)
         return content_type or "application/octet-stream"

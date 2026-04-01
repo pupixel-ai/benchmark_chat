@@ -8,10 +8,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from sqlalchemy import and_, delete, desc, or_, select
+from sqlalchemy import delete, desc, or_, select
 from sqlalchemy.orm import load_only
 
-from backend.db import Base, SessionLocal, engine, ensure_schema
+from backend.db import SessionLocal, ensure_schema
 from backend.models import TaskEventOutboxRecord, TaskRecord
 from backend.task_event_outbox import TaskEventOutboxStore
 from config import DEFAULT_NORMALIZE_LIVE_PHOTOS, TASKS_DIR, DEFAULT_TASK_VERSION
@@ -32,8 +32,6 @@ def normalize_task_options(options: dict | None) -> dict:
     if creation_source not in {"manual", "api", "directory"}:
         creation_source = "manual"
     survey_username = str(payload.get("survey_username") or "").strip() or None
-    subject_user_id = str(payload.get("subject_user_id") or "").strip() or None
-    operator_user_id = str(payload.get("operator_user_id") or "").strip() or None
     normalized_requested_max_photos = (
         int(requested_max_photos) if isinstance(requested_max_photos, (int, float)) else None
     )
@@ -58,10 +56,6 @@ def normalize_task_options(options: dict | None) -> dict:
         "auto_start_on_upload_complete": auto_start_on_upload_complete,
         "survey_username": survey_username,
     }
-    if subject_user_id:
-        normalized["subject_user_id"] = subject_user_id
-    if operator_user_id:
-        normalized["operator_user_id"] = operator_user_id
     return normalized
 
 
@@ -72,7 +66,6 @@ class TaskStore:
         self.tasks_root = Path(tasks_root)
         self.tasks_root.mkdir(parents=True, exist_ok=True)
         ensure_schema()
-        Base.metadata.create_all(bind=engine)
         self.outbox_store = TaskEventOutboxStore()
 
     def task_dir(self, task_id: str) -> Path:
@@ -94,11 +87,12 @@ class TaskStore:
         if provision_local_dir:
             task_dir.mkdir(parents=True, exist_ok=True)
         now = datetime.now()
+        normalized_operator_user_id = str(operator_user_id or user_id or "").strip() or None
 
         record = TaskRecord(
             task_id=task_id,
             user_id=user_id,
-            operator_user_id=operator_user_id,
+            operator_user_id=normalized_operator_user_id,
             version=version,
             status=status,
             stage=stage,
@@ -140,13 +134,7 @@ class TaskStore:
             record = session.execute(
                 select(TaskRecord).where(
                     TaskRecord.task_id == task_id,
-                    or_(
-                        TaskRecord.operator_user_id == normalized_operator_user_id,
-                        and_(
-                            TaskRecord.operator_user_id.is_(None),
-                            TaskRecord.user_id == normalized_operator_user_id,
-                        ),
-                    ),
+                    TaskRecord.operator_user_id == normalized_operator_user_id,
                 )
             ).scalar_one_or_none()
             if record is None:
@@ -179,13 +167,7 @@ class TaskStore:
             id_stmt = (
                 select(TaskRecord.task_id)
                 .where(
-                    or_(
-                        TaskRecord.operator_user_id == normalized_operator_user_id,
-                        and_(
-                            TaskRecord.operator_user_id.is_(None),
-                            TaskRecord.user_id == normalized_operator_user_id,
-                        ),
-                    )
+                    TaskRecord.operator_user_id == normalized_operator_user_id
                 )
                 .order_by(desc(TaskRecord.created_at))
                 .limit(limit)
@@ -323,13 +305,7 @@ class TaskStore:
             result = session.execute(
                 delete(TaskRecord).where(
                     TaskRecord.task_id == task_id,
-                    or_(
-                        TaskRecord.operator_user_id == normalized_operator_user_id,
-                        and_(
-                            TaskRecord.operator_user_id.is_(None),
-                            TaskRecord.user_id == normalized_operator_user_id,
-                        ),
-                    ),
+                    TaskRecord.operator_user_id == normalized_operator_user_id,
                 )
             )
             session.commit()

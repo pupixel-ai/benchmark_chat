@@ -15,9 +15,11 @@ from backend.query_v1.models import (
     MemoryEventPhotoRecord,
     MemoryEventPlaceRecord,
     MemoryEventRecord,
+    MemoryFaceRecord,
     MemoryGroupMemberRecord,
     MemoryGroupRecord,
     MemoryMaterializationRecord,
+    MemoryPersonRecord,
     MemoryPhotoRecord,
     MemoryProfileFactRecord,
     MemoryRelationshipRecord,
@@ -29,6 +31,8 @@ from backend.query_v1.models import (
 class MaterializedBundle:
     materialization: Dict[str, Any]
     photos: List[Dict[str, Any]] = field(default_factory=list)
+    persons: List[Dict[str, Any]] = field(default_factory=list)
+    faces: List[Dict[str, Any]] = field(default_factory=list)
     events: List[Dict[str, Any]] = field(default_factory=list)
     event_photos: List[Dict[str, Any]] = field(default_factory=list)
     event_people: List[Dict[str, Any]] = field(default_factory=list)
@@ -41,7 +45,27 @@ class MaterializedBundle:
     profile_facts: List[Dict[str, Any]] = field(default_factory=list)
 
 
-def _model_to_dict(record: Any) -> Dict[str, Any]:
+def _publicize_value(value: Any, *, source_task_id: str) -> Any:
+    if isinstance(value, str):
+        prefix = f"{source_task_id}:"
+        if value.startswith(prefix):
+            return value[len(prefix):]
+        return value
+    if isinstance(value, list):
+        return [_publicize_value(item, source_task_id=source_task_id) for item in value]
+    if isinstance(value, dict):
+        return {
+            key: (
+                item
+                if key == "source_task_id"
+                else _publicize_value(item, source_task_id=source_task_id)
+            )
+            for key, item in value.items()
+        }
+    return value
+
+
+def _model_to_dict(record: Any, *, source_task_id: str | None = None) -> Dict[str, Any]:
     data: Dict[str, Any] = {}
     for column in record.__table__.columns:
         value = getattr(record, column.name)
@@ -49,13 +73,35 @@ def _model_to_dict(record: Any) -> Dict[str, Any]:
             data[column.name] = value.isoformat()
         else:
             data[column.name] = value
+    if source_task_id:
+        data = _publicize_value(data, source_task_id=source_task_id)
     return data
 
 
 class QueryStore:
     """Persistence layer for canonical query-store records."""
 
+    _schema_ready: bool = False
+
+    _MODEL_BY_SCOPE_KEY: Dict[str, Type[Any]] = {
+        "faces": MemoryFaceRecord,
+        "persons": MemoryPersonRecord,
+        "event_photos": MemoryEventPhotoRecord,
+        "event_people": MemoryEventPersonRecord,
+        "event_places": MemoryEventPlaceRecord,
+        "evidence": MemoryEvidenceRecord,
+        "relationship_support": MemoryRelationshipSupportRecord,
+        "group_members": MemoryGroupMemberRecord,
+        "profile_facts": MemoryProfileFactRecord,
+        "groups": MemoryGroupRecord,
+        "relationships": MemoryRelationshipRecord,
+        "photos": MemoryPhotoRecord,
+        "events": MemoryEventRecord,
+    }
+
     _SCOPE_MODELS: Sequence[Type[Any]] = (
+        MemoryFaceRecord,
+        MemoryPersonRecord,
         MemoryEventPhotoRecord,
         MemoryEventPersonRecord,
         MemoryEventPlaceRecord,
@@ -71,7 +117,13 @@ class QueryStore:
     )
 
     def __init__(self) -> None:
+        pass
+
+    def ensure_schema(self) -> None:
+        if self.__class__._schema_ready:
+            return
         Base.metadata.create_all(bind=engine)
+        self.__class__._schema_ready = True
 
     def latest_materialization(self, *, user_id: str, source_task_id: str, schema_version: str) -> Optional[Dict[str, Any]]:
         with SessionLocal() as session:
@@ -89,6 +141,7 @@ class QueryStore:
             return _model_to_dict(record) if record is not None else None
 
     def replace_scope(self, bundle: MaterializedBundle) -> Dict[str, Any]:
+        self.ensure_schema()
         materialization = dict(bundle.materialization)
         user_id = str(materialization["user_id"])
         source_task_id = str(materialization["source_task_id"])
@@ -103,6 +156,8 @@ class QueryStore:
                 )
             session.add(MemoryMaterializationRecord(**self._normalize_row(materialization, now)))
             self._bulk_add(session, MemoryPhotoRecord, bundle.photos, now)
+            self._bulk_add(session, MemoryPersonRecord, bundle.persons, now)
+            self._bulk_add(session, MemoryFaceRecord, bundle.faces, now)
             self._bulk_add(session, MemoryEventRecord, bundle.events, now)
             self._bulk_add(session, MemoryEventPhotoRecord, bundle.event_photos, now)
             self._bulk_add(session, MemoryEventPersonRecord, bundle.event_people, now)
@@ -140,29 +195,102 @@ class QueryStore:
             return _model_to_dict(record)
 
     def fetch_scope(self, *, user_id: str, source_task_id: str) -> Dict[str, Any]:
+        return self._fetch_scope_subset(
+            user_id=user_id,
+            source_task_id=source_task_id,
+            keys=tuple(self._MODEL_BY_SCOPE_KEY.keys()),
+        )
+
+    def fetch_faces_scope(self, *, user_id: str, source_task_id: str) -> Dict[str, Any]:
+        return self._fetch_scope_subset(
+            user_id=user_id,
+            source_task_id=source_task_id,
+            keys=("photos", "persons", "faces"),
+        )
+
+    def fetch_events_scope(self, *, user_id: str, source_task_id: str) -> Dict[str, Any]:
+        return self._fetch_scope_subset(
+            user_id=user_id,
+            source_task_id=source_task_id,
+            keys=("photos", "events", "event_photos", "event_people", "event_places"),
+        )
+
+    def fetch_vlm_scope(self, *, user_id: str, source_task_id: str) -> Dict[str, Any]:
+        return self._fetch_scope_subset(
+            user_id=user_id,
+            source_task_id=source_task_id,
+            keys=("photos", "evidence", "event_people"),
+        )
+
+    def fetch_profiles_scope(self, *, user_id: str, source_task_id: str) -> Dict[str, Any]:
+        return self._fetch_scope_subset(
+            user_id=user_id,
+            source_task_id=source_task_id,
+            keys=("profile_facts", "relationships"),
+        )
+
+    def fetch_relationships_scope(self, *, user_id: str, source_task_id: str) -> Dict[str, Any]:
+        return self._fetch_scope_subset(
+            user_id=user_id,
+            source_task_id=source_task_id,
+            keys=("photos", "events", "relationships", "relationship_support"),
+        )
+
+    def fetch_bundle_scope(self, *, user_id: str, source_task_id: str) -> Dict[str, Any]:
         with SessionLocal() as session:
-            return {
-                "materialization": self.latest_materialization(
-                    user_id=user_id,
-                    source_task_id=source_task_id,
-                    schema_version="query_v1",
-                ),
-                "photos": self._list_model(session, MemoryPhotoRecord, user_id, source_task_id),
-                "events": self._list_model(session, MemoryEventRecord, user_id, source_task_id),
-                "event_photos": self._list_model(session, MemoryEventPhotoRecord, user_id, source_task_id),
-                "event_people": self._list_model(session, MemoryEventPersonRecord, user_id, source_task_id),
-                "event_places": self._list_model(session, MemoryEventPlaceRecord, user_id, source_task_id),
-                "evidence": self._list_model(session, MemoryEvidenceRecord, user_id, source_task_id),
-                "relationships": self._list_model(session, MemoryRelationshipRecord, user_id, source_task_id),
-                "relationship_support": self._list_model(session, MemoryRelationshipSupportRecord, user_id, source_task_id),
-                "groups": self._list_model(session, MemoryGroupRecord, user_id, source_task_id),
-                "group_members": self._list_model(session, MemoryGroupMemberRecord, user_id, source_task_id),
-                "profile_facts": self._list_model(session, MemoryProfileFactRecord, user_id, source_task_id),
-            }
+            return self._fetch_scope_subset(
+                user_id=user_id,
+                source_task_id=source_task_id,
+                keys=tuple(self._MODEL_BY_SCOPE_KEY.keys()),
+                session=session,
+            )
 
     def _bulk_add(self, session: Any, model: Type[Any], rows: Sequence[Dict[str, Any]], now: datetime) -> None:
         for row in rows:
             session.add(model(**self._normalize_row(row, now)))
+
+    def _fetch_scope_subset(
+        self,
+        *,
+        user_id: str,
+        source_task_id: str,
+        keys: Sequence[str],
+        session: Any | None = None,
+    ) -> Dict[str, Any]:
+        if session is not None:
+            return self._fetch_scope_subset_with_session(
+                session=session,
+                user_id=user_id,
+                source_task_id=source_task_id,
+                keys=keys,
+            )
+        with SessionLocal() as owned_session:
+            return self._fetch_scope_subset_with_session(
+                session=owned_session,
+                user_id=user_id,
+                source_task_id=source_task_id,
+                keys=keys,
+            )
+
+    def _fetch_scope_subset_with_session(
+        self,
+        *,
+        session: Any,
+        user_id: str,
+        source_task_id: str,
+        keys: Sequence[str],
+    ) -> Dict[str, Any]:
+        payload: Dict[str, Any] = {
+            "materialization": self.latest_materialization(
+                user_id=user_id,
+                source_task_id=source_task_id,
+                schema_version="query_v1",
+            )
+        }
+        for key in keys:
+            model = self._MODEL_BY_SCOPE_KEY[key]
+            payload[key] = self._list_model(session, model, user_id, source_task_id)
+        return payload
 
     def _normalize_row(self, row: Dict[str, Any], now: datetime) -> Dict[str, Any]:
         payload = dict(row)
@@ -172,4 +300,4 @@ class QueryStore:
 
     def _list_model(self, session: Any, model: Type[Any], user_id: str, source_task_id: str) -> List[Dict[str, Any]]:
         stmt = select(model).where(model.user_id == user_id, model.source_task_id == source_task_id)
-        return [_model_to_dict(item) for item in session.execute(stmt).scalars().all()]
+        return [_model_to_dict(item, source_task_id=source_task_id) for item in session.execute(stmt).scalars().all()]
