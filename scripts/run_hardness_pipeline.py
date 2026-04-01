@@ -59,7 +59,7 @@ except Exception:
 
 import requests as _requests
 
-from config import PROJECT_ROOT as CONFIG_ROOT, DATASETS_DIR, OPENROUTER_API_KEY, OPENROUTER_BASE_URL
+from config import PROJECT_ROOT as CONFIG_ROOT, DATASETS_DIR, OPENROUTER_API_KEY, OPENROUTER_BASE_URL, PROFILE_LLM_MODEL
 
 DATASETS_PATH = Path(DATASETS_DIR)
 REFLECTION_DIR = Path(CONFIG_ROOT) / "memory" / "reflection"
@@ -824,7 +824,7 @@ def cmd_rerun_fields(args) -> int:
     llm_processor = OpenRouterProfileLLMProcessor(
         api_key=api_key,
         base_url=OPENROUTER_BASE_URL,
-        model="deepseek/deepseek-chat-v3-0324",
+        model=PROFILE_LLM_MODEL,
     )
 
     # 3. 只重跑指定字段
@@ -1208,7 +1208,7 @@ def main() -> int:
     p_run.add_argument("--all", action="store_true", help="所有 datasets/ 用户")
     p_run.add_argument(
         "--profile-model",
-        default="deepseek/deepseek-chat-v3-0324",
+        default=PROFILE_LLM_MODEL,
         help="LP3 画像模型",
     )
     p_run.add_argument("--profile-openrouter-key", default=None, help="LP3 OpenRouter key")
@@ -1237,7 +1237,7 @@ def main() -> int:
     p_full.add_argument("--all", action="store_true", help="所有 datasets/ 用户")
     p_full.add_argument(
         "--profile-model",
-        default="deepseek/deepseek-chat-v3-0324",
+        default=PROFILE_LLM_MODEL,
         help="LP3 画像模型",
     )
     p_full.add_argument("--profile-openrouter-key", default=None, help="LP3 OpenRouter key")
@@ -1253,7 +1253,7 @@ def main() -> int:
     p_auto.add_argument("--skip-gt-check", action="store_true", help="跳过 GT 人工校对检查")
     p_auto.add_argument(
         "--profile-model",
-        default="deepseek/deepseek-chat-v3-0324",
+        default=PROFILE_LLM_MODEL,
         help="LP3 画像模型",
     )
     p_auto.add_argument("--profile-openrouter-key", default=None, help="LP3 OpenRouter key")

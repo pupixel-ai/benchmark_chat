@@ -23,7 +23,7 @@ def main() -> int:
     parser.add_argument("--profile-openrouter-key", default=None, help="仅 LP3 使用的 OpenRouter key")
     parser.add_argument(
         "--profile-model",
-        default="google/gemini-3.1-flash-lite-preview",
+        default=os.environ.get("SMOKE_LLM_MODEL", "google/gemini-3.1-flash-lite-preview"),
         help="仅 LP3 使用的画像模型",
     )
     parser.add_argument(

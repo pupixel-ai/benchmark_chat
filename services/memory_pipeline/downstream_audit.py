@@ -29,9 +29,11 @@ from .profile_agent_adapter import (
 )
 from .types import RelationshipDossier
 
-DEFAULT_PROFILE_AGENT_MODEL_CANDIDATES = (
-    "deepseek/deepseek-chat-v3-0324",
-    "qwen/qwen-2.5-72b-instruct",
+DEFAULT_PROFILE_AGENT_MODEL_CANDIDATES = tuple(
+    m.strip() for m in os.environ.get(
+        "PROFILE_LLM_MODEL_CANDIDATES",
+        "deepseek/deepseek-chat-v3-0324,qwen/qwen-2.5-72b-instruct",
+    ).split(",") if m.strip()
 )
 
 

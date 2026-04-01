@@ -13,7 +13,7 @@ from .profile_llm import OpenRouterProfileLLMProcessor
 
 
 DEFAULT_OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
-DEFAULT_OPENROUTER_MODEL = "google/gemini-3.1-flash-lite-preview"
+DEFAULT_OPENROUTER_MODEL = os.getenv("SMOKE_LLM_MODEL", "google/gemini-3.1-flash-lite-preview").strip()
 
 
 class ReusableSmokeOpenRouterLLMProcessor(OpenRouterProfileLLMProcessor):

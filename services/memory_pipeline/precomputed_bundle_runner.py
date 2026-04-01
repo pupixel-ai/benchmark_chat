@@ -26,7 +26,8 @@ from .profile_llm import OpenRouterProfileLLMProcessor
 from .relationships import build_relationship_dossiers, infer_relationships_from_dossiers
 
 
-DEFAULT_PROFILE_MODEL = "google/gemini-3.1-flash-lite-preview"
+import os
+DEFAULT_PROFILE_MODEL = os.getenv("SMOKE_LLM_MODEL", "google/gemini-3.1-flash-lite-preview").strip()
 
 
 def run_precomputed_bundle_pipeline(

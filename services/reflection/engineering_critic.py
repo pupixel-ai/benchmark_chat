@@ -37,7 +37,7 @@ class EngineeringCritic:
     """Cross-user pattern critic with multi-step dialogue."""
 
     def __init__(self, *, model: str = "", temperature: float = 0.2):
-        self.model = model or CRITIC_MODEL or "claude-sonnet-4-6"
+        self.model = model or CRITIC_MODEL or "anthropic/claude-opus-4.6"
         self.temperature = temperature
         self.provider = CRITIC_PROVIDER
 

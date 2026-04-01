@@ -10,9 +10,11 @@ import requests
 
 from config import OPENROUTER_API_KEY, OPENROUTER_BASE_URL, PROFILE_LLM_MODEL
 
-DEFAULT_PROFILE_LLM_MODEL_CANDIDATES = (
-    "deepseek/deepseek-chat-v3-0324",
-    "qwen/qwen-2.5-72b-instruct",
+DEFAULT_PROFILE_LLM_MODEL_CANDIDATES = tuple(
+    m.strip() for m in os.environ.get(
+        "PROFILE_LLM_MODEL_CANDIDATES",
+        "deepseek/deepseek-chat-v3-0324,qwen/qwen-2.5-72b-instruct",
+    ).split(",") if m.strip()
 )
 
 
@@ -26,7 +28,7 @@ class OpenRouterProfileLLMProcessor:
     ) -> None:
         self.api_key = (api_key or OPENROUTER_API_KEY or "").strip()
         self.base_url = (base_url or OPENROUTER_BASE_URL or "").strip().rstrip("/")
-        self.model = (model or PROFILE_LLM_MODEL or "deepseek/deepseek-chat-v3-0324").strip()
+        self.model = (model or PROFILE_LLM_MODEL).strip()
         self.primary_person_id = primary_person_id
         self.model_candidates = _resolve_model_candidates(self.model)
         self.max_retries = _read_positive_int_env("PROFILE_LLM_REQUEST_MAX_RETRIES", default=3)

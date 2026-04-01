@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import json
 import re
+from pathlib import Path
 from typing import Any, Dict, Iterable, List
 
-from config import PROFILE_LLM_PROVIDER
+import os
+from config import PROFILE_LLM_PROVIDER, OPENROUTER_API_KEY, OPENROUTER_BASE_URL
 from services.memory_pipeline.profile_llm import OpenRouterProfileLLMProcessor
 
 
@@ -209,10 +211,64 @@ def _text_similarity_match(
     return {"grade": "mismatch", "score": score, "method": "rule_text_overlap"}
 
 
+def _load_human_grade_examples() -> List[Dict[str, Any]]:
+    """加载人工修正过的打分案例，作为 LLM 判分参考。"""
+    overrides_path = Path(__file__).resolve().parent.parent / "memory" / "reflection" / "gt_grade_overrides.json"
+    if not overrides_path.exists():
+        return []
+    try:
+        overrides = json.loads(overrides_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return []
+    # 从 gt_comparisons 收集修正案例的上下文
+    examples: List[Dict[str, Any]] = []
+    reflection_dir = overrides_path.parent
+    seen_fields: set[str] = set()
+    for comp_file in reflection_dir.glob("gt_comparisons_*.jsonl"):
+        for line in comp_file.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            try:
+                rec = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            cr = rec.get("comparison_result", {})
+            if not cr.get("human_override"):
+                continue
+            fk = rec.get("field_key", "")
+            # 每个字段最多取 1 条案例，避免 prompt 过长
+            if fk in seen_fields:
+                continue
+            seen_fields.add(fk)
+            examples.append({
+                "field_key": fk,
+                "predicted": cr.get("output_value"),
+                "gt": cr.get("gt_value"),
+                "human_grade": cr.get("grade", ""),
+                "original_grade": cr.get("original_grade", ""),
+            })
+            if len(examples) >= 8:
+                break
+    return examples
+
+
 def _judge_text_with_llm(*, field_key: str, predicted_value: Any, gt_value: Any, llm_processor: Any | None) -> Dict[str, Any] | None:
     processor = llm_processor or _build_llm_processor()
     if processor is None:
         return None
+
+    # 构建人工修正案例作为参考
+    examples = _load_human_grade_examples()
+    examples_text = ""
+    if examples:
+        relevant = [e for e in examples if e["field_key"] == field_key]
+        others = [e for e in examples if e["field_key"] != field_key][:3]
+        selected = (relevant + others)[:5]
+        if selected:
+            examples_text = (
+                "\n\n以下是人工审核过的打分案例供你参考（人工判定优先于规则）：\n"
+                + json.dumps(selected, ensure_ascii=False)
+            )
 
     prompt = (
         "你是 GT 近似匹配判定器。只能从 exact_match, close_match, partial_match, mismatch 中选一个。"
@@ -221,7 +277,8 @@ def _judge_text_with_llm(*, field_key: str, predicted_value: Any, gt_value: Any,
         "2. 系统输出比 GT 更具体（如 GT=student，输出=东华大学本科在读）→ close_match，因为输出包含了 GT 的语义且更丰富"
         "3. 系统输出和 GT 有部分重叠但不完全覆盖 → partial_match"
         "4. 语义完全不同 → mismatch"
-        "只返回 JSON，字段必须是 grade, score, reason。"
+        + examples_text
+        + "\n只返回 JSON，字段必须是 grade, score, reason。"
         + json.dumps(
             {
                 "field_key": field_key,
@@ -298,6 +355,13 @@ def _compute_quality_dimensions(
 
 def _build_llm_processor() -> Any | None:
     try:
+        gt_model = os.getenv("GT_MATCHER_MODEL", "").strip()
+        if gt_model:
+            return OpenRouterProfileLLMProcessor(
+                api_key=OPENROUTER_API_KEY,
+                base_url=OPENROUTER_BASE_URL,
+                model=gt_model,
+            )
         return OpenRouterProfileLLMProcessor()
     except Exception:
         return None
