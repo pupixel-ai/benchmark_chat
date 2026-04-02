@@ -20,7 +20,14 @@ class TaskSurveyImportEventsTests(unittest.TestCase):
         assert event is not None
         self.assertEqual(event["event_type"], "survey.import.ready")
         self.assertEqual(event["username"], "alice")
-        self.assertEqual(set(event["payload"].keys()), {"profile", "relationships"})
+        self.assertIn("profile", event["payload"])
+        self.assertIn("relationships", event["payload"])
+        self.assertIn("events", event["payload"])
+        self.assertIn("vlm_observations", event["payload"])
+        self.assertIn("face_recognition", event["payload"])
+        self.assertIn("snapshot_mode", event["payload"])
+        self.assertIn("api_bundle_url", event["payload"])
+        self.assertEqual(event["schema_version"], "v2")
         self.assertEqual(event["payload"]["profile"]["report_markdown"], "# Profile\n\nConcert-heavy social life.")
         self.assertEqual(
             event["payload"]["profile"]["structured_profile"]["long_term_facts"]["identity"]["name"]["value"],

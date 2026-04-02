@@ -64,6 +64,7 @@ from backend.upload_utils import (
 from backend.worker_client import WorkerClient
 from backend.worker_manager import WorkerManager
 from config import (
+    SERVICE_AUTH_TOKEN,
     ALLOW_SELF_REGISTRATION,
     APP_VERSION,
     APP_ROLE,
@@ -185,6 +186,20 @@ def _require_internal_worker_token(authorization: str | None = Header(default=No
     expected = f"Bearer {WORKER_SHARED_TOKEN}"
     if authorization != expected:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="无效的内部访问凭证")
+
+
+_SERVICE_USER: dict = {"user_id": "__service__", "username": "__service__"}
+
+
+def get_current_user_or_service(
+    session_token: str | None = Cookie(default=None, alias=AUTH_SESSION_COOKIE_NAME),
+    authorization: str | None = Header(default=None),
+) -> dict:
+    """Accept either a session cookie (normal user) or a service Bearer token."""
+    token = SERVICE_AUTH_TOKEN or WORKER_SHARED_TOKEN
+    if token and authorization == f"Bearer {token}":
+        return _SERVICE_USER
+    return get_current_user(session_token=session_token)
 
 
 def _load_task_json_artifact(task: dict, relative_path: str) -> Optional[dict]:
@@ -1566,6 +1581,11 @@ def query_task_memory(
 
 
 def _get_hydrated_task_or_404(task_id: str, current_user: dict) -> dict:
+    if current_user is _SERVICE_USER:
+        task = _get_task_by_id(task_id)
+        if not task:
+            raise HTTPException(status_code=404, detail="任务不存在")
+        return _hydrate_task_payloads(task)
     task = task_store.get_task(task_id, user_id=current_user["user_id"])
     if not task:
         raise HTTPException(status_code=404, detail="任务不存在")
@@ -1750,7 +1770,7 @@ def get_subject_memory_bundle(
     include_raw: bool = False,
     include_artifacts: bool = False,
     include_traces: bool = False,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(get_current_user_or_service),
 ):
     _apply_no_store_headers(response)
     task = _get_hydrated_subject_task_or_404(user_id, task_id, current_user)
@@ -1872,7 +1892,7 @@ def get_task_memory_bundle(
     include_raw: bool = False,
     include_artifacts: bool = False,
     include_traces: bool = False,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(get_current_user_or_service),
 ):
     _apply_no_store_headers(response)
     task = _get_hydrated_task_or_404(task_id, current_user)

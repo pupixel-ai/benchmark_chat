@@ -771,3 +771,91 @@ def build_task_survey_import_payload(task: dict) -> dict:
         },
         "relationships": relationships,
     }
+
+
+def _build_compact_face_recognition(task: dict) -> dict:
+    """Build a compact face recognition payload for downstream sync."""
+    result = task.get("result") or {}
+    face_payload = result.get("face_recognition") or {}
+    images_raw = list(face_payload.get("images", []) or [])
+    person_groups_raw = list(face_payload.get("person_groups", []) or [])
+
+    images: List[dict] = []
+    for image in images_raw:
+        if not isinstance(image, dict):
+            continue
+        faces: List[dict] = []
+        for face in list(image.get("faces", []) or []):
+            if not isinstance(face, dict):
+                continue
+            faces.append({
+                "face_id": face.get("face_id"),
+                "person_id": face.get("person_id"),
+                "bbox": face.get("bbox"),
+                "score": face.get("score"),
+                "similarity": face.get("similarity"),
+            })
+        images.append({
+            "image_id": image.get("image_id"),
+            "source_hash": image.get("source_hash"),
+            "faces": faces,
+        })
+
+    person_groups: List[dict] = []
+    for person in person_groups_raw:
+        if not isinstance(person, dict):
+            continue
+        person_groups.append({
+            "person_id": person.get("person_id"),
+            "canonical_name": person.get("canonical_name"),
+            "is_primary_person": person.get("is_primary_person"),
+            "face_count": person.get("face_count"),
+            "photo_count": person.get("photo_count"),
+        })
+
+    return {"images": images, "person_groups": person_groups}
+
+
+def build_task_survey_import_payload_v2(task: dict, *, max_bytes: int = 0) -> dict:
+    """Build an enhanced survey-import payload including events, VLM and face data.
+
+    If *max_bytes* > 0 and the full payload exceeds that limit, heavy sections
+    (vlm_observations, face_recognition) are dropped and ``snapshot_mode`` is
+    set to ``"reduced"`` so the consumer knows to fall back to the bundle API.
+    """
+    result = task.get("result") or {}
+    memory_payload = result.get("memory")
+    if not isinstance(memory_payload, dict):
+        raise KeyError("当前任务没有 memory 输出")
+
+    task_id = str(task.get("task_id") or "").strip()
+    photo_catalog, _ = _build_photo_catalog(task)
+    user_id = str(task.get("user_id") or "")
+    pipeline_family = str(memory_payload.get("pipeline_family") or "")
+
+    profile = _build_profile(memory_payload, photo_catalog, user_id=user_id, pipeline_family=pipeline_family)
+    survey_events = _build_survey_events(task_id, memory_payload, photo_catalog)
+    relationships = _build_survey_relationships(task_id, memory_payload, survey_events, photo_catalog)
+    vlm_observations = _build_task_vlm(task, photo_catalog)
+    face_recognition = _build_compact_face_recognition(task)
+
+    payload = {
+        "profile": {
+            "report_markdown": str(profile.get("report_markdown") or ""),
+            "structured_profile": copy.deepcopy(profile.get("structured") or {}),
+        },
+        "relationships": relationships,
+        "events": survey_events,
+        "vlm_observations": vlm_observations,
+        "face_recognition": face_recognition,
+        "snapshot_mode": "full",
+    }
+
+    if max_bytes > 0:
+        estimated = len(json.dumps(payload, ensure_ascii=False).encode("utf-8"))
+        if estimated > max_bytes:
+            payload["vlm_observations"] = []
+            payload["face_recognition"] = {"images": [], "person_groups": []}
+            payload["snapshot_mode"] = "reduced"
+
+    return payload

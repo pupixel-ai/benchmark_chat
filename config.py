@@ -127,6 +127,7 @@ WORKER_SECURITY_GROUP_ID = os.getenv("WORKER_SECURITY_GROUP_ID", "").strip()
 WORKER_INSTANCE_NAME_PREFIX = os.getenv("WORKER_INSTANCE_NAME_PREFIX", "memory-worker").strip() or "memory-worker"
 WORKER_INTERNAL_PORT = int(os.getenv("WORKER_INTERNAL_PORT", "9000"))
 WORKER_SHARED_TOKEN = os.getenv("WORKER_SHARED_TOKEN", "").strip()
+SERVICE_AUTH_TOKEN = os.getenv("SERVICE_AUTH_TOKEN", "").strip() or WORKER_SHARED_TOKEN
 WORKER_TASK_ROOT = os.getenv("WORKER_TASK_ROOT", "/mnt/secure-tasks").strip() or "/mnt/secure-tasks"
 RESULT_TTL_HOURS = int(os.getenv("RESULT_TTL_HOURS", "24"))
 WORKER_POLL_SECONDS = int(os.getenv("WORKER_POLL_SECONDS", "3"))
