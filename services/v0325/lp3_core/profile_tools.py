@@ -2072,29 +2072,34 @@ def _build_compact_summary(
 def _representative_event_summaries(event_refs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     summaries: List[Dict[str, Any]] = []
     seen: set[str] = set()
-    for ref in event_refs[:3]:
+    for ref in event_refs[:10]:
         event_id = str(ref.get("event_id", "") or "")
         if not event_id or event_id in seen:
             continue
         seen.add(event_id)
-        summaries.append(
-            {
-                "event_id": event_id,
-                "summary": _truncate_summary(
-                    ref.get("signal")
-                    or ref.get("description")
-                    or ref.get("narrative_synthesis")
-                    or event_id
-                ),
-            }
-        )
+        entry: Dict[str, Any] = {
+            "event_id": event_id,
+            "summary": str(
+                ref.get("signal")
+                or ref.get("description")
+                or ref.get("narrative_synthesis")
+                or event_id
+            ).strip(),
+        }
+        description = str(ref.get("description", "") or "").strip()
+        if description:
+            entry["description"] = description
+        persona_evidence = ref.get("persona_evidence")
+        if isinstance(persona_evidence, dict) and any(persona_evidence.values()):
+            entry["persona_evidence"] = persona_evidence
+        summaries.append(entry)
     return summaries
 
 
 def _representative_photo_summaries(vlm_refs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     summaries: List[Dict[str, Any]] = []
     seen: set[str] = set()
-    for ref in vlm_refs[:4]:
+    for ref in vlm_refs[:10]:
         photo_id = str(ref.get("photo_id", "") or "")
         if not photo_id or photo_id in seen:
             continue
@@ -2102,22 +2107,15 @@ def _representative_photo_summaries(vlm_refs: List[Dict[str, Any]]) -> List[Dict
         summaries.append(
             {
                 "photo_id": photo_id,
-                "summary": _truncate_summary(
+                "summary": str(
                     ref.get("signal")
                     or ref.get("location")
                     or ref.get("activity")
                     or photo_id
-                ),
+                ).strip(),
             }
         )
     return summaries
-
-
-def _truncate_summary(text: str, limit: int = 80) -> str:
-    normalized = str(text or "").strip()
-    if len(normalized) <= limit:
-        return normalized
-    return normalized[: limit - 3] + "..."
 
 
 def _candidate_signal_map(ownership_bundle: Dict[str, Any] | None) -> Dict[str, str]:
