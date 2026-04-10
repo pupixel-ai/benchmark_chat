@@ -219,7 +219,7 @@ class OpenRouterProviderTests(unittest.TestCase):
             BEDROCK_REGION="ap-southeast-1",
         ):
             with patch("services.llm_processor.build_bedrock_client", return_value=_FakeBedrockClient(payload_text)):
-                processor = LLMProcessor()
+                processor = LLMProcessor(task_version="provider-test")
                 result = processor._call_llm_via_bedrock("只返回 JSON")
 
         self.assertEqual(result["facts"], [])
@@ -437,7 +437,7 @@ class OpenRouterProviderTests(unittest.TestCase):
             OPENROUTER_LLM_MODEL="minimax/minimax-m2.5",
             GEMINI_API_KEY="",
         ):
-            processor = LLMProcessor()
+            processor = LLMProcessor(task_version="provider-test")
             processor.requests = _FakeRequests(
                 {
                     "choices": [

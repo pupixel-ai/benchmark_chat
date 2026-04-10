@@ -290,24 +290,24 @@ OPENROUTER_APP_NAME = (
     or "Memory Engineering"
 )
 OPENROUTER_VLM_MODEL = (
-    os.getenv("OPENROUTER_VLM_MODEL", "google/gemini-3.1-flash-lite-preview").strip()
-    or "google/gemini-3.1-flash-lite-preview"
+    os.getenv("OPENROUTER_VLM_MODEL", "google/gemini-3.1-pro-preview").strip()
+    or "google/gemini-3.1-pro-preview"
 )
 OPENROUTER_LLM_MODEL = (
-    os.getenv("OPENROUTER_LLM_MODEL", "google/gemini-3.1-flash-lite-preview").strip()
-    or "google/gemini-3.1-flash-lite-preview"
+    os.getenv("OPENROUTER_LLM_MODEL", "google/gemini-3.1-pro-preview").strip()
+    or "google/gemini-3.1-pro-preview"
 )
 OPENROUTER_AGENT_MODEL = (
     os.getenv("OPENROUTER_AGENT_MODEL", "qwen/qwen3.5-plus-02-15").strip()
     or "qwen/qwen3.5-plus-02-15"
 )
 PROFILE_LLM_PROVIDER = (
-    os.getenv("PROFILE_LLM_PROVIDER", LLM_PROVIDER or MODEL_PROVIDER or "auto").strip().lower()
-    or (LLM_PROVIDER or MODEL_PROVIDER or "auto")
+    os.getenv("PROFILE_LLM_PROVIDER", "bedrock").strip().lower()
+    or "bedrock"
 )
 PROFILE_LLM_MODEL = (
-    os.getenv("PROFILE_LLM_MODEL", OPENROUTER_LLM_MODEL).strip()
-    or OPENROUTER_LLM_MODEL
+    os.getenv("PROFILE_LLM_MODEL", "anthropic.claude-opus-4-6-v1").strip()
+    or "anthropic.claude-opus-4-6-v1"
 )
 PROFILE_AGENT_ROOT = os.getenv("PROFILE_AGENT_ROOT", "").strip()
 V0323_OPENROUTER_MODEL = (
@@ -344,12 +344,12 @@ BEDROCK_VLM_MODEL_POLICY = (
     or "primary"
 )
 BEDROCK_LLM_MODEL = (
-    os.getenv("BEDROCK_LLM_MODEL", "anthropic.claude-sonnet-4-6").strip()
-    or "anthropic.claude-sonnet-4-6"
+    os.getenv("BEDROCK_LLM_MODEL", "anthropic.claude-opus-4-6-v1").strip()
+    or "anthropic.claude-opus-4-6-v1"
 )
 BEDROCK_RELATIONSHIP_LLM_MODEL = (
-    os.getenv("BEDROCK_RELATIONSHIP_LLM_MODEL", "anthropic.claude-haiku-4-5-20251001-v1:0").strip()
-    or "anthropic.claude-haiku-4-5-20251001-v1:0"
+    os.getenv("BEDROCK_RELATIONSHIP_LLM_MODEL", BEDROCK_LLM_MODEL).strip()
+    or BEDROCK_LLM_MODEL
 )
 BEDROCK_RELATIONSHIP_LLM_FALLBACK_MODEL = (
     os.getenv("BEDROCK_RELATIONSHIP_LLM_FALLBACK_MODEL", BEDROCK_LLM_MODEL).strip()

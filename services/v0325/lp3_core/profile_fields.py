@@ -4,6 +4,7 @@ from copy import deepcopy
 from typing import Any, Dict, Iterable, List, Tuple
 
 from config import (
+    BEDROCK_LLM_MODEL,
     OPENROUTER_API_KEY,
     OPENROUTER_BASE_URL,
     PROFILE_LLM_MODEL,
@@ -511,7 +512,15 @@ def _resolve_profile_llm_processor(context: Dict[str, Any]) -> Any | None:
     try:
         from services.llm_processor import LLMProcessor
 
-        return LLMProcessor(task_version="v0325")
+        provider = PROFILE_LLM_PROVIDER or "bedrock"
+        model = PROFILE_LLM_MODEL or BEDROCK_LLM_MODEL
+        return LLMProcessor(
+            task_version="v0325",
+            provider_override=provider,
+            model_override=model,
+            relationship_provider_override=provider,
+            relationship_model_override=model,
+        )
     except Exception:
         return None
 

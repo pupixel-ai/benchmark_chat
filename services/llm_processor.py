@@ -84,13 +84,46 @@ class LLMProcessor:
     def _dedupe_bedrock_candidates(candidates: Sequence[str]) -> List[str]:
         return list(dict.fromkeys(str(candidate or "").strip() for candidate in candidates if str(candidate or "").strip()))
 
-    def __init__(self, task_version: str = DEFAULT_TASK_VERSION):
+    @staticmethod
+    def _resolve_provider_override(value: Optional[str], fallback: str) -> str:
+        normalized = str(value or "").strip().lower()
+        if not normalized or normalized == "auto":
+            return fallback
+        if normalized in {"gemini", "proxy", "openrouter", "bedrock"}:
+            return normalized
+        return fallback
+
+    def __init__(
+        self,
+        task_version: str = DEFAULT_TASK_VERSION,
+        *,
+        provider_override: Optional[str] = None,
+        model_override: Optional[str] = None,
+        relationship_provider_override: Optional[str] = None,
+        relationship_model_override: Optional[str] = None,
+    ):
         self.task_version = task_version
         self.use_heavy_pipeline = self.task_version == TASK_VERSION_V0317_HEAVY
-        self.provider = "openrouter" if self.task_version in {TASK_VERSION_V0323, TASK_VERSION_V0325, TASK_VERSION_V0327_EXP, TASK_VERSION_V0327_DB, TASK_VERSION_V0327_DB_QUERY} else LLM_PROVIDER
+        v032x_family = self.task_version in {
+            TASK_VERSION_V0323,
+            TASK_VERSION_V0325,
+            TASK_VERSION_V0327_EXP,
+            TASK_VERSION_V0327_DB,
+            TASK_VERSION_V0327_DB_QUERY,
+        }
+        v0325_plus_family = self.task_version in {
+            TASK_VERSION_V0325,
+            TASK_VERSION_V0327_EXP,
+            TASK_VERSION_V0327_DB,
+            TASK_VERSION_V0327_DB_QUERY,
+        }
+        default_provider = "openrouter" if v032x_family else LLM_PROVIDER
+        self.provider = self._resolve_provider_override(provider_override, default_provider)
         self.relationship_follows_main_llm = RELATIONSHIP_FOLLOWS_MAIN_LLM
-        if self.task_version in {TASK_VERSION_V0323, TASK_VERSION_V0325, TASK_VERSION_V0327_EXP, TASK_VERSION_V0327_DB, TASK_VERSION_V0327_DB_QUERY}:
-            self.relationship_provider = self.provider
+        if relationship_provider_override is not None:
+            self.relationship_provider = self._resolve_provider_override(relationship_provider_override, self.provider)
+        elif v0325_plus_family:
+            self.relationship_provider = "bedrock"
         else:
             self.relationship_provider = RELATIONSHIP_PROVIDER if not self.relationship_follows_main_llm else self.provider
         self.use_proxy = self.provider == "proxy"
@@ -99,7 +132,9 @@ class LLMProcessor:
         self.relationship_use_proxy = self.relationship_provider == "proxy"
         self.relationship_use_openrouter = self.relationship_provider == "openrouter"
         self.relationship_use_bedrock = self.relationship_provider == "bedrock"
-        if self.task_version == TASK_VERSION_V0323:
+        if model_override:
+            self.model = model_override
+        elif self.task_version == TASK_VERSION_V0323:
             self.model = V0323_OPENROUTER_MODEL
         elif self.task_version in {TASK_VERSION_V0325, TASK_VERSION_V0327_EXP, TASK_VERSION_V0327_DB, TASK_VERSION_V0327_DB_QUERY}:
             self.model = V0325_OPENROUTER_LLM_MODEL
@@ -174,19 +209,25 @@ class LLMProcessor:
             self.openrouter_app_name = OPENROUTER_APP_NAME
 
         if self.relationship_use_openrouter:
-            if self.task_version == TASK_VERSION_V0323:
+            if relationship_model_override:
+                self.relationship_model = relationship_model_override
+            elif self.task_version == TASK_VERSION_V0323:
                 self.relationship_model = V0323_OPENROUTER_MODEL
             elif self.task_version in {TASK_VERSION_V0325, TASK_VERSION_V0327_EXP, TASK_VERSION_V0327_DB, TASK_VERSION_V0327_DB_QUERY}:
                 self.relationship_model = V0325_OPENROUTER_LLM_MODEL
             else:
                 self.relationship_model = OPENROUTER_LLM_MODEL
         elif self.relationship_use_bedrock:
-            self.relationship_model = BEDROCK_RELATIONSHIP_LLM_MODEL
+            self.relationship_model = relationship_model_override or BEDROCK_RELATIONSHIP_LLM_MODEL
         else:
-            self.relationship_model = self.model
+            self.relationship_model = relationship_model_override or self.model
 
         if (self.use_bedrock or self.relationship_use_bedrock) and self.bedrock_client is None:
             self.bedrock_client = build_bedrock_client(BEDROCK_REGION)
+        if self.relationship_use_bedrock:
+            self.relationship_bedrock_model_candidates = self._dedupe_bedrock_candidates(
+                [self.relationship_model, BEDROCK_RELATIONSHIP_LLM_FALLBACK_MODEL],
+            )
         if self.use_heavy_pipeline and self.relationship_use_bedrock and not self.relationship_bedrock_model_candidates:
             self.relationship_bedrock_model_candidates = self._dedupe_bedrock_candidates(
                 [BEDROCK_RELATIONSHIP_LLM_MODEL, BEDROCK_RELATIONSHIP_LLM_FALLBACK_MODEL],

@@ -10,13 +10,14 @@ from unittest.mock import patch
 from models import Photo
 from services.llm_processor import LLMProcessor
 from services.vlm_analyzer import VLMAnalyzer
+from services.v0325.lp3_core.profile_fields import _resolve_profile_llm_processor
 from services.v0325.pipeline import V0325PipelineFamily
 
 
 class StubV0325LLM:
     provider = "openrouter"
     model = "google/gemini-3.1-pro-preview"
-    relationship_model = "google/gemini-3.1-pro-preview"
+    relationship_model = "anthropic.claude-opus-4-6-v1"
 
     def __init__(self) -> None:
         self.json_calls: list[dict] = []
@@ -503,15 +504,23 @@ class V0325PipelineTests(unittest.TestCase):
 
     @patch("services.llm_processor.OPENROUTER_API_KEY", "test-openrouter-key")
     @patch("services.vlm_analyzer.OPENROUTER_API_KEY", "test-openrouter-key")
-    def test_v0325_models_are_pinned_to_gemini_pro_preview(self) -> None:
+    @patch("services.llm_processor.BEDROCK_RELATIONSHIP_LLM_MODEL", "anthropic.claude-opus-4-6-v1")
+    @patch("services.v0325.lp3_core.profile_fields.PROFILE_LLM_PROVIDER", "bedrock")
+    @patch("services.v0325.lp3_core.profile_fields.PROFILE_LLM_MODEL", "anthropic.claude-opus-4-6-v1")
+    def test_v0325_models_split_lp1_vs_lp2_lp3(self) -> None:
         llm = LLMProcessor(task_version="v0325")
         vlm = VLMAnalyzer(task_version="v0325")
+        profile_llm = _resolve_profile_llm_processor({})
 
         self.assertEqual(llm.provider, "openrouter")
         self.assertEqual(llm.model, "google/gemini-3.1-pro-preview")
-        self.assertEqual(llm.relationship_model, "google/gemini-3.1-pro-preview")
+        self.assertEqual(llm.relationship_provider, "bedrock")
+        self.assertEqual(llm.relationship_model, "anthropic.claude-opus-4-6-v1")
         self.assertEqual(vlm.provider, "openrouter")
         self.assertEqual(vlm.model, "google/gemini-3.1-pro-preview")
+        self.assertIsNotNone(profile_llm)
+        self.assertEqual(profile_llm.provider, "bedrock")
+        self.assertEqual(profile_llm.model, "anthropic.claude-opus-4-6-v1")
 
     def test_v0325_lp1_prompt_uses_output_window_and_hard_contract(self) -> None:
         photos, vlm_results, face_output = self._build_inputs()
