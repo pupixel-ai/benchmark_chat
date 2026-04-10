@@ -306,8 +306,8 @@ PROFILE_LLM_PROVIDER = (
     or "bedrock"
 )
 PROFILE_LLM_MODEL = (
-    os.getenv("PROFILE_LLM_MODEL", "anthropic.claude-opus-4-6-v1").strip()
-    or "anthropic.claude-opus-4-6-v1"
+    os.getenv("PROFILE_LLM_MODEL", "global.anthropic.claude-opus-4-6-v1").strip()
+    or "global.anthropic.claude-opus-4-6-v1"
 )
 PROFILE_AGENT_ROOT = os.getenv("PROFILE_AGENT_ROOT", "").strip()
 V0323_OPENROUTER_MODEL = (
@@ -344,8 +344,8 @@ BEDROCK_VLM_MODEL_POLICY = (
     or "primary"
 )
 BEDROCK_LLM_MODEL = (
-    os.getenv("BEDROCK_LLM_MODEL", "anthropic.claude-opus-4-6-v1").strip()
-    or "anthropic.claude-opus-4-6-v1"
+    os.getenv("BEDROCK_LLM_MODEL", "global.anthropic.claude-opus-4-6-v1").strip()
+    or "global.anthropic.claude-opus-4-6-v1"
 )
 BEDROCK_RELATIONSHIP_LLM_MODEL = (
     os.getenv("BEDROCK_RELATIONSHIP_LLM_MODEL", BEDROCK_LLM_MODEL).strip()
