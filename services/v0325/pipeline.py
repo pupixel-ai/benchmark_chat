@@ -46,7 +46,7 @@ from services.v0325.lp3_core import (
     screen_people as agent_screen_people,
 )
 from services.v0323.pipeline import (
-    LP1_ANALYSIS_TEXT_CHAR_LIMIT,
+    LP1_PARTIAL_JSON_CHAR_LIMIT,
     LP1_BATCH_SIZE,
     LP1_OVERLAP_SIZE,
     V0323PipelineFamily,
@@ -65,7 +65,7 @@ from services.v0323.pipeline import (
 PIPELINE_FAMILY_V0325 = "v0325"
 PIPELINE_VERSION_V0325 = "v0325"
 SCHEMA_ALIGNMENT_VERSION_V0327_EXP = "v0327-exp"
-LP1_PROMPT_VERSION_V0325 = "v0325.lp1.v0139_two_step.v2"
+LP1_PROMPT_VERSION_V0325 = "v0325.lp1.direct_json.v1"
 LP1_CONTRACT_VERSION_V0325 = "v0325.lp1.output_window.v1"
 
 SELFIE_KEYWORDS = ("自拍", "selfie", "mirror selfie", "镜前", "前置摄像头")
@@ -1416,6 +1416,7 @@ class V0325PipelineFamily(V0323PipelineFamily):
             prompt, request_record = self._build_lp1_batch_prompt(
                 batch=batch,
                 carryover_cards=carryover_cards,
+                primary_person_id=fallback_primary_person_id,
             )
             max_attempts = max(1, V0323_LP1_MAX_ATTEMPTS)
             parsed_output: Optional[Dict[str, Any]] = None
@@ -1562,7 +1563,36 @@ class V0325PipelineFamily(V0323PipelineFamily):
         *,
         batch: Dict[str, Any],
         carryover_cards: Sequence[Dict[str, Any]],
+        primary_person_id: Optional[str] = None,
     ) -> tuple[str, Dict[str, Any]]:
+        if primary_person_id:
+            protagonist_instruction_core = (
+                f"  ○ 判定他拍：若用户（{primary_person_id}）出现在中远景、双手未持拍摄设备且姿态自然，"
+            )
+            protagonist_social = (
+                f"   - {primary_person_id} 是主角，他拍场景需识别隐形摄影者纳入 social_dynamics"
+            )
+            protagonist_participants = (
+                f"participants 中使用 {primary_person_id} 指代主角，"
+                "narrative_synthesis / scene_description 文本中可用\"【主角】\"指代。"
+            )
+            participants_example = [primary_person_id, "Person_NNN"]
+        else:
+            protagonist_instruction_core = (
+                "  ○ 主角身份未稳定识别，统一按拍摄者视角处理："
+                "若照片中出现镜面反射、自拍姿势或屏幕中的人物，优先识别为疑似用户本人。"
+            )
+            protagonist_social = (
+                "   - 主角身份未识别，participants 中只使用照片 face_person_ids 里出现的真实 person_id，"
+                "narrative_synthesis / scene_description 文本中用\"【拍摄者】\"指代用户本人，"
+                "不要输出任何主角占位符作为 person_id。"
+            )
+            protagonist_participants = (
+                "participants 中只使用 face_person_ids 里出现的真实 person_id，"
+                "不要把\"【主角】\"或\"【拍摄者】\"写入 participants。"
+            )
+            participants_example = ["（仅填入 face_person_ids 中出现的真实 person_id）"]
+
         batch_meta = {
             "batch_id": batch["batch_id"],
             "batch_index": batch["batch_index"],
@@ -1576,32 +1606,105 @@ class V0325PipelineFamily(V0323PipelineFamily):
         output_window_blocks = [self._format_photo_record(item) for item in batch["output_window_records"]]
         card_blocks = [self._format_event_card(card) for card in carryover_cards]
 
+        payload_example = {
+            "events": [
+                {
+                    "event_id": "TEMP_EVT_001",
+                    "supporting_photo_ids": ["photo_001", "photo_002"],
+                    "meta_info": {
+                        "title": "事件核心动作短语",
+                        "location_context": "推测的地点性质（如：私密居家/职业办公/公共街区）",
+                        "photo_count": 2,
+                    },
+                    "objective_fact": {
+                        "scene_description": "客观事实：环境细节、品牌、构图视觉（强调自拍/他拍/旁观视角）、人物动作。",
+                        "participants": participants_example,
+                    },
+                    "narrative_synthesis": f"一句话深度还原：[身份/状态]在[环境]中[出于何种动机/情感]进行了[核心行为]，体现了[某种生活特征]。",
+                    "social_dynamics": [],
+                    "persona_evidence": {
+                        "behavioral": ["性格/习惯特征"],
+                        "aesthetic": ["视觉偏好/秩序感特征"],
+                        "socioeconomic": ["阶层/价值取向特征"],
+                    },
+                    "tags": ["标签1", "标签2"],
+                    "confidence": 0.8,
+                    "reason": "时间、地点、人物与行为证据",
+                }
+            ]
+        }
+
         sections = [
-            "LP1 Batch Analysis Task",
-            "You are a senior anthropologist and social-behavior analyst working on a personal photo-memory pipeline.",
-            "Your job is to read the ordered photo-level VLM records and reconstruct coherent events using v0139-style time-space-behavior clustering.",
+            f"Role: 你是一位资深的人类学家和社会学行为分析师，擅长从用户的相册 VLM 元数据中，",
+            f"通过\"时空-行为-关系\"三维建模，将散落的照片还原为连贯生动的\"真实事件\"，",
+            f"并为后续的用户人格画像（Who/Whom/What）提供高价值的推导证据。",
             "",
-            "Batch rules:",
-            "1. Photos are already stably ordered. Read them strictly in order.",
-            "2. OVERLAP_CONTEXT_PHOTOS are context only. They help you decide whether an event continues across the batch boundary.",
-            "3. Output analysis only for events that include at least one OUTPUT_WINDOW photo.",
-            "4. If an old event clearly continues into the output window, analyze it as one event that spans overlap + output-window photos, but do not separately restate overlap-only events.",
-            "5. Always cite exact photo_id groups when describing each event. This is mandatory.",
-            "6. Favor fewer, higher-confidence events over speculative over-splitting.",
-            "7. Keep the analysis rich but concise. Avoid dumping giant repeated descriptions.",
+            "Task:",
+            "1. 真实事件分类：分析用户相册的 VLM 原始数据（包含时间戳、地点、人物ID、场景描述），",
+            "   将散落的照片分类为连贯完整的\"客观事件\"，并识别核心社交关系。",
+            "2. 微观线索提取：从物体、构图、互动中提取能反映用户身份、社交和性格的\"切片\"。",
+            "3. 特征向量标记：为每个事件打上维度标签，便于全局画像合成。",
             "",
-            "Write a compact analytical memo in plain text.",
-            "For each event, include:",
-            "- involved photo_ids",
-            "- time span / temporal logic",
-            "- location or location nature",
-            "- main participants",
-            "- objective scene facts",
-            "- narrative synthesis",
-            "- social dynamics",
-            "- persona evidence",
-            "- tags",
-            "- confidence and reason",
+            "Core Principles (核心原则):",
+            "• 视觉原则（关键）：",
+            protagonist_instruction_core,
+            "    必须判定为\"他拍\"。现场存在\"隐形成员（Invisible Photographer）\"，需将其纳入社交动态分析。",
+            "  ○ 判定自拍：若画面出现手臂延伸、持手机呈自拍姿势或镜面反射。",
+            "  ○ 身份确认：构图或拍摄设备中的人物信息通常是用户本人。",
+            f"  ○ participants 规则：{protagonist_participants}",
+            "• 证据准则：所有推断必须基于事实",
+            "  （如：通过 Chanel 包装推测经济能力，通过用餐时段推测生活作息）。",
+            "",
+            "Analysis Logic (分析逻辑):",
+            "",
+            "1. 时空分类（Event Grouping）",
+            "   读取字段：timestamp / location / scene.location_type",
+            "   - 相邻照片 timestamp 差在4小时内，且 location 相同或 scene.location_type 逻辑连贯",
+            "     （如：从商场到商场附近），归为一个\"事件\"",
+            "   - 时间跨度大或 location 发生明显位移，开启新事件",
+            "",
+            "2. 地点逻辑推断",
+            "   读取字段：scene.visual_clues / scene.environment_details / scene.location_type /",
+            "            key_objects / place_candidates",
+            "   即使 location.name 缺失，通过以下组合判定场景属性：",
+            "   - visual_clues 或 key_objects 含 睡衣/床具/床品 → 私密居家",
+            "   - visual_clues 或 key_objects 含 显示屏/工位/工牌/会议室 → 职业办公",
+            "   - visual_clues 含 购物车/道路/商场 → 都市户外",
+            "   - visual_clues 或 key_objects 含 餐具/菜单 → 餐饮场所",
+            "   - 以上均不明确时，查阅 place_candidates 作为备用来源",
+            "",
+            "3. 社交建模（Social Mapping）",
+            "   读取字段：people.person_id / people.contact_type / people.interaction /",
+            "            event.interaction / relations",
+            "   - 统计每个事件中出现的 people.person_id",
+            "   - \"核心同伴\"：people.contact_type 为亲密接触类（hug/holding_hands/arm_in_arm/kiss/selfie_together），",
+            "     或 event.interaction 显示持续近距离互动，或跨事件高频出现",
+            "   - \"环境人物\"：people.contact_type 为 no_contact/standing_near，仅出现一次且无互动",
+            protagonist_social,
+            "",
+            "4. 微观线索（Micro-Clues）",
+            "   → 身份线索：ocr_hits（工牌/证件/小票/APP界面）、key_objects（专业设备/证书）",
+            "   → 社交线索：people.interaction（朝向/身体语言）、event.interaction（距离/亲密度）、",
+            "               relations.confidence（关系强度）",
+            "   → 性格线索：event.mood、event.activity 的类型（工作/生活/审美）、",
+            "               scene.visual_clues 中的随意性（如反复拍猫）",
+            "   → 审美线索：people.clothing、brands（如 Chanel vs 快时尚）、scene.lighting",
+            "   → 社会经济线索：brands（奢侈/轻奢/大众）、scene.location_type（高端餐厅/平价小店）、",
+            "                  ocr_hits 中的消费金额",
+            "",
+            "Batch Rules:",
+            "1. 照片已按时间稳定排序，严格按顺序读取。",
+            "2. OVERLAP_CONTEXT_PHOTOS 仅供上下文参考，帮助判断事件是否跨越 batch 边界延续。",
+            "3. 只输出包含至少一张 OUTPUT_WINDOW 照片的事件。",
+            "4. 若旧事件明显延伸到输出窗口，作为跨越事件处理，不要单独重述仅含 overlap 的事件。",
+            "5. 每个事件必须在 supporting_photo_ids 中列出精确的 photo_id，这是强制要求。",
+            "6. 倾向于输出更少、置信度更高的事件，不要过度拆分。",
+            "",
+            "Output JSON directly. No markdown. No explanations. No code fences.",
+            "Top-level key must be \"events\".",
+            "",
+            "JSON_FORMAT",
+            json.dumps(payload_example, ensure_ascii=False, indent=2),
             "",
             "BATCH_META",
             json.dumps(batch_meta, ensure_ascii=False, indent=2),
@@ -1645,16 +1748,10 @@ class V0325PipelineFamily(V0323PipelineFamily):
         analysis_text: str,
     ) -> str:
         trimmed_analysis = str(analysis_text or "").strip()
-        if len(trimmed_analysis) > LP1_ANALYSIS_TEXT_CHAR_LIMIT:
-            trimmed_analysis = trimmed_analysis[:LP1_ANALYSIS_TEXT_CHAR_LIMIT]
+        if len(trimmed_analysis) > LP1_PARTIAL_JSON_CHAR_LIMIT:
+            trimmed_analysis = trimmed_analysis[:LP1_PARTIAL_JSON_CHAR_LIMIT]
         photo_index = [
-            {
-                "photo_id": item["photo_id"],
-                "timestamp": item.get("timestamp"),
-                "face_person_ids": list(item.get("face_person_ids", []) or []),
-                "location_name": str(dict(item.get("location") or {}).get("name") or "").strip(),
-                "summary": str(dict(item.get("vlm_analysis") or {}).get("summary") or "").strip(),
-            }
+            self._prompt_photo_payload(item)
             for item in batch["input_records"]
         ]
         payload_example = {
@@ -1678,14 +1775,16 @@ class V0325PipelineFamily(V0323PipelineFamily):
                         "aesthetic": [],
                         "socioeconomic": [],
                     },
-                    "tags": ["#标签"],
+                    "tags": ["标签"],
                     "confidence": 0.8,
                     "reason": "时间、地点、人物与行为证据",
                 }
             ]
         }
         sections = [
-            "Convert the following LP1 batch analysis into JSON.",
+            "The primary JSON generation attempt failed or produced malformed output.",
+            "PARTIAL_JSON contains the raw response from that attempt — it may be truncated, wrapped in markdown, or structurally broken.",
+            "Your job: extract or reconstruct valid events JSON from PARTIAL_JSON, using PHOTO_INDEX as the source of truth for photo_ids.",
             "Return JSON only. No markdown. No explanations. No code fences.",
             "Top-level key must be events.",
             "Rules:",
@@ -1694,7 +1793,7 @@ class V0325PipelineFamily(V0323PipelineFamily):
             "3. Every event must touch at least one OUTPUT_WINDOW photo.",
             "4. If an event spans overlap and output-window photos, include both in supporting_photo_ids.",
             "5. Do not output overlap-only events.",
-            "6. Keep strings concise but preserve social_dynamics, persona_evidence, tags, confidence, and reason.",
+            "6. Preserve social_dynamics, persona_evidence, tags, confidence, and reason from PARTIAL_JSON where recoverable.",
             "",
             "OUTPUT_WINDOW_PHOTO_IDS",
             json.dumps(list(batch["output_window_photo_ids"]), ensure_ascii=False, indent=2),
@@ -1705,7 +1804,7 @@ class V0325PipelineFamily(V0323PipelineFamily):
             "JSON_FORMAT",
             json.dumps(payload_example, ensure_ascii=False, indent=2),
             "",
-            "ANALYSIS_TEXT",
+            "PARTIAL_JSON",
             trimmed_analysis or "NONE",
             "",
             *self._lp1_hard_output_contract_lines(),
@@ -1747,11 +1846,19 @@ class V0325PipelineFamily(V0323PipelineFamily):
         place_refs = _unique_strings([*list(item.get("place_refs", []) or []), meta_info.get("location_context")])
         if not place_refs:
             place_refs = self._derive_place_refs(supporting_photo_ids)
+        def _strip_role_label(v: str) -> str:
+            import re
+            return re.sub(r"\s*\([^)]*\)\s*$", "", v).strip()
+
         participant_person_ids = _unique_strings(
             [
-                *list(item.get("participant_person_ids", []) or []),
-                *list(item.get("participants", []) or []),
-                *list(objective_fact.get("participants", []) or []),
+                _strip_role_label(p)
+                for p in (
+                    list(item.get("participant_person_ids", []) or [])
+                    + list(item.get("participants", []) or [])
+                    + list(objective_fact.get("participants", []) or [])
+                )
+                if p
             ]
         )
         depicted_person_ids = _unique_strings(item.get("depicted_person_ids", []))
@@ -1806,7 +1913,7 @@ class V0325PipelineFamily(V0323PipelineFamily):
             "max_attempts": _safe_int(request_record.get("max_attempts"), default=1),
             "prompt_char_count": _safe_int(request_record.get("prompt_char_count")),
             "parse_status": "failed",
-            "strategy": "v0139_two_step_v0325",
+            "strategy": "v0139_direct_json_v0325",
             "prompt_version": LP1_PROMPT_VERSION_V0325,
             "contract_version": LP1_CONTRACT_VERSION_V0325,
             "salvage_status": "none",
