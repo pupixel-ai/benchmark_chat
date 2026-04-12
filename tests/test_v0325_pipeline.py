@@ -5,6 +5,7 @@ import tempfile
 import unittest
 from datetime import datetime, timedelta
 from pathlib import Path
+from types import ModuleType
 from unittest.mock import patch
 
 from models import Photo
@@ -521,6 +522,34 @@ class V0325PipelineTests(unittest.TestCase):
         self.assertIsNotNone(profile_llm)
         self.assertEqual(profile_llm.provider, "bedrock")
         self.assertEqual(profile_llm.model, "anthropic.claude-opus-4-6-v1")
+
+    @patch("services.llm_processor.OPENROUTER_API_KEY", "test-openrouter-key")
+    @patch("services.vlm_analyzer.OPENROUTER_API_KEY", "test-openrouter-key")
+    @patch("services.llm_processor.GEMINI_BASE_URL", "https://gemini-proxy.example.com", create=True)
+    @patch("services.llm_processor.GEMINI_MODEL", "gemini-2.5-flash", create=True)
+    @patch("services.vlm_analyzer.GEMINI_BASE_URL", "https://gemini-proxy.example.com", create=True)
+    @patch("services.vlm_analyzer.GEMINI_MODEL", "gemini-2.5-flash", create=True)
+    def test_v0325_models_do_not_change_default_routing_when_gemini_base_url_is_set(self) -> None:
+        fake_google = ModuleType("google")
+        fake_genai = ModuleType("google.genai")
+        fake_genai.Client = lambda **kwargs: object()
+        fake_genai.types = object()
+        fake_google.genai = fake_genai
+
+        with patch.dict(
+            "sys.modules",
+            {
+                "google": fake_google,
+                "google.genai": fake_genai,
+            },
+        ):
+            llm = LLMProcessor(task_version="v0325", relationship_provider_override="openrouter")
+            vlm = VLMAnalyzer(task_version="v0325")
+
+        self.assertEqual(llm.provider, "openrouter")
+        self.assertEqual(llm.model, "google/gemini-3.1-pro-preview")
+        self.assertEqual(vlm.provider, "openrouter")
+        self.assertEqual(vlm.model, "google/gemini-3.1-pro-preview")
 
     def test_v0325_lp1_prompt_uses_output_window_and_hard_contract(self) -> None:
         photos, vlm_results, face_output = self._build_inputs()

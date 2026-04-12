@@ -22,7 +22,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from dotenv import load_dotenv
 load_dotenv(PROJECT_ROOT / ".env")
 
-from config import TASK_VERSION_V0325, GEMINI_BASE_URL, GEMINI_MODEL, GEMINI_API_KEY
+from config import TASK_VERSION_V0325
 from services.image_processor import ImageProcessor
 from services.face_recognition import FaceRecognition
 from services.vlm_analyzer import VLMAnalyzer
@@ -43,8 +43,7 @@ def main() -> None:
     args = parser.parse_args()
 
     print(f"\n=== LP1 本地测试 ===")
-    print(f"Provider: gemini (代理: {GEMINI_BASE_URL or '无'})")
-    print(f"Model: {GEMINI_MODEL}")
+    print(f"Task version: {TASK_VERSION_V0325}")
     print(f"照片目录: {args.photos}")
 
     output_dir = Path(args.output_dir)
@@ -114,7 +113,7 @@ def main() -> None:
     print(f"\n[5/5] LP1 事件生成...")
     llm = LLMProcessor(
         task_version=TASK_VERSION_V0325,
-        relationship_provider_override="gemini",  # 跳过 bedrock，测试不需要 LP2
+        relationship_provider_override="openrouter",  # 跳过 bedrock，测试不需要 LP2
     )
     print(f"  LLM provider={llm.provider}, model={llm.model}")
 

@@ -21,8 +21,6 @@ from config import (
     BEDROCK_VLM_MODEL_POLICY,
     BEDROCK_VLM_MODEL_PRIMARY,
     GEMINI_API_KEY,
-    GEMINI_BASE_URL,
-    GEMINI_MODEL,
     MAX_RETRIES,
     OPENROUTER_API_KEY,
     OPENROUTER_APP_NAME,
@@ -92,22 +90,16 @@ class VLMAnalyzer:
     }
 
     def __init__(self, cache_path: str = VLM_CACHE_PATH, task_version: str = ""):
-        _v032x_set = {TASK_VERSION_V0323, TASK_VERSION_V0325, TASK_VERSION_V0327_EXP, TASK_VERSION_V0327_DB, TASK_VERSION_V0327_DB_QUERY}
-        if task_version in _v032x_set and GEMINI_BASE_URL:
-            self.provider = "gemini"
-            self.model = GEMINI_MODEL
-        elif task_version in _v032x_set:
-            self.provider = "openrouter"
-            if task_version == TASK_VERSION_V0323:
-                self.model = V0323_OPENROUTER_MODEL
-            else:
-                self.model = V0325_OPENROUTER_VLM_MODEL
-        else:
-            self.provider = VLM_PROVIDER
-            self.model = OPENROUTER_VLM_MODEL if VLM_PROVIDER == "openrouter" else VLM_MODEL
+        self.provider = "openrouter" if task_version in {TASK_VERSION_V0323, TASK_VERSION_V0325, TASK_VERSION_V0327_EXP, TASK_VERSION_V0327_DB, TASK_VERSION_V0327_DB_QUERY} else VLM_PROVIDER
         self.use_proxy = self.provider == "proxy"
         self.use_openrouter = self.provider == "openrouter"
         self.use_bedrock = self.provider == "bedrock"
+        if task_version == TASK_VERSION_V0323:
+            self.model = V0323_OPENROUTER_MODEL
+        elif task_version in {TASK_VERSION_V0325, TASK_VERSION_V0327_EXP, TASK_VERSION_V0327_DB, TASK_VERSION_V0327_DB_QUERY}:
+            self.model = V0325_OPENROUTER_VLM_MODEL
+        else:
+            self.model = OPENROUTER_VLM_MODEL if self.use_openrouter else VLM_MODEL
         self.cache_path = cache_path
         self.task_version = task_version
         self.use_heavy_prompt = self.task_version == TASK_VERSION_V0317_HEAVY
@@ -167,11 +159,8 @@ class VLMAnalyzer:
 
             self.genai = genai
             self.types = types
-            client_kwargs: Dict[str, Any] = {"api_key": GEMINI_API_KEY}
-            if GEMINI_BASE_URL:
-                client_kwargs["http_options"] = {"base_url": GEMINI_BASE_URL}
-            self.client = genai.Client(**client_kwargs)
-            print(f"[VLM] 使用官方 Gemini API{' (代理: ' + GEMINI_BASE_URL + ')' if GEMINI_BASE_URL else ''}")
+            self.client = genai.Client(api_key=GEMINI_API_KEY)
+            print("[VLM] 使用官方 Gemini API")
 
     def _build_http_session(self, requests_module):
         if requests_module is None:
