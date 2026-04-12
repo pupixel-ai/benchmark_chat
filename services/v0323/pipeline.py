@@ -30,7 +30,7 @@ PIPELINE_VERSION_V0323 = "v0323"
 LP1_BATCH_SIZE = 200
 LP1_OVERLAP_SIZE = 8
 LP1_PROMPT_VERSION = "v0323.lp1.v0139_two_step.v1"
-LP1_ANALYSIS_TEXT_CHAR_LIMIT = 30000
+LP1_PARTIAL_JSON_CHAR_LIMIT = 30000
 LP2_PROMPT_VERSION = "v0323.lp2.person.v1"
 LP3_STRUCTURED_PROMPT_VERSION = "v0323.lp3.structured.v1"
 LP3_REPORT_PROMPT_VERSION = "v0323.lp3.report.v1"
@@ -661,8 +661,8 @@ class V0323PipelineFamily:
         analysis_text: str,
     ) -> str:
         trimmed_analysis = str(analysis_text or "").strip()
-        if len(trimmed_analysis) > LP1_ANALYSIS_TEXT_CHAR_LIMIT:
-            trimmed_analysis = trimmed_analysis[:LP1_ANALYSIS_TEXT_CHAR_LIMIT]
+        if len(trimmed_analysis) > LP1_PARTIAL_JSON_CHAR_LIMIT:
+            trimmed_analysis = trimmed_analysis[:LP1_PARTIAL_JSON_CHAR_LIMIT]
         photo_index = [
             {
                 "photo_id": item["photo_id"],
@@ -694,7 +694,7 @@ class V0323PipelineFamily:
                         "aesthetic": [],
                         "socioeconomic": [],
                     },
-                    "tags": ["#标签"],
+                    "tags": ["标签"],
                     "confidence": 0.8,
                     "reason": "时间、地点、人物与行为证据",
                 }
@@ -728,113 +728,23 @@ class V0323PipelineFamily:
 
     def _format_photo_record(self, observation: Dict[str, Any]) -> str:
         payload = self._prompt_photo_payload(observation)
-        people_lines = []
-        for person in payload.get("people", []):
-            if not isinstance(person, dict):
-                continue
-            bits = [
-                f"person_id={person.get('person_id') or ''}",
-                f"appearance={_normalized_text(person.get('appearance'))}",
-                f"clothing={_normalized_text(person.get('clothing'))}",
-                f"activity={_normalized_text(person.get('activity'))}",
-                f"interaction={_normalized_text(person.get('interaction'))}",
-                f"expression={_normalized_text(person.get('expression'))}",
-            ]
-            people_lines.append("  - " + "; ".join(bit for bit in bits if bit and not bit.endswith("=")))
-        relations = []
-        for relation in payload.get("relations", []):
-            if not isinstance(relation, dict):
-                continue
-            relations.append(
-                "  - "
-                + " -> ".join(
-                    [
-                        _normalized_text(relation.get("subject")),
-                        _normalized_text(relation.get("relation")),
-                        _normalized_text(relation.get("object")),
-                    ]
-                ).strip(" ->")
-            )
-        lines = [
-            f"【照片 {payload['photo_id']}】",
-            f"时间: {payload['timestamp']}",
-            f"地点: {payload['location_name'] or '未知'}",
-            f"来源类型: {payload['source_type']}",
-            f"媒体类型: {payload['media_kind']}",
-            f"人物ID: {', '.join(payload['face_person_ids']) if payload['face_person_ids'] else '无'}",
-            f"VLM描述: {payload['summary'] or ''}",
-            f"场景细节: {payload['scene_details'] or ''}",
-            f"活动: {payload['event_activity'] or ''}",
-            f"社交背景: {payload['event_social'] or ''}",
-            f"氛围: {payload['event_mood'] or ''}",
-            f"故事线索: {payload['story_hints'] or ''}",
-            f"细节: {payload['details'] or ''}",
-        ]
-        if people_lines:
-            lines.append("人物详情:")
-            lines.extend(people_lines)
-        if relations:
-            lines.append("实体关系:")
-            lines.extend(relations)
-        return "\n".join(lines).strip()
+        return json.dumps(payload, ensure_ascii=False, indent=2)
 
     def _prompt_photo_payload(self, observation: Dict[str, Any]) -> Dict[str, Any]:
-        analysis = dict(observation.get("vlm_analysis") or {})
-        scene = analysis.get("scene")
-        event = analysis.get("event")
-        details = analysis.get("details")
-        people = list(analysis.get("people", []) or [])
-        relations = list(analysis.get("relations", []) or [])
-        if isinstance(scene, dict):
-            scene_details = ", ".join(
-                _unique_strings(
-                    [
-                        scene.get("location_detected"),
-                        scene.get("location_type"),
-                        *list(scene.get("environment_details", []) or []),
-                        scene.get("environment_description"),
-                    ]
-                )
-            )
-        else:
-            scene_details = _normalized_text(scene)
-        if isinstance(event, dict):
-            story_hints = ", ".join(_unique_strings(event.get("story_hints", []) or []))
-            event_activity = _normalized_text(event.get("activity"))
-            event_social = _normalized_text(event.get("social_context"))
-            event_mood = _normalized_text(event.get("mood"))
-        else:
-            story_hints = ""
-            event_activity = _normalized_text(event)
-            event_social = ""
-            event_mood = ""
-        if isinstance(details, list):
-            detail_text = ", ".join(_unique_strings(details))
-        elif isinstance(details, dict):
-            detail_text = _normalized_text(json.dumps(details, ensure_ascii=False))
-        else:
-            detail_text = _normalized_text(details)
-        location_name = str(dict(observation.get("location") or {}).get("name") or "").strip()
-        scene_location = ""
-        if isinstance(scene, dict):
-            scene_location = str(scene.get("location_detected") or "").strip()
+        """
+        最小过滤模式：完整保留 VLM 分析结果，只过滤内部字段
+        过滤掉：filename, is_reference_like
+        保留：photo_id, sequence_index, timestamp, location, face_person_ids, source_type, media_kind, vlm_analysis（完整）
+        """
         return {
             "photo_id": observation["photo_id"],
             "sequence_index": observation["sequence_index"],
             "timestamp": observation["timestamp"],
+            "location": observation.get("location") or {},
+            "face_person_ids": list(observation.get("face_person_ids", []) or []),
             "source_type": observation.get("source_type"),
             "media_kind": observation.get("media_kind"),
-            "location_name": scene_location or location_name,
-            "face_person_ids": list(observation.get("face_person_ids", []) or []),
-            "summary": _normalized_text(analysis.get("summary")),
-            "scene_details": scene_details,
-            "event_activity": event_activity,
-            "event_social": event_social,
-            "event_mood": event_mood,
-            "story_hints": story_hints,
-            "details": detail_text,
-            "people": people,
-            "relations": relations,
+            "vlm_analysis": observation.get("vlm_analysis") or {},
         }
 
     def _format_event_card(self, card: Dict[str, Any]) -> str:

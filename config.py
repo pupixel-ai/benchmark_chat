@@ -388,6 +388,11 @@ API_PROXY_URL = os.getenv("API_PROXY_URL", "")  # 代理服务基础 URL
 API_PROXY_KEY = os.getenv("API_PROXY_KEY", "")  # 代理服务 API Key
 API_PROXY_MODEL = os.getenv("API_PROXY_MODEL", "gemini-2.0-flash")  # 代理支持的模型
 
+# Gemini 原生 SDK 代理（通过 http_options base_url 注入，与 USE_API_PROXY 互不影响）
+# 设置后，v032x family 的 VLM 和 LLM 均走此代理而非 OpenRouter
+GEMINI_BASE_URL = os.getenv("GEMINI_BASE_URL", "").strip()
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash").strip() or "gemini-2.5-flash"
+
 def _resolve_model_provider(explicit: str = "", *, fallback: str = "") -> str:
     explicit = explicit.strip().lower()
     if explicit in {"gemini", "proxy", "openrouter", "bedrock"}:

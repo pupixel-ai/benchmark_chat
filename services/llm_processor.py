@@ -24,6 +24,8 @@ from config import (
     BEDROCK_REGION,
     DEFAULT_TASK_VERSION,
     GEMINI_API_KEY,
+    GEMINI_BASE_URL,
+    GEMINI_MODEL,
     LLM_PROVIDER,
     LLM_BURST_GAP_SECONDS,
     LLM_BURST_MAX_DURATION_SECONDS,
@@ -118,6 +120,8 @@ class LLMProcessor:
             TASK_VERSION_V0327_DB_QUERY,
         }
         default_provider = "openrouter" if v032x_family else LLM_PROVIDER
+        if v032x_family and GEMINI_BASE_URL and not provider_override:
+            default_provider = "gemini"
         self.provider = self._resolve_provider_override(provider_override, default_provider)
         self.relationship_follows_main_llm = RELATIONSHIP_FOLLOWS_MAIN_LLM
         if relationship_provider_override is not None:
@@ -134,6 +138,8 @@ class LLMProcessor:
         self.relationship_use_bedrock = self.relationship_provider == "bedrock"
         if model_override:
             self.model = model_override
+        elif v032x_family and GEMINI_BASE_URL:
+            self.model = GEMINI_MODEL
         elif self.task_version == TASK_VERSION_V0323:
             self.model = V0323_OPENROUTER_MODEL
         elif self.task_version in {TASK_VERSION_V0325, TASK_VERSION_V0327_EXP, TASK_VERSION_V0327_DB, TASK_VERSION_V0327_DB_QUERY}:
@@ -192,8 +198,11 @@ class LLMProcessor:
             from google import genai
 
             self.genai = genai
-            self.client = genai.Client(api_key=GEMINI_API_KEY)
-            print("[LLM] 使用官方 Gemini API")
+            client_kwargs: Dict[str, Any] = {"api_key": GEMINI_API_KEY}
+            if GEMINI_BASE_URL:
+                client_kwargs["http_options"] = {"base_url": GEMINI_BASE_URL}
+            self.client = genai.Client(**client_kwargs)
+            print(f"[LLM] 使用官方 Gemini API{' (代理: ' + GEMINI_BASE_URL + ')' if GEMINI_BASE_URL else ''}")
 
         if self.relationship_use_openrouter and self.requests is None:
             try:
